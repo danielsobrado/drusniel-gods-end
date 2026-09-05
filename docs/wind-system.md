@@ -99,11 +99,18 @@ response:
 
 ## Advected field
 
-Every noise layer moves through world space along the current wind direction:
+Every noise layer moves through world space along the **prevailing** wind direction, plus a
+bounded domain warp:
 
 ```text
-sample = worldXZ * spatialScale - windDirection * time * layerSpeed
+sample = worldXZ * spatialScale - prevailingDirection * time * layerSpeed + warpOffset
 ```
+
+The advection direction must be the constant prevailing direction, never the per-position local
+direction from `direction.variationDegrees`. The offset is a direction multiplied by *elapsed
+time*, so a direction that wobbles by `d` displaces the sample by `d * time` — an error that grows
+without bound and makes the wind appear to accelerate the longer the app runs. The meander belongs
+in the warp, which is added to the coordinate instead.
 
 The previous implementation often sampled with time added directly to both noise axes or used explicit sine/cosine waves. Those approaches create repeating bands and reversible wave motion. Advecting the field instead makes gust structures travel across the terrain.
 
@@ -112,6 +119,37 @@ The three scales have different jobs:
 - **large**: broad gust fronts and the main strength envelope,
 - **medium**: local turbulence and direction breakup,
 - **flutter**: small, fast detail used mostly at vegetation tips.
+
+## Domain warp
+
+All layers share one low-frequency warp vector that displaces their sample point:
+
+```text
+warpOffset = prevailing * alongNoise * amplitude
+           + perpendicular * acrossNoise * amplitude * lateralGain
+```
+
+```yaml
+  warp:
+    scale: 0.01
+    speed: 0.045
+    amplitude: 0.85
+    lateralGain: 1.6
+```
+
+It does two jobs. Because the warp advects more slowly than any layer, the composite field
+*deforms* as it travels rather than sliding rigidly, so gust fronts form and dissolve instead of
+sweeping past as clean parallel bands — the failure mode that is most obvious looking straight down
+at the meadow. And because cross-wind displacement is gained up by `lateralGain`, gust cells
+stretch along the wind and wander across it, the way real gust cells do; an isotropic warp reads as
+boiling instead.
+
+The displacement is bounded by `amplitude * (1 + lateralGain)` noise cells and is *added* to the
+coordinate, never multiplied into the advection clock, so it cannot grow with elapsed time.
+
+The lattice hash uses large mutually irrational coefficients (`12.9898`, `78.233`). Small ones bias
+the gradient angles towards a few directions, which shows up as fronts repeatedly lining up with
+the same axis.
 
 ## Gust shaping
 
