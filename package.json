@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "assets:split-terrain": "node scripts/split-terrain-glb.mjs",
+    "audio:alts": "node scripts/download-alt-audio.mjs",
     "leaves:variants": "node scripts/generate-leaf-variants.mjs",
     "predev": "npm run leaves:variants",
     "dev": "vite",
