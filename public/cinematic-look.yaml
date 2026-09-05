@@ -2,6 +2,15 @@
 cinematic:
   enabled: true
   exposure: 0.95
+  occlusion:
+    enabled: true
+    minTriangles: 256
+    minOccluderArea: 0.002
+    boundsPadding: 0.15
+    pixelPadding: 2
+    depthBias: 0.00002
+    minSavedTriangles: 25000
+    probeInterval: 30
   shadows:
     cascades: 1
     distance: 180

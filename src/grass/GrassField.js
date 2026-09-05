@@ -308,6 +308,7 @@ export class GrassField {
       this.tempBox.min.y = tile.minHeight - bladeHeight;
       this.tempBox.max.y = tile.maxHeight + bladeHeight;
       this.tempBox.expandByScalar(bladeHeight);
+      tile.mesh.userData.occlusionBounds.copy(this.tempBox);
       tile.setVisible(this.frustum.intersectsBox(this.tempBox));
       if (!tile.mesh.visible) continue;
 

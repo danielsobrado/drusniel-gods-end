@@ -9,6 +9,7 @@ export class GrassTile {
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.name = 'GrassTile';
     this.mesh.userData.excludeFromReflection = true;
+    this.mesh.userData.occlusionBounds = new THREE.Box3();
     this.mesh.frustumCulled = false;
     this.mesh.castShadow = false;
     this.mesh.receiveShadow = true;

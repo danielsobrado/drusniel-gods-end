@@ -262,6 +262,7 @@ export class GrassDemo {
       togglePainter: () => { this.tour.stop(); return this.grass.togglePainter(); },
       isPainterEnabled: () => this.grass.painter?.enabled ?? false,
       getTriangleCount: () => this.world.renderer.info.render.triangles,
+      getOcclusionStats: () => this.pipeline?.gpuOcclusion.stats,
     };
   }
 
@@ -321,7 +322,7 @@ export class GrassDemo {
     this.cinematicLighting.update();
     this.meadow?.update(deltaSeconds, focus, this.environment.current);
     this.water.update(deltaSeconds, this.player, this.environment.current.lighting);
-    this.pipeline.render();
+    this.pipeline.render({ occlusionEnabled: !this.grass.painter?.enabled });
     this.ui.update(deltaSeconds);
   }
 

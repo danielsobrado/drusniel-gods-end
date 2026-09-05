@@ -98,7 +98,8 @@ export class DemoUi {
       </section>
       <section class="metrics ${this.config.ui.showStats ? '' : 'hidden'}">
         <span>FPS <strong data-fps>0</strong></span>
-        <span>TRIS <strong data-triangles>0</strong></span>
+          <span title="Submitted triangles include depth, shadow and reflection passes; indirect GPU culling is reported separately.">TRIS <strong data-triangles>0</strong></span>
+          <span title="Triangles skipped by GPU occlusion in a recent main-view sample.">GPU CULLED <strong data-occluded>0</strong></span>
       </section>
       <section class="reference-hud" aria-label="Demo controls">
         <div class="reference-brand"><strong data-scene-preset>${initialPreset.label}</strong><span>EXPLORE AT YOUR OWN PACE</span></div>
@@ -276,6 +277,9 @@ export class DemoUi {
     this.elapsed = 0;
     this.element.querySelector('[data-fps]').textContent = this.fps;
     this.element.querySelector('[data-triangles]').textContent = this.actions.getTriangleCount().toLocaleString();
+    const occlusion = this.actions.getOcclusionStats?.();
+    this.element.querySelector('[data-occluded]').textContent = occlusion?.supported
+      ? Math.round(occlusion.culledTriangles).toLocaleString() : '—';
   }
 
   dispose() {

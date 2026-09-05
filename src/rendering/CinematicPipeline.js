@@ -3,15 +3,19 @@ import { pass, vec4, vec3, uniform, mix, dot, uv, smoothstep } from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { fxaa } from 'three/addons/tsl/display/FXAANode.js';
+import { GpuOcclusion } from './GpuOcclusion.js';
 
 export class CinematicPipeline {
   constructor(world, config) {
     this.world = world;
     this.settings = config.cinematic?.post;
     this.enabled = Boolean(config.cinematic?.enabled);
+    this.gpuOcclusion = new GpuOcclusion(world, config.cinematic?.occlusion);
     if (!this.enabled) return;
     this.post = new PostProcessing(world.renderer);
-    this.scenePass = pass(world.scene, world.camera);
+    // r180 GTAO reconstructs normals with textureDimensions(depth, mip), which
+    // is invalid for multisampled depth. FXAA already resolves the final image.
+    this.scenePass = pass(world.scene, world.camera, { samples: 0 });
     const beauty = this.scenePass.getTextureNode('output');
     this.occlusion = ao(this.scenePass.getTextureNode('depth'), null, world.camera);
     this.occlusion.radius.value = this.settings.aoRadius;
@@ -35,12 +39,17 @@ export class CinematicPipeline {
     this.post.needsUpdate = true;
   }
 
-  render() {
-    if (this.enabled) this.post.render();
-    else this.world.renderer.render(this.world.scene, this.world.camera);
+  render({ occlusionEnabled = true } = {}) {
+    if (occlusionEnabled) this.gpuOcclusion.prepare();
+    else this.gpuOcclusion.active.clear();
+    this.gpuOcclusion.render(() => {
+      if (this.enabled) this.post.render();
+      else this.world.renderer.render(this.world.scene, this.world.camera);
+    });
   }
 
   dispose() {
+    this.gpuOcclusion.dispose();
     this.scenePass?.dispose();
     this.occlusion?.dispose();
     this.bloom?.dispose();
