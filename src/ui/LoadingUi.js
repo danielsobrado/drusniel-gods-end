@@ -13,8 +13,13 @@ function power2Out(value) {
 }
 
 export class LoadingUi {
-  constructor(root, presentation) {
+  constructor(root, presentation, characterChoice = null) {
     this.logoFillPercent = 0;
+    this.characterChoice = characterChoice;
+    this.selectedCharacterId = null;
+    this.characterList = null;
+    this.resolveCharacter = null;
+    this.characterPromise = new Promise((resolve) => { this.resolveCharacter = resolve; });
     this.logoAnimationFrame = null;
     this.revealAnimationFrame = null;
     this.element = document.createElement('div');
@@ -42,7 +47,67 @@ export class LoadingUi {
     this.statusLabel = this.element.querySelector('#status-label');
     this.logoFill = this.element.querySelector('.logo-fill');
     this.startButton = this.element.querySelector('#startButton');
+    this.#createCharacterPicker();
     this.stage('initializing');
+  }
+
+  // The roster gate sits inside the loading overlay because the choice has to be
+  // made before the player GLB is fetched, which is long before START lights up.
+  #createCharacterPicker() {
+    const roster = this.characterChoice?.roster ?? [];
+    if (roster.length < 2) {
+      this.resolveCharacter(this.characterChoice?.selectedId ?? roster[0]?.id ?? null);
+      return;
+    }
+
+    this.characterList = document.createElement('div');
+    this.characterList.className = 'character-select';
+    this.characterList.setAttribute('role', 'radiogroup');
+    this.characterList.setAttribute('aria-label', 'Choose your character');
+
+    for (const entry of roster) {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'character-card';
+      card.dataset.characterId = entry.id;
+      card.setAttribute('role', 'radio');
+      card.setAttribute('aria-checked', 'false');
+      card.innerHTML = '<span class="character-monogram"></span>'
+        + '<span class="character-copy"><strong></strong><em></em><small></small></span>';
+      card.querySelector('.character-monogram').textContent = (entry.name ?? entry.id).slice(0, 1);
+      card.querySelector('strong').textContent = entry.name ?? entry.id;
+      card.querySelector('em').textContent = entry.title ?? '';
+      card.querySelector('small').textContent = entry.blurb ?? '';
+      card.addEventListener('click', () => this.#chooseCharacter(entry.id));
+      this.characterList.appendChild(card);
+    }
+
+    this.element.insertBefore(this.characterList, this.startButton);
+    const preselected = this.characterChoice?.selectedId;
+    if (preselected) this.#chooseCharacter(preselected);
+  }
+
+  #chooseCharacter(id) {
+    if (this.selectedCharacterId) return;
+    this.selectedCharacterId = id;
+    this.characterList.classList.add('is-locked');
+    for (const card of this.characterList.querySelectorAll('.character-card')) {
+      const chosen = card.dataset.characterId === id;
+      card.setAttribute('aria-checked', String(chosen));
+      card.classList.toggle('is-chosen', chosen);
+      card.disabled = true;
+    }
+    this.resolveCharacter(id);
+  }
+
+  // Resolves as soon as a card is clicked; a single-entry or preselected roster
+  // resolves immediately so the load never stalls on a gate with nothing to pick.
+  waitForCharacter() {
+    return this.characterPromise;
+  }
+
+  needsCharacterChoice() {
+    return Boolean(this.characterList) && this.selectedCharacterId === null;
   }
 
   stage(name) {
@@ -126,6 +191,9 @@ export class LoadingUi {
   }
 
   dispose() {
+    // Unblock anyone still awaiting the roster gate, so a teardown mid-load
+    // rejects the start sequence rather than hanging it.
+    this.resolveCharacter?.(this.selectedCharacterId);
     if (this.logoAnimationFrame !== null) cancelAnimationFrame(this.logoAnimationFrame);
     if (this.revealAnimationFrame !== null) cancelAnimationFrame(this.revealAnimationFrame);
     this.element?.remove();

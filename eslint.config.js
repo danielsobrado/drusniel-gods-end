@@ -26,6 +26,8 @@ export default [
         Audio: 'readonly',
         AudioContext: 'readonly',
         URL: 'readonly',
+        URLSearchParams: 'readonly',
+        structuredClone: 'readonly',
         Blob: 'readonly',
         AbortController: 'readonly',
         process: 'readonly',

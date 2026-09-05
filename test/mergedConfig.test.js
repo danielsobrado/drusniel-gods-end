@@ -28,6 +28,7 @@ test('effective config uses the runtime YAML file order', async () => {
     'cinematic-wind.yaml',
     'cinematic-look.yaml',
     'painter-cursor.yaml',
+    'characters.yaml',
   ]);
 
   const config = await loadMergedConfig();

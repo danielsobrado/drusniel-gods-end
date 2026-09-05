@@ -3,6 +3,14 @@
 .cinematic-loading .logo-fill { color: #e8dec8; }
 .cinematic-loading .progress-bar { background: #c9b37e; }
 .cinematic-loading .loading-row { color: #d9cfb6; }
+.cinematic-loading .character-card { border-color: #d9c9a12e; background: #ffffff05; }
+.cinematic-loading .character-card:hover:not(:disabled) { border-color: #d5bd8680; background: #d5bd860f; }
+.cinematic-loading .character-card:focus-visible { outline-color: #ead29c; }
+.cinematic-loading .character-monogram { border-color: #d5bd8659; color: #ead29c; font-weight: 500; }
+.cinematic-loading .character-copy strong { font-weight: 450; letter-spacing: .1em; }
+.cinematic-loading .character-copy em { color: #d9cfb6; }
+.cinematic-loading .character-copy small { color: #ece5d580; }
+.cinematic-loading .character-select.is-locked .character-card.is-chosen { border-color: #d5bd8699; background: #d5bd8614; }
 .cinematic-loading .loading-start { color: #e8dec8; border-color: #d9c9a14d; font-weight: 450; letter-spacing: .08em; }
 .cinematic-hud .scene-heading { position: absolute; top: 34px; left: 38px; text-shadow: 0 2px 22px #101a12b3; }
 .scene-eyebrow { font-size: 9px; font-weight: 600; letter-spacing: .24em; color: #ece5d5ba; }

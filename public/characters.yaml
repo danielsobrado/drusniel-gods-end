@@ -1,0 +1,34 @@
+# Playable roster offered on the loading screen before the player model loads.
+#
+# `model` replaces assets.player and the `player` block is merged over the
+# effective player config, so every character carries its own proportions and
+# clip names. Both rigs are the same 24-joint armature, which is why a clip
+# authored for one skin plays on the other via `animationSources`.
+characters:
+  default: drusniel
+  roster:
+    - id: drusniel
+      name: Drusniel
+      title: Warden of the Wilds
+      blurb: Tall, long-striding, at home in deep grass.
+      model: Assets/Drunsiel_Warden_biped_Animation_Running_withSkin.glb
+      player:
+        targetHeight: 5.0
+        animationSources: []
+        animations:
+          idle: null
+          walk: Armature|running|baselayer
+          run: Armature|running|baselayer
+    - id: enanillo
+      name: Enanillo
+      title: Dwarven Delver
+      blurb: Short and stout, with an authored walk cycle of his own.
+      model: Assets/Enanillo_Dwarven_Running_withSkin.glb
+      player:
+        targetHeight: 3.4
+        animationSources:
+          - Assets/Enanillo_Dwarven_Walking_withSkin.glb
+        animations:
+          idle: null
+          walk: Armature|walking_man|baselayer
+          run: Armature|running|baselayer

@@ -10,6 +10,7 @@ export const CONFIG_FILES = [
   'cinematic-wind.yaml',
   'cinematic-look.yaml',
   'painter-cursor.yaml',
+  'characters.yaml',
 ];
 
 function isRecord(value) {

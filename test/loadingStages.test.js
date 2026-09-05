@@ -13,6 +13,7 @@ test('loading stages match the recovered browser sequence', () => {
     renderer: { message: 'Initializing renderer...', progress: 0 },
     environment: { message: 'Loading environment...', progress: 0 },
     world: { message: 'Loading world...', progress: 5 },
+    character: { message: 'Choose your character...', progress: 20 },
     player: { message: 'Loading player...', progress: 25 },
     collision: { message: 'Setting up collision system...', progress: 40 },
     foliage: { message: 'Setting up foliage', progress: 55 },

@@ -3,6 +3,7 @@ export const LOADING_STAGES = Object.freeze({
   renderer: Object.freeze({ message: 'Initializing renderer...', progress: 0 }),
   environment: Object.freeze({ message: 'Loading environment...', progress: 0 }),
   world: Object.freeze({ message: 'Loading world...', progress: 5 }),
+  character: Object.freeze({ message: 'Choose your character...', progress: 20 }),
   player: Object.freeze({ message: 'Loading player...', progress: 25 }),
   collision: Object.freeze({ message: 'Setting up collision system...', progress: 40 }),
   foliage: Object.freeze({ message: 'Setting up foliage', progress: 55 }),

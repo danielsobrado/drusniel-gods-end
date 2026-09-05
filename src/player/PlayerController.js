@@ -140,7 +140,7 @@ export class PlayerController {
       this.placeholder.visible = false;
       await this.#initializePhysics();
       this.handleResize();
-      this.#setupAnimations(gltf.animations);
+      this.#setupAnimations([...gltf.animations, ...await this.#loadExtraClips(loader)]);
       if (this.config.cinematic?.motion.footPlacement) this.footPlacement = new FootPlacement(this.model, this.terrainSampler, this.modelHeight);
       this.#findInfluenceObjects();
       return true;
@@ -151,6 +151,22 @@ export class PlayerController {
     } finally {
       dracoLoader.dispose();
     }
+  }
+
+  // Every roster rig shares one armature, so a clip authored against another
+  // character's skin binds by bone name and plays here unchanged. This is how a
+  // character with only a run in its own GLB still gets an authored walk.
+  async #loadExtraClips(loader) {
+    const clips = [];
+    for (const source of this.config.player.animationSources ?? []) {
+      try {
+        const gltf = await loader.loadAsync(assetUrl(source));
+        clips.push(...gltf.animations);
+      } catch (error) {
+        logger.warn(`Extra animation source failed to load: ${source}`, error);
+      }
+    }
+    return clips;
   }
 
   #applyModelScale() {

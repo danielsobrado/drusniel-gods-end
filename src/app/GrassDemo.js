@@ -14,6 +14,12 @@ import { TreeSystem } from '../world/TreeSystem.js';
 import { WorldPropSystem } from '../world/WorldPropSystem.js';
 import { ZoneIndex } from '../world/ZoneIndex.js';
 import { logger } from '../utils/logger.js';
+import {
+  applyCharacter,
+  defaultCharacterId,
+  getRoster,
+  requestedCharacterId,
+} from '../config/characterRoster.js';
 import { createTrees } from '../world/createTrees.js';
 import { createWorld } from '../world/createWorld.js';
 import { getRendererPixelRatio } from '../world/getRendererPixelRatio.js';
@@ -41,11 +47,20 @@ export class GrassDemo {
   }
 
   async start() {
-    const loading = new LoadingUi(this.root, this.config.cinematic?.presentation);
+    const loading = new LoadingUi(this.root, this.config.cinematic?.presentation, {
+      roster: getRoster(this.config),
+      selectedId: requestedCharacterId(window.location.search, this.config),
+    });
     this.loading = loading;
     this.world = await createWorld(this.config, (stage) => loading.stage(stage));
     this.cinematicLighting = new CinematicLighting(this.world, this.config);
     this.root.appendChild(this.world.renderer.domElement);
+
+    // The roster gate decides which GLB and which proportions the controller
+    // reads, so it has to close before PlayerController is constructed.
+    if (loading.needsCharacterChoice()) loading.stage('character');
+    const chosenId = await loading.waitForCharacter();
+    this.character = applyCharacter(this.config, chosenId ?? defaultCharacterId(this.config));
 
     loading.stage('player');
     this.player = new PlayerController(
