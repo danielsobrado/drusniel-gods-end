@@ -22,15 +22,15 @@ sources:
       - insects_alt.mp3
 
   - id: lake
-    page: https://opengameart.org/content/sea-and-river-wave-sounds
-    file: VistulaShort.mp3
+    page: https://opengameart.org/content/waterflow-sound
+    file: waterflow.mp3
     license: CC0
     targets:
       - lake2_alt.mp3
 
   - id: transition
-    page: https://opengameart.org/content/game-menu-controller-sounds
-    file: weird_whoosh_sounds_-_whoosh_12.mp3
+    page: https://opengameart.org/content/interaction-sound
+    file: interact.mp3
     license: CC0
     targets:
       - transition_alt.mp3
@@ -101,22 +101,22 @@ sources:
       - water-footstep3_alt.mp3
 
   - id: insect-call-1
-    page: https://opengameart.org/content/cricket-sounds
-    file: cricketsounds090613.mp3
+    page: https://opengameart.org/content/alien-sounds-0
+    file: alein_chirp.mp3
     license: CC0
     targets:
       - insect1_alt.mp3
 
   - id: insect-call-2
-    page: https://opengameart.org/content/crickets-ambient-noise-loopable
-    file: crickets.mp3
+    page: https://opengameart.org/content/alien-sounds-0
+    file: alien_chirp_02.mp3
     license: CC0
     targets:
       - insect2_alt.mp3
 
   - id: insect-call-3
-    page: https://opengameart.org/content/cricket-sounds
-    file: cricketsounds090613.mp3
+    page: https://opengameart.org/content/alien-sounds-0
+    file: alien_hiss.mp3
     license: CC0
     targets:
       - insect3_alt.mp3
