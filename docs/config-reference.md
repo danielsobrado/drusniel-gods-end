@@ -227,8 +227,16 @@ Retained but inactive legacy grass keys include:
 
 ```text
 grass.instancesPerDensityUnit
-grass.maskSoftness
+grass.maskThreshold
 grass.initialLod
+```
+
+Path clearance keys, all active:
+
+```text
+grass.pathClearance      metres of vegetation clearance beyond the painted path edge
+grass.vegetationCutoff   mask strength at or below which nothing grows
+grass.maskSoftness       width of the cutoff ramp
 ```
 
 `grass.maxDistance` is the recovered startup tile-pool coverage distance. `grass.yOffset` is not part of the recovered height formula and is not consumed by the current material.

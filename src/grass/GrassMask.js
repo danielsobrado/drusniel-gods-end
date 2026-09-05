@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { assetUrl } from '../assets/assetUrl.js';
-import { sampleGrassMask } from './sampleGrassMask.js';
+import { VegetationMask } from './VegetationMask.js';
+import { resolveVegetationPolicy } from './vegetationPolicy.js';
 
 const EMPTY_MASK_VALUE = 255;
 const FULL_GRASS_MASK_VALUE = 0;
@@ -26,6 +27,8 @@ export class GrassMask {
     this.context.fillStyle = '#000000';
     this.context.fillRect(0, 0, this.resolution, this.resolution);
     this.imageData = null;
+    this.dirtyRect = null;
+    this.vegetation = new VegetationMask(this.resolution, resolveVegetationPolicy(config));
     this.texture = new THREE.CanvasTexture(this.canvas);
     this.texture.colorSpace = THREE.NoColorSpace;
     this.texture.flipY = true;
@@ -58,6 +61,40 @@ export class GrassMask {
   #refreshPixels() {
     this.imageData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
     this.texture.needsUpdate = true;
+    this.dirtyRect = null;
+    this.vegetation.rebuild(this.imageData, this.terrainSampler.size);
+  }
+
+  get vegetationTexture() {
+    return this.vegetation.texture;
+  }
+
+  // Re-dilate only the region painted since the last flush. Called once per frame
+  // by GrassPainter so a stroke never triggers a full-resolution dilation.
+  flushVegetation() {
+    if (!this.dirtyRect) return false;
+    this.vegetation.rebuild(this.imageData, this.terrainSampler.size, this.dirtyRect);
+    this.dirtyRect = null;
+    return true;
+  }
+
+  #markDirty(x, y, radius) {
+    const rect = {
+      x: x - radius,
+      y: y - radius,
+      width: radius * 2 + 1,
+      height: radius * 2 + 1,
+    };
+    if (!this.dirtyRect) {
+      this.dirtyRect = rect;
+      return;
+    }
+    const right = Math.max(this.dirtyRect.x + this.dirtyRect.width, rect.x + rect.width);
+    const bottom = Math.max(this.dirtyRect.y + this.dirtyRect.height, rect.y + rect.height);
+    this.dirtyRect.x = Math.min(this.dirtyRect.x, rect.x);
+    this.dirtyRect.y = Math.min(this.dirtyRect.y, rect.y);
+    this.dirtyRect.width = right - this.dirtyRect.x;
+    this.dirtyRect.height = bottom - this.dirtyRect.y;
   }
 
   worldToUv(x, z, target = new THREE.Vector2()) {
@@ -67,30 +104,23 @@ export class GrassMask {
     return target;
   }
 
+  // The single mask sampler. Bilinear like the GPU's LinearFilter, dilated by the
+  // path clearance and hardened by the cutoff, so the CPU and the shader agree on
+  // where a path is. Returns 0 outside the terrain bounds.
   sampleWorld(x, z) {
-    if (!this.imageData) return 1;
-    const uv = this.worldToUv(x, z);
-    const { width, height, data } = this.imageData;
-    const px = THREE.MathUtils.clamp(Math.round(uv.x * (width - 1)), 0, width - 1);
-    const py = THREE.MathUtils.clamp(Math.round(uv.y * (height - 1)), 0, height - 1);
-    const rawMask = data[(py * width + px) * 4] / EMPTY_MASK_VALUE;
-    return 1 - rawMask;
+    return this.vegetation.sampleWorld(x, z, this.terrainSampler.bounds);
   }
 
-  sampleRenderedWorld(x, z) {
-    if (!this.imageData) return 1;
-    const { min, max } = this.terrainSampler.bounds;
-    if (x < min.x || x > max.x || z < min.z || z > max.z) return 0;
-    const u = (x - min.x) / (max.x - min.x);
-    const v = (z - min.z) / (max.z - min.z);
-    return sampleGrassMask(this.imageData, u, this.texture.flipY ? 1 - v : v);
+  allowsVegetation(x, z) {
+    return this.vegetation.allows(x, z, this.terrainSampler.bounds);
   }
 
   createEmptyTileSet(terrainSizeX, terrainSizeZ, tileSize) {
     const emptyTiles = new Set();
     if (!this.imageData) return emptyTiles;
 
-    const { width, height, data } = this.imageData;
+    const { width, height, data } = this.vegetation.imageData;
+    const grassRed = EMPTY_MASK_VALUE * (1 - this.vegetation.policy.cutoff);
     const terrainTilesX = Math.ceil(terrainSizeX / tileSize);
     const terrainTilesZ = Math.ceil(terrainSizeZ / tileSize);
     const pixelsPerTileX = width / terrainTilesX;
@@ -106,7 +136,7 @@ export class GrassMask {
 
         for (let y = startY; y < endY && !hasGrass; y += 1) {
           for (let x = startX; x < endX; x += 1) {
-            if (data[(y * width + x) * 4] < EMPTY_MASK_VALUE) {
+            if (data[(y * width + x) * 4] < grassRed) {
               hasGrass = true;
               break;
             }
@@ -117,17 +147,6 @@ export class GrassMask {
       }
     }
     return emptyTiles;
-  }
-
-  tileHasGrass(centerX, centerZ, size) {
-    const offsets = [-0.4, 0, 0.4];
-    const threshold = this.config.grass.maskThreshold;
-    for (const xOffset of offsets) {
-      for (const zOffset of offsets) {
-        if (this.sampleWorld(centerX + size * xOffset, centerZ + size * zOffset) > threshold) return true;
-      }
-    }
-    return false;
   }
 
   paintUv(uv, radius, value) {
@@ -176,6 +195,7 @@ export class GrassMask {
         data[index + 3] = EMPTY_MASK_VALUE;
       }
     }
+    this.#markDirty(centerX, centerY, brushRadius);
   }
 
   commitPixels() {
@@ -189,6 +209,11 @@ export class GrassMask {
     this.context.fillStyle = `rgb(${shade}, ${shade}, ${shade})`;
     this.context.fillRect(0, 0, this.resolution, this.resolution);
     this.#refreshPixels();
+  }
+
+  dispose() {
+    this.vegetation.dispose();
+    this.texture.dispose();
   }
 
   download(filename = 'grass-mask.jpg') {

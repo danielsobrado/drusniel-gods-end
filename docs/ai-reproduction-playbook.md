@@ -852,7 +852,7 @@ For reliable visual comparison:
 - retain the seeded random generators,
 - retain the same asset transforms,
 - retain the same camera defaults,
-- retain mask orientation (`flipY = false` where documented),
+- retain mask orientation (ground blend `flipY = false`, grass mask `flipY = true`),
 - retain world-to-UV conventions,
 - retain exact preset values,
 - do not change density formula,

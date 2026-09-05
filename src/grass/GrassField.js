@@ -40,7 +40,7 @@ export class GrassField {
     this.tileBoxMax = new THREE.Vector3();
     this.emptyGrassTiles = new Set();
     this.mask = new GrassMask(config, terrainSampler);
-    this.containsGrass = (x, z) => this.mask.sampleRenderedWorld(x, z) > 0.001;
+    this.containsGrass = (x, z) => this.mask.allowsVegetation(x, z);
     this.interactionMap = new InteractionMap(config, terrainSampler);
     this.geometryFactory = new GrassGeometryFactory(config);
     this.geometries = {};
@@ -333,6 +333,6 @@ export class GrassField {
     this.atlasTexture?.dispose?.();
     if (this.grassTerrainData !== this.terrainSampler) this.grassTerrainData?.dispose?.();
     this.interactionMap.texture.dispose();
-    this.mask.texture.dispose();
+    this.mask.dispose();
   }
 }

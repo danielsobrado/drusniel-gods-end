@@ -33,6 +33,7 @@ export class GrassPainter {
     this.config = config;
     this.player = player;
     this.onChange = onChange;
+    this.pendingChange = false;
     this.onClose = onClose;
     this.enabled = false;
     this.mode = MODE_ADD;
@@ -252,7 +253,9 @@ export class GrassPainter {
   #afterPaint() {
     this.mask.commitPixels();
     this.#drawPreview();
-    this.onChange?.();
+    // The clearance dilation of the painted region is deferred to update(), which
+    // then fires onChange so tile compaction rebuilds from the fresh data.
+    this.pendingChange = true;
   }
 
   #drawPreview() {
@@ -339,6 +342,11 @@ export class GrassPainter {
 
   update() {
     if (!this.enabled) return;
+    if (this.pendingChange) {
+      this.mask.flushVegetation();
+      this.pendingChange = false;
+      this.onChange?.();
+    }
     this.controls.update();
     this.gameCamera.position.copy(this.orbitCamera.position);
     this.gameCamera.quaternion.copy(this.orbitCamera.quaternion);

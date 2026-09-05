@@ -279,7 +279,7 @@ export class GrassDemo {
   #detectSurface() {
     const position = this.player.getPosition();
     if (this.water.containsPoint(position)) return 'water';
-    return this.grass.sampleMask(position.x, position.z) > this.config.grass.maskThreshold ? 'grass' : 'mud';
+    return this.grass.sampleMask(position.x, position.z) > 0 ? 'grass' : 'mud';
   }
 
   #render() {

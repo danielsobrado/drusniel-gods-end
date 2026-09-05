@@ -173,10 +173,19 @@ This same black/white convention is coordinated with the ground blend material.
 
 ```text
 NoColorSpace
-flipY = false
+flipY = true
 LinearFilter min/mag
 ClampToEdgeWrapping S/T
 ```
+
+`flipY = true` means row 0 of the backing canvas is the top of the image and therefore
+the **maximum** world z. Any CPU sampler must apply the same inversion.
+
+`GrassMask` owns a second, derived texture with identical settings, `VegetationMask`
+(`vegetationTexture`): the painted mask dilated by `grass.pathClearance` and hardened by
+`grass.vegetationCutoff`. The material samples that one; the ground blend material keeps
+sampling the raw painted JPEG, so the visible dirt keeps its authored width while
+vegetation recedes a further clearance from it.
 
 The CPU side keeps refreshed `ImageData` for `sampleWorld()` and tile emptiness checks.
 
@@ -190,6 +199,17 @@ The CPU side keeps refreshed `ImageData` for `sampleWorld()` and tile emptiness 
 u = clamp((x - terrainMinX) / terrainSizeX, 0, 1)
 v = clamp((z - terrainMinZ) / terrainSizeZ, 0, 1)
 ```
+
+`GrassMask.sampleWorld()` does not use that helper. It samples the vegetation mask
+directly, bilinearly and with the `flipY` inversion, so that the CPU and the shader
+agree on where a path is:
+
+```text
+col = ((x - terrainMinX) / terrainSizeX) * (width  - 1)
+row = (1 - (z - terrainMinZ) / terrainSizeZ) * (height - 1)
+```
+
+It returns 0 outside the terrain bounds.
 
 Then optional painter flips are applied:
 
@@ -231,27 +251,12 @@ This CPU value is used for surface classification and empty-tile checks.
 
 ## 8. Empty-tile classification
 
-`GrassMask.tileHasGrass(centerX,centerZ,size)` samples a 3x3 pattern using offsets:
+`GrassMask.createEmptyTileSet()` scans the vegetation mask pixel by pixel per terrain
+tile and records tiles whose every pixel is above the cutoff, i.e. tiles that are
+entirely path. `GrassField.remapEmptyTiles()` skips it when `cinematic.enabled`, where
+per-instance compaction covers the same ground more precisely.
 
-```text
--0.4
- 0
-+0.4
-```
-
-on both axes.
-
-That produces nine sample points spanning the tile interior.
-
-If any sample satisfies:
-
-```text
-sampleWorld(...) > grass.maskThreshold
-```
-
-then the tile is considered to contain grass.
-
-Current threshold:
+Legacy threshold, no longer read:
 
 ```text
 0.08
@@ -907,19 +912,23 @@ The grass therefore uses the 8-bit GPU height texture, not CPU raycasts per blad
 ## 38. Shader grass strength
 
 ```text
-grassMapValue = maskTexture.r
-grassStrength = clamp(1 - grassMapValue, 0, 1)
-visibility = smoothstep(maskThreshold, maskThreshold + 0.01, grassStrength)
-effectiveStrength = grassStrength * visibility
+raw           = clamp(1 - vegetationTexture.r, 0, 1)
+grassStrength = raw * smoothstep(vegetationCutoff, vegetationCutoff + maskSoftness, raw)
 ```
 
-Current threshold:
+A blade whose `grassStrength` reaches 0 is pushed out of the world. Because this is a
+gate rather than a rescale, strength above `vegetationCutoff + maskSoftness` is
+unchanged and only the path fringe is removed.
+
+Current values:
 
 ```text
-0.08
+vegetationCutoff 0.3
+maskSoftness     0.12
 ```
 
-The material hard-codes a `0.01` smoothstep span. The config field `maskSoftness` is not used by current material.
+`vegetationPolicy.vegetationStrength()` is the CPU twin of this expression, and both the
+blade and billboard position nodes go through the same helper.
 
 ---
 
@@ -1359,7 +1368,7 @@ Present in YAML but not consumed by current main grass renderer:
 grass.maxDistance       active max comes from quality profile
 grass.instancesPerDensityUnit
 grass.yOffset
-grass.maskSoftness
+grass.maskThreshold      superseded by grass.vegetationCutoff
 grass.initialLod         active LOD comes from quality profiles
 ```
 

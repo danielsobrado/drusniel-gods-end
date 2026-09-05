@@ -131,13 +131,15 @@ export class MeadowDetails {
           if (!Number.isFinite(py) || py < this.config.water.position[1] - 0.1) continue;
           const slope = Math.abs(this.terrain.sampleHeight(px + 1, pz) - py) + Math.abs(this.terrain.sampleHeight(px, pz + 1) - py);
           if (slope > 1.1) continue;
-          const mask = this.grass.sampleMask(px, pz);
+          const strength = this.grass.sampleMask(px, pz);
           const patch = Math.sin(px * 0.065 + Math.sin(pz * 0.04)) * Math.sin(pz * 0.065);
           const bank = Math.abs(py - this.config.water.position[1]) < 1.8;
           let type;
-          if (bank) type = 'reed';
+          // The path test comes first: reeds on the bank and woodland ferns used to
+          // short-circuit it and grow straight across the trails.
+          if (strength <= 0) { if (random() > 0.16) continue; type = random() > 0.5 ? 'stone' : 'litter'; }
+          else if (bank) type = 'reed';
           else if (wooded) type = random() > 0.4 ? 'litter' : 'fern';
-          else if (mask < 0.35) { if (random() > 0.16) continue; type = 'stone'; }
           else { if (patch < 0.12) continue; type = random() > 0.65 ? 'flower' : 'seed'; }
           const mesh = this.meshes.get(type);
           if (mesh.count >= mesh.instanceMatrix.count) continue;

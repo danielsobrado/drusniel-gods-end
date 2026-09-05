@@ -33,7 +33,7 @@ Texture setup:
 grass/color: sRGB, RepeatWrapping, mipmaps, linear mip filtering, anisotropy 16
 ground/color: sRGB, RepeatWrapping, mipmaps, linear mip filtering, anisotropy 16
 normal/roughness: NoColorSpace, RepeatWrapping, mipmaps, linear mip filtering, anisotropy 16
-blend mask: NoColorSpace, flipY false, ClampToEdgeWrapping, mipmaps, linear filtering
+blend mask: NoColorSpace, flipY false, ClampToEdgeWrapping, mipmaps, linear filtering (the grass mask is a separate canvas texture with flipY true)
 ```
 
 UVs:

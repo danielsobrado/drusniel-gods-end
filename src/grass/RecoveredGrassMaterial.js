@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { foliageBacklight } from '../rendering/CinematicLighting.js';
+import { resolveVegetationPolicy } from './vegetationPolicy.js';
 import {
   Fn,
   If,
@@ -38,7 +39,6 @@ const DEG_TO_RAD = Math.PI / 180;
 const HASH_SCALE = 43758.5453;
 const CLIP_Y_MARGIN = 10;
 const CLIP_XZ_MARGIN = 2;
-const GRASS_CUTOFF = 0.05;
 const INTERACTION_EPSILON = 0.00201;
 const WIND_EPSILON = 0.001;
 const BILLBOARD_ALPHA_TEST = 0.5;
@@ -71,6 +71,7 @@ export class GrassMaterial {
     const terrain = terrainSampler.getShaderData();
     const interaction = interactionMap.getShaderData();
     const grass = config.grass[type];
+    const policy = resolveVegetationPolicy(config);
 
     this.uniforms = {
       time: uniform(0),
@@ -95,11 +96,13 @@ export class GrassMaterial {
       maxHeight: uniform(terrain.maxHeight),
       interactionCenter: uniform(interaction.center),
       interactionWorldSize: uniform(interaction.worldSize),
+      vegetationCutoff: uniform(policy.cutoff),
+      vegetationSoftness: uniform(policy.softness),
     };
 
     this.material = this.#createMaterial(
       terrain.texture,
-      grassMask.texture,
+      grassMask.vegetationTexture,
       interaction.texture,
       atlasTexture,
     );
@@ -204,6 +207,14 @@ export class GrassMaterial {
         texture(heightTexture, terrainUv).r,
       ),
     };
+  }
+
+  // Mirrors vegetationStrength() on the CPU: a gate, not a rescale, so grass above
+  // the ramp keeps its authored height and only the path fringe is removed.
+  #vegetationStrength(maskTexture, terrainUv) {
+    const cutoff = this.uniforms.vegetationCutoff;
+    const raw = oneMinus(texture(maskTexture, terrainUv).r);
+    return raw.mul(smoothstep(cutoff, cutoff.add(this.uniforms.vegetationSoftness), raw));
   }
 
   #sampleInteractionBlade(interactionTexture, baseWorld, local, grassStrength) {
@@ -321,7 +332,7 @@ export class GrassMaterial {
       });
 
       If(visibility.visible, () => {
-        const grassStrength = oneMinus(texture(maskTexture, terrain.terrainUv).r);
+        const grassStrength = this.#vegetationStrength(maskTexture, terrain.terrainUv);
         this.#sampleInteractionBlade(interactionTexture, baseWorld, local, grassStrength);
 
         local.x.mulAssign(uniforms.bladeWidth.mul(sqrt(grassStrength)));
@@ -355,7 +366,7 @@ export class GrassMaterial {
           terrain.height.add(heightFromTerrain.mul(detailHeight).mul(grassStrength)),
         );
 
-        If(grassStrength.lessThan(GRASS_CUTOFF), () => {
+        If(grassStrength.lessThanEqual(0), () => {
           local.assign(vec3(1e9));
         });
 
@@ -489,7 +500,7 @@ export class GrassMaterial {
       });
 
       If(visibility.visible, () => {
-        const grassStrength = oneMinus(texture(maskTexture, terrain.terrainUv).r);
+        const grassStrength = this.#vegetationStrength(maskTexture, terrain.terrainUv);
         const strengthRoot = sqrt(grassStrength);
         this.#sampleInteractionBillboard(interactionTexture, baseWorld, local);
 
@@ -534,7 +545,7 @@ export class GrassMaterial {
           terrain.height.add(heightFromTerrain.mul(detailHeight).mul(grassStrength)),
         );
 
-        If(grassStrength.lessThan(GRASS_CUTOFF), () => {
+        If(grassStrength.lessThanEqual(0), () => {
           local.assign(vec3(1e9));
         });
 

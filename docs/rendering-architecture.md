@@ -207,7 +207,7 @@ normal map -> NoColorSpace
 roughness -> NoColorSpace
 ```
 
-The grass mask also uses `flipY = false`.
+The grass mask uses `flipY = true`; only the ground blend mask uses `flipY = false`.
 
 Ground color/normal/roughness textures use repeat wrapping. The blend mask uses clamp-to-edge wrapping.
 

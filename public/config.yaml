@@ -105,8 +105,10 @@ grass:
   type: blade
   instancesPerDensityUnit: 520
   yOffset: 0.015
-  maskThreshold: 0.08
-  maskSoftness: 0.12
+  maskThreshold: 0.08          # legacy: superseded by vegetationCutoff, no readers
+  pathClearance: 0.5           # metres of vegetation clearance beyond the painted path edge
+  vegetationCutoff: 0.3        # mask strength at or below which nothing grows at all
+  maskSoftness: 0.12           # width of the cutoff ramp
   useTextureColor: false
   atlasColumns: 2
   atlasRows: 2
