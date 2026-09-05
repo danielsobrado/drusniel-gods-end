@@ -278,7 +278,7 @@ audio:
 ui:
   showStats: true
   showAdvanced: true
-  initialQuality: high
+  initialQuality: ultra
   initialPreset: sunny
 quality:
   performance:
@@ -357,7 +357,7 @@ presets:
   sunny:
     label: Sunny
     grass:
-      blade: { bladeHeight: 1.5, bladeWidth: 0.2, bladeStiffness: 1, baseBend: 0, windIntensity: 1.7, windDirection: 0, windNoiseScale: 0.3, simulationSpeed: 1, baseColor: '#304f0b', tipColor: '#74a116', sheen: 0.25 }
+      blade: { bladeHeight: 2.5, bladeWidth: 0.2, bladeStiffness: 1, baseBend: 0, windIntensity: 2.4, windDirection: 0, windNoiseScale: 0.3, simulationSpeed: 1, baseColor: '#304f0b', tipColor: '#74a116', sheen: 0.25 }
       billboard: { bladeHeight: 1, bladeWidth: 1.5, bladeStiffness: 1, baseBend: 0, windIntensity: 1.7, windDirection: 0, windNoiseScale: 0.3, simulationSpeed: 1, baseColor: '#304f0b', tipColor: '#74a116', sheen: 0.25 }
     lighting: { color: '#ffd27a', directionalIntensity: 5, position: [0, 30, 45], hemisphereSkyColor: '#8fcaff', hemisphereGroundColor: '#51402a', hemisphereIntensity: 0.38, ambientColor: '#fff0c4', ambientIntensity: 0.55, environmentIntensity: 0.32 }
     sky: { groundColor: '#c89b62', horizonColor: '#91d5ff', zenithColor: '#4174d9', sunHaloColor: '#ffd77d', sunDiskColor: '#fff9dc', haloPower: 100, diskPower: 10000, sunPosition: [0, 30, 45], fogColor: '#a8cbd0', fogDensity: 0.005 }

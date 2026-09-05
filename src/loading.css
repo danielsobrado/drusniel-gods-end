@@ -18,10 +18,10 @@
 
 .loading-logo {
   position: relative;
-  width: min(560px, 78vw);
-  height: clamp(46px, 8vw, 82px);
+  width: min(720px, 88vw);
+  height: clamp(30px, 5vw, 52px);
   font-family: "Inter Display", Inter, ui-sans-serif, system-ui, sans-serif;
-  font-size: clamp(36px, 7vw, 72px);
+  font-size: clamp(21px, 4.4vw, 44px);
   font-weight: 900;
   line-height: 1;
   letter-spacing: .08em;

@@ -17,14 +17,16 @@ function createSequentialIndices(vertexCount) {
 }
 
 export class PlayerPhysics {
-  static async create({ terrain, cameraPosition, config }) {
+  static async create({ terrain, cameraPosition, config, capsule }) {
     await RAPIER.init();
-    return new PlayerPhysics({ terrain, cameraPosition, config });
+    return new PlayerPhysics({ terrain, cameraPosition, config, capsule });
   }
 
-  constructor({ terrain, cameraPosition, config }) {
+  // `capsule` carries the collider dimensions the controller derived from the actual
+  // scaled character model; without it the authored config values are used as-is.
+  constructor({ terrain, cameraPosition, config, capsule }) {
     this.config = config;
-    this.eyeHeight = config.player.eyeHeight ?? 0.5;
+    this.eyeHeight = capsule?.eyeHeight ?? config.player.eyeHeight ?? 0.5;
     this.world = new RAPIER.World({ x: 0, y: config.player.gravity ?? -25, z: 0 });
     this.characterController = this.world.createCharacterController(CHARACTER_OFFSET);
     this.characterController.enableSnapToGround(SNAP_TO_GROUND);
@@ -40,8 +42,8 @@ export class PlayerPhysics {
     this.body = this.world.createRigidBody(bodyDescription);
 
     const colliderDescription = RAPIER.ColliderDesc.capsule(
-      config.player.capsuleHalfHeight,
-      config.player.capsuleRadius,
+      capsule?.halfHeight ?? config.player.capsuleHalfHeight,
+      capsule?.radius ?? config.player.capsuleRadius,
     );
     colliderDescription.setFriction(PLAYER_FRICTION);
     colliderDescription.setRestitution(PLAYER_RESTITUTION);

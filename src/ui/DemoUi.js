@@ -98,7 +98,7 @@ export class DemoUi {
         <span>TRIS <strong data-triangles>0</strong></span>
       </section>
       <section class="reference-hud" aria-label="Demo controls">
-        <div class="reference-brand"><strong>THREEJS RPG GRASS</strong><span>DEMO</span></div>
+        <div class="reference-brand"><strong>DRUSNIEL RPG</strong><span>DEMO</span></div>
         <div class="control-hints">
           <div><strong>MOUSE</strong><span>Look around</span></div>
           <div><strong>WASD</strong><span>Walk</span></div>

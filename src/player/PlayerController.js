@@ -40,6 +40,7 @@ export class PlayerController {
     this.terrain = terrain;
     this.cameraControls = config.camera.controls;
     this.motion = config.player.motion;
+    this.enabled = true;
     this.scaleRatio = 1;
     this.keys = new Set();
     this.horizontalVelocity = new THREE.Vector3();
@@ -88,6 +89,10 @@ export class PlayerController {
     this.isSafari = navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome');
     this.spawnPosition = new THREE.Vector3().fromArray(config.camera.initialPosition ?? [11.7, 3, 11]);
 
+    this.footBase = new THREE.Vector3();
+    this.modelHeight = 0;
+    this.metrics = this.#characterMetrics();
+
     this.root = new THREE.Group();
     this.root.position.set(config.player.start[0], 0, config.player.start[2]);
     this.#snapFallbackToTerrain();
@@ -100,9 +105,11 @@ export class PlayerController {
   }
 
   async loadModel() {
-    await this.#initializePhysics();
     const path = this.config.assets?.player;
-    if (!path) return false;
+    if (!path) {
+      await this.#initializePhysics();
+      return false;
+    }
 
     const dracoLoader = new DRACOLoader();
     try {
@@ -112,8 +119,11 @@ export class PlayerController {
       const gltf = await loader.loadAsync(assetUrl(path));
 
       this.model = gltf.scene;
+      // The collider and every vertical offset are derived from the scaled model,
+      // so the model must be measured before physics builds the capsule.
       this.#applyModelScale();
-      this.model.position.y = this.config.player.modelOffsetY ?? 0;
+      this.metrics = this.#characterMetrics();
+      this.model.position.y = this.metrics.modelOffsetY;
       this.model.rotation.y = this.config.player.modelRotationY ?? 0;
       this.model.traverse((object) => {
         if (!object.isMesh) return;
@@ -126,12 +136,14 @@ export class PlayerController {
 
       this.root.add(this.model);
       this.placeholder.visible = false;
+      await this.#initializePhysics();
       this.handleResize();
       this.#setupAnimations(gltf.animations);
       this.#findInfluenceObjects();
       return true;
     } catch (error) {
       logger.warn('Player GLB failed to load; using procedural fallback.', error);
+      await this.#initializePhysics();
       return false;
     } finally {
       dracoLoader.dispose();
@@ -152,6 +164,7 @@ export class PlayerController {
       if (nativeHeight > 0) {
         const computedScale = targetHeight / nativeHeight;
         this.model.scale.setScalar(computedScale);
+        this.modelHeight = targetHeight;
         this.scaleRatio = computedScale / referenceScale;
         logger.info(
           `Auto-scaled player model: nativeHeight=${nativeHeight.toFixed(2)}, targetHeight=${targetHeight}, scale=${computedScale.toFixed(3)}, scaleRatio=${this.scaleRatio.toFixed(3)}`,
@@ -161,7 +174,40 @@ export class PlayerController {
     }
 
     this.model.scale.setScalar(referenceScale);
+    this.model.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(this.model);
+    this.modelHeight = Math.max(box.max.y - box.min.y, 0);
     this.scaleRatio = 1;
+  }
+
+  // The capsule, the eye offset and the model's vertical placement all have to agree,
+  // or the character floats above (or sinks into) the terrain. Everything below is
+  // derived from the authored proportions in config, uniformly rescaled so that the
+  // collider is exactly as tall as the model actually is on screen.
+  #characterMetrics() {
+    const player = this.config.player;
+    const halfHeight = player.capsuleHalfHeight ?? 1;
+    const radius = player.capsuleRadius ?? 0.7;
+    const eyeHeight = player.eyeHeight ?? 0.5;
+    const groundOffset = player.groundOffset ?? 0;
+    const modelOffsetY = player.modelOffsetY ?? 0;
+
+    const authoredHeight = 2 * (halfHeight + radius);
+    const scale = this.modelHeight > 0 && authoredHeight > 0
+      ? this.modelHeight / authoredHeight
+      : 1;
+
+    const metrics = {
+      scale,
+      halfHeight: halfHeight * scale,
+      radius: radius * scale,
+      eyeHeight: eyeHeight * scale,
+      groundOffset: groundOffset * scale,
+    };
+    // Distance from the root (which sits at body centre + eyeHeight) down to the soles.
+    metrics.rootToFeet = metrics.halfHeight + metrics.radius + metrics.eyeHeight;
+    metrics.modelOffsetY = modelOffsetY * scale - metrics.rootToFeet;
+    return metrics;
   }
 
   async #initializePhysics() {
@@ -170,6 +216,7 @@ export class PlayerController {
         terrain: this.terrain,
         cameraPosition: this.spawnPosition,
         config: this.config,
+        capsule: this.metrics,
       });
       this.setPosition(...this.config.player.start);
     } catch (error) {
@@ -182,7 +229,8 @@ export class PlayerController {
   #createPlaceholder() {
     const material = new THREE.MeshStandardMaterial({ color: 0xd7d9d2, roughness: 0.72 });
     const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(0.34, 0.92, 6, 12), material);
-    mesh.position.y = 1;
+    // Half the placeholder's own height, measured up from the soles at the root's foot line.
+    mesh.position.y = 0.8 - this.metrics.rootToFeet;
     mesh.castShadow = true;
     return mesh;
   }
@@ -434,7 +482,7 @@ export class PlayerController {
 
     this.root.position.set(
       result.position.x,
-      result.position.y + (this.config.player.eyeHeight ?? 0.5),
+      result.position.y + this.metrics.eyeHeight,
       result.position.z,
     );
     this.targetQuaternion.setFromAxisAngle(this.cameraUp, this.playerYaw);
@@ -462,7 +510,8 @@ export class PlayerController {
 
   #snapFallbackToTerrain() {
     this.root.position.y = this.terrainSampler.sampleHeight(this.root.position.x, this.root.position.z)
-      + (this.config.player.groundOffset ?? 0);
+      + this.metrics.rootToFeet
+      + this.metrics.groundOffset;
   }
 
   #targetOffset() {
@@ -484,7 +533,7 @@ export class PlayerController {
   #updateCamera(deltaSeconds) {
     const bodyPosition = this.physics?.getBodyPosition();
     const bodyX = bodyPosition?.x ?? this.root.position.x;
-    const bodyY = bodyPosition?.y ?? this.root.position.y - (this.config.player.eyeHeight ?? 0.5);
+    const bodyY = bodyPosition?.y ?? this.root.position.y - this.metrics.eyeHeight;
     const bodyZ = bodyPosition?.z ?? this.root.position.z;
 
     const targetHeight = (this.cameraControls.targetHeight ?? 1.6) * this.scaleRatio;
@@ -564,7 +613,8 @@ export class PlayerController {
 
     this.forward.set(Math.sin(this.root.rotation.y), 0, Math.cos(this.root.rotation.y));
     this.right.set(this.forward.z, 0, -this.forward.x);
-    const base = this.root.position;
+    const base = this.footBase.copy(this.root.position);
+    base.y -= this.metrics.rootToFeet;
     const footOffset = 0.18 * this.scaleRatio;
     const footRadius = (this.config.grass?.interaction?.footRadius ?? 0.72) * this.scaleRatio;
     this.influenceFallback[0].radius = footRadius;

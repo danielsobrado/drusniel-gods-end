@@ -20,9 +20,9 @@ export class LoadingUi {
     this.element = document.createElement('div');
     this.element.className = 'loading-overlay';
     this.element.innerHTML = `
-      <div class="loading-logo" aria-label="RPG Grass">
-        <span class="logo-outline">RPG GRASS</span>
-        <span class="logo-fill">RPG GRASS</span>
+      <div class="loading-logo" aria-label="Drusniel RPG Demo">
+        <span class="logo-outline">Drusniel RPG DEMO</span>
+        <span class="logo-fill">Drusniel RPG DEMO</span>
       </div>
       <div class="loading-progress" aria-live="polite">
         <div class="loading-progress-track"><i class="progress-bar"></i></div>
