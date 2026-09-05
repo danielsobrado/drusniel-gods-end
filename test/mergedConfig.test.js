@@ -67,4 +67,6 @@ test('recovered player motion values survive the merge', async () => {
 test('Warden visual scale survives later parity layers', async () => {
   const config = await loadMergedConfig();
   assert.equal(config.player.modelScale, 1.35);
+  assert.equal(config.player.targetHeight, 5.0);
 });
+

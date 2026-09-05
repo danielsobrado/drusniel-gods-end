@@ -40,7 +40,7 @@ export class PlayerController {
     this.terrain = terrain;
     this.cameraControls = config.camera.controls;
     this.motion = config.player.motion;
-    this.enabled = true;
+    this.scaleRatio = 1;
     this.keys = new Set();
     this.horizontalVelocity = new THREE.Vector3();
     this.movement = new THREE.Vector3();
@@ -112,7 +112,7 @@ export class PlayerController {
       const gltf = await loader.loadAsync(assetUrl(path));
 
       this.model = gltf.scene;
-      this.model.scale.setScalar(this.config.player.modelScale ?? 1);
+      this.#applyModelScale();
       this.model.position.y = this.config.player.modelOffsetY ?? 0;
       this.model.rotation.y = this.config.player.modelRotationY ?? 0;
       this.model.traverse((object) => {
@@ -126,6 +126,7 @@ export class PlayerController {
 
       this.root.add(this.model);
       this.placeholder.visible = false;
+      this.handleResize();
       this.#setupAnimations(gltf.animations);
       this.#findInfluenceObjects();
       return true;
@@ -135,6 +136,32 @@ export class PlayerController {
     } finally {
       dracoLoader.dispose();
     }
+  }
+
+  #applyModelScale() {
+    if (!this.model) return;
+    const targetHeight = this.config.player.targetHeight;
+    const referenceScale = this.config.player.modelScale ?? 1.35;
+
+    if (targetHeight && targetHeight > 0) {
+      this.model.scale.set(1, 1, 1);
+      this.model.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(this.model);
+      const nativeHeight = box.max.y - box.min.y;
+
+      if (nativeHeight > 0) {
+        const computedScale = targetHeight / nativeHeight;
+        this.model.scale.setScalar(computedScale);
+        this.scaleRatio = computedScale / referenceScale;
+        logger.info(
+          `Auto-scaled player model: nativeHeight=${nativeHeight.toFixed(2)}, targetHeight=${targetHeight}, scale=${computedScale.toFixed(3)}, scaleRatio=${this.scaleRatio.toFixed(3)}`,
+        );
+        return;
+      }
+    }
+
+    this.model.scale.setScalar(referenceScale);
+    this.scaleRatio = 1;
   }
 
   async #initializePhysics() {
@@ -286,8 +313,8 @@ export class PlayerController {
 
   #applyZoomDelta(deltaY) {
     const sensitivity = this.cameraControls.zoomSensitivity ?? 0.01;
-    const min = this.config.camera.minDistance ?? 1.5;
-    const max = this.config.camera.maxDistance ?? 24;
+    const min = (this.config.camera.minDistance ?? 1.5) * this.scaleRatio;
+    const max = (this.config.camera.maxDistance ?? 24) * this.scaleRatio;
     this.targetCameraDistance = THREE.MathUtils.clamp(
       this.targetCameraDistance + deltaY * sensitivity,
       min,
@@ -372,17 +399,19 @@ export class PlayerController {
     const sprinting = this.mobile
       ? this.mobileSprinting
       : this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
-    const targetSpeed = sprinting ? this.config.player.runSpeed : this.config.player.walkSpeed;
+    const baseWalkSpeed = this.config.player.walkSpeed ?? 2.5;
+    const baseRunSpeed = this.config.player.runSpeed ?? 15;
+    const targetSpeed = (sprinting ? baseRunSpeed : baseWalkSpeed) * this.scaleRatio;
     const currentSpeed = this.horizontalVelocity.length();
 
     if (hasInput) {
-      const acceleration = this.motion.acceleration * deltaSeconds;
+      const acceleration = this.motion.acceleration * this.scaleRatio * deltaSeconds;
       const nextSpeed = currentSpeed < targetSpeed
         ? Math.min(currentSpeed + acceleration, targetSpeed)
         : Math.max(currentSpeed - acceleration, targetSpeed);
       this.horizontalVelocity.copy(this.desiredDirection).multiplyScalar(nextSpeed);
     } else if (this.grounded || !this.physics) {
-      const friction = this.motion.deceleration * deltaSeconds;
+      const friction = this.motion.deceleration * this.scaleRatio * deltaSeconds;
       if (currentSpeed <= friction) this.horizontalVelocity.set(0, 0, 0);
       else this.horizontalVelocity.normalize().multiplyScalar(currentSpeed - friction);
     }
@@ -391,7 +420,7 @@ export class PlayerController {
     else this.#updateFallbackMovement(deltaSeconds);
 
     this.speed = this.horizontalVelocity.length();
-    this.moving = this.speed >= ANIMATION_IDLE_SPEED;
+    this.moving = this.speed >= (ANIMATION_IDLE_SPEED * this.scaleRatio);
     this.running = this.moving && sprinting;
   }
 
@@ -458,9 +487,13 @@ export class PlayerController {
     const bodyY = bodyPosition?.y ?? this.root.position.y - (this.config.player.eyeHeight ?? 0.5);
     const bodyZ = bodyPosition?.z ?? this.root.position.z;
 
+    const targetHeight = (this.cameraControls.targetHeight ?? 1.6) * this.scaleRatio;
+    const cameraHeight = (this.cameraControls.cameraHeight ?? 1.2) * this.scaleRatio;
+    const shoulderOffset = (this.cameraControls.shoulderOffset ?? 0.6) * this.scaleRatio;
+
     this.cameraTarget.set(
       bodyX,
-      bodyY + this.cameraControls.targetHeight,
+      bodyY + targetHeight,
       bodyZ,
     );
     this.cameraRight.set(1, 0, 0).applyQuaternion(this.camera.quaternion);
@@ -470,8 +503,8 @@ export class PlayerController {
     this.cameraDistance += (this.targetCameraDistance - this.cameraDistance) * zoomFactor;
 
     this.cameraOffset.set(
-      -this.cameraControls.shoulderOffset,
-      this.cameraControls.cameraHeight,
+      -shoulderOffset,
+      cameraHeight,
       this.cameraDistance,
     );
     this.yawQuaternion.setFromAxisAngle(this.cameraUp, this.cameraYaw);
@@ -500,9 +533,10 @@ export class PlayerController {
   handleResize() {
     const breakpoint = this.cameraControls.mobileBreakpoint ?? MOBILE_BREAKPOINT;
     const mobile = window.innerWidth < breakpoint;
-    this.cameraDistance = mobile
+    const baseDistance = mobile
       ? this.cameraControls.mobileDistance
       : this.cameraControls.desktopDistance;
+    this.cameraDistance = baseDistance * this.scaleRatio;
     this.targetCameraDistance = this.cameraDistance;
     if (mobile === this.mobile) return;
     this.mobile = mobile;
@@ -531,8 +565,12 @@ export class PlayerController {
     this.forward.set(Math.sin(this.root.rotation.y), 0, Math.cos(this.root.rotation.y));
     this.right.set(this.forward.z, 0, -this.forward.x);
     const base = this.root.position;
-    this.influenceFallback[0].position.copy(base).addScaledVector(this.right, 0.18).addScaledVector(this.forward, 0.18);
-    this.influenceFallback[1].position.copy(base).addScaledVector(this.right, -0.18).addScaledVector(this.forward, -0.18);
+    const footOffset = 0.18 * this.scaleRatio;
+    const footRadius = (this.config.grass?.interaction?.footRadius ?? 0.72) * this.scaleRatio;
+    this.influenceFallback[0].radius = footRadius;
+    this.influenceFallback[1].radius = footRadius;
+    this.influenceFallback[0].position.copy(base).addScaledVector(this.right, footOffset).addScaledVector(this.forward, footOffset);
+    this.influenceFallback[1].position.copy(base).addScaledVector(this.right, -footOffset).addScaledVector(this.forward, -footOffset);
     return this.influenceFallback;
   }
 

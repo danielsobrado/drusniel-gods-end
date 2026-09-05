@@ -1,3 +1,9 @@
 player:
-  # Drunsiel Warden is authored smaller than the previous player asset.
   modelScale: 1.35
+  targetHeight: 5.0
+  modelOffsetY: 0
+  capsuleHalfHeight: 1
+  capsuleRadius: 0.7
+  eyeHeight: 0.5
+  groundOffset: 0.02
+
