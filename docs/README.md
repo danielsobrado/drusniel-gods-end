@@ -114,6 +114,7 @@ ground-material.yaml
 player-controls.yaml
 visual-parity.yaml
 painter-cursor.yaml
+characters.yaml
 ```
 
 Use `npm run config:dump` and annotate asserted values with either:

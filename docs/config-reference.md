@@ -15,6 +15,7 @@ This document records the effective configuration contract on current `main`. Re
 6. public/cinematic-wind.yaml
 7. public/cinematic-look.yaml
 8. public/painter-cursor.yaml
+9. public/characters.yaml
 ```
 
 Merge rules:

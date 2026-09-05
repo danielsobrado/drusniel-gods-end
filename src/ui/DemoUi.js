@@ -1,3 +1,5 @@
+import { findCharacter } from '../config/characterRoster.js';
+
 const DEFAULT_CONTROL_RANGES = Object.freeze({
   windStrength: { min: 0, max: 3, step: 0.1 },
   grassHeight: { min: 0.5, max: 3, step: 0.1 },
@@ -109,6 +111,10 @@ export class DemoUi {
       </section>`;
 
     root.appendChild(overlay);
+    // The heading names whoever was picked on the loading screen, so the HUD does
+    // not keep announcing the default character while another one is on screen.
+    const selected = findCharacter(this.config, this.config.characters?.selected);
+    if (selected) overlay.querySelector('.scene-eyebrow').textContent = `${selected.name ?? selected.id} / EXPLORATION`.toUpperCase();
     const presentation = this.config.cinematic?.presentation;
     if (presentation) {
       overlay.querySelector('h1').textContent = presentation.title;

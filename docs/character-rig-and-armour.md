@@ -2,6 +2,30 @@
 
 This document describes the current Drunsiel Warden player asset and how the runtime integrates it.
 
+## Playable roster
+
+`public/characters.yaml` lists the characters offered on the loading screen. The
+choice is made before the player GLB is fetched, because it decides which asset
+is loaded and how tall the capsule ends up:
+
+```yaml
+characters:
+  default: drusniel
+  roster:
+    - id: drusniel
+      model: Assets/Drunsiel_Warden_biped_Animation_Running_withSkin.glb
+    - id: enanillo
+      model: Assets/Enanillo_Dwarven_Running_withSkin.glb
+```
+
+`src/config/characterRoster.js` applies the selection by rewriting `assets.player`
+and merging the entry's `player` block over the effective player config, so every
+system downstream keeps reading `config.player` and nothing else changes shape.
+`?character=<id>` preselects an entry and skips the picker, which keeps headless
+and screenshot runs from stalling on a gate that needs a click.
+
+Values below describe the default character, Drusniel.
+
 ## Asset and loader
 
 The configured player asset is:
@@ -83,10 +107,17 @@ A future player GLB must provide:
 
 Optional animated helper meshes can be named through `player.influenceObjects`; otherwise the root-relative fallback remains active. Scale, local Y offset, and forward orientation can be adjusted through YAML.
 
+Both shipped characters are the same 24-joint armature with the same bone names, so
+a clip authored against one skin binds by name and plays on the other. A roster entry
+lists such borrowed clips in `player.animationSources`, and `PlayerController` merges
+them into the mixer alongside the clips in the character's own GLB. Enanillo uses this
+to get an authored walk from `Enanillo_Dwarven_Walking_withSkin.glb`; Drusniel has no
+authored walk and keeps the procedural `Cinematic_walk` fallback.
+
 ## Implementation boundaries
 
-- One player GLB is loaded.
-- There is no animation-retargeting system.
+- One player GLB is loaded per session; the character cannot be changed without a reload.
+- There is no animation-retargeting system; `animationSources` relies on identical bone names, not retargeting.
 - There is no runtime armour inventory/equipment system.
 - There is no code-defined bone-name map.
 - The runtime preserves the exported GLB hierarchy.
