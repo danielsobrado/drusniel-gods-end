@@ -1,10 +1,12 @@
 import * as THREE from 'three';
+import { rasterizeTerrain } from './rasterizeTerrain.js';
 
 const DOWN = new THREE.Vector3(0, -1, 0);
 const MISS_HEIGHT = Number.NEGATIVE_INFINITY;
 
 function nextFrame() {
-  return new Promise((resolve) => requestAnimationFrame(resolve));
+  // Loading must also progress in a background tab, where animation frames pause.
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 export class TerrainSampler {
@@ -33,6 +35,13 @@ export class TerrainSampler {
 
     if (!Number.isFinite(this.bounds.min.x) || this.size.x <= 0 || this.size.z <= 0) {
       this.#buildFlatFallback();
+      return this;
+    }
+
+    if (this.config.cinematic?.enabled) {
+      this.heights = await rasterizeTerrain(this.target, this.bounds, this.resolution, onProgress);
+      this.#createTexture();
+      this.ready = true;
       return this;
     }
 

@@ -2,6 +2,8 @@
 
 Clean-room reconstruction of a browser-delivered reference demo using Three.js. The repository contains newly written application code plus copied reference assets used for parity validation.
 
+The default presentation now uses a cinematic art pass. See [Cinematic rendering](docs/cinematic-rendering.md) for the lighting, quality budgets, procedural locomotion, and visual review notes. This intentionally changes the recovered look.
+
 ## Parity rule
 
 For parity work, use this evidence order:
@@ -95,7 +97,10 @@ Runtime configuration is deep-merged in this order:
 2. public/ground-material.yaml
 3. public/player-controls.yaml
 4. public/visual-parity.yaml
-5. public/painter-cursor.yaml
+5. public/character-visual.yaml
+6. public/cinematic-wind.yaml
+7. public/cinematic-look.yaml
+8. public/painter-cursor.yaml
 ```
 
 Nested objects merge recursively. Arrays and scalar values replace the earlier value. Use `npm run config:dump` instead of merging these files manually.

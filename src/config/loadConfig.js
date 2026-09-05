@@ -8,6 +8,7 @@ export const CONFIG_FILES = [
   'visual-parity.yaml',
   'character-visual.yaml',
   'cinematic-wind.yaml',
+  'cinematic-look.yaml',
   'painter-cursor.yaml',
 ];
 

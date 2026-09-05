@@ -6,6 +6,7 @@ import { logger } from '../utils/logger.js';
 import { clampCameraAboveTerrain } from './cameraTerrain.js';
 import { MobileControls } from './MobileControls.js';
 import { PlayerPhysics } from './PlayerPhysics.js';
+import { createLocomotionClips, FootPlacement } from './CharacterMotion.js';
 
 const MOVEMENT_KEYS = new Set([
   'KeyW',
@@ -59,8 +60,8 @@ export class PlayerController {
     this.pitchQuaternion = new THREE.Quaternion();
     this.targetQuaternion = new THREE.Quaternion();
     this.cameraYaw = this.cameraControls.initialYaw ?? 0;
-    this.cameraPitch = config.camera.pitch ?? -0.25;
-    this.playerYaw = 0;
+    this.cameraPitch = config.cinematic?.enabled ? config.cinematic.camera.pitch : config.camera.pitch ?? -0.25;
+    this.playerYaw = config.cinematic?.enabled ? this.cameraYaw + Math.PI : 0;
     this.mobile = window.innerWidth < (this.cameraControls.mobileBreakpoint ?? MOBILE_BREAKPOINT);
     this.cameraDistance = this.mobile
       ? this.cameraControls.mobileDistance
@@ -94,6 +95,7 @@ export class PlayerController {
     this.metrics = this.#characterMetrics();
 
     this.root = new THREE.Group();
+    this.root.rotation.y = this.playerYaw;
     this.root.position.set(config.player.start[0], 0, config.player.start[2]);
     this.#snapFallbackToTerrain();
     this.placeholder = this.#createPlaceholder();
@@ -139,6 +141,7 @@ export class PlayerController {
       await this.#initializePhysics();
       this.handleResize();
       this.#setupAnimations(gltf.animations);
+      if (this.config.cinematic?.motion.footPlacement) this.footPlacement = new FootPlacement(this.model, this.terrainSampler, this.modelHeight);
       this.#findInfluenceObjects();
       return true;
     } catch (error) {
@@ -238,7 +241,15 @@ export class PlayerController {
   #setupAnimations(clips) {
     if (!this.model || !clips?.length) return;
     const mixer = new THREE.AnimationMixer(this.model);
-    const requested = this.config.player.animations;
+    const requested = { ...this.config.player.animations };
+    if (this.config.cinematic?.enabled) {
+      const generated = createLocomotionClips(this.model);
+      clips = [...clips, ...generated];
+      const find = pattern => clips.find(clip => pattern.test(clip.name))?.name;
+      requested.idle = find(/idle/i) ?? requested.idle;
+      requested.walk = find(/walk/i) ?? requested.walk;
+      requested.run = find(/run/i) ?? requested.run;
+    }
     const actions = Object.fromEntries(clips.map((clip) => [clip.name, mixer.clipAction(clip)]));
     this.animation = {
       mixer,
@@ -278,6 +289,13 @@ export class PlayerController {
     if (this.horizontalVelocity.length() < ANIMATION_IDLE_SPEED) this.#fadeToAction(names.idle);
     else if (this.running) this.#fadeToAction(names.run);
     else this.#fadeToAction(names.walk);
+    if (this.animation.current && this.moving) {
+      const motion = this.config.cinematic?.motion;
+      const speed = motion
+        ? this.modelHeight * (this.running ? motion.runSpeedInHeights : motion.walkSpeedInHeights)
+        : (this.running ? this.config.player.runSpeed : this.config.player.walkSpeed) * this.scaleRatio;
+      this.animation.current.setEffectiveTimeScale(THREE.MathUtils.clamp(this.speed / Math.max(speed, 0.01), 0.55, 1.35));
+    }
   }
 
   #findInfluenceObjects() {
@@ -394,7 +412,7 @@ export class PlayerController {
     this.speed = 0;
     this.moving = false;
     this.running = false;
-    this.#fadeToAction(this.config.player.animations.idle);
+    this.#fadeToAction(this.animation?.names.idle);
   }
 
   setPosition(x, y, z) {
@@ -410,9 +428,10 @@ export class PlayerController {
 
   update(deltaSeconds) {
     if (deltaSeconds <= 0) return;
-    this.animation?.mixer.update(deltaSeconds);
     if (this.enabled) this.#updateMovement(deltaSeconds);
     this.#updateAnimation();
+    this.animation?.mixer.update(deltaSeconds);
+    this.footPlacement?.update(this.grounded, this.root.position.y - this.metrics.rootToFeet);
     if (this.enabled) this.#updateCamera(deltaSeconds);
   }
 
@@ -449,7 +468,10 @@ export class PlayerController {
       : this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
     const baseWalkSpeed = this.config.player.walkSpeed ?? 2.5;
     const baseRunSpeed = this.config.player.runSpeed ?? 15;
-    const targetSpeed = (sprinting ? baseRunSpeed : baseWalkSpeed) * this.scaleRatio;
+    const cinematicMotion = this.config.cinematic?.enabled && this.config.cinematic.motion;
+    const targetSpeed = cinematicMotion && this.modelHeight > 0
+      ? this.modelHeight * (sprinting ? cinematicMotion.runSpeedInHeights : cinematicMotion.walkSpeedInHeights)
+      : (sprinting ? baseRunSpeed : baseWalkSpeed) * this.scaleRatio;
     const currentSpeed = this.horizontalVelocity.length();
 
     if (hasInput) {
@@ -536,9 +558,10 @@ export class PlayerController {
     const bodyY = bodyPosition?.y ?? this.root.position.y - this.metrics.eyeHeight;
     const bodyZ = bodyPosition?.z ?? this.root.position.z;
 
-    const targetHeight = (this.cameraControls.targetHeight ?? 1.6) * this.scaleRatio;
-    const cameraHeight = (this.cameraControls.cameraHeight ?? 1.2) * this.scaleRatio;
-    const shoulderOffset = (this.cameraControls.shoulderOffset ?? 0.6) * this.scaleRatio;
+    const framing = this.config.cinematic?.enabled && this.modelHeight > 0 && this.config.cinematic.camera;
+    const targetHeight = framing ? this.modelHeight * (framing.targetInHeights - 0.5) : (this.cameraControls.targetHeight ?? 1.6) * this.scaleRatio;
+    const cameraHeight = framing ? this.modelHeight * framing.heightInHeights : (this.cameraControls.cameraHeight ?? 1.2) * this.scaleRatio;
+    const shoulderOffset = framing ? this.modelHeight * framing.shoulderInHeights : (this.cameraControls.shoulderOffset ?? 0.6) * this.scaleRatio;
 
     this.cameraTarget.set(
       bodyX,
@@ -585,7 +608,9 @@ export class PlayerController {
     const baseDistance = mobile
       ? this.cameraControls.mobileDistance
       : this.cameraControls.desktopDistance;
-    this.cameraDistance = baseDistance * this.scaleRatio;
+    this.cameraDistance = this.config.cinematic?.enabled && this.modelHeight > 0
+      ? this.modelHeight * this.config.cinematic.camera.distanceInHeights * (mobile ? 1.25 : 1)
+      : baseDistance * this.scaleRatio;
     this.targetCameraDistance = this.cameraDistance;
     if (mobile === this.mobile) return;
     this.mobile = mobile;

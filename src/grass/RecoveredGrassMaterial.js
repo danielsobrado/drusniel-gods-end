@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { foliageBacklight } from '../rendering/CinematicLighting.js';
 import {
   Fn,
   If,
@@ -152,6 +153,12 @@ export class GrassMaterial {
     } else {
       material.receivedShadowPositionNode = positionNode;
       this.#configureBladeMaterial(material, bladeUv, instanceData);
+    }
+    if (this.config.cinematic?.enabled) {
+      const fade = uniform(1).onObjectUpdate(({ object }) => object.userData.lodFade ?? 1);
+      material.opacityNode = (material.opacityNode ?? float(1)).mul(fade);
+      material.alphaTestNode = float(0.01);
+      material.alphaHash = true;
     }
     return material;
   }
@@ -346,6 +353,10 @@ export class GrassMaterial {
         });
 
         const heightFromTerrain = local.y.sub(terrain.height);
+        if (this.config.cinematic?.enabled) {
+          const patch = gradientNoise2d(baseWorld.xz.mul(0.065)).clamp(0, 1);
+          detailHeight.assign(mix(0.25, 0.6, patch));
+        }
         local.y.assign(
           terrain.height.add(heightFromTerrain.mul(detailHeight).mul(grassStrength)),
         );
@@ -521,6 +532,10 @@ export class GrassMaterial {
         });
 
         const heightFromTerrain = local.y.sub(terrain.height);
+        if (this.config.cinematic?.enabled) {
+          const patch = gradientNoise2d(baseWorld.xz.mul(0.065)).clamp(0, 1);
+          detailHeight.assign(mix(0.5, 1.25, patch));
+        }
         local.y.assign(
           terrain.height.add(heightFromTerrain.mul(detailHeight).mul(grassStrength)),
         );
@@ -651,6 +666,13 @@ export class GrassMaterial {
       .mul(variationTint)
       .mul(heightBrightness)
       .add(vec3(viewSheen));
+    if (this.config.cinematic?.enabled) {
+      const patch = gradientNoise2d(positionWorld.xz.mul(0.045)).clamp(0, 1);
+      material.colorNode = material.colorNode.mul(mix(vec3(0.72, 0.82, 0.67), vec3(1.16, 1.06, 0.77), patch));
+      material.emissiveNode = foliageBacklight(gradientColor, 0.7).mul(bladeUv.y.pow(1.5));
+      material.roughness = 0.85;
+      material.alphaToCoverage = true;
+    }
   }
 
   #configureBillboardMaterial(material, atlasTexture, bladeUv, instanceData) {
@@ -691,6 +713,12 @@ export class GrassMaterial {
     material.opacityNode = atlasSample.a;
     material.alphaTestNode = float(BILLBOARD_ALPHA_TEST);
     material.transparent = false;
+    if (this.config.cinematic?.enabled) {
+      const patch = gradientNoise2d(positionWorld.xz.mul(0.045)).clamp(0, 1);
+      material.colorNode = material.colorNode.mul(mix(vec3(0.72, 0.82, 0.67), vec3(1.16, 1.06, 0.77), patch));
+      material.emissiveNode = foliageBacklight(selectedColor, 0.6).mul(bladeUv.y);
+      material.alphaToCoverage = true;
+    }
   }
 
   setPreset(params) {

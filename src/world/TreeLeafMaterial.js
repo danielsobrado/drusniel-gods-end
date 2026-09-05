@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { foliageBacklight } from '../rendering/CinematicLighting.js';
 import {
   Fn,
   cos,
@@ -125,6 +126,12 @@ export class TreeLeafMaterialFactory {
     material.depthWrite = true;
     material.alphaTestNode = LEAF_ALPHA_TEST;
     material.positionNode = this.positionNode;
+    if (this.config.cinematic?.enabled && material.map) {
+      const leafColor = texture(material.map, uv()).rgb;
+      material.emissiveNode = foliageBacklight(leafColor, 0.5);
+      material.roughness = 0.82;
+      material.alphaToCoverage = true;
+    }
     if (material.map) {
       material.maskShadowNode = Fn(() => texture(material.map, uv()).a.greaterThan(SHADOW_ALPHA_TEST))();
     }

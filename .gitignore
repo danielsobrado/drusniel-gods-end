@@ -6,3 +6,8 @@ dist/
 .history/
 
 .drive-tmp.mjs
+.browser-profile/
+.browser-check.ps1
+.cleanup-review.ps1
+baseline.png
+cinematic-*.png

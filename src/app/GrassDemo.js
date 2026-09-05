@@ -19,6 +19,10 @@ import { createWorld } from '../world/createWorld.js';
 import { getRendererPixelRatio } from '../world/getRendererPixelRatio.js';
 import { loadTreeWorldData } from '../world/loadTreeWorldData.js';
 import { loadWorldPropData } from '../world/loadWorldPropData.js';
+import { CinematicLighting } from '../rendering/CinematicLighting.js';
+import { CinematicPipeline } from '../rendering/CinematicPipeline.js';
+import { MeadowDetails } from '../foliage/MeadowDetails.js';
+import { ScenicTour } from '../rendering/ScenicTour.js';
 
 const MIN_PIXEL_RATIO = 0.5;
 const TREE_COLLIDER_HEIGHT_FACTOR = 0.5;
@@ -37,9 +41,10 @@ export class GrassDemo {
   }
 
   async start() {
-    const loading = new LoadingUi(this.root);
+    const loading = new LoadingUi(this.root, this.config.cinematic?.presentation);
     this.loading = loading;
     this.world = await createWorld(this.config, (stage) => loading.stage(stage));
+    this.cinematicLighting = new CinematicLighting(this.world, this.config);
     this.root.appendChild(this.world.renderer.domElement);
 
     loading.stage('player');
@@ -109,6 +114,9 @@ export class GrassDemo {
       this.world.terrainSampler,
     ).init();
     this.grass.attachPainter({ terrain: this.world.terrainTarget, player: this.player });
+    if (this.config.cinematic?.enabled) {
+      this.meadow = new MeadowDetails(this.world.scene, this.config, this.world.terrainSampler, this.grass, this.trees);
+    }
 
     this.water = new WaterSurface(
       this.world.scene,
@@ -150,9 +158,12 @@ export class GrassDemo {
       config: this.config,
     });
 
+    this.tour = new ScenicTour(this.world, this.player, this.trees, this.water);
     this.ui = new DemoUi(this.root, this.config, this.#createUiActions());
+    this.pipeline = new CinematicPipeline(this.world, this.config);
 
     loading.stage('shaders');
+    this.cinematicLighting.activateShadows();
     await this.world.renderer.compileAsync(this.world.scene, this.world.camera);
     window.addEventListener('resize', () => this.#resize(), { signal: this.abortController.signal });
     this.#resize();
@@ -210,9 +221,18 @@ export class GrassDemo {
   #createUiActions() {
     return {
       setPreset: (name) => this.environment.setPreset(name),
+      toggleTour: () => {
+        if (this.grass.painter?.enabled) this.grass.togglePainter();
+        return this.tour.start();
+      },
+      stopTour: () => this.tour.stop(),
+      isTourActive: () => this.tour.active,
       setQuality: (name) => {
         this.grass.setQuality(name);
         this.environment.setQuality(name);
+        this.pipeline?.setQuality(name);
+        this.meadow?.setQuality(name);
+        this.water?.setQuality(name);
       },
       setGrassType: (type) => this.grass.setGrassType(type),
       setGrassParameter: (name, value) => this.environment.setGrassParameter(name, value),
@@ -224,7 +244,7 @@ export class GrassDemo {
         this.#resize();
       },
       setInteractionEnabled: (enabled) => this.grass.setInteractionEnabled(enabled),
-      togglePainter: () => this.grass.togglePainter(),
+      togglePainter: () => { this.tour.stop(); return this.grass.togglePainter(); },
       isPainterEnabled: () => this.grass.painter?.enabled ?? false,
       getTriangleCount: () => this.world.renderer.info.render.triangles,
     };
@@ -238,6 +258,7 @@ export class GrassDemo {
     if (this.pixelRatioOverride === null) this.pixelRatio = getRendererPixelRatio(this.config);
     renderer.setPixelRatio(this.pixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
+    this.cinematicLighting?.resize();
   }
 
   #detectSurface() {
@@ -263,6 +284,7 @@ export class GrassDemo {
 
     this.environment.update(deltaSeconds);
     this.player.update(deltaSeconds);
+    this.tour.update(deltaSeconds);
     this.world.terrainAnimations?.update(deltaSeconds);
     this.leaves.update(deltaSeconds);
     this.world.clouds?.update?.(deltaSeconds);
@@ -279,9 +301,12 @@ export class GrassDemo {
       this.player.getPosition(),
       this.player.getInfluencePoints(),
     );
-    this.environment.updateSunTarget(this.player.getPosition());
-
-    this.world.renderer.render(this.world.scene, this.world.camera);
+    const focus = this.tour.active ? this.world.camera.position : this.player.getPosition();
+    this.environment.updateSunTarget(focus);
+    this.cinematicLighting.update();
+    this.meadow?.update(deltaSeconds, focus, this.environment.current);
+    this.water.update(deltaSeconds, this.player, this.environment.current.lighting);
+    this.pipeline.render();
     this.ui.update(deltaSeconds);
   }
 
@@ -290,6 +315,9 @@ export class GrassDemo {
     this.abortController.abort();
 
     this.loading?.dispose?.();
+    this.pipeline?.dispose();
+    this.cinematicLighting?.dispose();
+    this.meadow?.dispose();
     this.ui?.dispose?.();
     this.grass?.painter?.dispose?.();
     this.grass?.dispose?.();

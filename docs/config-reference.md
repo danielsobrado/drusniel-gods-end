@@ -13,7 +13,8 @@ This document records the effective configuration contract on current `main`. Re
 4. public/visual-parity.yaml
 5. public/character-visual.yaml
 6. public/cinematic-wind.yaml
-7. public/painter-cursor.yaml
+7. public/cinematic-look.yaml
+8. public/painter-cursor.yaml
 ```
 
 Merge rules:
@@ -46,8 +47,8 @@ forceWebGL: false
 <!-- effective-config: ui -->
 ```yaml
 pixelRatio: 1
-initialQuality: high
-initialPreset: sunny
+initialQuality: ultra
+initialPreset: goldenHour
 ```
 
 Initial renderer pixel ratio is `ui.pixelRatio` when it is finite, so the current reference starts at `1`. `renderer.pixelRatioCap` is used as the upper bound for the runtime pixel-ratio control.
@@ -175,7 +176,7 @@ materialTargets:
 grassTextureScale: 150
 groundTextureScale: 70
 anisotropy: 16
-metalness: 0.5
+metalness: 0
 applyToTerrain: true
 rainRipple:
   scale: 1.5
@@ -292,7 +293,7 @@ Authored tree placement comes from `assets.treeWorld: tree-world.json`; `positio
 
 <!-- effective-config: leaves -->
 ```yaml
-count: 1000
+count: 240
 spawnRadius: 20
 despawnRadius: 30
 minHeight: -2
@@ -390,8 +391,8 @@ colliderName: WaterCollider
 size: 400
 segments: 128
 position: [312.7059326171875, -17, 163.0625]
-speed: 4
-waveHeight: 0.35
+speed: 1.1
+waveHeight: 0.15
 swellHeight: 1
 swellLength: 26.7
 mediumHeight: 0.5
@@ -403,20 +404,20 @@ detailLength: 2.42
 microHeight: 0.05
 microLength: 2
 distortion: 1.45
-reflectionStrength: 0.9
+reflectionStrength: 0.65
 reflectionDistance: 1.2
 reflectionResolution: 1024
 reflectionNear: 0.1
 reflectionFar: 1000
 sunColor: '#ffffff'
 sunDirection: [0.707, 0.8, 0.25]
-sunStrength: 0
-deepColor: '#07344a'
-surfaceColor: '#033138'
+sunStrength: 0.65
+deepColor: '#102e34'
+surfaceColor: '#427065'
 reflectionColor: '#1c9199'
-roughness: 0
-metalness: 0.48
-fresnelPower: 1
+roughness: 0.16
+metalness: 0
+fresnelPower: 4
 fresnelStrength: 1
 rainRipples: true
 rainRippleStrength: 3

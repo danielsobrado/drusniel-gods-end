@@ -134,6 +134,7 @@ export class GrassField {
         this.scene,
         this.materialController.material,
         this.geometries.veryLow,
+        Boolean(this.config.cinematic?.enabled),
       ));
     }
 
@@ -265,6 +266,7 @@ export class GrassField {
 
     for (const tile of this.tiles) {
       const { x, z } = tile.mesh.position;
+      tile.update(deltaSeconds);
       if (!tileOverlapsTerrain(x, z, tileSize, bounds)) {
         tile.setVisible(false);
         continue;

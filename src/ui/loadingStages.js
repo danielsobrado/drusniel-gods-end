@@ -1,5 +1,5 @@
 export const LOADING_STAGES = Object.freeze({
-  initializing: Object.freeze({ message: 'Initializing...', progress: 0 }),
+  initializing: Object.freeze({ message: 'Starting...', progress: 0 }),
   renderer: Object.freeze({ message: 'Initializing renderer...', progress: 0 }),
   environment: Object.freeze({ message: 'Loading environment...', progress: 0 }),
   world: Object.freeze({ message: 'Loading world...', progress: 5 }),
@@ -9,7 +9,7 @@ export const LOADING_STAGES = Object.freeze({
   grass: Object.freeze({ message: 'Growing grass...', progress: 65 }),
   audio: Object.freeze({ message: 'Loading audio...', progress: 75 }),
   shaders: Object.freeze({ message: 'Compiling shaders...', progress: 80 }),
-  ready: Object.freeze({ message: 'Ready', progress: 100 }),
+  ready: Object.freeze({ message: 'Here we are', progress: 100 }),
 });
 
 export const LOADING_REVEAL_SECONDS = 3;

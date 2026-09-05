@@ -9,7 +9,7 @@ import {
 
 test('loading stages match the recovered browser sequence', () => {
   assert.deepEqual(LOADING_STAGES, {
-    initializing: { message: 'Initializing...', progress: 0 },
+    initializing: { message: 'Starting...', progress: 0 },
     renderer: { message: 'Initializing renderer...', progress: 0 },
     environment: { message: 'Loading environment...', progress: 0 },
     world: { message: 'Loading world...', progress: 5 },
@@ -19,7 +19,7 @@ test('loading stages match the recovered browser sequence', () => {
     grass: { message: 'Growing grass...', progress: 65 },
     audio: { message: 'Loading audio...', progress: 75 },
     shaders: { message: 'Compiling shaders...', progress: 80 },
-    ready: { message: 'Ready', progress: 100 },
+    ready: { message: 'Here we are', progress: 100 },
   });
 });
 

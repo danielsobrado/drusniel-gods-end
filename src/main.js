@@ -1,5 +1,6 @@
 import './styles.css';
 import './loading.css';
+import './cinematic.css';
 import { GrassDemo } from './app/GrassDemo.js';
 import { loadConfig } from './config/loadConfig.js';
 
@@ -9,6 +10,7 @@ async function bootstrap() {
   try {
     const config = await loadConfig();
     const demo = new GrassDemo(root, config);
+    if (import.meta.env.DEV) window.__grassDemo = demo;
     await demo.start();
   } catch (error) {
     console.error('Failed to start grass demo', error);

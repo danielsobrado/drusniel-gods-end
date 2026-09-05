@@ -1,0 +1,84 @@
+# Art direction and effect budgets. Loaded after the recovered visual settings.
+cinematic:
+  enabled: true
+  exposure: 0.95
+  shadows:
+    cascades: 1
+    distance: 180
+    mapSize: 2048
+  atmosphere:
+    height: 10
+    falloff: 0.08
+    density: 0.0018
+  post:
+    aoStrength: 0.38
+    aoRadius: 1.4
+    bloomStrength: 0.12
+    bloomThreshold: 1.8
+    saturation: 0.94
+    vignette: 0.12
+  vegetation:
+    count: 3200
+    radius: 95
+    patchScale: 0.065
+    backlight: 0.32
+  camera:
+    pitch: 0.12
+    distanceInHeights: 2.3
+    heightInHeights: 0.22
+    targetInHeights: 0.58
+    shoulderInHeights: 0.18
+  motion:
+    walkSpeedInHeights: 0.85
+    runSpeedInHeights: 2.4
+    footPlacement: true
+  water:
+    reflectionInterval: 0.75
+    reflectionDistance: 120
+    reflectionResolution: 256
+  presentation:
+    title: THE WILDS
+    subtitle: A living landscape
+ui:
+  initialPreset: goldenHour
+leaves:
+  count: 240
+  spawnInterval: 0.06
+presets:
+  goldenHour:
+    grass:
+      blade: { baseColor: '#263a1f', tipColor: '#839452', sheen: 0.16 }
+      billboard: { baseColor: '#263a1f', tipColor: '#839452', sheen: 0.16 }
+    lighting:
+      color: '#ffe2b0'
+      directionalIntensity: 3.5
+      position: [-28, 45, -30]
+      hemisphereSkyColor: '#a6becb'
+      hemisphereGroundColor: '#655e40'
+      hemisphereIntensity: 0.55
+      ambientColor: '#e9e2ca'
+      ambientIntensity: 0.15
+      environmentIntensity: 0.45
+    sky:
+      horizonColor: '#c9c4a6'
+      zenithColor: '#66858f'
+      sunHaloColor: '#f4d29b'
+      sunPosition: [-28, 45, -30]
+      fogColor: '#adb8af'
+      fogDensity: 0.0028
+ground:
+  metalness: 0
+  macroVariation: 0.22
+  normalStrength: 0.75
+  normalY: -1
+  wetness: 0.7
+water:
+  metalness: 0
+  roughness: 0.16
+  speed: 1.1
+  waveHeight: 0.15
+  reflectionStrength: 0.65
+  fresnelPower: 4
+  deepColor: '#102e34'
+  surfaceColor: '#427065'
+  sunStrength: 0.65

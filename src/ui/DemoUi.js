@@ -58,7 +58,7 @@ export class DemoUi {
 
   #create(root) {
     const overlay = document.createElement('div');
-    overlay.className = 'overlay';
+    overlay.className = 'overlay cinematic-hud';
 
     const presetOptions = Object.entries(this.config.presets).map(([key, preset]) => ({
       value: key,
@@ -80,9 +80,10 @@ export class DemoUi {
     const interactionEnabled = this.config.grass.interaction.enabled !== false;
 
     overlay.innerHTML = `
-      <button class="mobile-panel-toggle" type="button" data-panel-toggle aria-expanded="false">Controls</button>
-      <section class="controls panel" data-controls-panel>
-        <strong class="controls-title">Controls</strong>
+      <div class="scene-heading"><span class="scene-eyebrow">DRUSNIEL / EXPLORATION</span><h1>THE WILDS</h1><p>A living landscape</p></div>
+      <div class="scene-actions"><button type="button" data-tour>Take a scenic tour <span>30 SEC</span></button><button class="mobile-panel-toggle" type="button" data-panel-toggle aria-expanded="false" aria-controls="scene-settings">Scene settings</button></div>
+      <section class="controls panel" id="scene-settings" data-controls-panel hidden>
+        <strong class="controls-title">Shape the atmosphere</strong>
         ${choiceControl('preset', 'Preset', presetOptions, this.currentPreset)}
         ${choiceControl('grassType', 'Grass Type', grassOptions, this.currentGrassType)}
         ${choiceControl('quality', 'Quality', qualityOptions, this.config.ui.initialQuality)}
@@ -98,15 +99,21 @@ export class DemoUi {
         <span>TRIS <strong data-triangles>0</strong></span>
       </section>
       <section class="reference-hud" aria-label="Demo controls">
-        <div class="reference-brand"><strong>DRUSNIEL RPG</strong><span>DEMO</span></div>
+        <div class="reference-brand"><strong data-scene-preset>${initialPreset.label}</strong><span>EXPLORE AT YOUR OWN PACE</span></div>
         <div class="control-hints">
           <div><strong>MOUSE</strong><span>Look around</span></div>
           <div><strong>WASD</strong><span>Walk</span></div>
           <div><strong>SHIFT</strong><span>Run</span></div>
+          <div><strong>H</strong><span>Hide interface</span></div>
         </div>
       </section>`;
 
     root.appendChild(overlay);
+    const presentation = this.config.cinematic?.presentation;
+    if (presentation) {
+      overlay.querySelector('h1').textContent = presentation.title;
+      overlay.querySelector('.scene-heading p').textContent = presentation.subtitle;
+    }
     this.#bind(overlay);
     return overlay;
   }
@@ -116,8 +123,21 @@ export class DemoUi {
     const controlsPanel = overlay.querySelector('[data-controls-panel]');
     const panelToggle = overlay.querySelector('[data-panel-toggle]');
     panelToggle.addEventListener('click', () => {
-      const open = controlsPanel.classList.toggle('mobile-open');
+      const open = controlsPanel.hidden;
+      controlsPanel.hidden = !open;
+      controlsPanel.classList.toggle('mobile-open', open);
       panelToggle.setAttribute('aria-expanded', String(open));
+    }, { signal });
+    overlay.querySelector('[data-tour]').addEventListener('click', () => this.actions.toggleTour(), { signal });
+    window.addEventListener('keydown', event => {
+      if (event.target.matches?.('input, textarea, select, [contenteditable="true"]')) return;
+      if (event.code === 'KeyH') overlay.classList.toggle('interface-hidden');
+      if (['Escape', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(event.code)) this.actions.stopTour();
+      if (event.code === 'Escape') {
+        controlsPanel.hidden = true;
+        panelToggle.setAttribute('aria-expanded', 'false');
+        this.#closeChoices(overlay);
+      }
     }, { signal });
 
     overlay.querySelectorAll('[data-choice-trigger]').forEach((trigger) => {
@@ -195,6 +215,7 @@ export class DemoUi {
     if (name === 'preset') {
       this.currentPreset = value;
       this.actions.setPreset(value);
+      overlay.querySelector('[data-scene-preset]').textContent = this.config.presets[value].label;
       this.#syncPresetControls(overlay);
       return;
     }
@@ -231,6 +252,12 @@ export class DemoUi {
   }
 
   update(deltaSeconds) {
+    const tour = this.actions.isTourActive?.() ?? false;
+    if (tour !== this.tourActive) {
+      this.tourActive = tour;
+      this.element.querySelector('[data-tour]').innerHTML = tour ? 'Return to exploration <span>ESC</span>' : 'Take a scenic tour <span>30 SEC</span>';
+      this.element.classList.toggle('tour-active', tour);
+    }
     const painterEnabled = this.actions.isPainterEnabled?.() ?? false;
     this.painterButton?.classList.toggle('active', painterEnabled);
 

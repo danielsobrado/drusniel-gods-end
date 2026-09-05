@@ -26,6 +26,7 @@ import {
   uniform,
   vec2,
   vec3,
+  uniformArray,
 } from 'three/tsl';
 
 const TWO_PI = 6.283185;
@@ -85,10 +86,6 @@ const NORMAL_EPSILON = 0.08;
 const RIPPLE_HASH_SCALE = 43758.5453;
 const RIPPLE_MIN_DISTANCE = 0.001;
 const RAIN_THRESHOLD = 0.001;
-const SHORE_MIN_DEPTH = -3;
-const SHORE_MAX_DEPTH = 0;
-const SHORE_OPACITY = 1;
-const DEEP_OPACITY = 0.65;
 const EMISSIVE_COLOR = new THREE.Color(0.003, 0.015, 0.018);
 
 function mergeWaterConfig(config) {
@@ -107,7 +104,7 @@ export function createReflectionRenderTarget(params) {
   });
 }
 
-function captureReflection(scene, renderer, mesh, params) {
+function captureReflection(_scene, _renderer, mesh, params) {
   const renderTarget = createReflectionRenderTarget(params);
   const cubeCamera = new THREE.CubeCamera(
     params.reflectionNear,
@@ -115,16 +112,13 @@ function captureReflection(scene, renderer, mesh, params) {
     renderTarget,
   );
 
-  scene.add(cubeCamera);
-  const previousVisibility = mesh.visible;
-  mesh.visible = false;
   cubeCamera.position.copy(mesh.getWorldPosition(new THREE.Vector3()));
-  cubeCamera.update(renderer, scene);
-  mesh.visible = previousVisibility;
-  scene.remove(cubeCamera);
+  cubeCamera.position.y += 1;
+  // Capture after the main camera's shader compilation. A reflection camera
+  // must not become the camera used to initialize cascaded shadows.
 
   renderTarget.texture.mapping = THREE.CubeReflectionMapping;
-  renderTarget.texture.colorSpace = THREE.SRGBColorSpace;
+  renderTarget.texture.colorSpace = THREE.LinearSRGBColorSpace;
   return { texture: renderTarget.texture, renderTarget, cubeCamera };
 }
 
@@ -155,6 +149,8 @@ function createWaterMaterial(mesh, params, terrainSampler, reflectionTexture) {
     metalness: uniform(params.metalness),
     fresnelPower: uniform(params.fresnelPower),
     fresnelStrength: uniform(params.fresnelStrength),
+    rippleClock: uniform(0),
+    footsteps: uniformArray(Array.from({ length: 6 }, () => new THREE.Vector4(0, 0, -100, 0))),
   };
 
   if (params.rainRipples) {
@@ -248,9 +244,23 @@ function createWaterMaterial(mesh, params, terrainSampler, reflectionTexture) {
   })();
 
   let rainy = false;
+  const footNormal = Fn(() => {
+    const offset = vec3(0).toVar();
+    for (let i = 0; i < 6; i++) {
+      const impact = uniforms.footsteps.element(i);
+      const age = uniforms.rippleClock.sub(impact.z).max(0);
+      const delta = positionWorld.xz.sub(impact.xy);
+      const distance = delta.length().max(0.01);
+      const ring = distance.sub(age.mul(2.8));
+      const wave = sin(ring.mul(15)).mul(ring.pow(2).mul(-6).exp())
+        .mul(age.mul(-1.3).exp()).mul(impact.w).mul(0.12);
+      offset.addAssign(vec3(delta.x.div(distance).mul(wave), delta.y.div(distance).mul(wave).negate(), 0));
+    }
+    return offset;
+  });
   const rebuildNormal = () => {
     material.normalNode = Fn(() => {
-      const normal = baseNormal(positionLocal.xy, time.mul(uniforms.speed));
+      const normal = normalize(baseNormal(positionLocal.xy, time.mul(uniforms.speed)).add(footNormal()));
       if (!rainy || !params.rainRipples) return transformNormalToView(normal);
       const ripple = rainNormal();
       return transformNormalToView(
@@ -262,16 +272,17 @@ function createWaterMaterial(mesh, params, terrainSampler, reflectionTexture) {
   rebuildNormal();
 
   const reflectionNode = reflectionTexture ? cubeTexture(reflectionTexture) : null;
+  const terrainMin = vec2(terrain.boundsMin.x, terrain.boundsMin.z);
+  const terrainSize = vec2(terrain.boundsSize.x, terrain.boundsSize.z);
+  const terrainUv = positionWorld.xz.sub(terrainMin).div(terrainSize);
+  const terrainHeight = mix(float(terrain.minHeight), float(terrain.maxHeight), texture(terrain.texture, terrainUv).r);
+  const waterDepth = positionWorld.y.sub(terrainHeight).max(0);
   material.colorNode = Fn(() => {
     const normal = normalize(normalWorld);
     const viewDirection = normalize(cameraPosition.sub(positionWorld));
     const facing = max(dot(normal, viewDirection), float(0));
     const fresnel = pow(float(1).sub(facing), uniforms.fresnelPower);
-    const baseColor = mix(
-      uniforms.deepColor,
-      uniforms.surfaceColor,
-      fresnel.mul(uniforms.fresnelStrength),
-    );
+    const baseColor = mix(uniforms.surfaceColor, uniforms.deepColor, smoothstep(0, 7, waterDepth));
 
     let reflectedColor = uniforms.reflectionColor;
     if (reflectionNode) {
@@ -300,15 +311,11 @@ function createWaterMaterial(mesh, params, terrainSampler, reflectionTexture) {
     );
   })();
 
-  const terrainMin = vec2(terrain.boundsMin.x, terrain.boundsMin.z);
-  const terrainSize = vec2(terrain.boundsSize.x, terrain.boundsSize.z);
   material.opacityNode = Fn(() => {
-    const terrainUv = positionWorld.xz.sub(terrainMin).div(terrainSize);
-    const terrainSample = texture(terrain.texture, terrainUv).r;
-    const terrainHeight = mix(float(terrain.minHeight), float(terrain.maxHeight), terrainSample);
-    const depth = terrainHeight.sub(float(params.position[1]));
-    const shoreBlend = smoothstep(float(SHORE_MIN_DEPTH), float(SHORE_MAX_DEPTH), depth);
-    return mix(float(SHORE_OPACITY), float(DEEP_OPACITY), shoreBlend);
+    const shoreBlend = smoothstep(0.05, 4, waterDepth);
+    const view = normalize(cameraPosition.sub(positionWorld));
+    const grazing = float(1).sub(dot(normalWorld, view).max(0)).pow(4);
+    return mix(0.18, 0.96, shoreBlend).max(grazing.mul(0.9)).mul(smoothstep(0, 0.15, waterDepth));
   })();
 
   material.roughnessNode = uniforms.roughness;
@@ -344,6 +351,16 @@ export class WaterSurface {
   constructor(scene, renderer, terrainRoot, terrainSampler, config) {
     this.scene = scene;
     this.params = mergeWaterConfig(config);
+    this.renderer = renderer;
+    this.cinematic = config.cinematic?.enabled ? config.cinematic.water : null;
+    if (this.cinematic) this.params.reflectionResolution = this.cinematic.reflectionResolution;
+    this.reflectionElapsed = 10;
+    this.reflectionInitialized = false;
+    this.rippleElapsed = 0;
+    this.rippleIndex = 0;
+    this.lastRipple = new THREE.Vector3(1e9, 1e9, 1e9);
+    this.nearest = new THREE.Vector3();
+    this.quality = config.ui.initialQuality;
     this.geometry = new THREE.PlaneGeometry(
       this.params.size,
       this.params.size,
@@ -373,6 +390,37 @@ export class WaterSurface {
 
   setRain(enabled) {
     this.shader.setRain(enabled);
+  }
+
+  setQuality(name) { this.quality = name; }
+
+  update(delta, player, lighting) {
+    this.rippleElapsed += delta;
+    this.uniforms.rippleClock.value = this.rippleElapsed;
+    this.uniforms.sunColor.value.copy(lighting.color);
+    this.uniforms.sunDirection.value.copy(lighting.position).normalize();
+    this.uniforms.sunStrength.value = this.params.sunStrength * Math.min(lighting.directionalIntensity / 3, 1);
+    const position = player.getPosition();
+    const feetY = position.y - player.metrics.rootToFeet;
+    if (player.moving && Math.abs(feetY - this.mesh.position.y) < 1.5 && position.distanceTo(this.lastRipple) > 0.85) {
+      this.uniforms.footsteps.array[this.rippleIndex].set(position.x, position.z, this.rippleElapsed, 1);
+      this.rippleIndex = (this.rippleIndex + 1) % 6;
+      this.lastRipple.copy(position);
+    }
+    if (this.reflectionInitialized && (!this.cinematic || this.quality === 'performance')) return;
+    this.reflectionElapsed += delta;
+    this.bounds.clampPoint(position, this.nearest);
+    const distance = Math.hypot(position.x - this.nearest.x, position.z - this.nearest.z);
+    const interval = (this.cinematic?.reflectionInterval ?? 1) * (this.quality === 'balanced' ? 2 : 1);
+    if (this.reflectionInitialized && (distance > this.cinematic.reflectionDistance || this.reflectionElapsed < interval)) return;
+    this.reflectionElapsed = 0;
+    const camera = this.reflection.cubeCamera;
+    camera.position.set(this.nearest.x, this.mesh.position.y + 1, this.nearest.z);
+    const visible = this.mesh.visible;
+    this.mesh.visible = false;
+    this.scene.add(camera);
+    try { camera.update(this.renderer, this.scene); this.reflectionInitialized = true; }
+    finally { this.mesh.visible = visible; camera.removeFromParent(); }
   }
 
   setRainIntensity(value) {

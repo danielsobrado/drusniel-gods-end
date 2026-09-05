@@ -8,6 +8,7 @@ import {
   mix,
   normalMap,
   normalize,
+  normalWorld,
   positionWorld,
   sin,
   smoothstep,
@@ -164,8 +165,8 @@ export async function createGroundMaterial(config) {
   configureBlendMask(blendMask);
 
   const baseUv = uv();
-  const grassUv = baseUv.mul(uniform(ORIGINAL_GRASS_UV_SCALE));
-  const groundUv = baseUv.mul(uniform(ORIGINAL_GROUND_UV_SCALE));
+  const grassUv = baseUv.mul(uniform(config.ground.grassTextureScale ?? ORIGINAL_GRASS_UV_SCALE));
+  const groundUv = baseUv.mul(uniform(config.ground.groundTextureScale ?? ORIGINAL_GROUND_UV_SCALE));
   const grassSample = texture(grassColor, grassUv);
   const groundSample = texture(groundColor, groundUv);
   const normalSample = texture(groundNormal, groundUv);
@@ -175,15 +176,35 @@ export async function createGroundMaterial(config) {
   const material = new THREE.MeshStandardNodeMaterial();
   material.name = 'GroundReferenceBlendMaterial';
   material.colorNode = mix(grassSample.rgb, groundSample.rgb, blend);
-  const baseNormal = normalMap(normalSample, vec2(blend));
+  const normalStrength = config.ground.normalStrength ?? 1;
+  const baseNormal = normalMap(normalSample, vec2(blend.mul(normalStrength), blend.mul(normalStrength * (config.ground.normalY ?? 1))));
   material.normalNode = baseNormal;
   material.roughnessNode = mix(float(1), roughnessSample, blend);
-  material.metalnessNode = float(ORIGINAL_METALNESS);
+  material.metalnessNode = float(config.ground.metalness ?? ORIGINAL_METALNESS);
+
+  const wetness = uniform(0);
+  if (config.cinematic?.enabled) {
+    const world = positionWorld.xz;
+    const macro = sin(world.x.mul(0.037).add(sin(world.y.mul(0.053)))).mul(sin(world.y.mul(0.071))).mul(0.5).add(0.5);
+    const flecks = sin(world.x.mul(3.1)).mul(sin(world.y.mul(4.7))).mul(0.5).add(0.5);
+    const moss = macro.mul(normalWorld.y.max(0)).mul(blend.oneMinus()).mul(0.22);
+    const earth = mix(grassSample.rgb, groundSample.rgb, smoothstep(0.12, 0.88, blend));
+    const variation = mix(1 - (config.ground.macroVariation ?? 0.2), 1.08, macro);
+    const bank = positionWorld.y.sub(config.water.position[1]).abs().smoothstep(0.2, 2.8).oneMinus();
+    const wet = wetness.max(bank.mul(0.65));
+    material.colorNode = mix(earth, earth.mul(vec3(0.7, 0.87, 0.56)), moss)
+      .mul(variation).mul(mix(0.94, 1.04, flecks)).mul(wet.mul(0.28).oneMinus());
+    material.roughnessNode = mix(mix(float(0.92), roughnessSample.max(0.55), blend), float(0.2), wet);
+  }
 
   const rainController = createRainController(material, baseNormal, config);
   material.userData = {
     ...material.userData,
     textures: [grassColor, groundColor, blendMask, groundNormal, groundRoughness],
+    setRainIntensity: (value) => {
+      wetness.value = value * (config.ground.wetness ?? 0.7);
+      rainController.setRain(value > 0.001);
+    },
     rippleScale: rainController.rippleScale,
     rippleSize: rainController.rippleSize,
     rippleThickness: rainController.rippleThickness,

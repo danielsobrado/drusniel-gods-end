@@ -13,7 +13,7 @@ function power2Out(value) {
 }
 
 export class LoadingUi {
-  constructor(root) {
+  constructor(root, presentation) {
     this.logoFillPercent = 0;
     this.logoAnimationFrame = null;
     this.revealAnimationFrame = null;
@@ -30,6 +30,12 @@ export class LoadingUi {
       </div>
       <button id="startButton" class="loading-start" type="button">START</button>`;
     root.appendChild(this.element);
+    if (presentation) {
+      this.element.classList.add('cinematic-loading');
+      this.element.querySelectorAll('.logo-outline, .logo-fill').forEach(element => { element.textContent = presentation.title; });
+      this.element.querySelector('.loading-logo').setAttribute('aria-label', presentation.title);
+      this.element.querySelector('#startButton').textContent = 'Enter the wilds';
+    }
 
     this.progressBar = this.element.querySelector('.progress-bar');
     this.percentLabel = this.element.querySelector('#percent-label');
