@@ -18,10 +18,13 @@ export async function createGrassTerrainData(renderer, terrain, resolution = DEF
   const maxHeight = bounds.max.y;
   const heightRange = Math.max(MIN_HEIGHT_RANGE, maxHeight - minHeight);
   const renderTarget = new THREE.RenderTarget(resolution, resolution, {
+    type: THREE.HalfFloatType,
     depthBuffer: true,
     stencilBuffer: false,
   });
   renderTarget.texture.colorSpace = THREE.NoColorSpace;
+  renderTarget.texture.minFilter = THREE.LinearFilter;
+  renderTarget.texture.magFilter = THREE.LinearFilter;
 
   const camera = new THREE.OrthographicCamera(
     -size.x * 0.5,

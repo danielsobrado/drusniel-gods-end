@@ -40,6 +40,7 @@ export class GrassField {
     this.tileBoxMax = new THREE.Vector3();
     this.emptyGrassTiles = new Set();
     this.mask = new GrassMask(config, terrainSampler);
+    this.containsGrass = (x, z) => this.mask.sampleRenderedWorld(x, z) > 0.001;
     this.interactionMap = new InteractionMap(config, terrainSampler);
     this.geometryFactory = new GrassGeometryFactory(config);
     this.geometries = {};
@@ -50,6 +51,7 @@ export class GrassField {
     this.painter = null;
     this.gridSizeX = 0;
     this.gridSizeZ = 0;
+    this.stats = { visibleTiles: 0, submittedBlades: 0, maskedBlades: 0 };
   }
 
   async init() {
@@ -102,6 +104,7 @@ export class GrassField {
   }
 
   #rebuildGeometries() {
+    for (const tile of this.tiles) tile.invalidate();
     const previous = this.geometries;
     const lod = this.#getQuality().lod;
     this.geometries = Object.fromEntries(LOD_ORDER.map((name) => [
@@ -123,7 +126,7 @@ export class GrassField {
       terrainSizeX: this.terrainSampler.size.x,
       terrainSizeZ: this.terrainSampler.size.z,
       tileSize: this.config.grass.tileSize,
-      maxDistance: this.config.grass.maxDistance,
+      maxDistance: this.#getQuality().maxDistance + this.config.grass.tileSize,
       painterEnabled: Boolean(this.config.painter.enabled),
     });
     this.gridSizeX = grid.gridSizeX;
@@ -150,8 +153,9 @@ export class GrassField {
     this.qualityName = name;
     this.#rebuildGeometries();
     this.materialController.setMaxDistance(this.#getQuality().maxDistance);
+    this.materialController.setLod(this.#getQuality());
 
-    if (initialize || this.tiles.length === 0) {
+    if (initialize || this.tiles.length === 0 || this.config.cinematic?.enabled) {
       this.#buildTilePool();
     } else {
       for (const tile of this.tiles) {
@@ -173,6 +177,11 @@ export class GrassField {
     this.materialController = this.materialControllers[type];
     this.#rebuildGeometries();
     this.materialController.setMaxDistance(this.#getQuality().maxDistance);
+    this.materialController.setLod(this.#getQuality());
+    if (this.config.cinematic?.enabled) {
+      this.#buildTilePool();
+      return;
+    }
     for (const tile of this.tiles) {
       const lodName = this.painter?.enabled
         ? PAINTER_LOD
@@ -203,6 +212,8 @@ export class GrassField {
   }
 
   remapEmptyTiles() {
+    for (const tile of this.tiles) tile.invalidate();
+    if (this.config.cinematic?.enabled) return;
     this.emptyGrassTiles = this.mask.createEmptyTileSet(
       this.terrainSampler.size.x,
       this.terrainSampler.size.z,
@@ -215,7 +226,8 @@ export class GrassField {
     const halfZ = Math.floor(this.gridSizeZ / 2);
     const tileSize = this.config.grass.tileSize;
     const halfTile = tileSize * 0.5;
-    let index = 0;
+    // Toroidal reuse: crossing one cell only recycles the outgoing row/column.
+    const wrap = (value, size) => ((value % size) + size) % size;
 
     for (let gridZ = 0; gridZ < this.gridSizeZ; gridZ += 1) {
       for (let gridX = 0; gridX < this.gridSizeX; gridX += 1) {
@@ -223,7 +235,8 @@ export class GrassField {
         const tileZ = centerTileZ + gridZ - halfZ;
         const x = this.terrainCenter.x + tileX * tileSize;
         const z = this.terrainCenter.z + tileZ * tileSize;
-        const tile = this.tiles[index];
+        const tile = this.tiles[wrap(tileZ, this.gridSizeZ) * this.gridSizeX + wrap(tileX, this.gridSizeX)];
+        if (tile.mesh.position.x === x && tile.mesh.position.z === z && tile.minHeight !== undefined) continue;
         tile.setPosition(x, z, tileX, tileZ);
 
         this.tileBox.set(
@@ -233,7 +246,6 @@ export class GrassField {
         const range = this.terrainSampler.getHeightRange(this.tileBox);
         tile.minHeight = range.min;
         tile.maxHeight = range.max;
-        index += 1;
       }
     }
   }
@@ -260,13 +272,13 @@ export class GrassField {
 
     this.camera.updateMatrixWorld();
     this.projectionView.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
-    this.frustum.setFromProjectionMatrix(this.projectionView);
+    this.frustum.setFromProjectionMatrix(this.projectionView, this.camera.coordinateSystem);
+    Object.assign(this.stats, { visibleTiles: 0, submittedBlades: 0, maskedBlades: 0 });
     this.materialController.setFrame(elapsedSeconds, this.camera.position);
     this.materialController.setViewProjection(this.projectionView);
 
     for (const tile of this.tiles) {
       const { x, z } = tile.mesh.position;
-      tile.update(deltaSeconds);
       if (!tileOverlapsTerrain(x, z, tileSize, bounds)) {
         tile.setVisible(false);
         continue;
@@ -290,17 +302,23 @@ export class GrassField {
       }
 
       tile.mesh.updateMatrixWorld();
-      const boundingBox = tile.mesh.geometry.boundingBox;
+      const boundingBox = this.geometries.high.boundingBox;
       if (!boundingBox) continue;
       this.tempBox.copy(boundingBox).applyMatrix4(tile.mesh.matrixWorld);
-      this.tempBox.min.y = tile.minHeight;
+      this.tempBox.min.y = tile.minHeight - bladeHeight;
       this.tempBox.max.y = tile.maxHeight + bladeHeight;
+      this.tempBox.expandByScalar(bladeHeight);
       tile.setVisible(this.frustum.intersectsBox(this.tempBox));
+      if (!tile.mesh.visible) continue;
 
       const lodName = painterEnabled
         ? PAINTER_LOD
         : selectGrassLod(distanceSquared, maxDistance, quality.lod);
-      tile.setGeometry(this.geometries[lodName], lodName);
+      tile.setGeometry(this.geometries[lodName], lodName, this.containsGrass);
+      if (tile.mesh.geometry.instanceCount === 0) tile.setVisible(false);
+      else this.stats.visibleTiles++;
+      this.stats.submittedBlades += tile.mesh.geometry.instanceCount;
+      this.stats.maskedBlades += this.geometries[lodName].instanceCount - tile.mesh.geometry.instanceCount;
     }
   }
 

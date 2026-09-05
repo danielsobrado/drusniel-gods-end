@@ -415,12 +415,31 @@ export class WaterSurface {
     if (this.reflectionInitialized && (distance > this.cinematic.reflectionDistance || this.reflectionElapsed < interval)) return;
     this.reflectionElapsed = 0;
     const camera = this.reflection.cubeCamera;
-    camera.position.set(this.nearest.x, this.mesh.position.y + 1, this.nearest.z);
+    // A fixed probe avoids a parallax jump on every refresh while walking.
+    // Fine grass uses main-view LOD/clipping and must not enter this cubemap.
+    camera.position.set(this.mesh.position.x, this.mesh.position.y + 1, this.mesh.position.z);
     const visible = this.mesh.visible;
+    const hidden = [];
+    const shadows = [];
+    this.scene.traverse((object) => {
+      if (object.visible && object.userData.excludeFromReflection) {
+        hidden.push(object);
+        object.visible = false;
+      }
+      if (object.isLight && object.shadow) {
+        shadows.push([object.shadow, object.shadow.autoUpdate]);
+        object.shadow.autoUpdate = false;
+      }
+    });
     this.mesh.visible = false;
     this.scene.add(camera);
     try { camera.update(this.renderer, this.scene); this.reflectionInitialized = true; }
-    finally { this.mesh.visible = visible; camera.removeFromParent(); }
+    finally {
+      this.mesh.visible = visible;
+      for (const object of hidden) object.visible = true;
+      for (const [shadow, autoUpdate] of shadows) shadow.autoUpdate = autoUpdate;
+      camera.removeFromParent();
+    }
   }
 
   setRainIntensity(value) {

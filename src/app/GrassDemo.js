@@ -137,7 +137,7 @@ export class GrassDemo {
       this.world.scene,
       this.world.renderer,
       this.world.terrain,
-      this.world.terrainSampler,
+      this.grass.grassTerrainData,
       this.config,
     );
     this.rain = new RainSystem(

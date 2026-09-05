@@ -40,7 +40,12 @@ function prepareTreeClone(root, source, leafMaterialFactory) {
   root.traverse((object) => {
     if (!object.isMesh) return;
     object.visible = true;
-    object.frustumCulled = false;
+    object.frustumCulled = true;
+    object.geometry.computeBoundingSphere();
+    object.boundingSphere = object.geometry.boundingSphere.clone();
+    // Per-object bounds leave the shared source geometry untouched. Allow
+    // generous shader wind movement so canopy tips never pop at the edge.
+    if (source.highLeavesName && object.name === source.highLeavesName) object.boundingSphere.radius += 10;
     object.castShadow = true;
     object.receiveShadow = true;
     object.userData.rainRoughness = TREE_RAIN_ROUGHNESS;

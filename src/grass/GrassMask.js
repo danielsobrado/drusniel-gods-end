@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { assetUrl } from '../assets/assetUrl.js';
+import { sampleGrassMask } from './sampleGrassMask.js';
 
 const EMPTY_MASK_VALUE = 255;
 const FULL_GRASS_MASK_VALUE = 0;
@@ -74,6 +75,15 @@ export class GrassMask {
     const py = THREE.MathUtils.clamp(Math.round(uv.y * (height - 1)), 0, height - 1);
     const rawMask = data[(py * width + px) * 4] / EMPTY_MASK_VALUE;
     return 1 - rawMask;
+  }
+
+  sampleRenderedWorld(x, z) {
+    if (!this.imageData) return 1;
+    const { min, max } = this.terrainSampler.bounds;
+    if (x < min.x || x > max.x || z < min.z || z > max.z) return 0;
+    const u = (x - min.x) / (max.x - min.x);
+    const v = (z - min.z) / (max.z - min.z);
+    return sampleGrassMask(this.imageData, u, this.texture.flipY ? 1 - v : v);
   }
 
   createEmptyTileSet(terrainSizeX, terrainSizeZ, tileSize) {

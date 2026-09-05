@@ -97,6 +97,7 @@ export class MeadowDetails {
       geometry.setAttribute('detailOrigin', new THREE.InstancedBufferAttribute(new Float32Array(count * 3), 3));
       const mesh = new THREE.InstancedMesh(geometry, material, count);
       mesh.name = `Meadow ${type}`;
+      mesh.userData.excludeFromReflection = true;
       mesh.count = 0;
       mesh.frustumCulled = false;
       mesh.receiveShadow = true;

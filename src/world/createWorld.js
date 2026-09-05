@@ -121,7 +121,6 @@ export async function createWorld(config, onProgress = () => {}) {
 
   onProgress('world');
   const terrainAsset = await loadTerrain(scene, config);
-  logger.info('Terrain assets decoded. Building height sampler.');
   const terrainAnimations = new TerrainAnimationSystem(
     terrainAsset.root,
     terrainAsset.animations,
@@ -129,7 +128,6 @@ export async function createWorld(config, onProgress = () => {}) {
 
   const terrainSampler = new TerrainSampler(terrainAsset.root, config);
   await terrainSampler.build();
-  logger.info('Terrain height sampler ready.');
 
   let groundMaterial;
   try {

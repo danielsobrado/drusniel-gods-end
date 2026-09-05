@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu';
 import {
   Fn,
+  cameraPosition,
   dot,
   float,
   floor,
@@ -10,6 +11,7 @@ import {
   sin,
   smoothstep,
   uniform,
+  uv,
   vec2,
   vec3,
   vec4,
@@ -31,9 +33,10 @@ export class CloudSystem {
   constructor(scene, config) {
     this.scene = scene;
     this.config = config.clouds;
+    this.cinematic = Boolean(config.cinematic?.enabled);
 
     const wind = this.config.wind;
-    this.followCamera = Boolean(this.config.followCamera);
+    this.followCamera = this.cinematic || Boolean(this.config.followCamera);
     this.camera = null;
 
     this.uniforms = {
@@ -101,7 +104,12 @@ export class CloudSystem {
         density,
       );
       const detail = smoothstep(float(0.25), float(0.75), fine);
-      const alpha = mask.mul(mix(float(0.7), float(1), detail)).mul(this.uniforms.opacity);
+      let alpha = mask.mul(mix(float(0.7), float(1), detail)).mul(this.uniforms.opacity);
+      if (this.cinematic) {
+        const edge = float(1).sub(smoothstep(0.28, 0.48, uv().sub(0.5).length()));
+        const elevation = positionWorld.sub(cameraPosition).normalize().y.abs();
+        alpha = alpha.mul(edge).mul(smoothstep(0.025, 0.12, elevation));
+      }
       const colorBlend = smoothstep(float(0.25), float(0.8), combined);
       const color = mix(
         vec3(...CLOUD_COLOR_DARK),

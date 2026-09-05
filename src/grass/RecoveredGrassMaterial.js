@@ -154,12 +154,6 @@ export class GrassMaterial {
       material.receivedShadowPositionNode = positionNode;
       this.#configureBladeMaterial(material, bladeUv, instanceData);
     }
-    if (this.config.cinematic?.enabled) {
-      const fade = uniform(1).onObjectUpdate(({ object }) => object.userData.lodFade ?? 1);
-      material.opacityNode = (material.opacityNode ?? float(1)).mul(fade);
-      material.alphaTestNode = float(0.01);
-      material.alphaHash = true;
-    }
     return material;
   }
 

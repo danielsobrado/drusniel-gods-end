@@ -1,16 +1,24 @@
 import {
   Fn,
+  If,
   attribute,
   cos,
+  float,
   mix,
   modelWorldMatrix,
   pow,
   sin,
+  smoothstep,
+  texture,
   uniform,
+  uniformArray,
   uv,
   vec2,
+  vec3,
   vec4,
 } from 'three/tsl';
+import { Vector4 } from 'three';
+import { LOD_ORDER } from './GrassFieldLayout.js';
 import {
   createCinematicWindFieldNode,
   getSharedWindUniforms,
@@ -47,6 +55,48 @@ export class GrassMaterial {
     this.cinematic = null;
 
     if (this.windConfig.model === CINEMATIC_MODEL) this.#installCinematicWind(config.grass[type]);
+    if (config.cinematic?.enabled) this.#installDistanceLod(terrainSampler);
+  }
+
+  #installDistanceLod(terrainSampler) {
+    this.lodBands = uniformArray(Array.from({ length: 4 }, () => new Vector4(1, 1, 0, 1)));
+    const terrain = terrainSampler.getShaderData();
+    const source = this.material.positionNode;
+    this.material.positionNode = Fn(() => {
+      const local = source.toVar();
+      const root = attribute('instancePosition', 'vec3');
+      const world = modelWorldMatrix.mul(vec4(root, 1)).xyz;
+      const distance = world.xz.sub(this.uniforms.cameraPosition.xz).length();
+      const rank = attribute('instanceData', 'vec4').y;
+      const coverage = float(1).toVar();
+      for (let i = 0; i < 4; i++) {
+        const band = this.lodBands.element(i); // end distance, upper/lower counts, fade width
+        If(rank.greaterThanEqual(band.z).and(rank.lessThan(band.y)), () => {
+          const order = band.y.sub(rank).div(band.y.sub(band.z).max(1));
+          const phase = smoothstep(band.x.sub(band.w), band.x, distance).mul(1.2);
+          coverage.assign(float(1).sub(smoothstep(order, order.add(0.2), phase)));
+        });
+      }
+      const terrainUv = world.xz.sub(this.uniforms.terrainMin.xz).div(this.uniforms.terrainSize.xz).clamp(0, 1);
+      const height = mix(this.uniforms.minHeight, this.uniforms.maxHeight, texture(terrain.texture, terrainUv).r);
+      const anchor = vec3(root.x, height, root.z);
+      // Shrink the complete deformed stem, including wind, into its own root.
+      // Never alpha-hash two coplanar tile meshes over one another.
+      local.assign(anchor.add(local.sub(anchor).mul(coverage)));
+      If(coverage.lessThanEqual(0), () => { local.assign(vec3(1e9)); });
+      return local;
+    })();
+    this.material.receivedShadowPositionNode = this.material.positionNode;
+  }
+
+  setLod(quality) {
+    if (!this.lodBands) return;
+    const counts = LOD_ORDER.map((name) => Math.floor(this.config.grass.tileSize * quality.lod[name].density) ** 2);
+    LOD_ORDER.forEach((name, index) => {
+      const end = quality.lod[name].distance * quality.maxDistance;
+      const previous = index === 0 ? 0 : quality.lod[LOD_ORDER[index - 1]].distance * quality.maxDistance;
+      this.lodBands.array[index].set(end, counts[index], counts[index + 1] ?? 0, Math.min(12, (end - previous) * 0.45));
+    });
   }
 
   #installCinematicWind(grass) {

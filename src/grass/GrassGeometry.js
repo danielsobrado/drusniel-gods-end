@@ -108,7 +108,7 @@ function createBillboardTemplate(detail) {
   return geometry;
 }
 
-function createInstanceBuffers(type, density, tileSize) {
+function createInstanceBuffers(type, density, tileSize, stable) {
   const gridCount = Math.floor(tileSize * density);
   const instancePositions = [];
   const instanceRotations = [];
@@ -117,18 +117,22 @@ function createInstanceBuffers(type, density, tileSize) {
   for (let gridX = 0; gridX < gridCount; gridX += 1) {
     for (let gridZ = 0; gridZ < gridCount; gridZ += 1) {
       const billboard = type === 'billboard';
+      const index = gridX * gridCount + gridZ;
       const jitterX = billboard ? Math.random() : hash2d(gridX, gridZ);
       const jitterZ = billboard ? Math.random() : hash2d(gridX + 1, gridZ);
       const rotationHash = billboard ? Math.random() : hash2d(gridX + 2, gridZ);
-      const x = -tileSize * 0.5 + (gridX + jitterX) / density;
-      const z = -tileSize * 0.5 + (gridZ + jitterZ) / density;
-      const angle = rotationHash * TWO_PI;
+      // Every prefix covers the tile; lower LODs keep the same stems.
+      const x = stable ? (fract(0.5 + (index + 1) * 0.7548776662466927 + (hash2d(index, 31) - 0.5) * 0.018) - 0.5) * tileSize
+        : -tileSize * 0.5 + (gridX + jitterX) / density;
+      const z = stable ? (fract(0.5 + (index + 1) * 0.5698402909980532 + (hash2d(index, 47) - 0.5) * 0.018) - 0.5) * tileSize
+        : -tileSize * 0.5 + (gridZ + jitterZ) / density;
+      const angle = (stable ? hash2d(index, 7) : rotationHash) * TWO_PI;
 
       instancePositions.push(x, 0, z);
       instanceRotations.push(Math.sin(angle), Math.cos(angle));
       instanceData.push(
-        billboard ? Math.floor(Math.random() * ATLAS_VARIANTS) : 0,
-        0,
+        billboard ? Math.floor((stable ? hash2d(index, 11) : Math.random()) * ATLAS_VARIANTS) : 0,
+        stable ? index : 0,
         gradientNoise2d(x * 0.2, z * 0.2) * TWO_PI,
         gradientNoise2d(x * (billboard ? 0.1 : 0.3), z * (billboard ? 0.1 : 0.3)),
       );
@@ -149,11 +153,12 @@ export function createGrassGeometry({
   density,
   tileSize,
   bladeHeight,
+  stable = false,
 }) {
   const baseGeometry = type === 'billboard'
     ? createBillboardTemplate(detail)
     : createBladeTemplate(detail);
-  const buffers = createInstanceBuffers(type, density, tileSize);
+  const buffers = createInstanceBuffers(type, density, tileSize, stable);
   const geometry = new THREE.InstancedBufferGeometry();
 
   geometry.index = baseGeometry.index;

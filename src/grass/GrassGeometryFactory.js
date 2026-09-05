@@ -12,6 +12,7 @@ export class GrassGeometryFactory {
       density,
       tileSize: this.config.grass.tileSize,
       bladeHeight: this.config.grass[type].bladeHeight,
+      stable: Boolean(this.config.cinematic?.enabled),
     });
   }
 }
