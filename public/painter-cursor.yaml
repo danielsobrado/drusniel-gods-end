@@ -1,0 +1,23 @@
+painter:
+  initialPaintValue: 83
+  orbitCameraHeight: 50
+  brush:
+    minRadius: 1
+    maxRadius: 100
+    keyboardStep: 2
+    terrainSpan: 370
+    strokeSpacing: 0.3
+  heightControl:
+    min: 1
+    max: 10
+    maskRange: 200
+  cursor:
+    innerRadius: 0.9
+    outerRadius: 1
+    segments: 32
+    opacity: 0.5
+    color: '#ffffff'
+  preview:
+    size: 256
+    top: 20
+    left: 20

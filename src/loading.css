@@ -1,0 +1,100 @@
+.loading-overlay {
+  --r: 0vmax;
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 18px;
+  padding: 28px;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 42%, #17252a 0, #071015 62%);
+  color: #eef4e8;
+  pointer-events: auto;
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 0 var(--r), #000 calc(var(--r) + 1px));
+  mask-image: radial-gradient(circle at 50% 50%, transparent 0 var(--r), #000 calc(var(--r) + 1px));
+}
+
+.loading-logo {
+  position: relative;
+  width: min(560px, 78vw);
+  height: clamp(46px, 8vw, 82px);
+  font-family: "Inter Display", Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(36px, 7vw, 72px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: .08em;
+  text-align: center;
+}
+
+.loading-logo > span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  white-space: nowrap;
+}
+
+.logo-outline {
+  color: rgba(238, 244, 232, .15);
+  -webkit-text-stroke: 1px rgba(238, 244, 232, .5);
+}
+
+.logo-fill {
+  color: #eef4e8;
+  clip-path: polygon(0 100%, 100% 100%, 100% 100%, 0 100%);
+}
+
+.loading-progress {
+  width: min(380px, 70vw);
+}
+
+.loading-progress-track {
+  width: 100%;
+  height: 3px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, .09);
+}
+
+.progress-bar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #b6ee43;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+.loading-overlay .loading-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 9px;
+  color: #b6ee43;
+  font-size: 11px;
+}
+
+.loading-start {
+  min-width: 132px;
+  margin-top: 4px;
+  padding: 10px 18px;
+  border-color: rgba(182, 238, 67, .45);
+  background: rgba(7, 16, 21, .68);
+  color: #b6ee43;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1s;
+}
+
+.loading-overlay.is-ready .loading-start {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.loading-start:disabled {
+  opacity: .55;
+}

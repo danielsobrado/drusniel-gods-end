@@ -1,0 +1,8 @@
+ground:
+  materialTargets:
+    - Landscape002
+    - Landscape046
+  grassTextureScale: 150
+  groundTextureScale: 70
+  anisotropy: 16
+  metalness: 0.5

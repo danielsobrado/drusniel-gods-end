@@ -1,0 +1,291 @@
+assets:
+  treeWorld: tree-world.json
+  worldProps: world-props.json
+ground:
+  applyToTerrain: true
+  rainRipple:
+    scale: 1.5
+    size: 0.38
+    thickness: 0.1
+    strength: 3
+    speed: 2
+    amount: 0.7
+terrain:
+  targetMeshName: Landscape002
+player:
+  start: [2, 5, -5]
+  modelScale: 1
+  modelOffsetY: 0
+  modelRotationY: 0
+  rainRoughness: 0.1
+  eyeHeight: 0.5
+  walkSpeed: 2.5
+  runSpeed: 15
+  jumpSpeed: 8
+  gravity: -25
+  turnSpeed: 18
+  motion:
+    acceleration: 20
+    deceleration: 16
+    animationFadeSeconds: 0.25
+camera:
+  fov: 45
+  near: 0.1
+  far: 10000
+  initialPosition: [11.7, 3, 11]
+  distance: 5
+  minDistance: 1.5
+  pitch: -0.25
+  controls:
+    initialYaw: 0
+    safariLookMultiplier: 8
+    mobileLookSensitivity: 0.015
+    mobileJoystickRadius: 55
+sky:
+  radius: 5000
+  widthSegments: 64
+  heightSegments: 32
+  horizonStart: -0.15
+  horizonEnd: 0.45
+clouds:
+  size: 5000
+  height: 120
+  coverage: 0.52
+  softness: 0.16
+  density: 1.01
+  speed: 0.1
+  wind: [1, 0.2]
+  opacity: 0.85
+  followCamera: false
+sun:
+  shadow:
+    mobileBreakpoint: 768
+    mobileMapSize: 1024
+    desktopMapSize: 4096
+    left: -100
+    right: 100
+    top: 100
+    bottom: -100
+    near: 0.5
+    far: 200
+    bias: -0.0001
+    normalBias: 0.03
+grass:
+  heightResolution: 1024
+  useTextureColor: false
+  initialLod:
+    high: { detail: 5, density: 4, distance: 0.3 }
+    medium: { detail: 2, density: 3, distance: 0.7 }
+    low: { detail: 1, density: 2, distance: 0.9 }
+    veryLow: { detail: 1, density: 1, distance: 0.9 }
+painter:
+  resolution: 1024
+trees:
+  highDistance: 170
+  billboardDistance: 500
+  highHysteresis: 8
+  billboardHysteresis: 10
+  transitionDuration: 1
+  lodUpdateInterval: 0.1
+  windSpeedMultiplier: 2
+  types:
+    - { high: Tree1_High, low: Tree1_Low, highLeaves: Leaves_LOD0, zones: [yellow], collider: { width: 1.2, height: 10, length: 1.2 } }
+    - { high: Tree2_High, low: Tree2_Low, highLeaves: Leaves_LOD0001, zones: [yellow], collider: { width: 0.3, height: 10, length: 0.3 } }
+    - { high: Tree3_High, low: Tree3_Low, highLeaves: Leaves_LOD0002, zones: [yellow], collider: { width: 1.2, height: 10, length: 1.2 } }
+    - { high: Tree4_High, low: Tree4_Low, highLeaves: Leaves_LOD0003, zones: [white], collider: { width: 1.8, height: 10, length: 1.8 } }
+    - { high: Tree5_High, low: Tree5_Low, highLeaves: Leaves_LOD0004, zones: [white], collider: { width: 2, height: 10, length: 2 } }
+    - { high: Tree6_High, low: Tree6_Low, highLeaves: Leaves_LOD0005, zones: [white], collider: { width: 1.8, height: 10, length: 1.8 } }
+    - { high: Tree7_High, low: Tree7_Low, highLeaves: Mesh_1001, zones: [green], collider: { width: 2, height: 10, length: 2 } }
+    - { high: Tree8_High, low: Tree8_Low, highLeaves: Mesh_1003, zones: [green], collider: { width: 2.5, height: 10, length: 2.5 } }
+    - { high: Tree9_High, low: Tree9_Low, highLeaves: Mesh_1004, zones: [green], collider: { width: 3, height: 10, length: 3 } }
+leaves:
+  windStrengthMultiplier: 1
+  spawnInterval: 0.015
+  fadeSpeed: 1.5
+  hiddenY: -10000
+  initialTimeMax: 100
+  drift:
+    min: 0.5
+    max: 2
+    speedMin: 0.4
+    speedMax: 1.4
+    zFrequencyScale: 0.73
+  float:
+    min: 0.4
+    max: 1.5
+    speedMin: 0.6
+    speedMax: 1.8
+  turbulence:
+    xFrequency: 0.37
+    zFrequency: 0.29
+    amplitude: 0.8
+    windCap: 1
+  rotationSpeed:
+    min: -3
+    max: 3
+  material:
+    alphaTest: 0.05
+    renderOrder: 2
+props:
+  stoneSourceName: Stone
+  lanternSourceName: Lantern
+  rainRoughness: 0.1
+  anisotropy: 16
+collisions:
+  activeDistance: 50
+  inactiveDistance: 70
+  trimeshObjects:
+    - WaterCollider
+    - HouseCollider
+  worldBounds:
+    - { position: [384, 0, 0], size: [1, 100, 840] }
+    - { position: [0, 0, 409], size: [820, 100, 1] }
+    - { position: [0, 0, -418], size: [840, 100, 1] }
+    - { position: [-415, 0, 0], size: [1, 100, 840] }
+water:
+  colliderName: WaterCollider
+  size: 400
+  segments: 128
+  position: [312.7059326171875, -17, 163.0625]
+  speed: 4
+  waveHeight: 0.35
+  swellHeight: 1
+  swellLength: 26.7
+  mediumHeight: 0.5
+  mediumLength: 8.3
+  smallHeight: 0.3
+  smallLength: 4.6
+  detailHeight: 0.085
+  detailLength: 2.42
+  microHeight: 0.05
+  microLength: 2
+  distortion: 1.45
+  reflectionStrength: 0.9
+  reflectionDistance: 1.2
+  reflectionResolution: 1024
+  reflectionNear: 0.1
+  reflectionFar: 1000
+  sunColor: '#ffffff'
+  sunDirection: [0.707, 0.8, 0.25]
+  sunStrength: 0
+  deepColor: '#07344a'
+  surfaceColor: '#033138'
+  reflectionColor: '#1c9199'
+  roughness: 0
+  metalness: 0.48
+  fresnelPower: 1
+  fresnelStrength: 1
+  rainRipples: true
+  rainRippleStrength: 3
+  rainRippleSize: 0.32
+  rainRippleSpeed: 2.25
+  rainRippleThickness: 0.08
+  rainRippleFade: 0.55
+  rainRippleDensity: 0.95
+  rainRippleRandomness: 0.82
+rain:
+  count: 10000
+  area: 20
+  top: 100
+  bottom: -100
+  speed: -45
+  windX: 0.8
+  windZ: 0.25
+  windStrength: 10
+  windStrengthMultiplier: 10
+  windVariation: 0.6
+  turbulence: 0.8
+  dropLength: 1.8
+  dropWidth: 0.035
+  opacity: 2
+  colorLinear: [0.78, 0.86, 1]
+  defaultRoughness: 0.2
+audio:
+  masterVolume: 1
+  ambientVolume: 0.35
+  environmentVolume: 1
+  presetFadeDuration: 1.5
+  transitionVolume: 0.3
+  ambient:
+    - { name: grassWind, sound: Assets/Audio/wind-loop2.mp3, volume: 0.25, loop: true, volumeVariation: 0.25, variationSpeed: 5 }
+    - { name: rain, sound: Assets/Audio/rain.mp3, volume: 0.8, loop: true, preset: rainy, volumeVariation: 0.08, variationSpeed: 1 }
+    - { name: nightInsects, sound: Assets/Audio/insects.mp3, volume: 0.35, loop: true, preset: moonlight, volumeVariation: 0.15, variationSpeed: 0.5 }
+  emitters:
+    - { name: lake, position: [250, 0, 149], sound: Assets/Audio/lake2.mp3, volume: 5, refDistance: 110, maxDistance: 150, rolloffFactor: 6, loop: true }
+  randomEmitters:
+    birds:
+      count: 100
+      sounds:
+        - Assets/Audio/bird1.mp3
+        - Assets/Audio/bird2.mp3
+        - Assets/Audio/bird3.mp3
+        - Assets/Audio/bird4.mp3
+        - Assets/Audio/bird5.mp3
+      position:
+        x: [-450, 450]
+        y: [0, 20]
+        z: [-450, 450]
+      volume: [1, 1.5]
+      radius: 100
+      refDistance: 8
+      maxDistance: 70
+      rolloffFactor: 1
+      minSoundCount: 1
+      maxSoundCount: 3
+      minDelay: [2, 6]
+      maxDelay: [6, 12]
+  presetRandomEmitters: []
+  footsteps:
+    grass:
+      sounds:
+        - Assets/Audio/grass-footstep4.mp3
+        - Assets/Audio/grass-footstep5.mp3
+        - Assets/Audio/grass-footstep6.mp3
+      volume: 0.1
+    mud:
+      sounds:
+        - Assets/Audio/mud-footstep1.mp3
+        - Assets/Audio/mud-footstep2.mp3
+        - Assets/Audio/mud-footstep3.mp3
+      volume: 0.2
+    water:
+      sounds:
+        - Assets/Audio/water-footstep1.mp3
+        - Assets/Audio/water-footstep2.mp3
+        - Assets/Audio/water-footstep3.mp3
+      volume: 0.5
+      proximityDistance: 100
+    minPitch: 0.95
+    maxPitch: 1.05
+    minStepInterval: 0.25
+    animation:
+      walk:
+        steps: [0.059880239520958084, 0.30538922155688625, 0.5508982035928144, 0.7964071856287425]
+      run:
+        steps: [0.32558139534883723, 0.813953488372093]
+    refDistance: 3
+    maxDistance: 20
+    rolloffFactor: 1.5
+    terrainTexture: Assets/blend2.jpg
+    grassThreshold: 0.5
+    terrainSize: 960
+    terrainOffsetX: 0
+    terrainOffsetZ: 0
+    footstepPredictionDistance: 2
+    terrainSampleRadius: 1
+  presets:
+    default: { ambient: {}, randomEmitters: { volumeMultiplier: 1, delayMultiplier: 1 } }
+    sunny: { ambient: { grassWind: { volumeMultiplier: 1 } }, randomEmitters: { volumeMultiplier: 1, delayMultiplier: 1 } }
+    goldenHour: { ambient: { grassWind: { volumeMultiplier: 0.8 } }, randomEmitters: { volumeMultiplier: 1, delayMultiplier: 1 } }
+    rainy: { ambient: { grassWind: { volumeMultiplier: 0.25 }, rain: { volumeMultiplier: 1 } }, randomEmitters: { volumeMultiplier: 0, delayMultiplier: 1 } }
+    windy: { ambient: { grassWind: { volumeMultiplier: 1.7 } }, randomEmitters: { volumeMultiplier: 1.1, delayMultiplier: 0.9 } }
+    calm: { ambient: { grassWind: { volumeMultiplier: 0.25 } }, randomEmitters: { volumeMultiplier: 0.4, delayMultiplier: 2.5 } }
+    bowed: { ambient: { grassWind: { volumeMultiplier: 0.55 } }, randomEmitters: { volumeMultiplier: 0.8, delayMultiplier: 1.4 } }
+    moonlight: { ambient: { grassWind: { volumeMultiplier: 0.3 }, nightInsects: { volumeMultiplier: 2 } }, randomEmitters: { volumeMultiplier: 0, delayMultiplier: 1 } }
+ui:
+  pixelRatio: 1
+  controls:
+    windStrength: { min: 0, max: 3, step: 0.1 }
+    grassHeight: { min: 0.5, max: 3, step: 0.1 }
+    simulationSpeed: { min: 0, max: 2, step: 0.05 }
+    pixelRatio: { min: 0.5, max: 2, step: 0.25 }

@@ -1,0 +1,33 @@
+{
+  "name": "grass-test",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "assets:split-terrain": "node scripts/split-terrain-glb.mjs",
+    "leaves:variants": "node scripts/generate-leaf-variants.mjs",
+    "predev": "npm run leaves:variants",
+    "dev": "vite",
+    "prebuild": "npm run leaves:variants",
+    "build": "vite build",
+    "preview": "vite preview",
+    "prelint": "npm run leaves:variants",
+    "lint": "eslint .",
+    "pretest": "npm run leaves:variants",
+    "test": "node --test",
+    "config:dump": "node scripts/dump-config.mjs",
+    "check:docs": "node scripts/check-docs-config.mjs",
+    "cf:dev": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.20.0",
+    "js-yaml": "^4.1.0",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "vite": "^7.1.4",
+    "wrangler": "^4.0.0"
+  }
+}

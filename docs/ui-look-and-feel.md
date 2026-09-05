@@ -1,0 +1,263 @@
+# UI Look and Feel
+
+This document separates UI behavior observed directly on the live reference demo from reconstruction-specific styling and tools.
+
+## Evidence priority
+
+For the public HUD, use this order:
+
+1. live reference DOM and visible text,
+2. recovered browser-delivered behavior,
+3. current implementation,
+4. screenshot inference.
+
+The current live reference page exposes the control structure and labels clearly. Exact original CSS source has not been recovered into this repository, so pixel-level CSS values remain reconstruction values unless explicitly identified as recovered elsewhere.
+
+## Source files
+
+```text
+src/ui/DemoUi.js
+src/ui/GrassPainterUi.js
+src/ui/LoadingUi.js
+src/styles.css
+```
+
+## Public reference control structure
+
+The live demo exposes this control order:
+
+```text
+Controls
+Preset
+Grass Type
+Quality
+Wind Strength
+Grass Height
+Simulation Speed
+Pixel Ratio
+Foot Interaction
+Join Waitlist
+```
+
+The reference does not use native HTML selects for the first three controls. The DOM contains a current value plus a set of button options.
+
+The reconstruction therefore uses custom choice menus for Preset, Grass Type and Quality.
+
+## Preset labels
+
+Reference labels are:
+
+```text
+Sunny
+Golden Hour
+Rain
+Wind
+Calm
+Bowed (Only Blades)
+Moon Light
+```
+
+Internal configuration keys remain:
+
+```text
+sunny
+goldenHour
+rainy
+windy
+calm
+bowed
+moonlight
+```
+
+The UI maps the two labels that differ from configuration display names without changing runtime preset keys.
+
+## Grass Type
+
+Reference options:
+
+```text
+Blade
+Billboard
+```
+
+Changing type updates the grass renderer and refreshes the visible wind, height and simulation-speed values from the currently selected preset.
+
+## Quality
+
+Reference options:
+
+```text
+Performance
+Balanced
+High
+Ultra
+```
+
+Selecting quality updates both grass quality and environment quality consumers through `GrassDemo` actions.
+
+## Live sliders
+
+The public HUD exposes four sliders:
+
+```text
+Wind Strength
+Grass Height
+Simulation Speed
+Pixel Ratio
+```
+
+Effective ranges are still configuration-driven:
+
+```yaml
+windStrength: { min: 0, max: 3, step: 0.1 }
+grassHeight: { min: 0.5, max: 3, step: 0.1 }
+simulationSpeed: { min: 0, max: 2, step: 0.05 }
+pixelRatio: { min: 0.5, max: 2, step: 0.25 }
+```
+
+The numeric output beside each slider is reconstruction UI; the runtime value is authoritative.
+
+## Foot Interaction
+
+The reference exposes a Foot Interaction control after the four sliders.
+
+The reconstruction keeps it as a checkbox and delegates to:
+
+```text
+GrassField.setInteractionEnabled(enabled)
+```
+
+Disabling interaction stops new interaction painting while existing influence can continue to recover.
+
+## Metrics
+
+The live reference exposes:
+
+```text
+FPS
+TRIS
+```
+
+The reconstruction keeps these as small top-right metrics and refreshes the displayed values approximately every 0.5 seconds.
+
+## Bottom HUD
+
+The live reference contains a brand image followed by these control hints:
+
+```text
+MOUSE  Look around
+WASD   Walk
+SHIFT  Run
+```
+
+It also exposes a second `JOIN WAITLIST` action and an `A product by techredux.co` link.
+
+The reconstruction restores this bottom-HUD structure. It uses a text wordmark rather than copying the reference logo asset into the repository.
+
+## Waitlist boundary
+
+The public reference page contains a waitlist modal and signup flow.
+
+This repository does not impersonate or duplicate that service. Both reconstructed waitlist actions open the official live demo in a new tab instead of collecting email addresses locally.
+
+This is an intentional product boundary, not a parity bug.
+
+## Grass Painter boundary
+
+The public live control panel does not expose a Grass Painter button in its visible DOM.
+
+The reconstructed demo keeps a small `Grass Painter` tool button because the recovered painter itself is a major parity subsystem and needs an accessible entry point during development and validation.
+
+Treat this button as a reconstruction/developer extension. The painter panel itself follows recovered painter behavior documented in `grass-painter.md`.
+
+## Choice menu behavior
+
+Each choice control has:
+
+```text
+label
+current-value trigger
+hidden option button list
+```
+
+Opening one menu closes the others. Clicking outside closes all menus. Selecting an option:
+
+1. updates the visible value,
+2. updates the active option state,
+3. closes the menu,
+4. invokes the corresponding runtime action.
+
+All window-level listeners are registered through an `AbortController` and removed by `DemoUi.dispose()`.
+
+## Current reconstruction styling
+
+The main panel remains intentionally secondary to the scene:
+
+```text
+compact typography
+translucent dark-green background
+soft backdrop blur
+low-contrast border
+lime interaction accent
+small top-right metrics
+```
+
+Current desktop geometry:
+
+```text
+controls top: 45px
+controls right: 28px
+controls width: 218px
+metrics top: 16px
+metrics right: 28px
+bottom HUD left: 28px
+footer right: 28px
+```
+
+These CSS measurements describe current reconstruction behavior. They are not claimed as recovered original CSS constants.
+
+## Mobile behavior
+
+At the reconstruction's `860px` CSS breakpoint:
+
+```text
+Controls becomes a compact toggleable right-side panel
+choice menus remain button-based
+control hints are hidden
+bottom product/waitlist footer is hidden
+text brand remains at bottom-left
+Grass Painter becomes a bottom sheet
+mask preview is hidden
+```
+
+The renderer/player mobile breakpoint remains separate at `768px`.
+
+## Loading UI
+
+`LoadingUi` is still a reconstruction loading screen, not a recovered copy of the public site's startup presentation.
+
+It reports application stages and fades away after shader compilation. Do not treat its current typography, gradient or timing as reference evidence.
+
+## Acceptance checklist
+
+Public-HUD parity should verify:
+
+- Preset is a button menu, not a native select,
+- Grass Type is a button menu,
+- Quality is a button menu,
+- preset labels include `Bowed (Only Blades)` and `Moon Light`,
+- four live sliders remain wired,
+- Foot Interaction remains wired,
+- Join Waitlist appears after Foot Interaction,
+- FPS and TRIS are visible when stats are enabled,
+- MOUSE / WASD / SHIFT hints are present on desktop,
+- bottom `JOIN WAITLIST` and product link are present on desktop,
+- external waitlist actions do not collect user data in this reconstruction,
+- closing/disposal removes window listeners,
+- Grass Painter remains clearly understood as a reconstruction/developer extension.
+
+## Reproduction rule
+
+Do not replace the public control structure with dat.GUI, lil-gui, Leva, native select boxes or a generic debug panel during parity work.
+
+When exact reference CSS becomes available, replace reconstruction styling from source evidence rather than visually tuning arbitrary values.

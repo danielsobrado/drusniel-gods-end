@@ -1,0 +1,122 @@
+audioDirectory: public/Assets/Audio
+sources:
+  - id: wind
+    page: https://opengameart.org/content/space-winds
+    file: space-wind.mp3
+    license: CC0
+    targets:
+      - wind-loop2_alt.mp3
+
+  - id: rain
+    page: https://opengameart.org/content/amb-rain-loop-1
+    file: amb_rain_loop_1.mp3
+    license: CC0
+    targets:
+      - rain_alt.mp3
+
+  - id: insects-ambient
+    page: https://opengameart.org/content/crickets-ambient-noise-loopable
+    file: crickets.mp3
+    license: CC0
+    targets:
+      - insects_alt.mp3
+
+  - id: lake
+    page: https://opengameart.org/content/sea-and-river-wave-sounds
+    file: VistulaShort.mp3
+    license: CC0
+    targets:
+      - lake2_alt.mp3
+
+  - id: transition
+    page: https://opengameart.org/content/game-menu-controller-sounds
+    file: weird_whoosh_sounds_-_whoosh_12.mp3
+    license: CC0
+    targets:
+      - transition_alt.mp3
+
+  - id: birds
+    page: https://opengameart.org/content/bird-chirping-sounds
+    file: birdchirping071414.mp3
+    license: CC0
+    targets:
+      - bird1_alt.mp3
+      - bird2_alt.mp3
+      - bird3_alt.mp3
+      - bird4_alt.mp3
+      - bird5_alt.mp3
+
+  - id: grass-footsteps
+    page: https://opengameart.org/content/water-splash-and-sand-footsteps
+    file: sand_footsteps.mp3
+    license: CC0
+    targets:
+      - grass-footstep1_alt.mp3
+      - grass-footstep2_alt.mp3
+      - grass-footstep3_alt.mp3
+      - grass-footstep4_alt.mp3
+      - grass-footstep5_alt.mp3
+      - grass-footstep6_alt.mp3
+
+  - id: mud-footstep-1
+    page: https://opengameart.org/content/slimy-monster-or-murder-sounds9
+    file: slimy_monster_or_murderd_sound_4.mp3
+    license: CC0
+    targets:
+      - mud-footstep1_alt.mp3
+
+  - id: mud-footstep-2
+    page: https://opengameart.org/content/slimy-monster-or-murder-sounds9
+    file: slimy_monster_or_murderd_sound_1.mp3
+    license: CC0
+    targets:
+      - mud-footstep2_alt.mp3
+
+  - id: mud-footstep-3
+    page: https://opengameart.org/content/slimy-monster-or-murder-sounds9
+    file: slimy_monster_or_murderd_sound_2.mp3
+    license: CC0
+    targets:
+      - mud-footstep3_alt.mp3
+
+  - id: water-footstep-1
+    page: https://opengameart.org/content/basic-sound-effects
+    file: splash1.mp3
+    license: CC0
+    targets:
+      - water-footstep1_alt.mp3
+
+  - id: water-footstep-2
+    page: https://opengameart.org/content/basic-sound-effects
+    file: splash2.mp3
+    license: CC0
+    targets:
+      - water-footstep2_alt.mp3
+
+  - id: water-footstep-3
+    page: https://opengameart.org/content/slime-jump-effect
+    file: slime_jump.mp3
+    license: CC0
+    targets:
+      - water-footstep3_alt.mp3
+
+  - id: insect-call-1
+    page: https://opengameart.org/content/cricket-sounds
+    file: cricketsounds090613.mp3
+    license: CC0
+    targets:
+      - insect1_alt.mp3
+
+  - id: insect-call-2
+    page: https://opengameart.org/content/crickets-ambient-noise-loopable
+    file: crickets.mp3
+    license: CC0
+    targets:
+      - insect2_alt.mp3
+
+  - id: insect-call-3
+    page: https://opengameart.org/content/cricket-sounds
+    file: cricketsounds090613.mp3
+    license: CC0
+    targets:
+      - insect3_alt.mp3

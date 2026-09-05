@@ -1,0 +1,38 @@
+camera:
+  distance: 5
+  minDistance: 1.5
+  pitch: -0.25
+  controls:
+    initialYaw: 0
+    targetHeight: 1
+    cameraHeight: 4
+    shoulderOffset: 1.2
+    mobileBreakpoint: 768
+    mobileDistance: 7
+    desktopDistance: 5
+    mobileTargetOffset: 0.8
+    desktopTargetOffsetFactor: 0.001
+    mouseSensitivity: 0.001
+    dragSensitivityX: 0.005
+    dragSensitivityY: 0.004
+    minPitch: -0.8
+    maxPitch: 0.7
+    zoomSensitivity: 0.01
+    followSharpness: 8
+    zoomSharpness: 12
+    terrainClearance: 0.4
+    pointerLockOnClick: true
+player:
+  modelScale: 1
+  modelOffsetY: 0
+  modelRotationY: 0
+  motion:
+    acceleration: 20
+    deceleration: 16
+    stopSpeed: 0.06
+    runStateThreshold: 0.85
+    animationFadeSeconds: 0.25
+    walkAnimationRate: 1
+    runAnimationRate: 1
+    minAnimationRate: 0.72
+    maxAnimationRate: 1.18

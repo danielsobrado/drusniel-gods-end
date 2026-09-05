@@ -1,0 +1,3 @@
+player:
+  # Drunsiel Warden is authored smaller than the previous player asset.
+  modelScale: 1.35
