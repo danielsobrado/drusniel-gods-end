@@ -6,7 +6,9 @@
 
 The active GrassDemo owns CinematicLighting, CinematicPipeline, MeadowDetails, and ScenicTour. The default uses one compact 110-unit shadow region. Setting `cinematic.shadows.cascades` above one enables practical, fading cascades on WebGPU desktop over the configured distance. CSM is initialized with the gameplay camera before any reflection is captured. Resizing refreshes its frustums.
 
-The scene uses exponential height-dependent fog whose color and density follow the active weather. Grass and tree leaves receive a small directional transmission approximation; it follows the sun's direction, color and intensity. It is an artistic approximation rather than full subsurface scattering.
+The scene uses exponential height-dependent fog whose color and density follow the active weather. At long range its color converges to the same directional sky gradient, so fully obscured background mountains do not leave a flat polygon silhouette. The cinematic sky horizon starts at the weather's mist color. Sky centering updates world matrices immediately, including parented reflection cameras. Grass and tree leaves receive a small directional transmission approximation; it follows the sun's direction, color and intensity. It is an artistic approximation rather than full subsurface scattering.
+
+The separate `Landscape046` backdrop fades in dense fog without writing depth, allowing clouds through after the hills are obscured. The walkable terrain retains opaque depth. Wind noise declares its scalar return type to prevent repeated nested type inference when the first reflection encounters additional tree materials.
 
 The post-processing graph adds half-resolution GTAO, restrained bloom, saturation adjustment, a light vignette, and FXAA. Performance quality bypasses AO and bloom. Balanced reduces AO strength and halves reflection refresh frequency. GTAO affects shading; visibility culling is separate.
 

@@ -27,6 +27,12 @@ test('sky matches recovered geometry and follows the render camera', () => {
     camera.position.set(12, 34, 56);
     sky.mesh.onBeforeRender(null, scene, camera);
     assert.deepEqual(sky.mesh.position.toArray(), [12, 34, 56]);
+    assert.deepEqual(new THREE.Vector3().setFromMatrixPosition(sky.mesh.matrixWorld).toArray(), [12, 34, 56]);
+    const parent = new THREE.Group();
+    parent.position.set(100, 0, -200);
+    parent.add(camera);
+    sky.mesh.onBeforeRender(null, scene, camera);
+    assert.deepEqual(sky.mesh.position.toArray(), [112, 34, -144], 'reflection camera uses its world position');
   } finally {
     sky.dispose();
   }

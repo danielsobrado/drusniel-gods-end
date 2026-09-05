@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu';
-import { fog, uniform, positionWorld, positionView, cameraPosition, mix, dot } from 'three/tsl';
+import { fog, uniform, positionWorld, positionView, cameraPosition, mix, dot, smoothstep, float } from 'three/tsl';
 import { CSMShadowNode } from 'three/addons/csm/CSMShadowNode.js';
 
 // Shared by leaves, grass and atmosphere; updated from the active weather preset.
@@ -22,10 +22,27 @@ export class CinematicLighting {
     const height = positionWorld.y.add(cameraPosition.y).mul(0.5);
     const lowMist = height.sub(atmosphere.height).mul(-atmosphere.falloff).exp().clamp(0.08, 2);
     const density = this.fogDensity.add(lowMist.mul(atmosphere.density));
-    const factor = distance.mul(density).pow(2).negate().exp().oneMinus().clamp(0, 0.98);
+    const factor = distance.mul(density).pow(2).negate().exp().oneMinus().clamp(0, 1);
     const towardSun = dot(positionWorld.sub(cameraPosition).normalize(), foliageLight.direction).max(0).pow(8);
     const mistColor = mix(this.fogColor, foliageLight.color, towardSun.mul(0.16));
-    world.scene.fogNode = fog(mistColor, factor);
+    const farColor = world.sky?.getColorNode(positionWorld.sub(cameraPosition).normalize()) ?? mistColor;
+    world.scene.fogNode = fog(mix(mistColor, farColor, smoothstep(350, 1000, distance)), factor);
+    const backdrop = world.terrain?.getObjectByName('Landscape046');
+    if (backdrop?.isMesh && backdrop !== world.terrainTarget) {
+      this.backdrop = backdrop;
+      this.backdropOriginal = backdrop.material;
+      const originals = Array.isArray(backdrop.material) ? backdrop.material : [backdrop.material];
+      this.backdropMaterials = originals.map(original => {
+        const material = world.renderer.library.fromMaterial(original.clone());
+        material.transparent = true;
+        material.depthWrite = false;
+        // An opaque, fully fogged hill still cuts a polygon out of the cloud
+        // layer. Fade only the non-walkable background mesh in dense fog.
+        material.opacityNode = float(original.opacity).mul(float(1).sub(smoothstep(0.85, 1, factor)));
+        return material;
+      });
+      backdrop.material = Array.isArray(backdrop.material) ? this.backdropMaterials : this.backdropMaterials[0];
+    }
     world.renderer.toneMappingExposure = settings.exposure;
     if (settings.shadows.cascades > 1 && window.innerWidth >= 768 && world.renderer.backend.isWebGPUBackend) {
       world.sun.shadow.mapSize.setScalar(settings.shadows.mapSize);
@@ -63,6 +80,8 @@ export class CinematicLighting {
   }
 
   dispose() {
+    if (this.backdrop) this.backdrop.material = this.backdropOriginal;
+    for (const material of this.backdropMaterials ?? []) material.dispose();
     this.csm?.dispose();
     this.world.scene.fogNode = null;
   }

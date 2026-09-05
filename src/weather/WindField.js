@@ -298,6 +298,8 @@ export function sampleCinematicWindCpu({
   };
 }
 
+// Keep the return type explicit: nested domain warps otherwise expand this
+// expression repeatedly during type inference for newly seen reflection trees.
 const gradientNoise2dNode = Fn(([point]) => {
   const cell = floor(point).toVar();
   const local = fract(point).toVar();
@@ -315,7 +317,7 @@ const gradientNoise2dNode = Fn(([point]) => {
   const x0 = mix(gradientDot(vec2(0, 0)), gradientDot(vec2(1, 0)), fade.x);
   const x1 = mix(gradientDot(vec2(0, 1)), gradientDot(vec2(1, 1)), fade.x);
   return mix(x0, x1, fade.y).add(0.5);
-});
+}, 'float');
 
 function windWarpNode(positionXZ, timeNode, prevailing, simulationSpeed, noiseScale, warp) {
   if (!(warp.amplitude > 0)) return vec2(0, 0);
