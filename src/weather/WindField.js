@@ -210,18 +210,21 @@ export function sampleCinematicWindCpu({
     z: Math.sin(localAngle),
   };
 
-  const large = sampleLayerCpu(x, z, time, direction, simulationSpeed, noiseScale, params.large);
+  // Layers advect along the prevailing direction, never the wobbled local one: the offset is
+  // `direction * elapsedTime`, so a time-varying direction would displace the sample by an amount
+  // that grows with elapsed time and make the wind appear to speed up indefinitely.
+  const large = sampleLayerCpu(x, z, time, prevailing, simulationSpeed, noiseScale, params.large);
   const previousLarge = sampleLayerCpu(
     x,
     z,
     time - params.gust.inertiaSeconds,
-    direction,
+    prevailing,
     simulationSpeed,
     noiseScale,
     params.large,
   );
-  const medium = sampleLayerCpu(x, z, time, direction, simulationSpeed, noiseScale, params.medium) * 2 - 1;
-  const flutter = sampleLayerCpu(x, z, time, direction, simulationSpeed, noiseScale, params.flutter) * 2 - 1;
+  const medium = sampleLayerCpu(x, z, time, prevailing, simulationSpeed, noiseScale, params.medium) * 2 - 1;
+  const flutter = sampleLayerCpu(x, z, time, prevailing, simulationSpeed, noiseScale, params.flutter) * 2 - 1;
 
   const gust = smoothstepCpu(params.gust.threshold, params.gust.peak, large) ** params.gust.exponent;
   const previousGust = smoothstepCpu(
@@ -299,11 +302,12 @@ export function createCinematicWindFieldNode({
   );
   const direction = vec2(cos(localAngle), sin(localAngle));
 
-  const large = sampleLayerNode(positionXZ, timeNode, direction, simulationSpeed, noiseScale, params.large);
+  // Advect along `prevailing`, not `direction` — see the note in sampleCinematicWindCpu.
+  const large = sampleLayerNode(positionXZ, timeNode, prevailing, simulationSpeed, noiseScale, params.large);
   const previousLarge = sampleLayerNode(
     positionXZ,
     timeNode.sub(params.gust.inertiaSeconds),
-    direction,
+    prevailing,
     simulationSpeed,
     noiseScale,
     params.large,
@@ -311,7 +315,7 @@ export function createCinematicWindFieldNode({
   const medium = sampleLayerNode(
     positionXZ,
     timeNode,
-    direction,
+    prevailing,
     simulationSpeed,
     noiseScale,
     params.medium,
@@ -319,7 +323,7 @@ export function createCinematicWindFieldNode({
   const flutter = sampleLayerNode(
     positionXZ,
     timeNode,
-    direction,
+    prevailing,
     simulationSpeed,
     noiseScale,
     params.flutter,

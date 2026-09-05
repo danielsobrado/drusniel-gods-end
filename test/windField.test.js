@@ -82,3 +82,37 @@ test('shared wind state carries preset direction and spatial scale to other syst
     simulationSpeed: 0.9,
   });
 });
+
+test('gust cadence stays stationary as elapsed time grows', () => {
+  const sampleWindow = (startTime) => {
+    const seconds = 60;
+    const step = 1 / 60;
+    let previousStrength = null;
+    let previousSign = null;
+    let reversals = 0;
+    for (let index = 0; index * step < seconds; index += 1) {
+      const { strength } = sampleCinematicWindCpu({
+        x: 12.5,
+        z: -7.25,
+        time: startTime + index * step,
+      });
+      if (previousStrength !== null) {
+        const sign = Math.sign(strength - previousStrength);
+        if (previousSign !== null && sign !== 0 && sign !== previousSign) reversals += 1;
+        if (sign !== 0) previousSign = sign;
+      }
+      previousStrength = strength;
+    }
+    return reversals / seconds;
+  };
+
+  // Advecting along a time-varying direction displaces the noise sample by `wobble * elapsedTime`,
+  // which made the wind accelerate without bound (~0.45 reversals/s at t=0, ~15/s an hour in).
+  const atStart = sampleWindow(0);
+  const afterAnHour = sampleWindow(3600);
+  const afterADay = sampleWindow(86400);
+
+  assert.ok(atStart > 0, 'wind should vary at all');
+  assert.ok(afterAnHour < atStart * 3, `cadence drifted after an hour: ${atStart} -> ${afterAnHour}`);
+  assert.ok(afterADay < atStart * 3, `cadence drifted after a day: ${atStart} -> ${afterADay}`);
+});

@@ -11,8 +11,8 @@ characters:
   roster:
     - id: drusniel
       name: Drusniel
-      title: Warden of the Wilds
-      blurb: Tall, long-striding, at home in deep grass.
+      title: Dark Elf in the Wilds
+      blurb: Tall, long-striding, looking for adventure.
       model: Assets/Drusniel_Dark_Elf.glb
       player:
         targetHeight: 5.0
