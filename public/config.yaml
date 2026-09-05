@@ -32,9 +32,9 @@ assets:
     - trees/tree7: Assets/terrain/trees/tree7.glb
     - trees/tree8: Assets/terrain/trees/tree8.glb
     - trees/tree9: Assets/terrain/trees/tree9.glb
-  player: Assets/Drunsiel_Warden_biped_Animation_Running_withSkin.glb
+  player: Assets/Drusniel_Dark_Elf.glb
   environmentHdr: Assets/zwartkops_straight_morning_1k.hdr
-  dracoDecoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.6/
+  dracoDecoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.7/
   grassMask: Assets/blend2.jpg
   grassTexture: Assets/grass.jpg
   ground:
@@ -169,7 +169,7 @@ player:
   capsuleRadius: 0.7
   animations:
     idle: null
-    walk: Armature|running|baselayer
+    walk: Armature|walking_man|baselayer
     run: Armature|running|baselayer
 water:
   objectName: LakeWater

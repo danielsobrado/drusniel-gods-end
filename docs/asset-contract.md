@@ -66,7 +66,7 @@ public/
       props/
       colliders/
       fauna/
-    Drunsiel_Warden_biped_Animation_Running_withSkin.glb
+    Drusniel_Dark_Elf.glb
     blend2.jpg
     grass.jpg
     zwartkops_straight_morning_1k.hdr
@@ -393,7 +393,7 @@ Its world bounds are used for water-footstep classification and it also particip
 Current file:
 
 ```text
-Assets/Drunsiel_Warden_biped_Animation_Running_withSkin.glb
+Assets/Drusniel_Dark_Elf.glb
 ```
 
 Effective runtime visual transform:
@@ -416,7 +416,7 @@ Configured:
 
 ```yaml
 idle: null
-walk: Armature|running|baselayer
+walk: Armature|walking_man|baselayer
 run: Armature|running|baselayer
 ```
 

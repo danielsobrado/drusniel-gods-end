@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-const buffer = await readFile('public/Assets/Drunsiel_Warden_biped_Animation_Running_withSkin.glb');
+const buffer = await readFile('public/Assets/Drusniel_Dark_Elf.glb');
 const gltf = JSON.parse(buffer.subarray(20, 20 + buffer.readUInt32LE(12)).toString());
 console.log(JSON.stringify({
   animations: gltf.animations?.map(a => ({ name: a.name, channels: a.channels.length })),

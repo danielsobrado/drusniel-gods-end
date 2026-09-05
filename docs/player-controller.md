@@ -67,7 +67,7 @@ scene
        |
        +-- placeholder capsule, initially visible
        |
-       +-- Drunsiel Warden GLB, after load
+       +-- Drusniel dark elf GLB, after load
             scale / local offset / local orientation
             skeleton
             skinned character mesh
@@ -121,7 +121,7 @@ The placeholder capsule is visual only. Rapier uses the configured `capsuleHalfH
 Configured asset:
 
 ```text
-Assets/Drunsiel_Warden_biped_Animation_Running_withSkin.glb
+Assets/Drusniel_Dark_Elf.glb
 ```
 
 Loader stack:
@@ -186,11 +186,11 @@ Configured names:
 player:
   animations:
     idle: null
-    walk: Armature|running|baselayer
+    walk: Armature|walking_man|baselayer
     run: Armature|running|baselayer
 ```
 
-Actions are indexed by their exact exported clip names. The Warden provides one movement clip, shared by the walk and run states. A null idle mapping fades the current action out to the static asset pose.
+Actions are indexed by their exact exported clip names. The dark elf asset provides an authored walk and an authored run, so the two states use different clips. A null idle mapping fades the current action out to the static asset pose.
 
 The mixer is:
 
@@ -516,7 +516,7 @@ A correct recreation should satisfy all of these:
 - use walk 2.5 and run 15,
 - use linear acceleration 20 / deceleration 16,
 - use turn speed 18,
-- share `Armature|running|baselayer` for walk/run and fade it out for idle,
+- map walk to `Armature|walking_man|baselayer` and run to `Armature|running|baselayer`, fading out for idle,
 - preserve the FootSphere/fallback influence logic,
 - expose movement/surface state to audio rather than choosing sounds in the player class.
 

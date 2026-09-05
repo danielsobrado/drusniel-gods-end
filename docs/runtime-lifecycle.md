@@ -68,7 +68,7 @@ After the renderer canvas is attached:
 loading stage: player
 PlayerController
 Rapier player physics
-Drunsiel Warden GLB + movement animation
+Drusniel dark elf GLB + movement animation
 
 loading stage: collision
 WorldCollisionSystem

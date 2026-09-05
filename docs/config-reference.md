@@ -132,7 +132,7 @@ capsuleHalfHeight: 1
 capsuleRadius: 0.7
 animations:
   idle: null
-  walk: Armature|running|baselayer
+  walk: Armature|walking_man|baselayer
   run: Armature|running|baselayer
 motion:
   acceleration: 20

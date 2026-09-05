@@ -176,7 +176,7 @@ Important assets include:
 
 ```text
 terrain/**/*.glb   (the split parts of the authored terrain2.glb)
-Drunsiel_Warden_biped_Animation_Running_withSkin.glb
+Drusniel_Dark_Elf.glb
 blend2.jpg
 grass.jpg
 zwartkops_straight_morning_1k.hdr
@@ -400,13 +400,13 @@ armour
 embedded animation clips
 ```
 
-Load `Drunsiel_Warden_biped_Animation_Running_withSkin.glb` with Draco support.
+Load `Drusniel_Dark_Elf.glb` with Draco support.
 
 Animation mapping:
 
 ```yaml
 idle: null
-walk: Armature|running|baselayer
+walk: Armature|walking_man|baselayer
 run: Armature|running|baselayer
 ```
 

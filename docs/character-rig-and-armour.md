@@ -1,6 +1,6 @@
 # Character Rig and Animation
 
-This document describes the current Drunsiel Warden player asset and how the runtime integrates it.
+This document describes the current Drusniel dark elf player asset and how the runtime integrates it.
 
 ## Playable roster
 
@@ -13,9 +13,9 @@ characters:
   default: drusniel
   roster:
     - id: drusniel
-      model: Assets/Drunsiel_Warden_biped_Animation_Running_withSkin.glb
+      model: Assets/Drusniel_Dark_Elf.glb
     - id: enanillo
-      model: Assets/Enanillo_Dwarven_Running_withSkin.glb
+      model: Assets/Enanillo_Dwarven.glb
 ```
 
 `src/config/characterRoster.js` applies the selection by rewriting `assets.player`
@@ -32,7 +32,7 @@ The configured player asset is:
 
 ```yaml
 assets:
-  player: Assets/Drunsiel_Warden_biped_Animation_Running_withSkin.glb
+  player: Assets/Drusniel_Dark_Elf.glb
 ```
 
 `PlayerController.loadModel()` loads it through `GLTFLoader` with the configured Draco decoder. The imported `gltf.scene` remains intact as a visual child of `PlayerController.root`.
@@ -71,7 +71,7 @@ The GLB currently contains:
 mesh: char1
 skin: Armature
 joints: 24
-animation: Armature|running|baselayer
+animations: Armature|running|baselayer, Armature|walking_man|baselayer
 ```
 
 Skin indices, weights, inverse bind matrices, animation tracks, and bone hierarchy all come from the GLB.
@@ -82,11 +82,11 @@ Skin indices, weights, inverse bind matrices, animation tracks, and bone hierarc
 ```yaml
 animations:
   idle: null
-  walk: Armature|running|baselayer
+  walk: Armature|walking_man|baselayer
   run: Armature|running|baselayer
 ```
 
-The asset contains one movement clip, so walking and running share it. When the player stops, the controller fades out the movement action and returns to the GLB's static pose. The mixer advances once per player update with `deltaSeconds`.
+The asset contains both movement clips, so walking and running use their own. When the player stops, the controller fades out the movement action and returns to the GLB's static pose. The mixer advances once per player update with `deltaSeconds`.
 
 Animation does not provide world translation. `PlayerController` moves the gameplay root, keeping the animation in place relative to that root.
 
@@ -110,9 +110,28 @@ Optional animated helper meshes can be named through `player.influenceObjects`; 
 Both shipped characters are the same 24-joint armature with the same bone names, so
 a clip authored against one skin binds by name and plays on the other. A roster entry
 lists such borrowed clips in `player.animationSources`, and `PlayerController` merges
-them into the mixer alongside the clips in the character's own GLB. Enanillo uses this
-to get an authored walk from `Enanillo_Dwarven_Walking_withSkin.glb`; Drusniel has no
-authored walk and keeps the procedural `Cinematic_walk` fallback.
+them into the mixer alongside the clips in the character's own GLB.
+
+Borrowing at runtime costs a whole extra GLB fetch, which is only worth it when the
+clip genuinely lives with another character. Neither shipped character needs it any
+more, so both roster entries carry an empty `animationSources`.
+
+Each character was authored as a separate GLB per clip, which meant shipping the skin
+and its texture once per animation. `scripts/merge-glb-animations.mjs` rebinds clips
+by bone name at build time so the skin ships once, then compresses the result with
+Draco geometry and a WebP texture:
+
+| Asset | Authored as | Ships as |
+| --- | --- | --- |
+| `Enanillo_Dwarven.glb` | 2 files, 23.4 MB | 1.2 MB |
+| `Drusniel_Dark_Elf.glb` | 3 files, 47.4 MB | 1.6 MB |
+
+Drusniel's third file was an earlier export of the same geometry with different skin
+weights and a different run cycle; the Frostveil export superseded it. Both merged
+assets carry `Armature|running|baselayer` and `Armature|walking_man|baselayer`, which
+is why Drusniel now has an authored walk instead of reusing the run clip at walking
+speed. Neither compression format needs loader changes: `PlayerController` already
+attaches a `DRACOLoader`, and `GLTFLoader` handles `EXT_texture_webp` natively.
 
 ## Implementation boundaries
 

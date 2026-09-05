@@ -61,7 +61,7 @@ test('applying the default character leaves the shipped player config untouched'
   const character = applyCharacter(config, defaultCharacterId(config));
 
   assert.equal(character.id, 'drusniel');
-  assert.equal(config.assets.player, 'Assets/Drunsiel_Warden_biped_Animation_Running_withSkin.glb');
+  assert.equal(config.assets.player, 'Assets/Drusniel_Dark_Elf.glb');
   assert.equal(config.player.targetHeight, before.targetHeight);
   assert.deepEqual(config.player.animations, before.animations);
   assert.equal(config.characters.selected, 'drusniel');
@@ -74,9 +74,10 @@ test('applying Enanillo swaps the model, the proportions and the walk clip', asy
   assert.equal(character.id, 'enanillo');
   // Both rigs share a forward axis, so facing stays a global setting.
   assert.equal(config.player.modelRotationY, 0);
-  assert.equal(config.assets.player, 'Assets/Enanillo_Dwarven_Running_withSkin.glb');
+  assert.equal(config.assets.player, 'Assets/Enanillo_Dwarven.glb');
   assert.ok(config.player.targetHeight < 5, 'the dwarf should be shorter than the warden');
-  assert.deepEqual(config.player.animationSources, ['Assets/Enanillo_Dwarven_Walking_withSkin.glb']);
+  // Both clips are baked into the one GLB, so nothing is borrowed at runtime.
+  assert.deepEqual(config.player.animationSources, []);
   assert.equal(config.player.animations.walk, 'Armature|walking_man|baselayer');
   assert.equal(config.player.animations.run, 'Armature|running|baselayer');
 });

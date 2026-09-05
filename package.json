@@ -26,7 +26,12 @@
     "three": "^0.180.0"
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.5.0",
+    "@gltf-transform/extensions": "^4.5.0",
+    "@gltf-transform/functions": "^4.5.0",
+    "draco3dgltf": "^1.5.7",
     "eslint": "^9.0.0",
+    "sharp": "^0.35.4",
     "vite": "^7.1.4",
     "wrangler": "^4.0.0"
   }
