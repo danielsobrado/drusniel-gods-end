@@ -413,18 +413,18 @@ detailLength: 2.42
 microHeight: 0.05
 microLength: 2
 distortion: 1.45
-reflectionStrength: 0.65
+reflectionStrength: 0.45
 reflectionDistance: 1.2
 reflectionResolution: 1024
 reflectionNear: 0.1
 reflectionFar: 1000
 sunColor: '#ffffff'
 sunDirection: [0.707, 0.8, 0.25]
-sunStrength: 0.65
-deepColor: '#102e34'
-surfaceColor: '#427065'
+sunStrength: 0.45
+deepColor: '#18677d'
+surfaceColor: '#5dbbb1'
 reflectionColor: '#1c9199'
-roughness: 0.16
+roughness: 0.24
 metalness: 0
 fresnelPower: 4
 fresnelStrength: 1

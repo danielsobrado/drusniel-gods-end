@@ -1,7 +1,22 @@
 # Art direction and effect budgets. Loaded after the recovered visual settings.
 cinematic:
   enabled: true
-  exposure: 0.95
+  exposure: 1.05
+  style:
+    enabled: true
+    grassRootBrightness: 0.9
+    grassGradientPower: 2.6
+    grassFill: 0.06
+    grassBacklight: 0.85
+    meadowPatchScale: 0.035
+    groundTipMix: 0.12
+    bladeWidthScale: 0.82
+    bladeCurve: 0.045
+    foliageFill: 0.28
+    canopyShadow: '#286746'
+    canopyLight: '#8cb75a'
+    canopyTint: 0.9
+    groundPath: '#b7a476'
   occlusion:
     enabled: true
     minTriangles: 256
@@ -15,17 +30,19 @@ cinematic:
     cascades: 1
     distance: 180
     mapSize: 2048
+    intensity: 0.72
+    radius: 2.5
   atmosphere:
     height: 10
-    falloff: 0.08
-    density: 0.0018
+    falloff: 0.05
+    density: 0.00065
   post:
-    aoStrength: 0.38
-    aoRadius: 1.4
-    bloomStrength: 0.12
-    bloomThreshold: 1.8
-    saturation: 0.94
-    vignette: 0.12
+    aoStrength: 0.18
+    aoRadius: 0.85
+    bloomStrength: 0.09
+    bloomThreshold: 2.1
+    saturation: 1.02
+    vignette: 0.045
   vegetation:
     count: 3200
     radius: 95
@@ -56,38 +73,39 @@ leaves:
 presets:
   goldenHour:
     grass:
-      blade: { baseColor: '#263a1f', tipColor: '#839452', sheen: 0.16 }
-      billboard: { baseColor: '#263a1f', tipColor: '#839452', sheen: 0.16 }
+      blade: { baseColor: '#50852b', tipColor: '#a6bf65', sheen: 0.055 }
+      billboard: { baseColor: '#50852b', tipColor: '#a6bf65', sheen: 0.055 }
     lighting:
-      color: '#ffe2b0'
-      directionalIntensity: 3.5
-      position: [-28, 45, -30]
-      hemisphereSkyColor: '#a6becb'
-      hemisphereGroundColor: '#655e40'
-      hemisphereIntensity: 0.55
-      ambientColor: '#e9e2ca'
-      ambientIntensity: 0.15
-      environmentIntensity: 0.45
+      color: '#fff0c9'
+      directionalIntensity: 2.8
+      position: [-28, 65, -30]
+      hemisphereSkyColor: '#b6def1'
+      hemisphereGroundColor: '#78945d'
+      hemisphereIntensity: 1.35
+      ambientColor: '#dceac5'
+      ambientIntensity: 0.32
+      environmentIntensity: 0.65
     sky:
-      horizonColor: '#c9c4a6'
-      zenithColor: '#66858f'
-      sunHaloColor: '#f4d29b'
-      sunPosition: [-28, 45, -30]
-      fogColor: '#adb8af'
-      fogDensity: 0.0028
+      horizonColor: '#c5e7df'
+      zenithColor: '#438ec5'
+      sunHaloColor: '#ffe8ad'
+      sunPosition: [-28, 65, -30]
+      fogColor: '#a5ced3'
+      fogDensity: 0.0015
+    cloudCoverage: 0.7
 ground:
   metalness: 0
-  macroVariation: 0.22
-  normalStrength: 0.75
+  macroVariation: 0.14
+  normalStrength: 0.38
   normalY: -1
   wetness: 0.7
 water:
   metalness: 0
-  roughness: 0.16
+  roughness: 0.24
   speed: 1.1
   waveHeight: 0.15
-  reflectionStrength: 0.65
+  reflectionStrength: 0.45
   fresnelPower: 4
-  deepColor: '#102e34'
-  surfaceColor: '#427065'
-  sunStrength: 0.65
+  deepColor: '#18677d'
+  surfaceColor: '#5dbbb1'
+  sunStrength: 0.45

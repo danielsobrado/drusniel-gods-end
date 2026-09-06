@@ -1,5 +1,7 @@
 import * as THREE from 'three/webgpu';
-import { attribute, vec3 } from 'three/tsl';
+import { attribute, texture, uv, vec3, vec4 } from 'three/tsl';
+import { adventureCanopyColor } from '../rendering/AdventurePalette.js';
+import { foliageLight } from '../rendering/CinematicLighting.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { createRandom } from '../utils/random.js';
 import { logger } from '../utils/logger.js';
@@ -88,7 +90,7 @@ function bakeBillboardGeometry(root, mesh) {
   return geometry;
 }
 
-function createBillboardMaterial(sourceMaterial, opacityAttributeName) {
+function createBillboardMaterial(sourceMaterial, opacityAttributeName, config) {
   const material = new THREE.MeshStandardNodeMaterial();
   material.map = sourceMaterial?.map ?? null;
   if (material.map) {
@@ -103,6 +105,12 @@ function createBillboardMaterial(sourceMaterial, opacityAttributeName) {
   material.alphaTest = BILLBOARD_ALPHA_TEST;
   material.opacityNode = attribute(opacityAttributeName, 'float');
   material.normalNode = vec3(0, 1, 0);
+  if (config.cinematic?.enabled && config.cinematic.style?.enabled && material.map) {
+    const leafSample = texture(material.map, uv());
+    const canopy = adventureCanopyColor(leafSample.rgb, config);
+    material.colorNode = vec4(canopy, leafSample.a);
+    material.emissiveNode = canopy.mul(foliageLight.fill).mul(config.cinematic.style.foliageFill);
+  }
   return material;
 }
 
@@ -291,7 +299,7 @@ export class TreeSystem {
       opacity.setUsage(THREE.DynamicDrawUsage);
       geometry.setAttribute(opacityAttributeName, opacity);
 
-      const material = createBillboardMaterial(source.billboardSourceMaterial, opacityAttributeName);
+      const material = createBillboardMaterial(source.billboardSourceMaterial, opacityAttributeName, this.config);
       const group = new THREE.InstancedMesh(geometry, material, count);
       group.name = `TreeBillboards_${typeIndex}`;
       group.frustumCulled = false;

@@ -7,6 +7,7 @@ export const foliageLight = {
   direction: uniform(new THREE.Vector3(0, 1, 0)),
   color: uniform(new THREE.Color('#ffe0ae')),
   strength: uniform(0.3),
+  fill: uniform(0.3),
 };
 
 export class CinematicLighting {
@@ -44,6 +45,8 @@ export class CinematicLighting {
       backdrop.material = Array.isArray(backdrop.material) ? this.backdropMaterials : this.backdropMaterials[0];
     }
     world.renderer.toneMappingExposure = settings.exposure;
+    world.sun.shadow.intensity = settings.shadows.intensity ?? 1;
+    world.sun.shadow.radius = settings.shadows.radius ?? 1;
     if (settings.shadows.cascades > 1 && window.innerWidth >= 768 && world.renderer.backend.isWebGPUBackend) {
       world.sun.shadow.mapSize.setScalar(settings.shadows.mapSize);
       this.csm = new CSMShadowNode(world.sun, {
@@ -67,6 +70,8 @@ export class CinematicLighting {
     foliageLight.direction.value.copy(sun.position).sub(sun.target.position).normalize();
     foliageLight.color.value.copy(sun.color);
     foliageLight.strength.value = Math.min(sun.intensity * 0.12, 0.55);
+    foliageLight.fill.value = Math.min((this.world.hemisphere?.intensity ?? 0) * 0.35
+      + (this.world.ambient?.intensity ?? 0) * 0.5, 0.7);
   }
 
   activateShadows() {

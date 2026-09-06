@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu';
 import {
   abs,
+  color,
   dot,
   float,
   floor,
@@ -22,6 +23,8 @@ import {
   vec3,
 } from 'three/tsl';
 import { assetUrl } from '../assets/assetUrl.js';
+import { foliageLight } from '../rendering/CinematicLighting.js';
+import { meadowRootColor } from '../rendering/MeadowPalette.js';
 
 const ORIGINAL_ANISOTROPY = 16;
 const ORIGINAL_GRASS_UV_SCALE = 150;
@@ -188,12 +191,22 @@ export async function createGroundMaterial(config) {
     const macro = sin(world.x.mul(0.037).add(sin(world.y.mul(0.053)))).mul(sin(world.y.mul(0.071))).mul(0.5).add(0.5);
     const flecks = sin(world.x.mul(3.1)).mul(sin(world.y.mul(4.7))).mul(0.5).add(0.5);
     const moss = macro.mul(normalWorld.y.max(0)).mul(blend.oneMinus()).mul(0.22);
-    const earth = mix(grassSample.rgb, groundSample.rgb, smoothstep(0.12, 0.88, blend));
+    const style = config.cinematic.style;
+    const grassPaint = style?.enabled
+      ? meadowRootColor(world, config).mul(grassSample.g.mul(0.08).add(0.96))
+      : grassSample.rgb;
+    const pathPaint = style?.enabled
+      ? mix(groundSample.rgb, color(style.groundPath).mul(groundSample.r.mul(0.65).add(0.65)), 0.48)
+      : groundSample.rgb;
+    const earth = mix(grassPaint, pathPaint, smoothstep(0.12, 0.88, blend));
     const variation = mix(1 - (config.ground.macroVariation ?? 0.2), 1.08, macro);
     const bank = positionWorld.y.sub(config.water.position[1]).abs().smoothstep(0.2, 2.8).oneMinus();
     const wet = wetness.max(bank.mul(0.65));
-    material.colorNode = mix(earth, earth.mul(vec3(0.7, 0.87, 0.56)), moss)
-      .mul(variation).mul(mix(0.94, 1.04, flecks)).mul(wet.mul(0.28).oneMinus());
+    material.colorNode = style?.enabled
+      ? earth.mul(mix(1, variation.mul(mix(0.94, 1.04, flecks)), blend)).mul(wet.mul(0.16).oneMinus())
+      : mix(earth, earth.mul(vec3(0.7, 0.87, 0.56)), moss)
+        .mul(variation).mul(mix(0.94, 1.04, flecks)).mul(wet.mul(0.28).oneMinus());
+    if (style?.enabled) material.emissiveNode = earth.mul(foliageLight.fill).mul(style.grassFill ?? 0.06);
     material.roughnessNode = mix(mix(float(0.92), roughnessSample.max(0.55), blend), float(0.2), wet);
   }
 

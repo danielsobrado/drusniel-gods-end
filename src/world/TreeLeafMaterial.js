@@ -1,5 +1,6 @@
 import * as THREE from 'three/webgpu';
-import { foliageBacklight } from '../rendering/CinematicLighting.js';
+import { foliageBacklight, foliageLight } from '../rendering/CinematicLighting.js';
+import { adventureCanopyColor } from '../rendering/AdventurePalette.js';
 import {
   Fn,
   cos,
@@ -127,8 +128,13 @@ export class TreeLeafMaterialFactory {
     material.alphaTestNode = LEAF_ALPHA_TEST;
     material.positionNode = this.positionNode;
     if (this.config.cinematic?.enabled && material.map) {
-      const leafColor = texture(material.map, uv()).rgb;
+      const leafSample = texture(material.map, uv());
+      const leafColor = adventureCanopyColor(leafSample.rgb, this.config);
+      material.colorNode = vec4(leafColor, leafSample.a);
       material.emissiveNode = foliageBacklight(leafColor, 0.5);
+      if (this.config.cinematic.style?.enabled) {
+        material.emissiveNode = material.emissiveNode.add(leafColor.mul(foliageLight.fill).mul(this.config.cinematic.style.foliageFill));
+      }
       material.roughness = 0.82;
       material.alphaToCoverage = true;
     }

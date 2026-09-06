@@ -1,11 +1,13 @@
 import * as THREE from 'three/webgpu';
-import { foliageBacklight } from '../rendering/CinematicLighting.js';
+import { foliageBacklight, foliageLight } from '../rendering/CinematicLighting.js';
 import { resolveVegetationPolicy } from './vegetationPolicy.js';
+import { meadowColors, setMeadowPalette } from '../rendering/MeadowPalette.js';
 import {
   Fn,
   If,
   attribute,
   cameraPosition as cameraPositionNode,
+  cameraViewMatrix,
   clamp,
   cos,
   dot,
@@ -83,7 +85,8 @@ export class GrassMaterial {
       windDirection: uniform(grass.windDirection),
       windNoiseScale: uniform(grass.windNoiseScale),
       simulationSpeed: uniform(grass.simulationSpeed),
-      sheen: uniform(type === 'billboard' ? 0.25 : (grass.sheen ?? 0.25)),
+      sheen: uniform(type === 'billboard' && !(config.cinematic?.enabled && config.cinematic.style?.enabled)
+        ? 0.25 : (grass.sheen ?? 0.25)),
       baseColor: uniform(new THREE.Color(grass.baseColor)),
       tipColor: uniform(new THREE.Color(grass.tipColor)),
       cameraPosition: uniform(new THREE.Vector3()),
@@ -133,10 +136,30 @@ export class GrassMaterial {
         bladeUv,
       );
 
+    const style = this.config.cinematic?.enabled && this.config.cinematic.style?.enabled
+      ? this.config.cinematic.style : null;
+    const terrainNormal = style ? Fn(() => {
+      const root = modelWorldMatrix.mul(vec4(instancePosition, 1)).xyz;
+      const uv = root.xz.sub(this.uniforms.terrainMin.xz).div(this.uniforms.terrainSize.xz);
+      const step = 0.8;
+      const dx = vec2(step, 0).div(this.uniforms.terrainSize.xz);
+      const dz = vec2(0, step).div(this.uniforms.terrainSize.xz);
+      const sample = offset => texture(heightTexture, uv.add(offset).clamp(0, 1)).level(0).r
+        .mul(this.uniforms.maxHeight.sub(this.uniforms.minHeight));
+      return vec3(sample(dx.negate()).sub(sample(dx)), step * 2, sample(dz.negate()).sub(sample(dz))).normalize();
+    }, 'vec3')().toVarying('meadowTerrainNormal') : null;
     const normalNode = Fn(() => {
       const side = bladeSide.clamp(-1, 1);
       const sideDirection = vec3(instanceRotation.y, 0, instanceRotation.x.negate());
       const forwardDirection = vec3(instanceRotation.x, 0, instanceRotation.y);
+      if (style) {
+        const tip = smoothstep(0.15, 1, bladeUv.y);
+        const worldNormal = normalize(terrainNormal.add(sideDirection.mul(side).mul(tip).mul(0.18))
+          .add(forwardDirection.mul(tip).mul(0.3)));
+        // NodeMaterial.normalNode is view-space. Keep root lighting attached to
+        // the slope as the camera turns; don't light world-up as view-up.
+        return cameraViewMatrix.mul(vec4(worldNormal, 0)).xyz.normalize();
+      }
       return normalize(
         vec3(0, 1, 0)
           .add(sideDirection.mul(side).mul(0.12))
@@ -336,6 +359,13 @@ export class GrassMaterial {
         this.#sampleInteractionBlade(interactionTexture, baseWorld, local, grassStrength);
 
         local.x.mulAssign(uniforms.bladeWidth.mul(sqrt(grassStrength)));
+        if (this.config.cinematic?.enabled && this.config.cinematic.style?.enabled) {
+          const style = this.config.cinematic.style;
+          const taper = mix(1, 0.62, bladeUv.y);
+          local.x.mulAssign(taper.mul(style.bladeWidthScale ?? 0.82).mul(mix(0.88, 1.12, instanceData.w)));
+          local.z.addAssign(bladeUv.y.pow(2).mul(this.uniforms.bladeHeight)
+            .mul(style.bladeCurve ?? 0.045).mul(mix(0.7, 1.3, instanceData.w)));
+        }
         local.y.mulAssign(uniforms.bladeHeight);
         this.#rotateInstance(local, instanceRotation);
         local.x.addAssign(instancePosition.x);
@@ -649,10 +679,17 @@ export class GrassMaterial {
   }
 
   #configureBladeMaterial(material, bladeUv, instanceData) {
+    const style = this.config.cinematic?.enabled && this.config.cinematic?.style?.enabled
+      ? this.config.cinematic.style : null;
+    if (style) {
+      this.#configureMeadowMaterial(material, bladeUv, instanceData);
+      return;
+    }
     const variation = instanceData.w;
-    const heightBrightness = oneMinus(pow(oneMinus(bladeUv.y), 1.8).mul(0.6))
-      .mul(smoothstep(0, 0.08, bladeUv.y).mul(0.7).add(0.3));
-    const colorHeight = bladeUv.y.add(variation.sub(0.5).mul(0.35)).clamp(0, 1).pow(3);
+    const heightBrightness = style ? mix(style.grassRootBrightness, 1, smoothstep(0, 0.9, bladeUv.y))
+      : oneMinus(pow(oneMinus(bladeUv.y), 1.8).mul(0.6))
+        .mul(smoothstep(0, 0.08, bladeUv.y).mul(0.7).add(0.3));
+    const colorHeight = bladeUv.y.add(variation.sub(0.5).mul(0.35)).clamp(0, 1).pow(style?.grassGradientPower ?? 3);
     const baseColor = this.uniforms.baseColor.mul(mix(0.96, 1.04, variation));
     const tipColor = this.uniforms.tipColor.mul(mix(0.98, 1.02, variation));
     const gradientColor = mix(baseColor, tipColor, colorHeight);
@@ -673,14 +710,19 @@ export class GrassMaterial {
       .add(vec3(viewSheen));
     if (this.config.cinematic?.enabled) {
       const patch = gradientNoise2d(positionWorld.xz.mul(0.045)).clamp(0, 1);
-      material.colorNode = material.colorNode.mul(mix(vec3(0.72, 0.82, 0.67), vec3(1.16, 1.06, 0.77), patch));
+      material.colorNode = material.colorNode.mul(style
+        ? mix(vec3(0.78, 0.96, 0.88), vec3(1.08, 1.04, 0.78), smoothstep(0.2, 0.8, patch))
+        : mix(vec3(0.72, 0.82, 0.67), vec3(1.16, 1.06, 0.77), patch));
       material.emissiveNode = foliageBacklight(gradientColor, 0.7).mul(bladeUv.y.pow(1.5));
+      if (style) material.emissiveNode = material.emissiveNode.add(gradientColor.mul(foliageLight.fill).mul(style.foliageFill));
       material.roughness = 0.85;
       material.alphaToCoverage = true;
     }
   }
 
   #configureBillboardMaterial(material, atlasTexture, bladeUv, instanceData) {
+    const style = this.config.cinematic?.enabled && this.config.cinematic?.style?.enabled
+      ? this.config.cinematic.style : null;
     const columns = uniform(this.config.grass.atlasColumns ?? 2);
     const rows = uniform(this.config.grass.atlasRows ?? 2);
     const cell = vec2(float(1).div(columns), float(1).div(rows));
@@ -695,9 +737,10 @@ export class GrassMaterial {
       ));
     const atlasSample = texture(atlasTexture, atlasUv);
     const variation = instanceData.w;
-    const heightBrightness = oneMinus(pow(oneMinus(bladeUv.y), 0.8).mul(0.6))
-      .mul(smoothstep(0, 0.08, bladeUv.y).mul(0.7).add(0.3));
-    const colorHeight = bladeUv.y.add(variation.sub(0.5).mul(0.2)).clamp(0, 1).pow(3);
+    const heightBrightness = style ? mix(style.grassRootBrightness, 1, smoothstep(0, 0.9, bladeUv.y))
+      : oneMinus(pow(oneMinus(bladeUv.y), 0.8).mul(0.6))
+        .mul(smoothstep(0, 0.08, bladeUv.y).mul(0.7).add(0.3));
+    const colorHeight = bladeUv.y.add(variation.sub(0.5).mul(0.2)).clamp(0, 1).pow(style?.grassGradientPower ?? 3);
     const baseColor = this.uniforms.baseColor.mul(mix(0.95, 1.04, variation));
     const tipColor = this.uniforms.tipColor.mul(mix(0.98, 1.02, variation));
     const proceduralColor = mix(baseColor, tipColor, colorHeight).mul(mix(
@@ -705,7 +748,7 @@ export class GrassMaterial {
       vec3(1.05, 1.02, 0.95),
       variation,
     ));
-    const selectedColor = this.config.grass.useTextureColor
+    const selectedColor = this.config.grass.useTextureColor && !style
       ? atlasSample.rgb
       : proceduralColor;
     const viewDirection = cameraPositionNode.sub(positionWorld).normalize();
@@ -720,10 +763,33 @@ export class GrassMaterial {
     material.transparent = false;
     if (this.config.cinematic?.enabled) {
       const patch = gradientNoise2d(positionWorld.xz.mul(0.045)).clamp(0, 1);
-      material.colorNode = material.colorNode.mul(mix(vec3(0.72, 0.82, 0.67), vec3(1.16, 1.06, 0.77), patch));
+      material.colorNode = material.colorNode.mul(style
+        ? mix(vec3(0.78, 0.96, 0.88), vec3(1.08, 1.04, 0.78), smoothstep(0.2, 0.8, patch))
+        : mix(vec3(0.72, 0.82, 0.67), vec3(1.16, 1.06, 0.77), patch));
       material.emissiveNode = foliageBacklight(selectedColor, 0.6).mul(bladeUv.y);
+      if (style) material.emissiveNode = material.emissiveNode.add(selectedColor.mul(foliageLight.fill).mul(style.foliageFill));
       material.alphaToCoverage = true;
     }
+    if (style) this.#configureMeadowMaterial(material, bladeUv, instanceData);
+  }
+
+  #configureMeadowMaterial(material, bladeUv, instanceData) {
+    const style = this.config.cinematic.style;
+    const rootWorld = modelWorldMatrix.mul(vec4(attribute('instancePosition', 'vec3'), 1)).xyz;
+    const palette = meadowColors(rootWorld.xz, this.config);
+    const height = bladeUv.y.clamp(0, 1);
+    const colorHeight = height.pow(style.grassGradientPower ?? 2.6);
+    const pigment = mix(palette.root, palette.tip, colorHeight);
+    const rootShade = mix(style.grassRootBrightness ?? 0.9, 1, smoothstep(0, 0.45, height));
+    const variation = mix(0.96, 1.04, instanceData.w);
+    material.colorNode = pigment.mul(rootShade).mul(variation);
+    // Sun-facing transmission is strongest at the thin tip. A small shared
+    // ambient fill keeps roots and terrain together without bleaching the field.
+    material.emissiveNode = foliageBacklight(pigment, style.grassBacklight ?? 0.85)
+      .mul(smoothstep(0.35, 1, height))
+      .add(pigment.mul(foliageLight.fill).mul(style.grassFill ?? 0.06));
+    material.roughness = 0.94;
+    material.alphaToCoverage = true;
   }
 
   setPreset(params) {
@@ -736,9 +802,14 @@ export class GrassMaterial {
     grass.windDirection.value = params.windDirection;
     grass.windNoiseScale.value = params.windNoiseScale;
     grass.simulationSpeed.value = params.simulationSpeed;
-    if (this.type !== 'billboard') grass.sheen.value = params.sheen ?? 0.25;
+    if (this.type !== 'billboard' || (this.config.cinematic?.enabled && this.config.cinematic.style?.enabled)) {
+      grass.sheen.value = params.sheen ?? 0.25;
+    }
     grass.baseColor.value.set(params.baseColor);
     grass.tipColor.value.set(params.tipColor);
+    if (this.type === 'blade' && this.config.cinematic?.enabled && this.config.cinematic.style?.enabled) {
+      setMeadowPalette(this.config, params);
+    }
   }
 
   setParameter(name, value) {

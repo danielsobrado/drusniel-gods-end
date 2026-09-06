@@ -1,6 +1,8 @@
 # Cinematic rendering
 
-`public/cinematic-look.yaml` is the final art-direction layer before painter settings. The default Golden Hour treatment combines muted green grass, warm directional light, a cool sky fill, low-lying mist, and a restrained post-processing stack. This is an intentional visual departure from the recovered reference; old parity screenshots are historical evidence, not acceptance criteria for this pass.
+`public/cinematic-look.yaml` is the final art-direction layer before painter settings. The default Golden Hour treatment is a stylized adventure landscape: emerald grass with pale sunlit tips, warm sunlight, blue sky and distance haze, turquoise water, and broad soft cloud shapes. This is an intentional visual departure from the recovered reference; old parity screenshots are historical evidence, not acceptance criteria for this pass.
+
+`cinematic.style` controls the palette without changing grass counts, blade dimensions, placement, LOD thresholds or draw distances. `grassRootBrightness` and `grassGradientPower` replace the deeply darkened root/steep tip gradient in both grass renderers. Broad color patches remain anchored in world space. `foliageFill` supplies a small color-preserving bounce contribution scaled by the active weather's ambient/hemisphere light; foliage does not keep a daylight glow at night. Detailed leaves and tree billboards use the same `canopyShadow`, `canopyLight` and `canopyTint` mapping, retaining dark texture detail. `groundGrass` and `groundPath` unify the terrain palette while retaining texture variation. Set `cinematic.style.enabled: false` to bypass these material treatments; the authored lighting and water settings remain independently adjustable.
 
 ## Rendering and quality
 
@@ -41,6 +43,10 @@ A fixed-camera Ultra check at `[123.44, 2.66, 32.04]`, 1440 by 900, compared tre
 Ground shading consumes the YAML texture scales and metalness, supports DirectX normal-map Y inversion, adds broad color variation and moss tint, and blends wet shoreline/rain roughness. The material remains nonmetallic when wet.
 
 MeadowDetails builds six instanced geometry groups: flowers, seed heads, ferns, reeds, leaf litter and small stones. Placement is seeded by world cell and filtered by terrain slope, grass mask, nearby tree cells and water elevation. No additional textures or downloaded assets are required. The outer ring scales out over 18 units. Quality controls candidates per cell; movement only rebuilds placement when entering a new 12-unit cell. The terrain grid is an approximation for small detail placement, not collision geometry.
+
+`MeadowGeometry.js` supplies folded, curved leaves with root-to-tip vertex colors, seven arching fern fronds with paired leaflets, three-blossom wildflowers with sepals and stamens, branching seed panicles, three-stem cattail clumps, curled leaf litter and moss-tinted stones. Width and height vary independently per instance. Geometry costs per clump are fern 896, flower 468, seed 438, reed 270, litter 96 and stone 80 triangles; these are opaque surfaces rather than alpha cards. At the opening position on Ultra, the generated batches contain 436,986 triangles before view culling. This is a placement sample, not a GPU timing or total scene budget. Grass density and candidate placement are unchanged.
+
+Understory uses the configured vegetation `patchScale` and `backlight`, plus the adventure palette's weather-sensitive foliage fill. Whole-batch frustum bounds are rebuilt after relocation and padded for the maximum shader wind displacement. The complete animated shape scales away at the outer ring, including its wind offset. These bounds enable frustum culling; they do not add per-plant GPU occlusion or geometry LOD.
 
 Grass retains the authored mask and interaction system. Continuous world-space height patches replace abrupt changes in height at the detail-distance threshold. Existing tree LOD transitions remain in use. The cloud plane follows the camera and fades at its edges and toward the horizon, hiding its finite outline.
 

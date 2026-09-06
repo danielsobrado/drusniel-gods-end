@@ -17,6 +17,7 @@ export class SkySystem {
   constructor(scene, config) {
     this.scene = scene;
     this.cinematic = Boolean(config.cinematic?.enabled);
+    this.stylized = this.cinematic && Boolean(config.cinematic?.style?.enabled);
 
     const preset = config.presets[config.ui.initialPreset].sky;
     const skyConfig = config.sky ?? {};
@@ -76,7 +77,7 @@ export class SkySystem {
     skyColor = mix(skyColor, this.uniforms.zenith, pow(horizonBlend, float(1.5)));
     if (this.cinematic) {
       const elevation = dot(direction, up);
-      const highSky = smoothstep(0.02, 0.7, elevation);
+      const highSky = smoothstep(0.02, this.stylized ? 0.4 : 0.7, elevation);
       const warmBand = smoothstep(0, 0.1, elevation).mul(float(1).sub(smoothstep(0.1, 0.35, elevation))).mul(0.15);
       skyColor = mix(mix(this.uniforms.fog, this.uniforms.horizon, warmBand), this.uniforms.zenith, highSky);
     }
