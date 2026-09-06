@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu';
 import { fog, uniform, positionWorld, positionView, cameraPosition, mix, dot, smoothstep, float } from 'three/tsl';
 import { CSMShadowNode } from 'three/addons/csm/CSMShadowNode.js';
+import { prepareAtmosphereMaterials } from './atmosphereMaterials.js';
 
 // Shared by leaves, grass and atmosphere; updated from the active weather preset.
 export const foliageLight = {
@@ -75,6 +76,8 @@ export class CinematicLighting {
   }
 
   activateShadows() {
+    // Run after cloning so tree LOD materials retain their maps and identities.
+    if (this.config.cinematic?.enabled) this.restoreAtmosphereMaterials ??= prepareAtmosphereMaterials(this.world.scene);
     // Bind only after the initial water cube capture, so CSM initializes with
     // the gameplay camera rather than one of the six reflection cameras.
     if (this.csm) this.world.sun.shadow.shadowNode = this.csm;
@@ -85,6 +88,7 @@ export class CinematicLighting {
   }
 
   dispose() {
+    this.restoreAtmosphereMaterials?.();
     if (this.backdrop) this.backdrop.material = this.backdropOriginal;
     for (const material of this.backdropMaterials ?? []) material.dispose();
     this.csm?.dispose();

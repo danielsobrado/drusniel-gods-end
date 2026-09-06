@@ -37,6 +37,7 @@ cinematic:
     falloff: 0.05
     density: 0.00065
   post:
+    samples: 4
     aoStrength: 0.18
     aoRadius: 0.85
     bloomStrength: 0.09

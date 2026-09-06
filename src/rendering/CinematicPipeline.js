@@ -1,5 +1,5 @@
-import { PostProcessing } from 'three/webgpu';
-import { pass, vec4, vec3, uniform, mix, dot, uv, smoothstep } from 'three/tsl';
+import { PostProcessing, FloatType, RedFormat, NearestFilter } from 'three/webgpu';
+import { pass, rtt, renderOutput, vec4, vec3, uniform, mix, dot, uv, smoothstep } from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { fxaa } from 'three/addons/tsl/display/FXAANode.js';
@@ -13,11 +13,16 @@ export class CinematicPipeline {
     this.gpuOcclusion = new GpuOcclusion(world, config.cinematic?.occlusion);
     if (!this.enabled) return;
     this.post = new PostProcessing(world.renderer);
-    // r180 GTAO reconstructs normals with textureDimensions(depth, mip), which
-    // is invalid for multisampled depth. FXAA already resolves the final image.
-    this.scenePass = pass(world.scene, world.camera, { samples: 0 });
+    this.post.outputColorTransform = false;
+    // Coverage samples stabilize moving subpixel blades; FXAA alone cannot.
+    this.scenePass = pass(world.scene, world.camera, { samples: this.settings.samples ?? 4 });
     const beauty = this.scenePass.getTextureNode('output');
-    this.occlusion = ao(this.scenePass.getTextureNode('depth'), null, world.camera);
+    // Resolve sampled depth into an R32F color texture for r180 GTAO's mip-level
+    // dimension query. This is one screen quad, not a second geometry pass.
+    this.aoDepth = rtt(this.scenePass.getTextureNode('depth').r, null, null, {
+      type: FloatType, format: RedFormat, minFilter: NearestFilter, magFilter: NearestFilter,
+    });
+    this.occlusion = ao(this.aoDepth, null, world.camera);
     this.occlusion.radius.value = this.settings.aoRadius;
     this.occlusion.thickness.value = 1;
     this.occlusion.resolutionScale = 0.5;
@@ -27,8 +32,8 @@ export class CinematicPipeline {
     const luminance = dot(lit, vec3(0.2126, 0.7152, 0.0722));
     const graded = mix(vec3(luminance), lit, this.settings.saturation);
     const vignette = smoothstep(0.22, 0.72, uv().sub(0.5).length()).mul(this.settings.vignette).oneMinus();
-    this.richOutput = fxaa(vec4(graded.mul(vignette), beauty.a));
-    this.leanOutput = fxaa(vec4(mix(vec3(dot(beauty.rgb, vec3(0.2126, 0.7152, 0.0722))), beauty.rgb, this.settings.saturation).mul(vignette), beauty.a));
+    this.richOutput = fxaa(renderOutput(vec4(graded.mul(vignette), beauty.a)));
+    this.leanOutput = fxaa(renderOutput(vec4(mix(vec3(dot(beauty.rgb, vec3(0.2126, 0.7152, 0.0722))), beauty.rgb, this.settings.saturation).mul(vignette), beauty.a)));
     this.setQuality(config.ui.initialQuality);
   }
 
@@ -51,6 +56,7 @@ export class CinematicPipeline {
   dispose() {
     this.gpuOcclusion.dispose();
     this.scenePass?.dispose();
+    this.aoDepth?.dispose();
     this.occlusion?.dispose();
     this.bloom?.dispose();
     this.post?.dispose();

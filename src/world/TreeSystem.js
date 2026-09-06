@@ -103,6 +103,7 @@ function createBillboardMaterial(sourceMaterial, opacityAttributeName, config) {
   material.transparent = false;
   material.depthWrite = true;
   material.alphaTest = BILLBOARD_ALPHA_TEST;
+  material.alphaToCoverage = Boolean(config.cinematic?.enabled);
   material.opacityNode = attribute(opacityAttributeName, 'float');
   material.normalNode = vec3(0, 1, 0);
   if (config.cinematic?.enabled && config.cinematic.style?.enabled && material.map) {

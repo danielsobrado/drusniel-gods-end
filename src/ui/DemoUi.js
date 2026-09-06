@@ -8,8 +8,8 @@ const DEFAULT_CONTROL_RANGES = Object.freeze({
 });
 
 const PRESET_LABEL_OVERRIDES = Object.freeze({
-  bowed: 'Bowed (Only Blades)',
-  moonlight: 'Moon Light',
+  bowed: 'Simple',
+  moonlight: 'Night',
 });
 
 function range(config, name) {
