@@ -11,4 +11,4 @@ dist/
 .cleanup-review.ps1
 baseline.png
 cinematic-*.png
-
+.cache/
