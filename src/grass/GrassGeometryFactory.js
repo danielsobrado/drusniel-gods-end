@@ -5,9 +5,10 @@ export class GrassGeometryFactory {
     this.config = config;
   }
 
-  create({ type, detail, density }) {
+  create({ type, shape, detail, density }) {
     return createGrassGeometry({
       type,
+      shape,
       detail,
       density,
       tileSize: this.config.grass.tileSize,

@@ -42,6 +42,9 @@ export default [
     },
   },
   {
-    ignores: ['dist/', 'node_modules/', 'public/'],
+    // .history/ is the IDE's local-history snapshots (often mid-keystroke and
+    // unparseable) and .tmp-* are throwaway debugging scratch files. Neither is
+    // source, and linting them only produces noise that masks real findings.
+    ignores: ['dist/', 'node_modules/', 'public/', '.history/', '.tmp-*'],
   },
 ];

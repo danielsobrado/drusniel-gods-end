@@ -1,6 +1,7 @@
 import * as THREE from 'three/webgpu';
 import {
   abs,
+  cameraViewMatrix,
   color,
   dot,
   float,
@@ -21,10 +22,12 @@ import {
   uv,
   vec2,
   vec3,
+  vec4,
 } from 'three/tsl';
 import { assetUrl } from '../assets/assetUrl.js';
 import { foliageLight } from '../rendering/CinematicLighting.js';
 import { meadowRootColor } from '../rendering/MeadowPalette.js';
+import { groundRoughness as turfRoughness, groundTurf } from '../rendering/GroundTurf.js';
 
 const ORIGINAL_ANISOTROPY = 16;
 const ORIGINAL_GRASS_UV_SCALE = 150;
@@ -62,7 +65,7 @@ function configureBlendMask(textureObject, flipY = false) {
   textureObject.magFilter = THREE.LinearFilter;
 }
 
-function createRainController(material, baseNormal, config) {
+function createRainController(material, baseNormal, config, soil) {
   const params = { ...DEFAULT_RIPPLE, ...(config.ground.rainRipple ?? {}) };
   const rippleScale = uniform(params.scale);
   const rippleSize = uniform(params.size);
@@ -104,14 +107,15 @@ function createRainController(material, baseNormal, config) {
     const error = abs(distance.sub(radius));
     const ring = float(1).sub(smoothstep(float(0), rippleThickness, error));
     const fade = float(1).sub(phase);
-    const strength = ring.mul(fade).mul(rippleStrength).mul(enabled);
+    const strength = ring.mul(fade).mul(rippleStrength).mul(enabled).mul(soil);
     const direction = delta.div(distance.max(float(RIPPLE_MIN_DISTANCE)));
     const perturbation = vec3(
       direction.x.negate().mul(strength),
       float(0),
       direction.y.negate().mul(strength),
     );
-    return normalize(baseNormal.add(perturbation));
+    // normalNode is view-space; the ripple direction is anchored in the world.
+    return normalize(baseNormal.add(cameraViewMatrix.mul(vec4(perturbation, 0)).xyz));
   };
 
   return {
@@ -183,12 +187,13 @@ export async function createGroundMaterial(config, terrainSampler = null) {
     : baseUv;
   const maskSample = texture(blendMask, maskUv);
   const blend = maskSample.r;
+  const soil = config.cinematic?.enabled ? smoothstep(0.12, 0.88, blend) : float(1);
 
   const material = new THREE.MeshStandardNodeMaterial();
   material.name = 'GroundReferenceBlendMaterial';
   material.colorNode = mix(grassSample.rgb, groundSample.rgb, blend);
   const normalStrength = config.ground.normalStrength ?? 1;
-  const baseNormal = normalMap(normalSample, vec2(blend.mul(normalStrength), blend.mul(normalStrength * (config.ground.normalY ?? 1))));
+  let baseNormal = normalMap(normalSample, vec2(blend.mul(normalStrength), blend.mul(normalStrength * (config.ground.normalY ?? 1))));
   material.normalNode = baseNormal;
   material.roughnessNode = mix(float(1), roughnessSample, blend);
   material.metalnessNode = float(config.ground.metalness ?? ORIGINAL_METALNESS);
@@ -200,13 +205,19 @@ export async function createGroundMaterial(config, terrainSampler = null) {
     const flecks = sin(world.x.mul(3.1)).mul(sin(world.y.mul(4.7))).mul(0.5).add(0.5);
     const moss = macro.mul(normalWorld.y.max(0)).mul(blend.oneMinus()).mul(0.22);
     const style = config.cinematic.style;
+    const turf = style?.enabled ? groundTurf(world).toVar() : vec3(0);
+    if (style?.enabled) {
+      const turfSlope = vec3(turf.y, 0, turf.z).mul(soil.oneMinus());
+      baseNormal = normalize(baseNormal.add(cameraViewMatrix.mul(vec4(turfSlope, 0)).xyz));
+      material.normalNode = baseNormal;
+    }
     const grassPaint = style?.enabled
-      ? meadowRootColor(world, config).mul(grassSample.g.mul(0.08).add(0.96))
+      ? meadowRootColor(world, config).mul(grassSample.g.mul(0.08).add(0.96)).mul(turf.x.mul(0.12).add(1))
       : grassSample.rgb;
     const pathPaint = style?.enabled
       ? mix(groundSample.rgb, color(style.groundPath).mul(groundSample.r.mul(0.65).add(0.65)), 0.48)
       : groundSample.rgb;
-    const earth = mix(grassPaint, pathPaint, smoothstep(0.12, 0.88, blend));
+    const earth = mix(grassPaint, pathPaint, soil);
     const variation = mix(1 - (config.ground.macroVariation ?? 0.2), 1.08, macro);
     const bank = positionWorld.y.sub(config.water.position[1]).abs().smoothstep(0.2, 2.8).oneMinus();
     const wet = wetness.max(bank.mul(0.65));
@@ -215,10 +226,10 @@ export async function createGroundMaterial(config, terrainSampler = null) {
       : mix(earth, earth.mul(vec3(0.7, 0.87, 0.56)), moss)
         .mul(variation).mul(mix(0.94, 1.04, flecks)).mul(wet.mul(0.28).oneMinus());
     if (style?.enabled) material.emissiveNode = earth.mul(foliageLight.fill).mul(style.grassFill ?? 0.06);
-    material.roughnessNode = mix(mix(float(0.92), roughnessSample.max(0.55), blend), float(0.2), wet);
+    material.roughnessNode = turfRoughness(soil, roughnessSample, wet, turf.x);
   }
 
-  const rainController = createRainController(material, baseNormal, config);
+  const rainController = createRainController(material, baseNormal, config, soil);
   material.userData = {
     ...material.userData,
     textures: [grassColor, groundColor, blendMask, groundNormal, groundRoughness],

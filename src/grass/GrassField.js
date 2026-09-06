@@ -13,6 +13,7 @@ import { GrassGeometryFactory } from './GrassGeometryFactory.js';
 import { GrassMask } from './GrassMask.js';
 import { GrassMaterial } from './GrassMaterial.js';
 import { GrassPainter } from './GrassPainter.js';
+import { grassFamily, isGrassShape, resolveGrassShape } from './grassShapes.js';
 import { createGrassTerrainData } from './GrassTerrainData.js';
 import { GrassTile } from './GrassTile.js';
 import { InteractionMap } from './InteractionMap.js';
@@ -27,7 +28,10 @@ export class GrassField {
     this.renderer = renderer;
     this.config = config;
     this.terrainSampler = terrainSampler;
-    this.type = config.grass.type;
+    // The shape picks the silhouette; the family it belongs to is what every
+    // config namespace and material branch is keyed by.
+    this.shape = resolveGrassShape(config.grass);
+    this.type = grassFamily(this.shape);
     this.qualityName = config.ui.initialQuality;
     this.tiles = [];
     this.terrainCenter = new THREE.Vector3();
@@ -111,6 +115,7 @@ export class GrassField {
       name,
       this.geometryFactory.create({
         type: this.type,
+        shape: this.shape,
         detail: lod[name].detail,
         density: lod[name].density,
       }),
@@ -171,15 +176,21 @@ export class GrassField {
     this.#applyQuality(name);
   }
 
-  setGrassType(type) {
-    if (!GRASS_TYPES.includes(type) || type === this.type) return;
-    this.type = type;
-    this.materialController = this.materialControllers[type];
+  // Guarded on the shape, not the family: slender -> reed keeps the same
+  // material but is a different silhouette, so it still needs a rebuild.
+  setGrassShape(shape) {
+    if (!isGrassShape(shape) || shape === this.shape) return;
+    const previousType = this.type;
+    this.shape = shape;
+    this.type = grassFamily(shape);
+    this.materialController = this.materialControllers[this.type];
     this.#rebuildGeometries();
     this.materialController.setMaxDistance(this.#getQuality().maxDistance);
     this.materialController.setLod(this.#getQuality());
     if (this.config.cinematic?.enabled) {
-      this.#buildTilePool();
+      // Profiles in the same family share the grid and material. Keep the mesh
+      // pool (and GPU occlusion registrations); update() replaces their LODs.
+      if (previousType !== this.type) this.#buildTilePool();
       return;
     }
     for (const tile of this.tiles) {

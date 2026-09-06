@@ -317,12 +317,23 @@ ratio = segment / segments
 nextRatio = (segment+1) / segments
 ```
 
-Half-width tapers linearly:
+Half-width comes from the selected **shape profile** rather than a fixed taper:
 
 ```text
-halfWidth = (1-ratio) * 0.5
-nextHalfWidth = (1-nextRatio) * 0.5
+halfWidth = profile.width(ratio) * profile.widthScale * 0.5
 ```
+
+Profiles live in `src/grass/grassShapes.js`:
+
+| Shape | `width(r)` | `widthScale` | Silhouette |
+| --- | --- | --- | --- |
+| `slender` | `1 - r` | `1` | straight linear taper to a point (the original blade) |
+| `reed` | `1 - r**5` | `0.55` | narrow, near-parallel sides, points only at the tip |
+| `broadleaf` | `sqrt(1 - r*r)` | `0.85` | wide at the base, rounded quarter-ellipse edge |
+
+Every profile must be positive at `r = 0` and reach `0` at `r = 1`, so the blade closes to a point.
+
+`widthScale` is a **performance** control, not just a look control. Every shape emits the same vertex count at a given `detail`, so the only cost that differs between them is covered pixels — the integral of `width(r) * widthScale`. Slender integrates to `0.50`; keep the others within about `1.35x` of that. Broadleaf originally shipped at `widthScale: 1.6`, which integrates to `1.26` (2.51x slender) and measured **12.2 ms vs 8.6 ms** per frame at an identical triangle count on a fill-bound configuration. `test/grassShapes.test.js` asserts the ratio so it cannot drift back.
 
 The base template is normalized to:
 
@@ -359,6 +370,23 @@ detail 5 -> 19 vertices, 9 triangles
 ```
 
 Higher detail provides more vertices for smooth wind/base/interactions bends.
+
+---
+
+## 12b. Shapes and render families
+
+`GRASS_SHAPES` in `src/grass/grassShapes.js` separates the *silhouette* a player picks from the *render family* that draws it:
+
+```text
+slender    -> blade
+reed       -> blade
+broadleaf  -> blade
+tufted     -> billboard
+```
+
+The family, not the shape, is what indexes every config namespace — `config.grass.<family>`, `config.quality.<tier>.<family>`, `presets.*.grass.<family>` and `wind.response.<family>` — and every material branch in `GrassMaterial` and `RecoveredGrassMaterial`. Most of those reads are unguarded, which is why a new silhouette is added as a shape borrowing an existing family rather than as a new type: it costs no new YAML and compiles no extra TSL material.
+
+`GrassField` keeps both `this.shape` and the derived `this.type` (the family). `setGrassShape()` is guarded on the shape, because `slender -> reed` shares a family but still needs a geometry rebuild. `config.grass.shape` selects the startup shape and `validateConfig` rejects one whose family is missing from `grass` or from any quality tier.
 
 ---
 
@@ -1458,12 +1486,12 @@ A faithful recreation must:
 
 # Visual Validation
 
-## 67. Sunny / High / Blade baseline
+## 67. Highfield / High / Slender baseline
 
 Use:
 
 ```text
-preset Sunny
+preset Highfield (`sunny`)
 quality High
 type Blade
 painter off
@@ -1480,7 +1508,7 @@ low <=126 with 2,500, detail1
 veryLow <=140 with 625, detail1
 ```
 
-Current Sunny blade material target:
+Current Highfield blade material target:
 
 ```text
 height 1.5

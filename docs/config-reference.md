@@ -198,6 +198,7 @@ Core active values include:
 ```yaml
 tileSize: 25
 type: blade
+shape: slender
 heightResolution: 1024
 maskThreshold: 0.08
 useTextureColor: false
@@ -220,6 +221,8 @@ Active draw distance, density and blade detail come from:
 quality.<performance|balanced|high|ultra>.<blade|billboard>.maxDistance
 quality.<...>.lod.<high|medium|low|veryLow>
 ```
+
+`grass.shape` picks the silhouette shown in the HUD (`slender`, `reed`, `broadleaf`, `tufted`); `grass.type` is the render family fallback. Every shape maps to one of the two families, and it is the **family** that indexes `grass.<family>`, `quality.*.<family>`, `presets.*.grass.<family>` and `wind.response.<family>`. `validateConfig` fails startup if a configured shape's family is missing from any of those. See `grass-system.md`.
 
 The current initial quality is `high`. The tile pool itself is created once from the recovered startup grass distance and terrain dimensions; switching quality replaces LOD geometries and shader distance without rebuilding that pool.
 
@@ -364,7 +367,9 @@ bowed
 moonlight
 ```
 
-Each supplies blade/billboard grass state, lighting, sky/fog, cloud coverage and `rain`. `EnvironmentController` converts the rain boolean to a numeric `rainIntensity` when an explicit intensity is not supplied and interpolates it over the same five-second transition.
+Each supplies blade/billboard grass state, lighting, sky/fog, cloud coverage and `rain`. `EnvironmentController` converts the rain boolean to a numeric `rainIntensity` when an explicit intensity is not supplied. Preset changes are applied as a hard cut behind a circle iris; there is no cross-fade.
+
+Keys are stable joins across `config.yaml`, `cinematic-look.yaml` and `visual-parity.yaml`; the displayed name is the preset's `label` (Highfield, Emberfall, Greyrain, Galewind, Stillmeadow, Lowsway, Moonrise).
 
 See `environment-presets.md` for exact preset values.
 

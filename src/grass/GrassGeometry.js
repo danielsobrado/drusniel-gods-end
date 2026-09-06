@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { DEFAULT_GRASS_SHAPE, grassShapeProfile } from './grassShapes.js';
 
 const HASH_X = 127.1;
 const HASH_Y = 311.7;
@@ -43,18 +44,19 @@ function gradientNoise2d(x, y) {
   ) + 0.5;
 }
 
-function createBladeTemplate(detail) {
+function createBladeTemplate(detail, profile) {
   const segments = Math.max(1, Math.round(detail));
   const positions = [];
   const uvs = [];
   const indices = [];
+  const scale = profile.widthScale * 0.5;
   let vertex = 0;
 
   for (let segment = 0; segment < segments; segment += 1) {
     const ratio = segment / segments;
     const nextRatio = (segment + 1) / segments;
-    const halfWidth = (1 - ratio) * 0.5;
-    const nextHalfWidth = (1 - nextRatio) * 0.5;
+    const halfWidth = profile.width(ratio) * scale;
+    const nextHalfWidth = profile.width(nextRatio) * scale;
 
     positions.push(
       -halfWidth, ratio, 0,
@@ -149,6 +151,7 @@ function createInstanceBuffers(type, density, tileSize, stable) {
 
 export function createGrassGeometry({
   type,
+  shape = DEFAULT_GRASS_SHAPE,
   detail,
   density,
   tileSize,
@@ -157,7 +160,7 @@ export function createGrassGeometry({
 }) {
   const baseGeometry = type === 'billboard'
     ? createBillboardTemplate(detail)
-    : createBladeTemplate(detail);
+    : createBladeTemplate(detail, grassShapeProfile(shape));
   const buffers = createInstanceBuffers(type, density, tileSize, stable);
   const geometry = new THREE.InstancedBufferGeometry();
 
@@ -196,7 +199,7 @@ export function createGrassGeometry({
     Math.sqrt(tileSize * tileSize * 2) * 0.5 + height,
   );
   geometry.userData.instanceCount = buffers.count;
-  geometry.userData.lod = { type, detail, density };
+  geometry.userData.lod = { type, shape, detail, density };
   baseGeometry.dispose();
   return geometry;
 }

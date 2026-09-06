@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu';
-import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 import { assetUrl } from '../assets/assetUrl.js';
 import { logger } from '../utils/logger.js';
 
@@ -8,7 +8,7 @@ export async function loadEnvironment(scene, config) {
   if (!path) return null;
 
   try {
-    const environment = await new RGBELoader().loadAsync(assetUrl(path));
+    const environment = await new HDRLoader().loadAsync(assetUrl(path));
     environment.mapping = THREE.EquirectangularReflectionMapping;
     scene.environment = environment;
     scene.environmentIntensity = config.presets?.[config.ui.initialPreset]?.lighting?.environmentIntensity ?? 0.3;

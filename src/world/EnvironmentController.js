@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 
-const TRANSITION_SECONDS = 5;
 const GRASS_TYPES = ['blade', 'billboard'];
 const RAIN_ACTIVE_THRESHOLD = 0.001;
 const DEFAULT_TREE_WIND_SPEED_MULTIPLIER = 2;
@@ -52,73 +51,6 @@ function snapshot(preset) {
   };
 }
 
-function cloneSnapshot(value) {
-  return snapshot({
-    grass: {
-      blade: {
-        ...value.grass.blade,
-        baseColor: value.grass.blade.baseColor,
-        tipColor: value.grass.blade.tipColor,
-      },
-      billboard: {
-        ...value.grass.billboard,
-        baseColor: value.grass.billboard.baseColor,
-        tipColor: value.grass.billboard.tipColor,
-      },
-    },
-    lighting: {
-      ...value.lighting,
-      color: value.lighting.color,
-      position: value.lighting.position.toArray(),
-      hemisphereSkyColor: value.lighting.hemisphereSkyColor,
-      hemisphereGroundColor: value.lighting.hemisphereGroundColor,
-      ambientColor: value.lighting.ambientColor,
-    },
-    sky: {
-      ...value.sky,
-      groundColor: value.sky.groundColor,
-      horizonColor: value.sky.horizonColor,
-      zenithColor: value.sky.zenithColor,
-      sunHaloColor: value.sky.sunHaloColor,
-      sunDiskColor: value.sky.sunDiskColor,
-      sunPosition: value.sky.sunPosition.toArray(),
-      fogColor: value.sky.fogColor,
-    },
-    cloudCoverage: value.cloudCoverage,
-    rainIntensity: value.rainIntensity,
-  });
-}
-
-function power2InOut(value) {
-  const t = THREE.MathUtils.clamp(value, 0, 1);
-  return t < 0.5
-    ? 4 * t * t * t
-    : 1 - ((-2 * t + 2) ** 3) / 2;
-}
-
-function blendGrass(current, start, target, t) {
-  for (const key of GRASS_TYPES) {
-    const currentGrass = current[key];
-    const startGrass = start[key];
-    const targetGrass = target[key];
-    for (const field of [
-      'bladeHeight',
-      'bladeWidth',
-      'bladeStiffness',
-      'baseBend',
-      'windIntensity',
-      'windDirection',
-      'windNoiseScale',
-      'simulationSpeed',
-      'sheen',
-    ]) {
-      currentGrass[field] = THREE.MathUtils.lerp(startGrass[field], targetGrass[field], t);
-    }
-    currentGrass.baseColor.copy(startGrass.baseColor).lerp(targetGrass.baseColor, t);
-    currentGrass.tipColor.copy(startGrass.tipColor).lerp(targetGrass.tipColor, t);
-  }
-}
-
 function setGrassSnapshotParameter(state, name, value) {
   for (const type of GRASS_TYPES) {
     if (typeof state.grass[type]?.[name] === 'number') state.grass[type][name] = value;
@@ -157,23 +89,18 @@ export class EnvironmentController {
     this.terrain = terrain;
     this.config = config;
     this.quality = config.ui.initialQuality;
-    const initial = snapshot(config.presets[config.ui.initialPreset]);
-    this.current = cloneSnapshot(initial);
-    this.start = cloneSnapshot(initial);
-    this.target = cloneSnapshot(initial);
-    this.elapsed = TRANSITION_SECONDS;
-    this.settled = false;
+    this.current = snapshot(config.presets[config.ui.initialPreset]);
     this.#apply();
   }
 
+  // A hard cut, not a cross-fade: the caller plays this behind a closed iris,
+  // so interpolating the sun across the sky would only read as a time-lapse.
   setPreset(name) {
     const preset = this.config.presets[name];
     if (!preset) throw new Error(`Unknown environment preset: ${name}`);
-    this.settled = false;
-    this.start = cloneSnapshot(this.current);
-    this.target = snapshot(preset);
-    this.elapsed = 0;
+    this.current = snapshot(preset);
     this.audio?.setPreset?.(name);
+    this.#apply();
   }
 
   setQuality(name) {
@@ -186,70 +113,7 @@ export class EnvironmentController {
     const numericValue = Number(value);
     if (!Number.isFinite(numericValue)) return;
     setGrassSnapshotParameter(this.current, name, numericValue);
-    setGrassSnapshotParameter(this.start, name, numericValue);
-    setGrassSnapshotParameter(this.target, name, numericValue);
     this.#apply();
-  }
-
-  update(deltaSeconds) {
-    if (this.settled) return;
-    this.elapsed = Math.min(TRANSITION_SECONDS, this.elapsed + deltaSeconds);
-    const t = power2InOut(this.elapsed / TRANSITION_SECONDS);
-    blendGrass(this.current.grass, this.start.grass, this.target.grass, t);
-
-    const lighting = this.current.lighting;
-    lighting.color.copy(this.start.lighting.color).lerp(this.target.lighting.color, t);
-    lighting.position.copy(this.start.lighting.position).lerp(this.target.lighting.position, t);
-    lighting.hemisphereSkyColor.copy(this.start.lighting.hemisphereSkyColor)
-      .lerp(this.target.lighting.hemisphereSkyColor, t);
-    lighting.hemisphereGroundColor.copy(this.start.lighting.hemisphereGroundColor)
-      .lerp(this.target.lighting.hemisphereGroundColor, t);
-    lighting.ambientColor.copy(this.start.lighting.ambientColor)
-      .lerp(this.target.lighting.ambientColor, t);
-    for (const field of [
-      'directionalIntensity',
-      'hemisphereIntensity',
-      'ambientIntensity',
-      'environmentIntensity',
-    ]) {
-      lighting[field] = THREE.MathUtils.lerp(
-        this.start.lighting[field],
-        this.target.lighting[field],
-        t,
-      );
-    }
-
-    const sky = this.current.sky;
-    for (const field of [
-      'groundColor',
-      'horizonColor',
-      'zenithColor',
-      'sunHaloColor',
-      'sunDiskColor',
-      'fogColor',
-    ]) {
-      sky[field].copy(this.start.sky[field]).lerp(this.target.sky[field], t);
-    }
-    sky.sunPosition.copy(this.start.sky.sunPosition).lerp(this.target.sky.sunPosition, t);
-    sky.haloPower = THREE.MathUtils.lerp(this.start.sky.haloPower, this.target.sky.haloPower, t);
-    sky.diskPower = THREE.MathUtils.lerp(this.start.sky.diskPower, this.target.sky.diskPower, t);
-    sky.fogDensity = THREE.MathUtils.lerp(
-      this.start.sky.fogDensity,
-      this.target.sky.fogDensity,
-      t,
-    );
-    this.current.cloudCoverage = THREE.MathUtils.lerp(
-      this.start.cloudCoverage,
-      this.target.cloudCoverage,
-      t,
-    );
-    this.current.rainIntensity = THREE.MathUtils.lerp(
-      this.start.rainIntensity,
-      this.target.rainIntensity,
-      t,
-    );
-    this.#apply();
-    if (this.elapsed >= TRANSITION_SECONDS) this.settled = true;
   }
 
   updateSunTarget(playerPosition) {

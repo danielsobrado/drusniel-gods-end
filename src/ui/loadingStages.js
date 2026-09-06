@@ -16,6 +16,12 @@ export const LOADING_STAGES = Object.freeze({
 export const LOADING_REVEAL_SECONDS = 3;
 export const LOADING_REVEAL_RADIUS_VMAX = 120;
 
+// Scene-change iris. Closing is quicker than opening so the cut lands early and
+// the new scene gets the longer, more generous reveal.
+export const IRIS_CLOSE_SECONDS = 0.45;
+export const IRIS_OPEN_SECONDS = 0.6;
+export const IRIS_RADIUS_VMAX = LOADING_REVEAL_RADIUS_VMAX;
+
 export function power4InOut(value) {
   const t = Math.max(0, Math.min(1, value));
   return t < 0.5

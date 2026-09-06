@@ -38,7 +38,8 @@ Start with `docs/README.md`. Do not tune around a contradiction before checking 
 - procedural TSL sky and recovered horizontal cloud plane
 - recovered GPU-instanced rain and wet-material response
 - recovered generated water plane, geometric waves and one-time cube reflection
-- seven environment presets with five-second `power2.inOut` transitions
+- seven environment presets (Highfield, Emberfall, Greyrain, Galewind, Stillmeadow, Lowsway, Moonrise), switched as a hard cut behind a circle-iris wipe
+- four grass silhouettes (Slender, Reed, Broadleaf, Tufted) sharing two render families
 - wind/rain/insect/lake/bird/footstep audio
 - reference-structured custom-button HUD plus reconstruction styling
 - lifecycle cleanup, config validation and resilience fallbacks
@@ -129,4 +130,4 @@ Subsystem documents separate recovered reference behavior from clean-room adapte
 
 ## Validation boundary
 
-Passing lint/tests/build proves repository consistency, not final visual parity. Before calling the reconstruction complete, compare fixed-camera captures of the reference and this implementation for Sunny, Golden Hour, Rain, Wind, Moonlight, multiple quality levels, both grass types and Grass Painter.
+Passing lint/tests/build proves repository consistency, not final visual parity. Before calling the reconstruction complete, compare fixed-camera captures of the reference and this implementation for Highfield, Emberfall, Greyrain, Galewind, Moonrise, multiple quality levels, every grass shape and Grass Painter.

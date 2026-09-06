@@ -46,7 +46,7 @@ assets:
     green: Assets/leaf-green.png
     white: Assets/leaf-whites.png
   audio:
-    wind: Assets/Audio/wind-loop2.mp3
+    wind: Assets/Audio/wind-loop2_alt.mp3
     rain: Assets/Audio/rain.mp3
     insects: Assets/Audio/insects.mp3
     lake: Assets/Audio/lake2.mp3
@@ -103,6 +103,7 @@ grass:
   tileSize: 25
   maxDistance: 150
   type: blade
+  shape: slender      # silhouette; its family (blade/billboard) supplies params, LOD and wind
   instancesPerDensityUnit: 520
   yOffset: 0.015
   maskThreshold: 0.08          # legacy: superseded by vegetationCutoff, no readers
@@ -357,7 +358,7 @@ quality:
         veryLow: { detail: 1, density: 1, distance: 1.0 }
 presets:
   sunny:
-    label: Sunny
+    label: Highfield
     grass:
       blade: { bladeHeight: 2.5, bladeWidth: 0.2, bladeStiffness: 1, baseBend: 0, windIntensity: 2.4, windDirection: 0, windNoiseScale: 0.3, simulationSpeed: 1, baseColor: '#304f0b', tipColor: '#74a116', sheen: 0.25 }
       billboard: { bladeHeight: 1, bladeWidth: 1.5, bladeStiffness: 1, baseBend: 0, windIntensity: 1.7, windDirection: 0, windNoiseScale: 0.3, simulationSpeed: 1, baseColor: '#304f0b', tipColor: '#74a116', sheen: 0.25 }
@@ -366,7 +367,7 @@ presets:
     cloudCoverage: 0.65
     rain: false
   goldenHour:
-    label: Golden Hour
+    label: Emberfall
     grass:
       blade: { bladeHeight: 1.5, bladeWidth: 0.2, bladeStiffness: 0.9, baseBend: 0.1, windIntensity: 1.5, windDirection: 45, windNoiseScale: 0.38, simulationSpeed: 0.95, baseColor: '#405b0c', tipColor: '#b6b72a', sheen: 0.25 }
       billboard: { bladeHeight: 1, bladeWidth: 1.5, bladeStiffness: 0.9, baseBend: 0.1, windIntensity: 1.5, windDirection: 45, windNoiseScale: 0.38, simulationSpeed: 0.95, baseColor: '#405b0c', tipColor: '#b6b72a', sheen: 0.25 }
@@ -375,7 +376,7 @@ presets:
     cloudCoverage: 0.55
     rain: false
   rainy:
-    label: Rain
+    label: Greyrain
     grass:
       blade: { bladeHeight: 1.5, bladeWidth: 0.2, bladeStiffness: 0.85, baseBend: 0.16, windIntensity: 2, windDirection: 0, windNoiseScale: 0.3, simulationSpeed: 1.05, baseColor: '#193f20', tipColor: '#4f9b35', sheen: 0.65 }
       billboard: { bladeHeight: 1, bladeWidth: 1.5, bladeStiffness: 0.85, baseBend: 0.16, windIntensity: 2, windDirection: 0, windNoiseScale: 0.3, simulationSpeed: 1.05, baseColor: '#193f20', tipColor: '#4f9b35', sheen: 1 }
@@ -384,7 +385,7 @@ presets:
     cloudCoverage: 0.05
     rain: true
   windy:
-    label: Wind
+    label: Galewind
     grass:
       blade: { bladeHeight: 1.5, bladeWidth: 0.2, bladeStiffness: 0.72, baseBend: 0.18, windIntensity: 2.8, windDirection: 75, windNoiseScale: 0.3, simulationSpeed: 1.08, baseColor: '#304f0b', tipColor: '#86b91a', sheen: 0.25 }
       billboard: { bladeHeight: 1, bladeWidth: 1.5, bladeStiffness: 0.72, baseBend: 0.18, windIntensity: 2.8, windDirection: 75, windNoiseScale: 0.3, simulationSpeed: 1.08, baseColor: '#304f0b', tipColor: '#86b91a', sheen: 0.25 }
@@ -393,7 +394,7 @@ presets:
     cloudCoverage: 0.45
     rain: false
   calm:
-    label: Calm
+    label: Stillmeadow
     grass:
       blade: { bladeHeight: 1.5, bladeWidth: 0.2, bladeStiffness: 1, baseBend: 0.2, windIntensity: 0.65, windDirection: 0, windNoiseScale: 0.15, simulationSpeed: 0.98, baseColor: '#304f0b', tipColor: '#86b91a', sheen: 0.25 }
       billboard: { bladeHeight: 1, bladeWidth: 1.5, bladeStiffness: 1, baseBend: 0.2, windIntensity: 0.65, windDirection: 0, windNoiseScale: 0.15, simulationSpeed: 0.98, baseColor: '#304f0b', tipColor: '#86b91a', sheen: 0.25 }
@@ -402,7 +403,7 @@ presets:
     cloudCoverage: 0.7
     rain: false
   bowed:
-    label: Bowed
+    label: Lowsway
     grass:
       blade: { bladeHeight: 1.5, bladeWidth: 0.2, bladeStiffness: 0.7, baseBend: 0.9, windIntensity: 0.6, windDirection: 1, windNoiseScale: 1, simulationSpeed: 0.8, baseColor: '#304f0b', tipColor: '#86b91a', sheen: 0.25 }
       billboard: { bladeHeight: 1, bladeWidth: 1.5, bladeStiffness: 0.7, baseBend: 0.8, windIntensity: 0.6, windDirection: 1, windNoiseScale: 0.5, simulationSpeed: 0.8, baseColor: '#304f0b', tipColor: '#86b91a', sheen: 0.25 }
@@ -411,7 +412,7 @@ presets:
     cloudCoverage: 0.65
     rain: false
   moonlight:
-    label: Moonlight
+    label: Moonrise
     grass:
       blade: { bladeHeight: 1.5, bladeWidth: 0.2, bladeStiffness: 1.05, baseBend: 0.08, windIntensity: 0.8, windDirection: 20, windNoiseScale: 0.3, simulationSpeed: 0.92, baseColor: '#24451d', tipColor: '#65904b', sheen: 0.3 }
       billboard: { bladeHeight: 1, bladeWidth: 1.5, bladeStiffness: 1.05, baseBend: 0.08, windIntensity: 0.8, windDirection: 20, windNoiseScale: 0.3, simulationSpeed: 0.92, baseColor: '#24451d', tipColor: '#65904b', sheen: 0.3 }

@@ -411,6 +411,20 @@ a { color: inherit; }
   transition: opacity .3s;
 }
 
+/* Scene-change iris. Same mask trick as .loading-overlay: the fill is punched
+   out inside a circle of radius --r, so --r: 0 is a full black screen and
+   --r: 120vmax is fully open. Sits above the HUD but below the loading gate. */
+.iris-overlay {
+  --r: 120vmax;
+  position: fixed;
+  inset: 0;
+  z-index: 15000;
+  background: #071015;
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 0 var(--r), #000 calc(var(--r) + 1px));
+  mask-image: radial-gradient(circle at 50% 50%, transparent 0 var(--r), #000 calc(var(--r) + 1px));
+}
+
 .loading-screen {
   position: fixed; inset: 0; z-index: 20; display: grid; place-content: center; gap: 12px;
   background: radial-gradient(circle at 50% 40%, #17252a, #071015 60%);

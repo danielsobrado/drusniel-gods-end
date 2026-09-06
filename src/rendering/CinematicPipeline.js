@@ -22,6 +22,12 @@ export class CinematicPipeline {
     this.aoDepth = rtt(this.scenePass.getTextureNode('depth').r, null, null, {
       type: FloatType, format: RedFormat, minFilter: NearestFilter, magFilter: NearestFilter,
     });
+    // normalNode stays null: GTAO then reconstructs normals from depth via r180's
+    // getNormalFromDepth(), which logs a benign "vec3() data exceeds maximum
+    // length" TSL error (it passes a vec4 textureLoad where a float depth is
+    // expected, then correctly truncates it to .x). Feeding it an MRT normal
+    // target skips that path but renders the scene black on this backend, so the
+    // upstream log is the cheaper of the two. Revisit when three fixes it.
     this.occlusion = ao(this.aoDepth, null, world.camera);
     this.occlusion.radius.value = this.settings.aoRadius;
     this.occlusion.thickness.value = 1;

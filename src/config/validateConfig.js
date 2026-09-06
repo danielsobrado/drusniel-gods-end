@@ -7,6 +7,8 @@
 // are designed to fall back with a warning, and validating them would turn
 // documented "continue with warnings" behavior into a hard startup failure.
 
+import { grassFamily, isGrassShape } from '../grass/grassShapes.js';
+
 const REQUIRED_OBJECTS = [
   ['camera', 'camera'],
   ['player', 'player'],
@@ -59,6 +61,26 @@ export function validateConfig(config) {
   const initialPreset = config.ui?.initialPreset;
   if (initialPreset !== undefined && !config.presets?.[initialPreset]) {
     problems.push(`ui.initialPreset is "${initialPreset}", which is not a key of presets`);
+  }
+
+  // GrassField, GrassGeometryFactory and GrassMaterial all index config by the
+  // shape's FAMILY without a guard, so a shape whose family has no parameter or
+  // LOD block crashes deep inside a constructor rather than here.
+  const shape = config.grass?.shape;
+  if (shape !== undefined) {
+    if (!isGrassShape(shape)) {
+      problems.push(`grass.shape is "${shape}", which is not a known grass shape`);
+    } else {
+      const family = grassFamily(shape);
+      if (typeof config.grass?.[family] !== 'object' || config.grass[family] === null) {
+        problems.push(`grass.${family} is missing (required by grass.shape "${shape}")`);
+      }
+      for (const [name, profile] of Object.entries(config.quality ?? {})) {
+        if (typeof profile?.[family] !== 'object' || profile[family] === null) {
+          problems.push(`quality.${name}.${family} is missing (required by grass.shape "${shape}")`);
+        }
+      }
+    }
   }
 
   // EnvironmentController reads fogMultiplier for whichever quality is active.

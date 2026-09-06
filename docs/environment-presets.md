@@ -24,21 +24,24 @@ public/config.yaml
 
 Current keys, in YAML order:
 
-```text
-sunny
-goldenHour
-rainy
-windy
-calm
-bowed
-moonlight
-```
+| Key | UI label |
+| --- | --- |
+| `sunny` | Highfield |
+| `goldenHour` | Emberfall |
+| `rainy` | Greyrain |
+| `windy` | Galewind |
+| `calm` | Stillmeadow |
+| `bowed` | Lowsway |
+| `moonlight` | Moonrise |
+
+Keys are the join across `public/config.yaml` (`presets.*`), `public/cinematic-look.yaml` (the `goldenHour` override) and `public/visual-parity.yaml` (`audio.presets.*` and the `preset:` sound gates), so they are deliberately stable while labels are free to change. `label` in `config.yaml` is the single source for the displayed name: the HUD brand line and the preset dropdown both read it.
 
 Initial preset:
 
 ```yaml
 ui:
-  initialPreset: sunny
+  initialPreset: sunny     # config.yaml
+  initialPreset: goldenHour # cinematic-look.yaml wins the merge
 ```
 
 Every preset contains:
@@ -115,61 +118,49 @@ Construction reads:
 config.presets[config.ui.initialPreset]
 ```
 
-and creates current/start/target copies of the same Sunny state.
+and stores it as the single `current` snapshot, then immediately calls `#apply()`.
 
-It sets:
-
-```text
-elapsed = TRANSITION_SECONDS
-```
-
-then immediately calls `#apply()`.
-
-There is therefore no five-second fade from generic world defaults into Sunny during startup; Sunny is applied as the initial environment state before the loading screen is removed.
+There is no fade from generic world defaults into the initial preset during startup; it is applied as the initial environment state before the loading screen is removed.
 
 ---
 
-## 4. Preset transition start
+## 4. Preset changes are a hard cut
 
 When `setPreset(name)` is called:
 
 ```text
-start = clone(current)
-target = snapshot(config.presets[name])
-elapsed = 0
+current = snapshot(config.presets[name])
+audio.setPreset(name)
+#apply()
 ```
 
-Because `start` is copied from the currently displayed interpolated state, selecting a third preset while a previous transition is still underway does not jump back to the old endpoint.
+That is the whole transition. There is no `start`, no `target`, no `elapsed`, and no per-frame `update()` — `EnvironmentController` writes uniforms only when something asks it to.
 
-This is important for smooth interactive preset switching.
+The controller previously cross-faded every field over `TRANSITION_SECONDS = 5` with a smoothstep ease. Because that lerp included `lighting.position` and `sky.sunPosition`, switching presets slid the sun across the sky and read on screen as a fast-forward through the time of day. It was removed rather than shortened.
 
 ---
 
-## 5. Transition duration and easing
+## 5. The cut is covered by a circle iris
 
-Code constant:
-
-```text
-TRANSITION_SECONDS = 5
-```
-
-Per frame:
+`GrassDemo` does not call `setPreset` directly. Both the preset and the grass-shape actions are routed through `IrisTransition.run()` (`src/ui/IrisTransition.js`):
 
 ```text
-elapsed = min(5, elapsed + deltaSeconds)
-raw = elapsed / 5
-t = raw * raw * (3 - 2 * raw)
+close()  -> radius 120vmax to 0 over IRIS_CLOSE_SECONDS (0.45)
+swap()   -> setPreset / setGrassShape, applied while the screen is black
+open()   -> radius 0 to 120vmax over IRIS_OPEN_SECONDS (0.6)
 ```
 
-This is a smoothstep-style ease with zero slope at start and finish.
+The overlay is the same technique as the loading reveal: a `.iris-overlay` fill masked by `radial-gradient(circle at 50% 50%, transparent 0 var(--r), #000 ...)`, driven by `requestAnimationFrame` with the shared `power4InOut` easing from `src/ui/loadingStages.js`.
 
-Numeric values use linear interpolation with `t`; colors use `THREE.Color.lerp()` and positions use `Vector3.lerp()`.
+Calls that arrive mid-wipe collapse to the latest one, so repeatedly clicking presets neither queues a chain of wipes nor strands the iris half closed. A swap that throws is logged and the iris still reopens. Under `prefers-reduced-motion: reduce` both animations are skipped and the swap is applied directly.
+
+Note the audio sting: `AudioSystem.setPreset` is called from inside `EnvironmentController.setPreset`, so it now lands on the cut rather than at the start of a five-second fade.
 
 ---
 
-## 6. Grass interpolation fields
+## 6. Grass snapshot fields
 
-Both blade and billboard states interpolate even if only one grass type is currently visible.
+The snapshot carries both blade and billboard states even though only one family is drawn at a time.
 
 Numeric fields:
 
@@ -195,18 +186,16 @@ tipColor
 `#apply()` passes both states into `GrassField.setPreset()`. `GrassField` selects:
 
 ```text
-preset.grass[currentGrassType]
+preset.grass[grassFamily(currentGrassShape)]
 ```
 
-falling back to blade values when needed.
-
-This means switching from blade to billboard during or after a preset transition uses a state that has already been kept in sync.
+Shapes are keyed to a render family (see `docs/grass-system.md`), so switching shape after a preset change reads a state that is already in sync.
 
 ---
 
-## 7. Lighting interpolation fields
+## 7. Lighting snapshot fields
 
-Interpolated:
+Carried and applied:
 
 ```text
 directional light color
@@ -230,9 +219,9 @@ scene.environmentIntensity
 
 ---
 
-## 8. Sky interpolation fields
+## 8. Sky snapshot fields
 
-Interpolated:
+Carried and applied:
 
 ```text
 groundColor
@@ -336,8 +325,8 @@ trees.setWindStrength(current.grass.blade.windIntensity)
 
 Important consequences:
 
-- tree wind strength follows the five-second interpolated **blade** wind intensity,
-- it still uses blade wind intensity when visible grass type is billboard,
+- tree wind strength follows the **blade** wind intensity of the current preset,
+- it still uses blade wind intensity when the visible grass family is billboard,
 - tree wind does not receive preset grass direction/noise scale/simulation speed.
 
 ---
@@ -354,7 +343,7 @@ This happens immediately at selection time.
 
 `RainSystem` then damps its own `intensity` toward that target using lambda 5.
 
-It does not use the five-second environment interpolation value.
+`RainSystem` therefore still eases in after the iris has reopened, which is the one transition the preset change does not cut instantly.
 
 ---
 
@@ -391,23 +380,13 @@ Audio receives final target values immediately and then performs its own exponen
 
 It does not receive `current.grass.blade.windIntensity` every frame.
 
-Therefore the wind sound can approach its final target on a different curve from the five-second visual wind transition.
+Therefore the wind sound continues to fade over ~1.5 s while the visuals have already cut.
 
 ---
 
-## 16. Stored `current.rain` boolean
+## 16. Rain is carried as an intensity, not a boolean
 
-During the five-second update, controller stores:
-
-```text
-current.rain = raw >= 0.5 ? target.rain : start.rain
-```
-
-However, current `#apply()` does not use `current.rain` to drive RainSystem or WaterSurface.
-
-The actual rain/water state was already triggered at preset selection as described above.
-
-This stored boolean is therefore currently not the active weather-control path.
+The snapshot stores `rainIntensity` (`preset.rainIntensity ?? (preset.rain ? 1 : 0)`), and `#apply()` pushes it to `RainSystem`, `WaterSurface` and the terrain ripple uniform. With the cross-fade gone it is always the target preset's own value; there is no intermediate fractional state.
 
 ---
 
@@ -417,12 +396,12 @@ The values below are the current `public/config.yaml` values and are high-sensit
 
 ---
 
-## 17. Sunny
+## 17. Highfield (`sunny`)
 
 Label:
 
 ```text
-Sunny
+Highfield
 ```
 
 ### Blade grass
@@ -495,12 +474,12 @@ Visual intent from the current numbers: bright warm sun, blue/cyan sky, moderate
 
 ---
 
-## 18. Golden Hour
+## 18. Emberfall (`goldenHour`)
 
 Label:
 
 ```text
-Golden Hour
+Emberfall
 ```
 
 ### Blade grass
@@ -562,11 +541,11 @@ cloudCoverage = 0.55
 rain = false
 ```
 
-Compared with Sunny, the sun is lower, directional intensity is reduced, ambient light is much weaker, and the sky shifts strongly toward orange/purple.
+Compared with Highfield, the sun is lower, directional intensity is reduced, ambient light is much weaker, and the sky shifts strongly toward orange/purple.
 
 ---
 
-## 19. Rain
+## 19. Greyrain (`rainy`)
 
 Key:
 
@@ -577,7 +556,7 @@ rainy
 Label:
 
 ```text
-Rain
+Greyrain
 ```
 
 ### Blade grass
@@ -650,7 +629,7 @@ Note the CloudSystem coverage semantics are shader-threshold based; a lower conf
 
 ---
 
-## 20. Wind
+## 20. Galewind (`windy`)
 
 Key:
 
@@ -661,7 +640,7 @@ windy
 Label:
 
 ```text
-Wind
+Galewind
 ```
 
 ### Blade grass
@@ -727,12 +706,12 @@ This is the strongest normal dynamic-wind preset, primarily because `windIntensi
 
 ---
 
-## 21. Calm
+## 21. Stillmeadow (`calm`)
 
 Label:
 
 ```text
-Calm
+Stillmeadow
 ```
 
 ### Blade grass
@@ -798,12 +777,12 @@ Calm still has static `baseBend = 0.2`; low dynamic wind does not mean perfectly
 
 ---
 
-## 22. Bowed
+## 22. Lowsway (`bowed`)
 
 Label:
 
 ```text
-Bowed
+Lowsway
 ```
 
 ### Blade grass
@@ -876,12 +855,12 @@ This preset is specifically useful for validating that `baseBend` is independent
 
 ---
 
-## 23. Moonlight
+## 23. Moonrise (`moonlight`)
 
 Label:
 
 ```text
-Moonlight
+Moonrise
 ```
 
 ### Blade grass
@@ -943,7 +922,7 @@ cloudCoverage = 0.20
 rain = false
 ```
 
-Moonlight uses much lower environment intensity (`0.1`) and strongly blue lighting/sky values. The very high halo/disk powers make the visible light source tight rather than broad.
+Moonrise uses much lower environment intensity (`0.1`) and strongly blue lighting/sky values. The very high halo/disk powers make the visible light source tight rather than broad.
 
 ---
 
@@ -983,7 +962,7 @@ same current environment snapshot remains
 next GrassField.setPreset applies new type values
 ```
 
-For most presets, wind/color settings are intentionally similar across types while geometry dimensions differ. Bowed has additional blade-vs-billboard differences in base bend and noise scale.
+For most presets, wind/color settings are intentionally similar across types while geometry dimensions differ. Lowsway has additional blade-vs-billboard differences in base bend and noise scale.
 
 ---
 
@@ -1022,15 +1001,12 @@ leaves.update
 birds.update
 rain.update
 water.update
-environment.update
 environment.updateSunTarget
 audio.update
 render
 ```
 
-So `EnvironmentController.update()` applies the newly interpolated values after grass/tree update logic for that frame but before rendering.
-
-Grass shader uniforms and tree properties updated by environment application are visible to the render immediately.
+`EnvironmentController` has no per-frame `update()`. The only work it does each frame is `updateSunTarget()`, which keeps the directional light and its shadow frustum anchored to the player (or to the camera during a scenic tour). Environment values are written by `#apply()` at preset, quality and slider changes only.
 
 ---
 
@@ -1059,17 +1035,16 @@ Do not make these preset-dependent while claiming exact reproduction.
 
 A faithful preset system must:
 
-- start in Sunny without a startup five-second fade,
-- maintain `current`, `start`, and `target`,
-- start new transitions from current interpolated state,
-- use exactly five seconds,
-- use `raw² * (3 - 2*raw)` easing,
-- interpolate both blade and billboard grass snapshots,
-- interpolate exact lighting/sky fields listed above,
+- apply the initial preset before the loading screen is removed,
+- maintain exactly one snapshot, `current`,
+- apply a preset change as a hard cut, never a cross-fade,
+- never animate `lighting.position` or `sky.sunPosition` between presets,
+- cover the cut with the circle iris rather than smoothing it,
+- carry both blade and billboard grass snapshots,
+- apply the exact lighting/sky fields listed above,
 - apply quality fog multiplier after preset fog density,
-- keep HDR content fixed and interpolate environment intensity only,
-- interpolate cloud coverage only,
-- feed interpolated blade wind intensity to trees,
+- keep HDR content fixed and change environment intensity only,
+- feed the current blade wind intensity to trees,
 - set RainSystem target immediately on selection,
 - set water rain flag immediately on selection,
 - set audio target and play transition sound immediately on selection,
@@ -1083,7 +1058,7 @@ A faithful preset system must:
 For parity testing, keep camera/quality fixed and switch through:
 
 ```text
-Sunny -> Golden Hour -> Rain -> Wind -> Calm -> Bowed -> Moonlight
+Highfield -> Emberfall -> Greyrain -> Galewind -> Stillmeadow -> Lowsway -> Moonrise
 ```
 
 Observe each transition for at least five seconds.
@@ -1113,14 +1088,14 @@ The purpose is not merely to see different colors. Each preset is a coordinated 
 ```text
 1. verify correct preset key selected
 2. verify active quality/fog multiplier
-3. verify five-second transition has finished
-4. verify current grass type
+3. verify the iris actually reopened (a stuck overlay looks like a black scene)
+4. verify current grass shape and its render family
 5. verify exact preset YAML values
-6. verify EnvironmentController current/start/target values
+6. verify EnvironmentController `current` values
 7. verify sun follows player with relative preset position
 8. verify SkySystem receives current sky values
 9. verify cloud coverage threshold semantics
-10. verify rain/water/audio timing separately from five-second interpolation
+10. verify rain/water/audio timing separately; those still ease after the visual cut
 ```
 
 Do not tune water or terrain material to compensate for a wrong environment light/sky value.

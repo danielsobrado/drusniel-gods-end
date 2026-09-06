@@ -1,15 +1,11 @@
 import { findCharacter } from '../config/characterRoster.js';
+import { GRASS_SHAPES, grassFamily, resolveGrassShape } from '../grass/grassShapes.js';
 
 const DEFAULT_CONTROL_RANGES = Object.freeze({
   windStrength: { min: 0, max: 3, step: 0.1 },
   grassHeight: { min: 0.5, max: 3, step: 0.1 },
   simulationSpeed: { min: 0, max: 2, step: 0.05 },
   pixelRatio: { min: 0.5, max: 2, step: 0.25 },
-});
-
-const PRESET_LABEL_OVERRIDES = Object.freeze({
-  bowed: 'Simple',
-  moonlight: 'Night',
 });
 
 function range(config, name) {
@@ -22,10 +18,6 @@ function rangeInput(name, value, limits, attributes) {
       <input type="range" min="${limits.min}" max="${limits.max}" step="${limits.step}" value="${value}" ${attributes}>
       <output data-output="${name}">${value}</output>
     </div>`;
-}
-
-function presetLabel(key, preset) {
-  return PRESET_LABEL_OVERRIDES[key] ?? preset.label;
 }
 
 function choiceControl(name, label, options, selectedValue) {
@@ -52,7 +44,7 @@ export class DemoUi {
     this.elapsed = 0;
     this.fps = 0;
     this.currentPreset = config.ui.initialPreset;
-    this.currentGrassType = config.grass.type;
+    this.currentGrassShape = resolveGrassShape(config.grass);
     this.painterButton = null;
     this.abortController = new AbortController();
     this.element = this.#create(root);
@@ -64,18 +56,18 @@ export class DemoUi {
 
     const presetOptions = Object.entries(this.config.presets).map(([key, preset]) => ({
       value: key,
-      label: presetLabel(key, preset),
+      label: preset.label,
     }));
-    const grassOptions = [
-      { value: 'blade', label: 'Blade' },
-      { value: 'billboard', label: 'Billboard' },
-    ];
+    const grassOptions = Object.entries(GRASS_SHAPES).map(([key, shape]) => ({
+      value: key,
+      label: shape.label,
+    }));
     const qualityOptions = Object.entries(this.config.quality).map(([key, quality]) => ({
       value: key,
       label: quality.label,
     }));
     const initialPreset = this.config.presets[this.currentPreset];
-    const initialGrass = initialPreset.grass[this.currentGrassType] ?? initialPreset.grass.blade;
+    const initialGrass = initialPreset.grass[grassFamily(this.currentGrassShape)];
     const pixelRatio = this.actions.getPixelRatio?.()
       ?? this.config.ui.pixelRatio
       ?? Math.min(window.devicePixelRatio, this.config.renderer.pixelRatioCap);
@@ -87,7 +79,7 @@ export class DemoUi {
       <section class="controls panel" id="scene-settings" data-controls-panel hidden>
         <strong class="controls-title">Shape the atmosphere</strong>
         ${choiceControl('preset', 'Preset', presetOptions, this.currentPreset)}
-        ${choiceControl('grassType', 'Grass Type', grassOptions, this.currentGrassType)}
+        ${choiceControl('grassShape', 'Grass Shape', grassOptions, this.currentGrassShape)}
         ${choiceControl('quality', 'Quality', qualityOptions, this.config.ui.initialQuality)}
         <label>Wind Strength${rangeInput('windStrength', initialGrass.windIntensity, range(this.config, 'windStrength'), 'data-grass-param="windIntensity"')}</label>
         <label>Grass Height${rangeInput('grassHeight', initialGrass.bladeHeight, range(this.config, 'grassHeight'), 'data-grass-param="bladeHeight"')}</label>
@@ -221,15 +213,14 @@ export class DemoUi {
 
     if (name === 'preset') {
       this.currentPreset = value;
-      this.actions.setPreset(value);
+      this.#syncAfterTransition(overlay, this.actions.setPreset(value));
       overlay.querySelector('[data-scene-preset]').textContent = this.config.presets[value].label;
       this.#syncPresetControls(overlay);
       return;
     }
-    if (name === 'grassType') {
-      this.currentGrassType = value;
-      this.actions.setGrassType(value);
-      this.#syncPresetControls(overlay);
+    if (name === 'grassShape') {
+      this.currentGrassShape = value;
+      this.#syncAfterTransition(overlay, this.actions.setGrassShape(value));
       return;
     }
     if (name === 'quality') this.actions.setQuality(value);
@@ -241,9 +232,16 @@ export class DemoUi {
     overlay.querySelector(`[data-output="${name}"]`).textContent = value;
   }
 
-  #syncPresetControls(overlay) {
+  #syncAfterTransition(overlay, completion) {
+    Promise.resolve(completion).then(() => {
+      if (this.element === overlay) this.#syncPresetControls(overlay, true);
+    });
+  }
+
+  #syncPresetControls(overlay, applied = false) {
     const preset = this.config.presets[this.currentPreset];
-    const grass = preset.grass[this.currentGrassType] ?? preset.grass.blade;
+    const family = grassFamily(this.currentGrassShape);
+    const grass = (applied && this.actions.getGrassParameters?.(family)) || preset.grass[family];
     const values = {
       windIntensity: grass.windIntensity,
       bladeHeight: grass.bladeHeight,

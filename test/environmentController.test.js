@@ -4,20 +4,18 @@ import * as THREE from 'three';
 import { EnvironmentController } from '../src/world/EnvironmentController.js';
 import { loadMergedConfig } from '../scripts/mergedConfig.mjs';
 
-// EnvironmentController latches once a preset transition settles: start, target
-// and t are frozen from then on, so every later frame would recompute identical
-// values and rewrite identical uniforms. Two of the tests below exist for
+// EnvironmentController no longer interpolates: a preset change is a hard cut,
+// played by the caller behind a closed iris. Two of the tests below exist for
 // reasons that are not obvious from reading them:
 //
-//   "the converged frame is applied, not skipped"
-//     the latch must be set AFTER the converged update runs. Latching on the
-//     previous frame's elapsed ends the transition one frame short of target.
+//   "the sun does not travel between presets"
+//     the old 5s cross-fade lerped lighting.position and sky.sunPosition, which
+//     read on screen as a time-lapse of the time of day. This pins the cut.
 //
-//   "changing quality updates fog density in the settled steady state"
+//   "changing quality updates fog density"
 //     #apply() is what pushes quality.fogMultiplier into scene.fog.density, but
-//     setQuality only assigns this.quality. Settled is the steady state and
-//     quality is changed long after any transition, so without a re-apply a
-//     quality change would silently stop updating fog.
+//     setQuality only assigns this.quality. Without a re-apply a quality change
+//     would silently stop updating fog.
 //
 // Both failed exactly as intended when deliberately reintroduced, so do not
 // "simplify" them away.
@@ -98,94 +96,91 @@ test('fixture exposes more than one preset and quality', () => {
   assert.ok(qualityNames.length >= 2, 'need two qualities to test the fog trap');
 });
 
-test('a transition converges to the target preset within TRANSITION_SECONDS', () => {
+test('setPreset applies the target preset immediately, with no cross-fade', () => {
   const { controller, sinks } = build();
   controller.setPreset(presetNames[1]);
-  for (let frame = 0; frame < 400; frame += 1) controller.update(1 / 60);
 
   const target = config.presets[presetNames[1]];
   assert.equal(
     sinks.scene.fog.density,
     target.sky.fogDensity * config.quality[controller.quality].fogMultiplier,
-    'fog density must reach the target preset value',
+    'fog density must be the target value on the same call, without an update() frame',
   );
 });
 
-test('the converged frame is applied, not skipped', () => {
+test('the sun does not travel between presets', () => {
+  const origin = new THREE.Vector3();
   const { controller, sinks } = build();
-  controller.setPreset(presetNames[1]);
-  controller.update(5);
-  const target = config.presets[presetNames[1]];
-  assert.equal(
-    sinks.scene.fog.density,
-    target.sky.fogDensity * config.quality[controller.quality].fogMultiplier,
-    'the frame that reaches t=1 must still apply',
+  controller.setPreset(presetNames[0]);
+  controller.updateSunTarget(origin);
+  const first = sinks.sun.position.clone();
+
+  const moved = presetNames.find(
+    (name) => !new THREE.Vector3().fromArray(config.presets[name].lighting.position).equals(first),
+  );
+  assert.ok(moved, 'need a preset whose sun sits somewhere else');
+
+  controller.setPreset(moved);
+  controller.updateSunTarget(origin);
+  assert.deepEqual(
+    sinks.sun.position.toArray(),
+    config.presets[moved].lighting.position,
+    'the sun must cut straight to the new position, never sweep across the sky',
   );
 });
 
-test('changing quality updates fog density in the settled steady state', () => {
+test('changing quality updates fog density', () => {
   const { controller, sinks } = build();
-  for (let frame = 0; frame < 600; frame += 1) controller.update(1 / 60);
-
   const before = sinks.scene.fog.density;
   const other = qualityNames.find((name) => config.quality[name].fogMultiplier !== config.quality[controller.quality].fogMultiplier);
   assert.ok(other, 'need two qualities with different fogMultiplier');
 
   controller.setQuality(other);
-  controller.update(1 / 60);
 
   const expected = controller.current.sky.fogDensity * config.quality[other].fogMultiplier;
   assert.equal(sinks.scene.fog.density, expected, 'quality change must update fog density');
   assert.notEqual(sinks.scene.fog.density, before, 'fog density should actually have changed');
 });
 
-test('a new preset restarts the transition after settling', () => {
+test('a second preset replaces the first', () => {
   const { controller, sinks } = build();
-  for (let frame = 0; frame < 600; frame += 1) controller.update(1 / 60);
-
   controller.setPreset(presetNames[1]);
-  const writesBefore = sinks.writes.length;
-  controller.update(1 / 60);
-  assert.ok(sinks.writes.length > writesBefore, 'a new preset must resume applying');
+  controller.setPreset(presetNames[0]);
+
+  const target = config.presets[presetNames[0]];
+  assert.equal(
+    sinks.scene.fog.density,
+    target.sky.fogDensity * config.quality[controller.quality].fogMultiplier,
+  );
 });
 
-test('setGrassParameter applies immediately even when settled', () => {
+test('setGrassParameter applies immediately', () => {
   const { controller, sinks } = build();
-  for (let frame = 0; frame < 600; frame += 1) controller.update(1 / 60);
-
   const writesBefore = sinks.writes.length;
   controller.setGrassParameter('bladeHeight', 1.234);
   assert.ok(sinks.writes.length > writesBefore, 'setGrassParameter must apply immediately');
   assert.ok(sinks.writes.includes('grass.bladeHeight=1.234'));
 });
 
-test('settled frames stop rewriting uniforms', () => {
-  const { controller, sinks } = build();
-  for (let frame = 0; frame < 600; frame += 1) controller.update(1 / 60);
-
-  const writesBefore = sinks.writes.length;
-  for (let frame = 0; frame < 60; frame += 1) controller.update(1 / 60);
-  assert.equal(sinks.writes.length, writesBefore, 'settled frames should not rewrite uniforms');
-});
-
-test('rain intensity is continuously interpolated during preset transitions', () => {
+test('rain reaches full intensity on the preset change itself', () => {
   const rainPreset = presetNames.find((name) => config.presets[name].rain);
   const dryPreset = presetNames.find((name) => !config.presets[name].rain);
   assert.ok(rainPreset && dryPreset, 'need both dry and rainy presets');
 
   const { controller, sinks } = build();
   controller.setPreset(dryPreset);
-  controller.update(5);
-  controller.setPreset(rainPreset);
   sinks.writes.length = 0;
-  controller.update(2.5);
+  controller.setPreset(rainPreset);
 
-  const waterWrite = sinks.writes.findLast((entry) => entry.startsWith('water.rainIntensity='));
-  assert.ok(waterWrite, 'water should receive the interpolated rain intensity');
-  const value = Number(waterWrite.split('=')[1]);
-  assert.ok(value > 0 && value < 1, 'halfway through the transition rain must be fractional');
-  assert.equal(sinks.terrain.material.userData.rippleAmount.value, (config.ground.rainRipple?.amount ?? 0.7) * value);
-  assert.ok(sinks.wetMesh.material.roughness < 0.8 && sinks.wetMesh.material.roughness > 0.1);
+  assert.equal(
+    sinks.writes.findLast((entry) => entry.startsWith('water.rainIntensity=')),
+    'water.rainIntensity=1',
+    'rain must arrive at full strength, not ramp up over a transition',
+  );
+  assert.equal(
+    sinks.terrain.material.userData.rippleAmount.value,
+    config.ground.rainRipple?.amount ?? 0.7,
+  );
 });
 
 test('environment wind and simulation speed use recovered subsystem multipliers', () => {

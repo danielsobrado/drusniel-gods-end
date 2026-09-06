@@ -207,7 +207,7 @@ audio:
   presetFadeDuration: 1.5
   transitionVolume: 0.3
   ambient:
-    - { name: grassWind, sound: Assets/Audio/wind-loop2.mp3, volume: 0.25, loop: true, volumeVariation: 0.25, variationSpeed: 5 }
+    - { name: grassWind, sound: Assets/Audio/wind-loop2_alt.mp3, volume: 0.25, loop: true, volumeVariation: 0.25, variationSpeed: 5 }
     - { name: rain, sound: Assets/Audio/rain.mp3, volume: 0.8, loop: true, preset: rainy, volumeVariation: 0.08, variationSpeed: 1 }
     - { name: nightInsects, sound: Assets/Audio/insects.mp3, volume: 0.35, loop: true, preset: moonlight, volumeVariation: 0.15, variationSpeed: 0.5 }
   emitters:

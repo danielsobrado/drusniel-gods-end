@@ -6,6 +6,7 @@ import { GrassField } from '../grass/GrassField.js';
 import { WorldCollisionSystem } from '../physics/WorldCollisionSystem.js';
 import { PlayerController } from '../player/PlayerController.js';
 import { DemoUi } from '../ui/DemoUi.js';
+import { IrisTransition } from '../ui/IrisTransition.js';
 import { LoadingUi } from '../ui/LoadingUi.js';
 import { WaterSurface } from '../water/WaterSurface.js';
 import { RainSystem } from '../weather/RainSystem.js';
@@ -178,6 +179,7 @@ export class GrassDemo {
     });
 
     this.tour = new ScenicTour(this.world, this.player, this.trees, this.water);
+    this.iris = new IrisTransition(this.root);
     this.ui = new DemoUi(this.root, this.config, this.#createUiActions());
     this.pipeline = new CinematicPipeline(this.world, this.config);
 
@@ -239,7 +241,7 @@ export class GrassDemo {
 
   #createUiActions() {
     return {
-      setPreset: (name) => this.environment.setPreset(name),
+      setPreset: (name) => this.iris.run(() => this.environment.setPreset(name), 'preset'),
       toggleTour: () => {
         if (this.grass.painter?.enabled) this.grass.togglePainter();
         return this.tour.start();
@@ -253,8 +255,13 @@ export class GrassDemo {
         this.meadow?.setQuality(name);
         this.water?.setQuality(name);
       },
-      setGrassType: (type) => this.grass.setGrassType(type),
-      setGrassParameter: (name, value) => this.environment.setGrassParameter(name, value),
+      setGrassShape: (shape) => this.iris.run(() => this.grass.setGrassShape(shape), 'grassShape'),
+      getGrassParameters: (family) => this.environment.current.grass[family],
+      setGrassParameter: (name, value) => {
+        const apply = () => this.environment.setGrassParameter(name, value);
+        if (this.iris.running) return this.iris.run(apply, `grassParam:${name}`);
+        return apply();
+      },
       getPixelRatio: () => this.pixelRatio,
       setPixelRatio: (value) => {
         const cap = this.config.renderer.pixelRatioCap;
@@ -302,7 +309,6 @@ export class GrassDemo {
     const deltaSeconds = Math.min(this.clock.getDelta(), 0.05);
     const elapsedSeconds = this.clock.elapsedTime;
 
-    this.environment.update(deltaSeconds);
     this.player.update(deltaSeconds);
     this.tour.update(deltaSeconds);
     this.world.terrainAnimations?.update(deltaSeconds);
@@ -339,6 +345,7 @@ export class GrassDemo {
     this.cinematicLighting?.dispose();
     this.meadow?.dispose();
     this.ui?.dispose?.();
+    this.iris?.dispose?.();
     this.grass?.painter?.dispose?.();
     this.grass?.dispose?.();
     this.trees?.dispose?.();

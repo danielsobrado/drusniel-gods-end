@@ -29,7 +29,7 @@ The live demo exposes this control order:
 ```text
 Controls
 Preset
-Grass Type
+Grass Shape
 Quality
 Wind Strength
 Grass Height
@@ -41,46 +41,40 @@ Join Waitlist
 
 The reference does not use native HTML selects for the first three controls. The DOM contains a current value plus a set of button options.
 
-The reconstruction therefore uses custom choice menus for Preset, Grass Type and Quality.
+The reconstruction therefore uses custom choice menus for Preset, Grass Shape and Quality.
 
 ## Preset labels
 
-Reference labels are:
+Presets are named as places rather than as weather readouts:
+
+| Config key | Label |
+| --- | --- |
+| `sunny` | Highfield |
+| `goldenHour` | Emberfall |
+| `rainy` | Greyrain |
+| `windy` | Galewind |
+| `calm` | Stillmeadow |
+| `bowed` | Lowsway |
+| `moonlight` | Moonrise |
+
+`label` in `public/config.yaml` is the only source. The UI previously carried a `PRESET_LABEL_OVERRIDES` map that renamed two presets for the dropdown while the HUD brand line kept printing the raw config label, so the two disagreed on screen; that map is gone.
+
+Configuration keys are unchanged. They are the join across `config.yaml`, `cinematic-look.yaml` and the audio presets in `visual-parity.yaml`, so they stay stable while labels are free to change.
+
+## Grass Shape
+
+Options name the silhouette, not the rendering technique:
 
 ```text
-Sunny
-Golden Hour
-Rain
-Wind
-Calm
-Bowed (Only Blades)
-Moon Light
+Slender     tapered blade, the default
+Reed        narrow, near-parallel sides
+Broadleaf   wide at the base, rounded edge
+Tufted      textured atlas card
 ```
 
-Internal configuration keys remain:
+Each shape declares a render family (`blade` or `billboard`) that supplies its parameters, material, LOD and wind response — see `docs/grass-system.md`. Changing shape rebuilds the grass geometry and refreshes the visible wind, height and simulation-speed values from the current preset's **family** block.
 
-```text
-sunny
-goldenHour
-rainy
-windy
-calm
-bowed
-moonlight
-```
-
-The UI maps the two labels that differ from configuration display names without changing runtime preset keys.
-
-## Grass Type
-
-Reference options:
-
-```text
-Blade
-Billboard
-```
-
-Changing type updates the grass renderer and refreshes the visible wind, height and simulation-speed values from the currently selected preset.
+Both preset and shape changes are played behind the circle iris (`src/ui/IrisTransition.js`), which also hides the geometry rebuild.
 
 ## Quality
 
@@ -243,9 +237,11 @@ It reports application stages and fades away after shader compilation. Do not tr
 Public-HUD parity should verify:
 
 - Preset is a button menu, not a native select,
-- Grass Type is a button menu,
+- Grass Shape is a button menu,
 - Quality is a button menu,
-- preset labels include `Bowed (Only Blades)` and `Moon Light`,
+- preset labels match `config.yaml` exactly, with the dropdown and the HUD brand line showing the same name,
+- Grass Shape lists Slender, Reed, Broadleaf and Tufted,
+- preset and shape changes play the circle iris,
 - four live sliders remain wired,
 - Foot Interaction remains wired,
 - Join Waitlist appears after Foot Interaction,

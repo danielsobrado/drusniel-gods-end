@@ -51,7 +51,10 @@ function createFallbackAtlas() {
 export async function loadGrassAtlas(config) {
   const path = config.assets?.grassAtlas;
   if (!path) {
-    logger.warn('Grass atlas is not configured; billboard grass uses a procedural fallback atlas.');
+    // Shipping without an atlas is the documented default (docs/asset-policy.md),
+    // so the procedural fallback is the expected path, not a problem. Warning
+    // about it on every boot only trains people to ignore the console.
+    logger.info('Grass atlas is not configured; billboard grass uses a procedural fallback atlas.');
     return createFallbackAtlas();
   }
 
