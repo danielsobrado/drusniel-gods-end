@@ -131,7 +131,7 @@ export async function createWorld(config, onProgress = () => {}) {
 
   let groundMaterial;
   try {
-    groundMaterial = await createGroundMaterial(config);
+    groundMaterial = await createGroundMaterial(config, terrainSampler);
   } catch (error) {
     logger.warn('Ground PBR material failed to load; using fallback material.', error);
     groundMaterial = createFallbackMaterial(config);

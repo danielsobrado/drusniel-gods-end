@@ -16,6 +16,8 @@ characters:
       model: Assets/Drusniel_Dark_Elf.glb
     - id: enanillo
       model: Assets/Enanillo_Dwarven.glb
+    - id: paladin
+      model: Assets/Radiant_Paladin.glb
 ```
 
 `src/config/characterRoster.js` applies the selection by rewriting `assets.player`
@@ -107,14 +109,14 @@ A future player GLB must provide:
 
 Optional animated helper meshes can be named through `player.influenceObjects`; otherwise the root-relative fallback remains active. Scale, local Y offset, and forward orientation can be adjusted through YAML.
 
-Both shipped characters are the same 24-joint armature with the same bone names, so
-a clip authored against one skin binds by name and plays on the other. A roster entry
+Every shipped character is the same 24-joint armature with the same bone names, so
+a clip authored against one skin binds by name and plays on the others. A roster entry
 lists such borrowed clips in `player.animationSources`, and `PlayerController` merges
 them into the mixer alongside the clips in the character's own GLB.
 
 Borrowing at runtime costs a whole extra GLB fetch, which is only worth it when the
-clip genuinely lives with another character. Neither shipped character needs it any
-more, so both roster entries carry an empty `animationSources`.
+clip genuinely lives with another character. No shipped character needs it any more,
+so every roster entry carries an empty `animationSources`.
 
 Each character was authored as a separate GLB per clip, which meant shipping the skin
 and its texture once per animation. `scripts/merge-glb-animations.mjs` rebinds clips
@@ -125,13 +127,18 @@ Draco geometry and a WebP texture:
 | --- | --- | --- |
 | `Enanillo_Dwarven.glb` | 2 files, 23.4 MB | 1.2 MB |
 | `Drusniel_Dark_Elf.glb` | 3 files, 47.4 MB | 1.6 MB |
+| `Radiant_Paladin.glb` | 2 files, 15.2 MB | 1.3 MB |
 
 Drusniel's third file was an earlier export of the same geometry with different skin
-weights and a different run cycle; the Frostveil export superseded it. Both merged
-assets carry `Armature|running|baselayer` and `Armature|walking_man|baselayer`, which
+weights and a different run cycle; the Frostveil export superseded it. Every merged
+asset carries `Armature|running|baselayer` and `Armature|walking_man|baselayer`, which
 is why Drusniel now has an authored walk instead of reusing the run clip at walking
 speed. Neither compression format needs loader changes: `PlayerController` already
 attaches a `DRACOLoader`, and `GLTFLoader` handles `EXT_texture_webp` natively.
+
+The Paladin is a lighter mesh than the other two (28k triangles against Drusniel's
+190k), so its texture dominates the compressed size and the ratio is lower: most of
+its 15.2 MB was two copies of one 6.4 MB PNG.
 
 ## Implementation boundaries
 

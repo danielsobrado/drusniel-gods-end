@@ -25,9 +25,9 @@ function readGlbJson(path) {
   throw new Error('GLB JSON chunk not found');
 }
 
-test('the roster offers Drusniel and Enanillo, defaulting to Drusniel', async () => {
+test('the roster offers Drusniel, Enanillo and the Paladin, defaulting to Drusniel', async () => {
   const config = await loadMergedConfig();
-  assert.deepEqual(getRoster(config).map((entry) => entry.id), ['drusniel', 'enanillo']);
+  assert.deepEqual(getRoster(config).map((entry) => entry.id), ['drusniel', 'enanillo', 'paladin']);
   assert.equal(defaultCharacterId(config), 'drusniel');
 });
 

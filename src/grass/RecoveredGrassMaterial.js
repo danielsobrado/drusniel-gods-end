@@ -686,10 +686,9 @@ export class GrassMaterial {
       return;
     }
     const variation = instanceData.w;
-    const heightBrightness = style ? mix(style.grassRootBrightness, 1, smoothstep(0, 0.9, bladeUv.y))
-      : oneMinus(pow(oneMinus(bladeUv.y), 1.8).mul(0.6))
+    const heightBrightness = oneMinus(pow(oneMinus(bladeUv.y), 1.8).mul(0.6))
         .mul(smoothstep(0, 0.08, bladeUv.y).mul(0.7).add(0.3));
-    const colorHeight = bladeUv.y.add(variation.sub(0.5).mul(0.35)).clamp(0, 1).pow(style?.grassGradientPower ?? 3);
+    const colorHeight = bladeUv.y.add(variation.sub(0.5).mul(0.35)).clamp(0, 1).pow(3);
     const baseColor = this.uniforms.baseColor.mul(mix(0.96, 1.04, variation));
     const tipColor = this.uniforms.tipColor.mul(mix(0.98, 1.02, variation));
     const gradientColor = mix(baseColor, tipColor, colorHeight);
@@ -710,11 +709,8 @@ export class GrassMaterial {
       .add(vec3(viewSheen));
     if (this.config.cinematic?.enabled) {
       const patch = gradientNoise2d(positionWorld.xz.mul(0.045)).clamp(0, 1);
-      material.colorNode = material.colorNode.mul(style
-        ? mix(vec3(0.78, 0.96, 0.88), vec3(1.08, 1.04, 0.78), smoothstep(0.2, 0.8, patch))
-        : mix(vec3(0.72, 0.82, 0.67), vec3(1.16, 1.06, 0.77), patch));
+      material.colorNode = material.colorNode.mul(mix(vec3(0.72, 0.82, 0.67), vec3(1.16, 1.06, 0.77), patch));
       material.emissiveNode = foliageBacklight(gradientColor, 0.7).mul(bladeUv.y.pow(1.5));
-      if (style) material.emissiveNode = material.emissiveNode.add(gradientColor.mul(foliageLight.fill).mul(style.foliageFill));
       material.roughness = 0.85;
       material.alphaToCoverage = true;
     }
@@ -736,11 +732,17 @@ export class GrassMaterial {
         row.mul(cell.y).add(ATLAS_PADDING),
       ));
     const atlasSample = texture(atlasTexture, atlasUv);
+    material.opacityNode = atlasSample.a;
+    material.alphaTestNode = float(BILLBOARD_ALPHA_TEST);
+    material.transparent = false;
+    if (style) {
+      this.#configureMeadowMaterial(material, bladeUv, instanceData);
+      return;
+    }
     const variation = instanceData.w;
-    const heightBrightness = style ? mix(style.grassRootBrightness, 1, smoothstep(0, 0.9, bladeUv.y))
-      : oneMinus(pow(oneMinus(bladeUv.y), 0.8).mul(0.6))
+    const heightBrightness = oneMinus(pow(oneMinus(bladeUv.y), 0.8).mul(0.6))
         .mul(smoothstep(0, 0.08, bladeUv.y).mul(0.7).add(0.3));
-    const colorHeight = bladeUv.y.add(variation.sub(0.5).mul(0.2)).clamp(0, 1).pow(style?.grassGradientPower ?? 3);
+    const colorHeight = bladeUv.y.add(variation.sub(0.5).mul(0.2)).clamp(0, 1).pow(3);
     const baseColor = this.uniforms.baseColor.mul(mix(0.95, 1.04, variation));
     const tipColor = this.uniforms.tipColor.mul(mix(0.98, 1.02, variation));
     const proceduralColor = mix(baseColor, tipColor, colorHeight).mul(mix(
@@ -748,7 +750,7 @@ export class GrassMaterial {
       vec3(1.05, 1.02, 0.95),
       variation,
     ));
-    const selectedColor = this.config.grass.useTextureColor && !style
+    const selectedColor = this.config.grass.useTextureColor
       ? atlasSample.rgb
       : proceduralColor;
     const viewDirection = cameraPositionNode.sub(positionWorld).normalize();
@@ -758,19 +760,12 @@ export class GrassMaterial {
     ).mul(smoothstep(0.7, 1, bladeUv.y)).mul(this.uniforms.sheen);
 
     material.colorNode = selectedColor.mul(heightBrightness).add(vec3(viewSheen));
-    material.opacityNode = atlasSample.a;
-    material.alphaTestNode = float(BILLBOARD_ALPHA_TEST);
-    material.transparent = false;
     if (this.config.cinematic?.enabled) {
       const patch = gradientNoise2d(positionWorld.xz.mul(0.045)).clamp(0, 1);
-      material.colorNode = material.colorNode.mul(style
-        ? mix(vec3(0.78, 0.96, 0.88), vec3(1.08, 1.04, 0.78), smoothstep(0.2, 0.8, patch))
-        : mix(vec3(0.72, 0.82, 0.67), vec3(1.16, 1.06, 0.77), patch));
+      material.colorNode = material.colorNode.mul(mix(vec3(0.72, 0.82, 0.67), vec3(1.16, 1.06, 0.77), patch));
       material.emissiveNode = foliageBacklight(selectedColor, 0.6).mul(bladeUv.y);
-      if (style) material.emissiveNode = material.emissiveNode.add(selectedColor.mul(foliageLight.fill).mul(style.foliageFill));
       material.alphaToCoverage = true;
     }
-    if (style) this.#configureMeadowMaterial(material, bladeUv, instanceData);
   }
 
   #configureMeadowMaterial(material, bladeUv, instanceData) {
@@ -779,13 +774,13 @@ export class GrassMaterial {
     const palette = meadowColors(rootWorld.xz, this.config);
     const height = bladeUv.y.clamp(0, 1);
     const colorHeight = height.pow(style.grassGradientPower ?? 2.6);
-    const pigment = mix(palette.root, palette.tip, colorHeight);
+    const pigment = mix(palette.root.toVarying('meadowRootPigment'), palette.tip.toVarying('meadowTipPigment'), colorHeight);
     const rootShade = mix(style.grassRootBrightness ?? 0.9, 1, smoothstep(0, 0.45, height));
     const variation = mix(0.96, 1.04, instanceData.w);
     material.colorNode = pigment.mul(rootShade).mul(variation);
     // Sun-facing transmission is strongest at the thin tip. A small shared
     // ambient fill keeps roots and terrain together without bleaching the field.
-    material.emissiveNode = foliageBacklight(pigment, style.grassBacklight ?? 0.85)
+    material.emissiveNode = foliageBacklight(pigment, this.uniforms.sheen.clamp(0, 1).add(style.grassBacklight ?? 0.85))
       .mul(smoothstep(0.35, 1, height))
       .add(pigment.mul(foliageLight.fill).mul(style.grassFill ?? 0.06));
     material.roughness = 0.94;

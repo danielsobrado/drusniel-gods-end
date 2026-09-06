@@ -36,7 +36,7 @@ export function meadowColors(worldXZ, config) {
   const scale = style.meadowPatchScale ?? 0.035;
   const patch = meadowNoise(worldXZ.mul(scale)).mul(0.8)
     .add(meadowNoise(worldXZ.mul(scale * 2.7).add(19.3)).mul(0.2));
-  const tint = mix(vec3(0.84, 0.97, 1.03), vec3(1.13, 1.04, 0.77), smoothstep(0.15, 0.85, patch));
+  const tint = mix(vec3(0.84, 0.97, 1.03), vec3(1.13, 1.04, 0.77), smoothstep(0.15, 0.85, patch)).toVar();
   return {
     root: mix(palette.base, palette.tip, style.groundTipMix ?? 0.12).mul(tint),
     tip: palette.tip.mul(tint),

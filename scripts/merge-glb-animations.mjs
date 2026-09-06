@@ -30,6 +30,10 @@
  *     Drusniel_AI_Frostveil_Warden_biped_Animation_Running_withSkin.glb  --model
  *     Drusniel_AI_Frostveil_Warden_biped_Animation_Walking_withSkin.glb  --clips
  *
+ *   Radiant_Paladin.glb   (2 sources, 15.2 MB -> 1.3 MB), untracked when merged:
+ *     Meshy_AI_Radiant_Paladin_biped_Animation_Running_withSkin.glb  --model
+ *     Meshy_AI_Radiant_Paladin_biped_Animation_Walking_withSkin.glb  --clips
+ *
  * A third Drusniel file, Drunsiel_Warden_biped_Animation_Running_withSkin.glb (also
  * at c83c515), was the superseded export: same geometry to within float32 epsilon,
  * but different skin weights and a different run cycle. It was dropped, not merged.

@@ -129,6 +129,10 @@ export class GrassDemo {
       this.world.terrainSampler,
     ).init();
     this.grass.attachPainter({ terrain: this.world.terrainTarget, player: this.player });
+    const groundMaterials = this.world.terrainTarget.material;
+    for (const material of Array.isArray(groundMaterials) ? groundMaterials : [groundMaterials]) {
+      material?.userData.setGrassMask?.(this.grass.mask);
+    }
     if (this.config.cinematic?.enabled) {
       this.meadow = new MeadowDetails(this.world.scene, this.config, this.world.terrainSampler, this.grass, this.trees);
     }

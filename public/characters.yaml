@@ -33,3 +33,15 @@ characters:
           idle: null
           walk: Armature|walking_man|baselayer
           run: Armature|running|baselayer
+    - id: paladin
+      name: Paladin
+      title: Radiant Paladin
+      blurb: Armoured and unhurried, standing eye to eye with the elf.
+      model: Assets/Radiant_Paladin.glb
+      player:
+        targetHeight: 5.0
+        animationSources: []
+        animations:
+          idle: null
+          walk: Armature|walking_man|baselayer
+          run: Armature|running|baselayer
