@@ -78,7 +78,21 @@ test('WebGL capability adapter never advertises native compute', () => {
   const caps = readRendererCapabilities({ backend: { isWebGLBackend: true, gl } });
   assert.equal(caps.nativeCompute, false); assert.equal(caps.indirectDraw, false);
   assert.equal(caps.gpuTiming, false); assert.equal(caps.maxTextureSize, 4096);
+  assert.equal(caps.colorTargetHalfFloat, false);
   assert.throws(() => readRendererCapabilities({ backend: {} }), /unrecognized/);
+});
+
+test('a half-float-only device still reports a renderable half-float target', () => {
+  // Either extension makes a half-float colour target renderable, and a device
+  // may expose only the half-float one. Probing the float extension alone
+  // reports no renderable half-float target there, so any pass that picks its
+  // precision from this drops to bytes for no reason.
+  const probed = [];
+  const gl = { getParameter: () => 4096,
+    getExtension: (name) => { probed.push(name); return name === 'EXT_color_buffer_half_float' ? {} : null; } };
+  const caps = readRendererCapabilities({ backend: { isWebGLBackend: true, gl } });
+  assert.equal(caps.colorTargetHalfFloat, true);
+  assert.ok(probed.includes('EXT_color_buffer_half_float'));
 });
 
 test('scope disposes reverse order and rejects late publication', () => {
