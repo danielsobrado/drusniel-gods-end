@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { createMeadowGeometry } from './MeadowGeometry.js';
-import { attribute, positionLocal, vec3, sin, uniform, smoothstep, cameraPosition } from 'three/tsl';
+import { attribute, positionGeometry, positionLocal, vec3, sin, uniform, smoothstep, cameraPosition } from 'three/tsl';
 import { createSeededRandom } from '../core/math.js';
 import { foliageBacklight, foliageLight } from '../rendering/CinematicLighting.js';
 
@@ -27,10 +27,13 @@ export class MeadowDetails {
       const fade = smoothstep(this.radius - 18, this.radius, distance).oneMinus();
       const staticDetail = type === 'litter' || type === 'stone';
       const phase = this.clock.mul(type === 'fern' ? 1.25 : 1.8).add(origin.x.mul(0.13)).add(origin.z.mul(0.08));
-      const heightWeight = positionLocal.y.max(0).pow(2);
-      const sway = sin(phase).add(sin(phase.mul(1.7).add(positionLocal.x.mul(3))).mul(0.16))
+      // positionLocal already includes the instance transform in Three r185.
+      // Bend by the plant's own height, never its elevation above world zero.
+      const heightWeight = positionGeometry.y.max(0).pow(2);
+      const sway = sin(phase).add(sin(phase.mul(1.7).add(positionGeometry.x.mul(3))).mul(0.16))
         .mul(this.wind.clamp(0, 3)).mul(heightWeight).mul(staticDetail ? 0 : 0.065);
-      material.positionNode = positionLocal.add(vec3(sway, 0, sway.mul(0.35))).mul(fade);
+      const root = origin.sub(vec3(0, 0.015, 0));
+      material.positionNode = positionLocal.sub(root).add(vec3(sway, 0, sway.mul(0.35))).mul(fade).add(root);
       const pigment = attribute('color', 'vec3');
       const fill = config.cinematic.style?.enabled ? (config.cinematic.style.foliageFill ?? 0.28) : 0;
       material.emissiveNode = foliageBacklight(pigment, staticDetail ? 0 : config.cinematic.vegetation.backlight)

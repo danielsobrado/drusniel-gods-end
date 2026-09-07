@@ -60,6 +60,8 @@ MeadowDetails builds six instanced geometry groups: flowers, seed heads, ferns, 
 
 Understory uses the configured vegetation `patchScale` and `backlight`, plus the adventure palette's weather-sensitive foliage fill. Whole-batch frustum bounds are rebuilt after relocation and padded for the maximum shader wind displacement. The complete animated shape scales away at the outer ring, including its wind offset. These bounds enable frustum culling; they do not add per-plant GPU occlusion or geometry LOD.
 
+Understory wind weights use `positionGeometry`, the plant's untransformed vertex coordinates. In Three r185, `positionLocal` already includes instance placement: using its height for wind would bend roots according to terrain elevation. Distance fading subtracts the planted root (terrain height minus 0.015) before scaling and adds it back afterward, keeping each plant anchored throughout the fade.
+
 Grass retains the authored mask and interaction system. Continuous world-space height patches replace abrupt changes in height at the detail-distance threshold. Existing tree LOD transitions remain in use. The cloud plane follows the camera and fades at its edges and toward the horizon, hiding its finite outline.
 
 ## Character and camera
@@ -87,6 +89,8 @@ GPU regression checks run at `/scripts/gpu/occlusion-check.html` on the Vite dev
 `/scripts/gpu/foliage-check.html` reproduces stale fog on three stationary meshes sharing one material, then checks all three after preparation. It also measures coverage variation as a 0.22-pixel-wide tapered blade moves across a pixel. In the local check, fog RGB spread fell from 191 to 0, and coverage variance fell from 25.69 to 2.68 with four samples. These are controlled regression measurements, not a claim that all scene flicker disappears. `window.__foliageCheck` exposes the results.
 
 `/scripts/gpu/ground-check.html` renders the actual ground roughness function for dry/wet turf, shoreline turf, soil and the path fringe. It also verifies that fine procedural fibres retain near detail and converge to a uniform value at subpixel scale. `window.__groundCheck` exposes the results.
+
+`/scripts/gpu/meadow-check.html` reads back the production understory vertex positions and checks anchored roots, gentle sway independent of terrain elevation, wind limits, static litter/stones, and fading around each plant's root. `window.__meadowCheck` exposes the results. Add `?renderer=webgl` to check the fallback backend.
 
 The cinematic terrain sampler projects each triangle into the height grid, avoiding a complete mesh raycast for every grid cell. The legacy sampler remains available when cinematic rendering is disabled. This only changes sampled heights; Rapier continues to use the terrain mesh for collisions.
 

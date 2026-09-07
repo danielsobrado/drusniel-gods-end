@@ -27,7 +27,7 @@ import {
 import { assetUrl } from '../assets/assetUrl.js';
 import { foliageLight } from '../rendering/CinematicLighting.js';
 import { meadowRootColor } from '../rendering/MeadowPalette.js';
-import { groundRoughness as turfRoughness, groundTurf } from '../rendering/GroundTurf.js';
+import { groundGrassTexture, groundRoughness as turfRoughness, groundTurf } from '../rendering/GroundTurf.js';
 
 const ORIGINAL_ANISOTROPY = 16;
 const ORIGINAL_GRASS_UV_SCALE = 150;
@@ -175,7 +175,9 @@ export async function createGroundMaterial(config, terrainSampler = null) {
   const baseUv = uv();
   const grassUv = baseUv.mul(uniform(config.ground.grassTextureScale ?? ORIGINAL_GRASS_UV_SCALE));
   const groundUv = baseUv.mul(uniform(config.ground.groundTextureScale ?? ORIGINAL_GROUND_UV_SCALE));
-  const grassSample = texture(grassColor, grassUv);
+  const grassSample = config.cinematic?.enabled
+    ? groundGrassTexture(grassColor, grassUv, positionWorld.xz).toVar()
+    : texture(grassColor, grassUv).rgb;
   const groundSample = texture(groundColor, groundUv);
   const normalSample = texture(groundNormal, groundUv);
   const roughnessSample = texture(groundRoughness, groundUv).r;
