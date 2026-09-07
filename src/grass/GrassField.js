@@ -58,9 +58,11 @@ export class GrassField {
     this.stats = { visibleTiles: 0, submittedBlades: 0, maskedBlades: 0 };
   }
 
-  async init() {
+  async init(signal) {
+    signal?.throwIfAborted();
     this.terrainSampler.bounds.getCenter(this.terrainCenter);
     await this.mask.load();
+    signal?.throwIfAborted();
     try {
       this.grassTerrainData = await createGrassTerrainData(
         this.renderer,
@@ -68,11 +70,20 @@ export class GrassField {
         this.config.grass.heightResolution,
       );
     } catch (error) {
+      signal?.throwIfAborted();
       logger.warn('Recovered GPU grass height texture failed; using CPU terrain texture.', error);
       this.grassTerrainData = this.terrainSampler;
     }
 
+    if (signal?.aborted) {
+      if (this.grassTerrainData !== this.terrainSampler) this.grassTerrainData?.dispose();
+      signal.throwIfAborted();
+    }
     this.atlasTexture = await loadGrassAtlas(this.config);
+    if (signal?.aborted) {
+      this.atlasTexture?.dispose();
+      signal.throwIfAborted();
+    }
     for (const type of GRASS_TYPES) {
       this.materialControllers[type] = new GrassMaterial(
         this.config,
@@ -339,6 +350,8 @@ export class GrassField {
   }
 
   dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
     for (const tile of this.tiles) tile.dispose(this.scene);
     for (const geometry of Object.values(this.geometries)) geometry.dispose();
     for (const controller of Object.values(this.materialControllers)) controller.dispose();

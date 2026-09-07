@@ -24,7 +24,7 @@
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.20.0",
     "js-yaml": "^4.1.0",
-    "three": "^0.180.0"
+    "three": "0.185.1"
   },
   "devDependencies": {
     "@gltf-transform/core": "^4.5.0",

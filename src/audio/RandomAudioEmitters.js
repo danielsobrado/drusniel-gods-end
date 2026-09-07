@@ -152,7 +152,7 @@ export class RandomAudioEmitters {
   }
 
   #playBuffer(emitter, buffer) {
-    if (emitter.playing || emitter.presetMultiplier <= 0) return;
+    if (this.disposed || emitter.playing || emitter.presetMultiplier <= 0) return;
     const audio = new THREE.PositionalAudio(this.listener);
     audio.setBuffer(buffer);
     audio.setLoop(false);
@@ -166,7 +166,9 @@ export class RandomAudioEmitters {
     emitter.playing = true;
     audio.play();
     const durationMs = buffer.duration / audio.playbackRate * 1000;
-    window.setTimeout(() => {
+    emitter.cleanupTimer = window.setTimeout(() => {
+      emitter.cleanupTimer = null;
+      if (emitter.audio !== audio) return;
       if (audio.isPlaying) audio.stop();
       emitter.object.remove(audio);
       audio.disconnect();
@@ -206,9 +208,13 @@ export class RandomAudioEmitters {
   }
 
   dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
     this.stopAll();
     for (const emitter of [...this.randomEmitters, ...this.presetRandomEmitters]) {
+      window.clearTimeout(emitter.cleanupTimer);
       emitter.audio?.disconnect();
+      emitter.audio = null;
       emitter.object.parent?.remove(emitter.object);
     }
     this.randomEmitters.length = 0;

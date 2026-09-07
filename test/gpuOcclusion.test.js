@@ -99,6 +99,9 @@ test('unsupported backends and disabled occlusion leave rendering untouched', ()
 
 test('open-view backoff uses ordinary draws instead of stale visibility', () => {
   const culling = new GpuOcclusion({ renderer: { backend: {} } });
+  // Exercise the retained r180 algorithm independently of the production
+  // version gate. This fixture does not allocate native GPU resources.
+  culling.enabled = true;
   culling.active.set({}, new Map());
   culling.cooldown = 2;
   culling.stats.culledTriangles = 500;
@@ -109,5 +112,13 @@ test('open-view backoff uses ordinary draws instead of stale visibility', () => 
   culling.enabled = false;
   culling.prepare();
   assert.equal(culling.active.size, 0);
+  culling.dispose();
+});
+
+test('unverified private occlusion bridge is disabled on the pinned r185 build', () => {
+  const culling = new GpuOcclusion({ renderer: { backend: { isWebGPUBackend: true } } });
+  assert.equal(culling.enabled, false);
+  culling.prepare();
+  assert.equal(culling.stats.supported, false);
   culling.dispose();
 });

@@ -8,6 +8,8 @@ import { TerrainAnimationSystem } from './TerrainAnimationSystem.js';
 import { TerrainSampler } from './TerrainSampler.js';
 import { loadEnvironment } from './loadEnvironment.js';
 import { loadTerrain } from './loadTerrain.js';
+import { createRendererSession, resolveRendererRequest } from '../rendering/RendererSession.js';
+import { ResourceScope, captureObjectResources } from '../utils/ResourceScope.js';
 
 const DEFAULT_SHADOW = {
   mobileBreakpoint: 768,
@@ -87,7 +89,13 @@ function createLights(scene, config) {
   return { sun, hemisphere, ambient };
 }
 
-export async function createWorld(config, onProgress = () => {}) {
+export async function createWorld(config, onProgress = () => {}, { signal, rendererRequest } = {}) {
+  const scope = new ResourceScope();
+  const abort = () => scope.dispose();
+  signal?.throwIfAborted();
+  signal?.addEventListener('abort', abort, { once: true });
+  scope.defer(() => signal?.removeEventListener('abort', abort));
+  try {
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(config.world.fogColor, config.world.fogDensity);
 
@@ -99,11 +107,14 @@ export async function createWorld(config, onProgress = () => {}) {
   );
   camera.position.fromArray(config.camera.initialPosition ?? [11.7, 3, 11]);
 
-  const renderer = new THREE.WebGPURenderer({
-    antialias: true,
-    powerPreference: 'high-performance',
-    forceWebGL: Boolean(config.renderer.forceWebGL),
+  onProgress('renderer');
+  const rendererSession = await createRendererSession({
+    request: rendererRequest ?? resolveRendererRequest(window.location.search, config.renderer.forceWebGL),
+    options: { antialias: true, powerPreference: 'high-performance' },
+    signal,
   });
+  scope.defer(() => rendererSession.dispose());
+  const { renderer } = rendererSession;
   renderer.setPixelRatio(getRendererPixelRatio(config));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
@@ -111,23 +122,25 @@ export async function createWorld(config, onProgress = () => {}) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = config.renderer.exposure;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  onProgress('renderer');
-  await renderer.init();
-
   const lights = createLights(scene, config);
+  scope.defer(() => { lights.sun.shadow.dispose(); scene.remove(lights.sun, lights.sun.target, lights.hemisphere, lights.ambient); });
 
   onProgress('environment');
   const environment = await loadEnvironment(scene, config);
+  scope.defer(() => { scene.environment = null; environment?.dispose(); });
 
   onProgress('world');
   const terrainAsset = await loadTerrain(scene, config);
+  scope.defer(captureObjectResources(terrainAsset.root));
   const terrainAnimations = new TerrainAnimationSystem(
     terrainAsset.root,
     terrainAsset.animations,
   ).init();
+  scope.defer(() => terrainAnimations.dispose());
 
   const terrainSampler = new TerrainSampler(terrainAsset.root, config);
   await terrainSampler.build();
+  signal?.throwIfAborted();
 
   let groundMaterial;
   try {
@@ -136,17 +149,24 @@ export async function createWorld(config, onProgress = () => {}) {
     logger.warn('Ground PBR material failed to load; using fallback material.', error);
     groundMaterial = createFallbackMaterial(config);
   }
+  scope.defer(() => {
+    for (const texture of new Set(groundMaterial.userData.textures ?? [])) texture?.dispose();
+    groundMaterial.dispose();
+  });
 
   const materialTargets = applyGroundMaterial(terrainAsset.root, groundMaterial, config);
   const ground = terrainAsset.root
     ? (terrainAsset.target ?? materialTargets[0] ?? terrainAsset.root)
     : createFallbackGround(scene, groundMaterial, config);
+  if (!terrainAsset.root) scope.defer(() => { ground.geometry.dispose(); ground.removeFromParent(); });
 
   let sky = null;
   let clouds = null;
   try {
     sky = new SkySystem(scene, config);
+    scope.defer(() => sky.dispose());
     clouds = new CloudSystem(scene, config);
+    scope.defer(() => clouds.dispose());
   } catch (error) {
     logger.warn('Procedural TSL sky/cloud setup failed; continuing without it.', error);
     scene.background = new THREE.Color(config.world.skyColor);
@@ -156,6 +176,8 @@ export async function createWorld(config, onProgress = () => {}) {
     scene,
     camera,
     renderer,
+    rendererSession,
+    dispose: () => scope.dispose(),
     ground,
     environment,
     terrain: terrainAsset.root,
@@ -168,4 +190,8 @@ export async function createWorld(config, onProgress = () => {}) {
     clouds,
     ...lights,
   };
+  } catch (error) {
+    scope.dispose();
+    throw error;
+  }
 }

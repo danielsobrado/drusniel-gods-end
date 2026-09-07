@@ -44,8 +44,6 @@ async function listFiles(dir) {
         const info = JSON.parse(stdout);
         const format = info.format?.format_name;
         const codec = info.streams?.[0]?.codec_name;
-        const ch = info.streams?.[0]?.channels;
-        const dur = Number(info.format?.duration).toFixed(2);
 
         if (format.includes('mp3') && codec === 'mp3') {
           validFiles++;

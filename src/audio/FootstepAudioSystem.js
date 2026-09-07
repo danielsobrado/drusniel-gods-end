@@ -23,6 +23,7 @@ export class FootstepAudioSystem {
     this.waterPosition = new THREE.Vector3();
     this.position = new THREE.Vector3();
     this.buffers = new Map();
+    this.oneShots = new Map();
     this.lastSound = null;
     this.terrainBlendPixels = null;
     this.terrainBlendWidth = 0;
@@ -50,7 +51,7 @@ export class FootstepAudioSystem {
     }
     await Promise.all([...paths].map(async (path) => {
       const buffer = await this.loadBuffer(path);
-      if (buffer) this.buffers.set(path, buffer);
+      if (buffer && !this.disposed) this.buffers.set(path, buffer);
     }));
   }
 
@@ -166,7 +167,7 @@ export class FootstepAudioSystem {
   }
 
   #createAudio(buffer, terrain) {
-    if (!this.scene) return;
+    if (!this.scene || this.disposed) return;
     const surface = this.config[terrain];
     const audio = new THREE.Audio(this.listener);
     audio.setBuffer(buffer);
@@ -175,10 +176,12 @@ export class FootstepAudioSystem {
     audio.playbackRate = randomRange(this.config.minPitch, this.config.maxPitch);
     audio.play();
     const durationMs = buffer.duration / audio.playbackRate * 1000 + ONE_SHOT_CLEANUP_MS;
-    window.setTimeout(() => {
+    const timer = window.setTimeout(() => {
+      this.oneShots.delete(audio);
       if (audio.isPlaying) audio.stop();
       audio.disconnect();
     }, durationMs);
+    this.oneShots.set(audio, timer);
   }
 
   #getTerrain(position) {
@@ -258,6 +261,14 @@ export class FootstepAudioSystem {
   }
 
   dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
+    for (const [audio, timer] of this.oneShots) {
+      window.clearTimeout(timer);
+      if (audio.isPlaying) audio.stop();
+      audio.disconnect();
+    }
+    this.oneShots.clear();
     this.buffers.clear();
     this.terrainBlendPixels = null;
   }

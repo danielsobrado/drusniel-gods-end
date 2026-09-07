@@ -1,6 +1,6 @@
 /* global GPUBufferUsage, GPUTextureUsage, GPUMapMode, GPUShaderStage */
 import {
-  Box3, DepthTexture, Frustum, IndirectStorageBufferAttribute, Matrix4, Mesh,
+  REVISION, Box3, DepthTexture, Frustum, IndirectStorageBufferAttribute, Matrix4, Mesh,
   MeshBasicNodeMaterial, RenderTarget, Scene, UnsignedIntType, Vector2,
 } from 'three/webgpu';
 import { logger } from '../utils/logger.js';
@@ -14,7 +14,9 @@ export class GpuOcclusion {
   constructor(world, settings = {}) {
     this.world = world;
     this.renderer = world.renderer;
-    this.enabled = settings.enabled !== false;
+    // Private indirect-draw hooks were verified only against r180. Keep normal
+    // rendering on newer versions until that optimization is separately ported.
+    this.enabled = settings.enabled !== false && REVISION === '180';
     this.settings = {
       minTriangles: 256, minOccluderArea: 0.002, boundsPadding: 0.15,
       pixelPadding: 2, depthBias: 0.00002, minSavedTriangles: 25000, probeInterval: 30, ...settings,

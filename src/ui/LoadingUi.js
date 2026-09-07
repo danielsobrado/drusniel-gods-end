@@ -157,24 +157,31 @@ export class LoadingUi {
     if (!this.element?.isConnected) return;
 
     await new Promise((resolve) => {
+      this.resolveStart = resolve;
       this.startButton.addEventListener('click', async () => {
         this.startButton.disabled = true;
         this.startButton.style.pointerEvents = 'none';
         this.element.style.pointerEvents = 'none';
-        await onStart?.();
-        await this.#revealScene();
-        this.element.remove();
-        resolve();
+        try {
+          await onStart?.();
+          if (this.element) await this.#revealScene();
+        } finally {
+          this.element?.remove();
+          this.resolveStart = null;
+          resolve();
+        }
       }, { once: true });
     });
   }
 
   #revealScene() {
     return new Promise((resolve) => {
+      this.resolveReveal = resolve;
       const startedAt = performance.now();
       const durationMs = LOADING_REVEAL_SECONDS * 1000;
 
       const tick = (now) => {
+        if (!this.element) { resolve(); return; }
         const raw = Math.min(1, (now - startedAt) / durationMs);
         const radius = power4InOut(raw) * LOADING_REVEAL_RADIUS_VMAX;
         this.element.style.setProperty('--r', `${radius}vmax`);
@@ -183,6 +190,7 @@ export class LoadingUi {
           return;
         }
         this.revealAnimationFrame = null;
+        this.resolveReveal = null;
         resolve();
       };
 
@@ -194,6 +202,10 @@ export class LoadingUi {
     // Unblock anyone still awaiting the roster gate, so a teardown mid-load
     // rejects the start sequence rather than hanging it.
     this.resolveCharacter?.(this.selectedCharacterId);
+    this.resolveStart?.();
+    this.resolveReveal?.();
+    this.resolveStart = null;
+    this.resolveReveal = null;
     if (this.logoAnimationFrame !== null) cancelAnimationFrame(this.logoAnimationFrame);
     if (this.revealAnimationFrame !== null) cancelAnimationFrame(this.revealAnimationFrame);
     this.element?.remove();

@@ -30,6 +30,7 @@ import { CinematicLighting } from '../rendering/CinematicLighting.js';
 import { CinematicPipeline } from '../rendering/CinematicPipeline.js';
 import { MeadowDetails } from '../foliage/MeadowDetails.js';
 import { ScenicTour } from '../rendering/ScenicTour.js';
+import { findCharacter } from '../config/characterRoster.js';
 
 const MIN_PIXEL_RATIO = 0.5;
 const TREE_COLLIDER_HEIGHT_FACTOR = 0.5;
@@ -45,15 +46,21 @@ export class GrassDemo {
     this.abortController = new AbortController();
     this.renderErrorLogged = false;
     this.loading = null;
+    this.disposed = false;
   }
 
   async start() {
     const loading = new LoadingUi(this.root, this.config.cinematic?.presentation, {
       roster: getRoster(this.config),
-      selectedId: requestedCharacterId(window.location.search, this.config),
+      selectedId: this.resumeState?.characterId ?? requestedCharacterId(window.location.search, this.config),
     });
     this.loading = loading;
-    this.world = await createWorld(this.config, (stage) => loading.stage(stage));
+    this.world = await createWorld(this.config, (stage) => loading.stage(stage), {
+      signal: this.abortController.signal,
+      rendererRequest: this.rendererRequest,
+    });
+    this.abortController.signal.throwIfAborted();
+    this.onRendererReady?.(this.world.rendererSession);
     this.cinematicLighting = new CinematicLighting(this.world, this.config);
     this.root.appendChild(this.world.renderer.domElement);
 
@@ -61,6 +68,7 @@ export class GrassDemo {
     // reads, so it has to close before PlayerController is constructed.
     if (loading.needsCharacterChoice()) loading.stage('character');
     const chosenId = await loading.waitForCharacter();
+    this.abortController.signal.throwIfAborted();
     this.character = applyCharacter(this.config, chosenId ?? defaultCharacterId(this.config));
 
     loading.stage('player');
@@ -73,6 +81,7 @@ export class GrassDemo {
       this.world.terrainTarget,
     );
     await this.player.loadModel();
+    this.abortController.signal.throwIfAborted();
 
     loading.stage('collision');
     this.collisions = new WorldCollisionSystem({
@@ -86,6 +95,7 @@ export class GrassDemo {
       loadTreeWorldData(this.config),
       loadWorldPropData(this.config),
     ]);
+    this.abortController.signal.throwIfAborted();
     this.props = new WorldPropSystem({
       scene: this.world.scene,
       terrainRoot: this.world.terrain,
@@ -122,14 +132,25 @@ export class GrassDemo {
     });
 
     loading.stage('grass');
-    this.grass = await new GrassField(
+    this.grass = new GrassField(
       this.world.scene,
       this.world.camera,
       this.world.renderer,
       this.config,
       this.world.terrainSampler,
-    ).init();
+    );
+    await this.grass.init(this.abortController.signal);
+    this.abortController.signal.throwIfAborted();
     this.grass.attachPainter({ terrain: this.world.terrainTarget, player: this.player });
+    if (this.resumeState?.mask) {
+      const mask = this.grass.mask;
+      if (mask.imageData.data.length === this.resumeState.mask.length) {
+        mask.imageData.data.set(this.resumeState.mask);
+        mask.commitPixels();
+        mask.vegetation.rebuild(mask.imageData, this.world.terrainSampler.size);
+        this.grass.remapEmptyTiles();
+      }
+    }
     const groundMaterials = this.world.terrainTarget.material;
     for (const material of Array.isArray(groundMaterials) ? groundMaterials : [groundMaterials]) {
       material?.userData.setGrassMask?.(this.grass.mask);
@@ -161,6 +182,7 @@ export class GrassDemo {
       config: this.config,
     });
     await this.audio.init();
+    this.abortController.signal.throwIfAborted();
     this.environment = new EnvironmentController({
       scene: this.world.scene,
       sun: this.world.sun,
@@ -186,11 +208,41 @@ export class GrassDemo {
     loading.stage('shaders');
     this.cinematicLighting.activateShadows();
     await this.world.renderer.compileAsync(this.world.scene, this.world.camera);
+    this.abortController.signal.throwIfAborted();
     window.addEventListener('resize', () => this.#resize(), { signal: this.abortController.signal });
     this.#resize();
 
     loading.stage('ready');
     this.world.renderer.setAnimationLoop(() => this.#render());
+    if (this.resumeState?.started) {
+      this.#restorePose(this.resumeState);
+      if (Number.isFinite(this.resumeState.pixelRatioOverride)) {
+        this.pixelRatioOverride = this.resumeState.pixelRatioOverride;
+        this.pixelRatio = this.pixelRatioOverride;
+        this.#resize();
+      }
+      for (const [name, value] of Object.entries(this.resumeState.grassParameters ?? {})) {
+        this.environment.setGrassParameter(name, value);
+      }
+      if (this.resumeState.audioVolumes) {
+        this.audio.setMasterVolume(this.resumeState.audioVolumes.master);
+        this.audio.setAmbientVolume(this.resumeState.audioVolumes.ambient);
+        this.audio.setEnvironmentVolume(this.resumeState.audioVolumes.environment);
+      }
+      this.grass.setInteractionEnabled(this.resumeState.interactionEnabled ?? true);
+      if (this.resumeState.soundEnabled) {
+        try {
+          await this.audio.start();
+        } catch (error) {
+          logger.warn('Audio context could not resume after renderer recovery.', error);
+        }
+      }
+      this.abortController.signal.throwIfAborted();
+      loading.dispose();
+      this.loading = null;
+      this.started = true;
+      return;
+    }
     await loading.waitForStart(async () => {
       try {
         await this.audio.start();
@@ -199,7 +251,43 @@ export class GrassDemo {
       }
       this.player.setPosition(...this.config.player.start);
     });
+    this.abortController.signal.throwIfAborted();
+    this.started = true;
     this.loading = null;
+  }
+
+  captureSessionState() {
+    const config = structuredClone(this.config);
+    config.ui.initialPreset = this.environment?.currentPreset ?? config.ui.initialPreset;
+    config.ui.initialQuality = this.grass?.qualityName ?? config.ui.initialQuality;
+    if (this.grass) config.grass.shape = this.grass.shape;
+    const characterId = this.character?.id ?? defaultCharacterId(config);
+    if (!findCharacter(config, characterId)) throw new Error('Cannot recover unknown character.');
+    return {
+      config, characterId, started: Boolean(this.started), soundEnabled: Boolean(this.audio?.enabled),
+      pixelRatioOverride: this.pixelRatioOverride,
+      grassParameters: Object.fromEntries(Object.entries(this.environment?.current.grass.blade ?? {})
+        .filter(([, value]) => typeof value === 'number')),
+      audioVolumes: this.audio && { master: this.audio.masterVolume,
+        ambient: this.audio.ambientVolume, environment: this.audio.environmentVolume },
+      interactionEnabled: this.grass?.interactionMap.enabled,
+      mask: this.grass?.mask?.imageData?.data.slice(),
+      position: this.player?.getPosition().toArray(),
+      camera: this.world?.camera.position.toArray(),
+      quaternion: this.world?.camera.quaternion.toArray(),
+      cameraYaw: this.player?.cameraYaw, cameraPitch: this.player?.cameraPitch,
+      cameraDistance: this.player?.cameraDistance, playerYaw: this.player?.playerYaw,
+    };
+  }
+
+  #restorePose(state) {
+    if (state.position) this.player.setPosition(...state.position);
+    for (const key of ['cameraYaw', 'cameraPitch', 'cameraDistance', 'playerYaw']) {
+      if (Number.isFinite(state[key])) this.player[key] = state[key];
+    }
+    this.player.targetCameraDistance = this.player.cameraDistance;
+    if (state.camera) this.world.camera.position.fromArray(state.camera);
+    if (state.quaternion) this.world.camera.quaternion.fromArray(state.quaternion);
   }
 
   #registerTreeColliders() {
@@ -306,6 +394,7 @@ export class GrassDemo {
   }
 
   #renderFrame() {
+    if (this.disposed) return;
     const deltaSeconds = Math.min(this.clock.getDelta(), 0.05);
     const elapsedSeconds = this.clock.elapsedTime;
 
@@ -337,33 +426,15 @@ export class GrassDemo {
   }
 
   dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
     this.world?.renderer?.setAnimationLoop(null);
+    for (const resource of [this.loading, this.pipeline, this.cinematicLighting,
+      this.meadow, this.ui, this.iris, this.grass?.painter, this.grass, this.trees, this.props,
+      this.collisions, this.player, this.leaves, this.birds, this.rain,
+      this.water, this.audio, this.environment, this.world]) {
+      try { resource?.dispose?.(); } catch (error) { logger.warn('Demo cleanup failed.', error); }
+    }
     this.abortController.abort();
-
-    this.loading?.dispose?.();
-    this.pipeline?.dispose();
-    this.cinematicLighting?.dispose();
-    this.meadow?.dispose();
-    this.ui?.dispose?.();
-    this.iris?.dispose?.();
-    this.grass?.painter?.dispose?.();
-    this.grass?.dispose?.();
-    this.trees?.dispose?.();
-    this.props?.dispose?.();
-    this.collisions?.dispose?.();
-    this.player?.dispose?.();
-    this.leaves?.dispose?.();
-    this.birds?.dispose?.();
-    this.rain?.dispose?.();
-    this.water?.dispose?.();
-    this.audio?.dispose?.();
-    this.environment?.dispose?.();
-    this.world?.terrainAnimations?.dispose?.();
-    this.world?.sky?.dispose?.();
-    this.world?.clouds?.dispose?.();
-
-    const canvas = this.world?.renderer?.domElement;
-    this.world?.renderer?.dispose?.();
-    canvas?.remove?.();
   }
 }

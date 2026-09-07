@@ -89,6 +89,7 @@ export class EnvironmentController {
     this.terrain = terrain;
     this.config = config;
     this.quality = config.ui.initialQuality;
+    this.currentPreset = config.ui.initialPreset;
     this.current = snapshot(config.presets[config.ui.initialPreset]);
     this.#apply();
   }
@@ -98,6 +99,7 @@ export class EnvironmentController {
   setPreset(name) {
     const preset = this.config.presets[name];
     if (!preset) throw new Error(`Unknown environment preset: ${name}`);
+    this.currentPreset = name;
     this.current = snapshot(preset);
     this.audio?.setPreset?.(name);
     this.#apply();

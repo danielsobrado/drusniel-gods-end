@@ -1,9 +1,10 @@
-import { PostProcessing, FloatType, RedFormat, NearestFilter } from 'three/webgpu';
+import { RenderPipeline, FloatType, RedFormat, NearestFilter } from 'three/webgpu';
 import { pass, rtt, renderOutput, vec4, vec3, uniform, mix, dot, uv, smoothstep } from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { fxaa } from 'three/addons/tsl/display/FXAANode.js';
 import { GpuOcclusion } from './GpuOcclusion.js';
+import { createDepthNormals } from './DepthNormals.js';
 
 export class CinematicPipeline {
   constructor(world, config) {
@@ -12,23 +13,18 @@ export class CinematicPipeline {
     this.enabled = Boolean(config.cinematic?.enabled);
     this.gpuOcclusion = new GpuOcclusion(world, config.cinematic?.occlusion);
     if (!this.enabled) return;
-    this.post = new PostProcessing(world.renderer);
+    this.post = new RenderPipeline(world.renderer);
     this.post.outputColorTransform = false;
     // Coverage samples stabilize moving subpixel blades; FXAA alone cannot.
     this.scenePass = pass(world.scene, world.camera, { samples: this.settings.samples ?? 4 });
     const beauty = this.scenePass.getTextureNode('output');
-    // Resolve sampled depth into an R32F color texture for r180 GTAO's mip-level
-    // dimension query. This is one screen quad, not a second geometry pass.
+    // r185 still issues an invalid mip-level query for multisampled depth in
+    // GTAO. Resolve to color and explicitly reconstruct scalar-depth normals.
     this.aoDepth = rtt(this.scenePass.getTextureNode('depth').r, null, null, {
       type: FloatType, format: RedFormat, minFilter: NearestFilter, magFilter: NearestFilter,
     });
-    // normalNode stays null: GTAO then reconstructs normals from depth via r180's
-    // getNormalFromDepth(), which logs a benign "vec3() data exceeds maximum
-    // length" TSL error (it passes a vec4 textureLoad where a float depth is
-    // expected, then correctly truncates it to .x). Feeding it an MRT normal
-    // target skips that path but renders the scene black on this backend, so the
-    // upstream log is the cheaper of the two. Revisit when three fixes it.
-    this.occlusion = ao(this.aoDepth, null, world.camera);
+    this.aoNormals = createDepthNormals(this.aoDepth, world.camera);
+    this.occlusion = ao(this.aoDepth, this.aoNormals, world.camera);
     this.occlusion.radius.value = this.settings.aoRadius;
     this.occlusion.thickness.value = 1;
     this.occlusion.resolutionScale = 0.5;
@@ -63,6 +59,7 @@ export class CinematicPipeline {
     this.gpuOcclusion.dispose();
     this.scenePass?.dispose();
     this.aoDepth?.dispose();
+    this.aoNormals?.dispose();
     this.occlusion?.dispose();
     this.bloom?.dispose();
     this.post?.dispose();

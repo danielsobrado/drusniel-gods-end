@@ -57,6 +57,9 @@ export async function createGrassTerrainData(renderer, terrain, resolution = DEF
     renderer.setRenderTarget(renderTarget);
     renderer.clear();
     await renderer.renderAsync(scene, camera);
+  } catch (error) {
+    renderTarget.dispose();
+    throw error;
   } finally {
     renderer.setRenderTarget(previousTarget);
     scene.remove(mesh);

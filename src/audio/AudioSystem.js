@@ -185,6 +185,8 @@ export class AudioSystem {
   }
 
   dispose() {
+    if (this.disposed) return;
+    this.disposed = true;
     this.stopAll();
     if (this.transitionAudio.isPlaying) this.transitionAudio.stop();
     this.transitionAudio.disconnect();
