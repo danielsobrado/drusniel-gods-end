@@ -1,6 +1,14 @@
 # Ground PBR Textures
 
-This document describes the recovered ground material currently reproduced on `main`, including its rain-ripple normal path.
+This document describes the recovered ground material and the default cinematic turf treatment, including the rain-ripple normal path.
+
+## Cinematic turf
+
+With cinematic rendering enabled, `src/rendering/GroundTurf.js` blends three grass texture samples with different rotations, offsets and scales. Smooth world-space noise varies the blend and bends the texture coordinates, breaking up the repeated square tiles without adding texture assets.
+
+The styled meadow also uses irregular fibres and small tufts for pigment and surface normals. Smooth random heights replace the former crossed sine waves, which produced a woven grid. Each detail band fades with its screen-space footprint to keep distant ground from shimmering. The shared meadow palette, grass/soil mask and wet roughness remain in use.
+
+The recovered UV scales below still set the texture density; disabling cinematic rendering retains the original single grass sample. `scripts/gpu/ground-check.html` checks close-range detail, distant filtering and dry/wet roughness on the GPU.
 
 ## Source files
 
