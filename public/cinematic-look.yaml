@@ -1,4 +1,15 @@
 # Art direction and effect budgets. Loaded after the recovered visual settings.
+boundaryBarrier:
+  enabled: true
+  height: 12
+  color: '#55e8ff'
+  accentColor: '#a477ff'
+  opacity: 0.32
+  glowStrength: 8
+  noiseScale: 0.035
+  noiseSpeed: 0.035
+  fresnelPower: 3
+  proximityRadius: 16
 cinematic:
   enabled: true
   exposure: 1.05

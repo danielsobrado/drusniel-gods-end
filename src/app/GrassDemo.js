@@ -13,6 +13,7 @@ import { RainSystem } from '../weather/RainSystem.js';
 import { EnvironmentController } from '../world/EnvironmentController.js';
 import { TreeSystem } from '../world/TreeSystem.js';
 import { WorldPropSystem } from '../world/WorldPropSystem.js';
+import { BoundaryBarrier } from '../world/BoundaryBarrier.js';
 import { ZoneIndex } from '../world/ZoneIndex.js';
 import { logger } from '../utils/logger.js';
 import {
@@ -167,6 +168,13 @@ export class GrassDemo {
       this.grass.grassTerrainData,
       this.config,
     );
+    this.boundaryBarrier = new BoundaryBarrier({
+      scene: this.world.scene,
+      terrainRoot: this.world.terrain,
+      terrainSampler: this.world.terrainSampler,
+      config: this.config,
+    }).init();
+    this.boundaryBarrier.update(0, this.player.getPosition());
     this.rain = new RainSystem(
       this.world.scene,
       this.player.getCharacterModel(),
@@ -426,6 +434,7 @@ export class GrassDemo {
     this.environment.updateSunTarget(focus);
     this.cinematicLighting.update();
     this.meadow?.update(deltaSeconds, focus, this.environment.current);
+    this.boundaryBarrier?.update(deltaSeconds, this.player.getPosition());
     this.water.update(deltaSeconds, this.player, this.environment.current.lighting);
     this.pipeline.render({ occlusionEnabled: !this.grass.painter?.enabled });
     this.ui.update(deltaSeconds);
@@ -438,7 +447,7 @@ export class GrassDemo {
     for (const resource of [this.loading, this.pipeline, this.cinematicLighting,
       this.meadow, this.ui, this.iris, this.grass?.painter, this.grass, this.trees, this.props,
       this.collisions, this.player, this.leaves, this.birds, this.rain,
-      this.water, this.audio, this.environment, this.world]) {
+      this.boundaryBarrier, this.water, this.audio, this.environment, this.world]) {
       try { resource?.dispose?.(); } catch (error) { logger.warn('Demo cleanup failed.', error); }
     }
     this.abortController.abort();
