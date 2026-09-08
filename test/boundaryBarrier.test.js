@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { BoundaryBarrier } from '../src/world/BoundaryBarrier.js';
 import { createBoundaryGeometry } from '../src/world/boundaryGeometry.js';
 import { createBarrierNoise } from '../src/world/BoundaryBarrierMaterial.js';
+import { loadMergedConfig } from '../scripts/mergedConfig.mjs';
 
 const worldBounds = [
   { position: [10, 0, 0], size: [1, 100, 24] },
@@ -17,6 +18,17 @@ const sampler = {
   sampleHeight: (x, z) => x * 0.1 + z * 0.05,
 };
 const config = { collisions: { worldBounds }, boundaryBarrier: { enabled: true } };
+
+test('the shipped collider layout produces a closed barrier despite unequal wall extents', async () => {
+  const shipped = await loadMergedConfig();
+  const geometry = createBoundaryGeometry(shipped.collisions.worldBounds, sampler, shipped.boundaryBarrier);
+  try {
+    assert.equal(geometry.boundingBox.min.x, -414.5);
+    assert.equal(geometry.boundingBox.max.x, 383.5);
+    assert.equal(geometry.boundingBox.min.z, -417.5);
+    assert.equal(geometry.boundingBox.max.z, 408.5);
+  } finally { geometry.dispose(); }
+});
 
 test('barrier closes on the inside collider faces and follows sloping terrain', () => {
   const geometry = createBoundaryGeometry(worldBounds, sampler, { height: 12 });
