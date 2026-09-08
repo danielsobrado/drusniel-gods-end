@@ -8,6 +8,7 @@ vegetation:
   buildChunkRows: 8
   growthThreshold: 0.12
   distributionCellSize: 0.3
+  surfacePathThreshold: 0.45
   path:
     sourceThreshold: 0.45
     clearance: 0.8
@@ -49,7 +50,7 @@ vegetation:
     detailScale: 0.075
     octaves: 3
 
-# The old mask/painter cutoff remains only as the shader's smooth growth gate.
+# Legacy shader names; these now gate procedural growth strength, not image-mask pixels.
 grass:
   vegetationCutoff: 0.08
   maskSoftness: 0.1
