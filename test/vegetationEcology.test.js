@@ -40,6 +40,7 @@ const sample = (overrides = {}) => computeVegetationEcology({
   treeShade: 0,
   nearestTreeDistance: 20,
   waterDistance: 80,
+  submerged: false,
   macroNoise: 0.5,
   detailNoise: 0.5,
   ...overrides,
@@ -66,6 +67,13 @@ test('wet lowlands are more humid and support stronger growth than dry highlands
   assert.ok(wet.moisture > dry.moisture);
   assert.ok(wet.density > dry.density);
   assert.ok(wet.growth > dry.growth);
+});
+
+test('submerged terrain does not grow vegetation', () => {
+  const ecology = sample({ submerged: true, waterDistance: 0, height01: 0.05 });
+  assert.equal(ecology.density, 0);
+  assert.equal(ecology.growth, 0);
+  assert.equal(ecology.understory, 0);
 });
 
 test('tree shade trades open grass for understory', () => {
