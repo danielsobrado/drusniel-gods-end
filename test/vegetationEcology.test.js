@@ -61,6 +61,14 @@ test('vegetation recovers smoothly away from dirt ways', () => {
   assert.ok(meadow.growth > fringe.growth);
 });
 
+test('patch density does not also shrink surviving grass', () => {
+  const sparse = sample({ detailNoise: 0 });
+  const dense = sample({ detailNoise: 1 });
+  assert.ok(dense.density > sparse.density);
+  assert.equal(dense.growth, sparse.growth);
+  assert.ok(sparse.growth >= config.height.minGrowth);
+});
+
 test('wet lowlands are more humid and support stronger growth than dry highlands', () => {
   const wet = sample({ height01: 0.1, waterDistance: 8, macroNoise: 0.65 });
   const dry = sample({ height01: 0.95, waterDistance: 300, macroNoise: 0.35 });
