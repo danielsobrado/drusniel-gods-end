@@ -19,6 +19,8 @@ export class RandomAudioEmitters {
     this.environmentVolume = config.environmentVolume;
     this.randomEmitters = [];
     this.presetRandomEmitters = [];
+    this.started = false;
+    this.disposed = false;
   }
 
   init(preset) {
@@ -55,6 +57,7 @@ export class RandomAudioEmitters {
       config: definition,
       object,
       audio: null,
+      cleanupTimer: null,
       loadedBuffers: new Map(),
       playing: false,
       presetMultiplier,
@@ -63,6 +66,8 @@ export class RandomAudioEmitters {
   }
 
   start() {
+    if (this.disposed) return;
+    this.started = true;
     for (const emitter of [...this.randomEmitters, ...this.presetRandomEmitters]) {
       emitter.nextPlayTime = this.#randomDelay(emitter.config.minDelay, emitter.config.maxDelay);
     }
@@ -79,8 +84,7 @@ export class RandomAudioEmitters {
   deactivatePreset(previous, current) {
     for (const emitter of this.presetRandomEmitters) {
       if (!isPresetActive(emitter.config, previous) || isPresetActive(emitter.config, current)) continue;
-      if (emitter.audio?.isPlaying) emitter.audio.stop();
-      emitter.playing = false;
+      this.#releaseAudio(emitter);
     }
   }
 
@@ -103,6 +107,7 @@ export class RandomAudioEmitters {
   }
 
   update(deltaSeconds, preset) {
+    if (!this.started || this.disposed) return;
     for (const emitter of this.randomEmitters) this.#updateRandomEmitter(emitter, deltaSeconds, preset);
     for (const emitter of this.presetRandomEmitters) this.#updatePresetEmitter(emitter, deltaSeconds);
   }
@@ -137,7 +142,7 @@ export class RandomAudioEmitters {
 
   #playRandomSound(emitter) {
     const sounds = emitter.config.sounds;
-    if (!sounds?.length) return;
+    if (!this.started || !sounds?.length) return;
     const path = sounds[Math.floor(Math.random() * sounds.length)];
     const cached = emitter.loadedBuffers.get(path);
     if (cached) {
@@ -145,14 +150,14 @@ export class RandomAudioEmitters {
       return;
     }
     this.loadBuffer(path).then((buffer) => {
-      if (!buffer) return;
+      if (!buffer || this.disposed) return;
       emitter.loadedBuffers.set(path, buffer);
-      this.#playBuffer(emitter, buffer);
+      if (this.started) this.#playBuffer(emitter, buffer);
     });
   }
 
   #playBuffer(emitter, buffer) {
-    if (this.disposed || emitter.playing || emitter.presetMultiplier <= 0) return;
+    if (!this.started || this.disposed || emitter.playing || emitter.presetMultiplier <= 0) return;
     const audio = new THREE.PositionalAudio(this.listener);
     audio.setBuffer(buffer);
     audio.setLoop(false);
@@ -168,13 +173,20 @@ export class RandomAudioEmitters {
     const durationMs = buffer.duration / audio.playbackRate * 1000;
     emitter.cleanupTimer = window.setTimeout(() => {
       emitter.cleanupTimer = null;
-      if (emitter.audio !== audio) return;
-      if (audio.isPlaying) audio.stop();
-      emitter.object.remove(audio);
-      audio.disconnect();
-      if (emitter.audio === audio) emitter.audio = null;
-      emitter.playing = false;
+      if (emitter.audio === audio) this.#releaseAudio(emitter);
     }, durationMs);
+  }
+
+  #releaseAudio(emitter) {
+    if (emitter.cleanupTimer !== null) window.clearTimeout(emitter.cleanupTimer);
+    emitter.cleanupTimer = null;
+    const audio = emitter.audio;
+    emitter.audio = null;
+    emitter.playing = false;
+    if (!audio) return;
+    if (audio.isPlaying) audio.stop();
+    audio.removeFromParent();
+    audio.disconnect();
   }
 
   getPresetMultiplier(preset) {
@@ -201,9 +213,9 @@ export class RandomAudioEmitters {
   }
 
   stopAll() {
+    this.started = false;
     for (const emitter of [...this.randomEmitters, ...this.presetRandomEmitters]) {
-      if (emitter.audio?.isPlaying) emitter.audio.stop();
-      emitter.playing = false;
+      this.#releaseAudio(emitter);
     }
   }
 
@@ -212,10 +224,8 @@ export class RandomAudioEmitters {
     this.disposed = true;
     this.stopAll();
     for (const emitter of [...this.randomEmitters, ...this.presetRandomEmitters]) {
-      window.clearTimeout(emitter.cleanupTimer);
-      emitter.audio?.disconnect();
-      emitter.audio = null;
       emitter.object.parent?.remove(emitter.object);
+      emitter.loadedBuffers.clear();
     }
     this.randomEmitters.length = 0;
     this.presetRandomEmitters.length = 0;
