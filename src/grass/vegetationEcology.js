@@ -49,6 +49,7 @@ export function fractalNoise(x, z, seed, octaves) {
 }
 
 export function computeVegetationEcology(input, config) {
+  const habitat = input.submerged ? 0 : 1;
   const path = 1 - smoothstep(
     config.path.clearance,
     config.path.clearance + config.path.falloff,
@@ -76,7 +77,9 @@ export function computeVegetationEcology(input, config) {
       - input.height01 * config.density.highlandPenalty,
   );
   const shadeOpen = 1 - input.treeShade * config.trees.grassShadePenalty;
-  const density = clamp01(fertility * (1 - path) * slopeSuitability * trunkOpen * shadeOpen);
+  const density = clamp01(
+    fertility * habitat * (1 - path) * slopeSuitability * trunkOpen * shadeOpen,
+  );
   const height = clamp01(
     config.height.base
       + input.macroNoise * config.height.macroWeight
@@ -87,6 +90,7 @@ export function computeVegetationEcology(input, config) {
   );
   const understory = clamp01(
     (input.treeShade * config.understory.treeWeight + moisture * config.understory.moistureWeight)
+      * habitat
       * (1 - path)
       * slopeSuitability,
   );
