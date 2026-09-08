@@ -176,7 +176,10 @@ export class AudioSystem {
       this.stopAll();
       return;
     }
-    if (this.started) this.ambient.start(this.currentPreset);
+    if (this.started) {
+      this.ambient.start(this.currentPreset);
+      this.randomEmitters.start();
+    }
   }
 
   stopAll() {
