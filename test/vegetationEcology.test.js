@@ -12,7 +12,7 @@ const config = {
     noiseWeight: 0.2,
     lowlandExponent: 1.2,
   },
-  trees: { trunkClearance: 2, grassShadePenalty: 0.55 },
+  trees: { trunkClearance: 2, trunkFalloff: 3, grassShadePenalty: 0.55 },
   density: {
     base: 0.6,
     moistureBoost: 0.3,
@@ -70,16 +70,20 @@ test('wet lowlands are more humid and support stronger growth than dry highlands
 
 test('tree shade trades open grass for understory', () => {
   const open = sample({ treeShade: 0, nearestTreeDistance: 20 });
-  const woodland = sample({ treeShade: 0.9, nearestTreeDistance: 4 });
+  const woodland = sample({ treeShade: 0.9, nearestTreeDistance: 8 });
   assert.ok(woodland.understory > open.understory);
   assert.ok(woodland.density < open.density);
 });
 
-test('tree trunks enforce a vegetation-free root zone', () => {
-  const ecology = sample({ nearestTreeDistance: 0.25, treeShade: 1 });
-  assert.equal(ecology.density, 0);
-  assert.equal(ecology.growth, 0);
-  assert.ok(ecology.understory > 0);
+test('tree trunks enforce a vegetation-free root zone and recover outside it', () => {
+  const root = sample({ nearestTreeDistance: 0.25, treeShade: 1 });
+  const edge = sample({ nearestTreeDistance: 3.5, treeShade: 0.7 });
+  const open = sample({ nearestTreeDistance: 8, treeShade: 0 });
+  assert.equal(root.density, 0);
+  assert.equal(root.growth, 0);
+  assert.ok(root.understory > 0);
+  assert.ok(edge.density > root.density);
+  assert.ok(open.density > edge.density);
 });
 
 test('steep slopes suppress grass growth', () => {
