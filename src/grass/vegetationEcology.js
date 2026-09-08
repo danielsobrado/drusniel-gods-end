@@ -94,7 +94,8 @@ export function computeVegetationEcology(input, config) {
       * (1 - path)
       * slopeSuitability,
   );
-  const growth = clamp01(density * (
+  const growthSuitability = habitat * (1 - path) * slopeSuitability * trunkOpen;
+  const growth = clamp01(growthSuitability * (
     config.height.minGrowth + height * (config.height.maxGrowth - config.height.minGrowth)
   ));
 
