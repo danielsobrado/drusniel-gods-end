@@ -80,6 +80,20 @@ Scene settings start collapsed. H hides/restores the HUD. Settings retain all we
 
 ## Verification
 
+### Boundary force field
+
+`boundaryBarrier` in `public/cinematic-look.yaml` replaces the authored fence with a transparent cyan/violet wall. The ribbon follows the inner face coordinates of `collisions.worldBounds`, closes the corners despite unequal collider lengths, samples terrain every two world units, and extends 0.75 units underground. The shipped map adds 3,248 triangles in one mesh. Existing collision boxes remain authoritative and unchanged.
+
+The shared TSL basic node material emits HDR color through additive blending. Fresnel highlights, two scrolling samples of a generated 128×128 seamless noise texture, and a ground glow shape the effect. Its upper 35% fades out. At a distance it retains 30% of its configured opacity; a smooth 16-unit player-distance falloff increases local brightness. Fog attenuates the glow without adding a luminous fog-colored rectangle. Bloom adds a halo in cinematic quality, while the shader remains visible in Performance.
+
+Settings are `enabled`, `height` (12), `color` (`#55e8ff`), `accentColor` (`#a477ff`), `opacity` (0.32), `glowStrength` (8), `noiseScale` (0.035), `noiseSpeed` (0.035), `fresnelPower` (3), and `proximityRadius` (16). Colors use six-digit hex notation. Omitting the block disables the effect. Invalid settings or unavailable terrain retain the authored fence and log a warning.
+
+`BoundaryBarrier` owns its mesh, material, and noise texture. It exposes `init()`, `update(deltaSeconds, playerPosition)`, `setEnabled(boolean)`, and `dispose()`. Disabling or disposing restores the original fence visibility. Renderer recovery reconstructs it from the captured configuration. It casts no shadows, never acts as an occluder, and is excluded from the water reflection cubemap, like other animated detail.
+
+`/scripts/gpu/barrier-check.html` verifies animation, proximity brightening, top fading, background visibility, and opaque-object depth occlusion using pixel readback. `window.__barrierCheck` resolves to the result. Add `?renderer=webgl` for the WebGL 2 backend. The recovery check also verifies disposal, reconstruction, and hidden-fence state for an enabled barrier. Node tests cover the actual configured bounds, closed corners, terrain-following placement, seamless deterministic noise, invalid data, toggling, and cleanup.
+
+### General checks
+
 Run `npm run lint`, `npm test`, `npm run check:docs`, and `npm run build`. Cinematic tests compare rasterized terrain heights with downward raycasts across rotated and overlapping surfaces, check face culling, verify animation-loop seams and untouched bind poses, and check that foot placement reduces ground error.
 
 Visibility regression tests check nested LOD identities, unchanged configured counts, exact survivor IDs after path compaction, and filtered mask boundaries. `window.__grassDemo` is available only in development; `grass.stats` reports visible tiles and submitted/masked stems. The renderer's triangle counter counts submitted triangles, including shadow/reflection passes, not unique visible triangles. Four million submissions alone is not a frame-time budget or evidence of a bottleneck.

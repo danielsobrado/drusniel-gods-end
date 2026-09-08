@@ -22,12 +22,20 @@ export async function checkRendererRecovery({ loseDuringRestart = false } = {}) 
   const expectedGrass = JSON.stringify(initial.environment.current.grass);
 
   const restart = async (previous, backend) => {
+    const previousBarrier = previous.boundaryBarrier;
+    const hadBarrier = Boolean(previousBarrier?.mesh);
     previous.world.renderer.onDeviceLost({ api: 'WebGPU', message: 'Recovery regression check' });
     const deadline = performance.now() + 45000;
     while (performance.now() < deadline) {
       const next = window.__grassDemo;
       if (next !== previous && next.started) {
         check(next.world.rendererSession.diagnostics.actual === backend, `recovery selects ${backend}`);
+        if (hadBarrier) {
+          check(previousBarrier.disposed && !previousBarrier.mesh, 'old barrier resources are released');
+          check(Boolean(next.boundaryBarrier?.mesh), 'the boundary barrier is rebuilt');
+          check(next.boundaryBarrier?.fences.every(({ object }) => !object.visible),
+            'the authored fence stays hidden after recovery');
+        }
         check(JSON.stringify(next.environment.current.grass) === expectedGrass, 'both grass families preserve their settings');
         check(Number(next.ui.element.querySelector('[data-grass-param="windIntensity"]').value) === 2.1,
           'wind control matches the restored simulation');
