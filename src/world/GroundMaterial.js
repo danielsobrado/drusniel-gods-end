@@ -55,7 +55,7 @@ function configureRepeatedTexture(textureObject, colorSpace) {
   textureObject.anisotropy = ORIGINAL_ANISOTROPY;
 }
 
-function configureBlendMask(textureObject, flipY = false) {
+function configureSurfaceBlend(textureObject, flipY = false) {
   textureObject.colorSpace = THREE.NoColorSpace;
   textureObject.flipY = flipY;
   textureObject.wrapS = THREE.ClampToEdgeWrapping;
@@ -114,7 +114,6 @@ function createRainController(material, baseNormal, config, soil) {
       float(0),
       direction.y.negate().mul(strength),
     );
-    // normalNode is view-space; the ripple direction is anchored in the world.
     return normalize(baseNormal.add(cameraViewMatrix.mul(vec4(perturbation, 0)).xyz));
   };
 
@@ -149,7 +148,7 @@ export async function createGroundMaterial(config, terrainSampler = null) {
   const paths = {
     grass: config.assets?.grassTexture,
     color: groundAssets.color,
-    blend: config.assets?.grassMask,
+    blend: config.assets?.groundBlend,
     normal: groundAssets.normal,
     roughness: groundAssets.roughness,
   };
@@ -157,7 +156,7 @@ export async function createGroundMaterial(config, terrainSampler = null) {
     throw new Error('Ground blend textures are not fully configured.');
   }
 
-  const [grassColor, groundColor, blendMask, groundNormal, groundRoughness] = await Promise.all([
+  const [grassColor, groundColor, surfaceBlend, groundNormal, groundRoughness] = await Promise.all([
     loader.loadAsync(assetUrl(paths.grass)),
     loader.loadAsync(assetUrl(paths.color)),
     loader.loadAsync(assetUrl(paths.blend)),
@@ -170,7 +169,7 @@ export async function createGroundMaterial(config, terrainSampler = null) {
   configureRepeatedTexture(groundNormal, THREE.NoColorSpace);
   configureRepeatedTexture(groundRoughness, THREE.NoColorSpace);
   const meadowStyle = config.cinematic?.enabled && config.cinematic.style?.enabled;
-  configureBlendMask(blendMask, Boolean(meadowStyle));
+  configureSurfaceBlend(surfaceBlend, Boolean(meadowStyle));
 
   const baseUv = uv();
   const grassUv = baseUv.mul(uniform(config.ground.grassTextureScale ?? ORIGINAL_GRASS_UV_SCALE));
@@ -181,14 +180,12 @@ export async function createGroundMaterial(config, terrainSampler = null) {
   const groundSample = texture(groundColor, groundUv);
   const normalSample = texture(groundNormal, groundUv);
   const roughnessSample = texture(groundRoughness, groundUv).r;
-  // Match the vegetation's world projection and CanvasTexture orientation.
-  // Mesh UVs plus an unflipped image previously painted grass on cleared paths.
-  const maskUv = meadowStyle && terrainSampler
+  const blendUv = meadowStyle && terrainSampler
     ? positionWorld.xz.sub(vec2(terrainSampler.bounds.min.x, terrainSampler.bounds.min.z))
       .div(vec2(terrainSampler.size.x, terrainSampler.size.z)).clamp(0, 1)
     : baseUv;
-  const maskSample = texture(blendMask, maskUv);
-  const blend = maskSample.r;
+  const blendSample = texture(surfaceBlend, blendUv);
+  const blend = blendSample.r;
   const soil = config.cinematic?.enabled ? smoothstep(0.12, 0.88, blend) : float(1);
 
   const material = new THREE.MeshStandardNodeMaterial();
@@ -234,10 +231,7 @@ export async function createGroundMaterial(config, terrainSampler = null) {
   const rainController = createRainController(material, baseNormal, config, soil);
   material.userData = {
     ...material.userData,
-    textures: [grassColor, groundColor, blendMask, groundNormal, groundRoughness],
-    // Borrow the live authoring texture; GrassMask owns its lifetime. The raw
-    // strokes retain a soft soil/turf fringe around vegetation's clearance.
-    setGrassMask: (mask) => { if (meadowStyle) maskSample.value = mask.texture; },
+    textures: [grassColor, groundColor, surfaceBlend, groundNormal, groundRoughness],
     setRainIntensity: (value) => {
       wetness.value = value * (config.ground.wetness ?? 0.7);
       rainController.setRain(value > 0.001);

@@ -89,13 +89,13 @@ The sampler:
 2. builds a 192x192 CPU height grid from the mesh: cinematic mode rasterizes terrain triangles directly into the grid, while the non-cinematic path samples the mesh with downward raycasts,
 3. keeps CPU heights as a `Float32Array`,
 4. creates an 8-bit grayscale `DataTexture` from those CPU heights for use only when the preferred GPU grass height texture cannot be created,
-5. exposes the same XZ bounds to the player, grass mask and painter.
+5. exposes the same XZ bounds to the player and procedural vegetation system.
 
 This adapter is current repository behavior; it is not evidence that the original demo internally used this exact 192x192 CPU grid.
 
 ## CPU height lookup
 
-`sampleHeight(x, z)` bilinearly interpolates four cached values. It is used by the reconstructed player and camera rather than raycasting every frame.
+`sampleHeight(x, z)` bilinearly interpolates four cached values. It is used by the reconstructed player, camera and procedural ecology rather than raycasting every frame.
 
 The player root is grounded with:
 
@@ -108,6 +108,8 @@ The camera enforces endpoint clearance with:
 ```text
 cameraY >= sampleHeight(cameraX, cameraZ) + terrainClearance
 ```
+
+The procedural vegetation field also samples neighboring heights to estimate local slope and normalized elevation. Those terrain signals influence grass density, growth and understory selection.
 
 ## GPU grass height texture
 
@@ -142,7 +144,15 @@ If GPU height generation fails, `GrassField` logs a warning and falls back to `T
 
 Both height textures are derived at runtime from the `Landscape002` GLB geometry. There is no authored PNG/JPG heightmap asset that controls terrain elevation.
 
-The logical terrain UV convention is shared with `blend2.jpg`, which is essential for grass/dirt alignment. `blend2.jpg` is a vegetation mask, not a heightmap.
+## Dirt ways versus vegetation
+
+`Assets/blend2.jpg` remains an authored **ground-surface blend** so the recovered dirt ways still line up with the original terrain material. It is not a vegetation mask.
+
+The procedural vegetation builder reads only the dirt-way classification from that ground blend, converts it into world-space distance-to-path, and combines that distance with terrain height, slope, water proximity, tree shade/trunk proximity and deterministic noise. Grass coverage and height are generated from those signals at startup.
+
+The effective configuration explicitly sets the legacy `assets.grassMask` key to `null`; no painted mask or grass painter participates in runtime vegetation placement.
+
+See `docs/procedural-vegetation.md` for the ecology pipeline.
 
 ## World props are not terrain samples
 
@@ -170,6 +180,7 @@ Before tuning grass or tree offsets, verify all of the following:
 - `rainRoughness` metadata is `0.1` on terrain meshes.
 - the gameplay sampler bounds come from `Landscape002`.
 - the preferred grass height texture is generated from `Landscape002` at `grass.heightResolution` and the CPU sampler is only its fallback.
+- dirt-way surface classification and procedural vegetation are separate systems.
 - recovered tree/stone/lantern authored Y values are preserved.
 
 If any of these fail, visual tuning on top of the wrong terrain coordinate system is invalid.

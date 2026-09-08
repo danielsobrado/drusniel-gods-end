@@ -45,7 +45,6 @@ export class DemoUi {
     this.fps = 0;
     this.currentPreset = config.ui.initialPreset;
     this.currentGrassShape = resolveGrassShape(config.grass);
-    this.painterButton = null;
     this.abortController = new AbortController();
     this.element = this.#create(root);
   }
@@ -88,7 +87,6 @@ export class DemoUi {
         <label>Simulation Speed${rangeInput('simulationSpeed', initialGrass.simulationSpeed, range(this.config, 'simulationSpeed'), 'data-grass-param="simulationSpeed"')}</label>
         <label>Pixel Ratio${rangeInput('pixelRatio', pixelRatio, range(this.config, 'pixelRatio'), 'data-pixel-ratio')}</label>
         <label class="toggle-row"><span>Foot Interaction</span><input data-interaction type="checkbox" ${interactionEnabled ? 'checked' : ''}></label>
-        <button class="tool-button" type="button" data-painter>Grass Painter</button>
       </section>
       <section class="metrics ${this.config.ui.showStats ? '' : 'hidden'}">
         <span>FPS <strong data-fps>0</strong></span>
@@ -106,8 +104,6 @@ export class DemoUi {
       </section>`;
 
     root.appendChild(overlay);
-    // The heading names whoever was picked on the loading screen, so the HUD does
-    // not keep announcing the default character while another one is on screen.
     const selected = findCharacter(this.config, this.config.characters?.selected);
     if (selected) overlay.querySelector('.scene-eyebrow').textContent = `${selected.name ?? selected.id} / EXPLORATION`.toUpperCase();
     const presentation = this.config.cinematic?.presentation;
@@ -175,12 +171,6 @@ export class DemoUi {
 
     overlay.querySelector('[data-interaction]').addEventListener('change', (event) => {
       this.actions.setInteractionEnabled(event.target.checked);
-    }, { signal });
-
-    this.painterButton = overlay.querySelector('[data-painter]');
-    this.painterButton.addEventListener('click', () => {
-      const enabled = this.actions.togglePainter();
-      this.painterButton.classList.toggle('active', enabled);
     }, { signal });
   }
 
@@ -265,8 +255,6 @@ export class DemoUi {
       this.element.querySelector('[data-tour]').innerHTML = tour ? 'Return to exploration <span>ESC</span>' : 'Take a scenic tour <span>30 SEC</span>';
       this.element.classList.toggle('tour-active', tour);
     }
-    const painterEnabled = this.actions.isPainterEnabled?.() ?? false;
-    this.painterButton?.classList.toggle('active', painterEnabled);
 
     if (!this.config.ui.showStats) return;
     this.frames += 1;
@@ -286,6 +274,5 @@ export class DemoUi {
     this.abortController.abort();
     this.element?.remove();
     this.element = null;
-    this.painterButton = null;
   }
 }

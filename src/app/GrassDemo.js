@@ -66,8 +66,6 @@ export class GrassDemo {
     this.cinematicLighting = new CinematicLighting(this.world, this.config);
     this.root.appendChild(this.world.renderer.domElement);
 
-    // The roster gate decides which GLB and which proportions the controller
-    // reads, so it has to close before PlayerController is constructed.
     if (loading.needsCharacterChoice()) loading.stage('character');
     const chosenId = await loading.waitForCharacter();
     this.abortController.signal.throwIfAborted();
@@ -140,23 +138,10 @@ export class GrassDemo {
       this.world.renderer,
       this.config,
       this.world.terrainSampler,
+      this.trees.trees,
     );
     await this.grass.init(this.abortController.signal);
     this.abortController.signal.throwIfAborted();
-    this.grass.attachPainter({ terrain: this.world.terrainTarget, player: this.player });
-    if (this.resumeState?.mask) {
-      const mask = this.grass.mask;
-      if (mask.imageData.data.length === this.resumeState.mask.length) {
-        mask.imageData.data.set(this.resumeState.mask);
-        mask.commitPixels();
-        mask.vegetation.rebuild(mask.imageData, this.world.terrainSampler.size);
-        this.grass.remapEmptyTiles();
-      }
-    }
-    const groundMaterials = this.world.terrainTarget.material;
-    for (const material of Array.isArray(groundMaterials) ? groundMaterials : [groundMaterials]) {
-      material?.userData.setGrassMask?.(this.grass.mask);
-    }
     if (this.config.cinematic?.enabled) {
       this.meadow = new MeadowDetails(this.world.scene, this.config, this.world.terrainSampler, this.grass, this.trees);
     }
@@ -284,7 +269,6 @@ export class GrassDemo {
       audioVolumes: this.audio && { master: this.audio.masterVolume,
         ambient: this.audio.ambientVolume, environment: this.audio.environmentVolume },
       interactionEnabled: this.grass?.interactionMap.enabled,
-      mask: this.grass?.mask?.imageData?.data.slice(),
       position: this.player?.getPosition().toArray(),
       camera: this.world?.camera.position.toArray(),
       quaternion: this.world?.camera.quaternion.toArray(),
@@ -343,10 +327,7 @@ export class GrassDemo {
   #createUiActions() {
     return {
       setPreset: (name) => this.iris.run(() => this.environment.setPreset(name), 'preset'),
-      toggleTour: () => {
-        if (this.grass.painter?.enabled) this.grass.togglePainter();
-        return this.tour.start();
-      },
+      toggleTour: () => this.tour.start(),
       stopTour: () => this.tour.stop(),
       isTourActive: () => this.tour.active,
       setQuality: (name) => {
@@ -372,8 +353,6 @@ export class GrassDemo {
       },
       setInteractionEnabled: (enabled) => this.grass.setInteractionEnabled(enabled),
       getInteractionEnabled: () => this.grass.interactionMap.enabled,
-      togglePainter: () => { this.tour.stop(); return this.grass.togglePainter(); },
-      isPainterEnabled: () => this.grass.painter?.enabled ?? false,
       getTriangleCount: () => this.world.renderer.info.render.triangles,
       getOcclusionStats: () => this.pipeline?.gpuOcclusion.stats,
     };
@@ -393,7 +372,8 @@ export class GrassDemo {
   #detectSurface() {
     const position = this.player.getPosition();
     if (this.water.containsPoint(position)) return 'water';
-    return this.grass.sampleMask(position.x, position.z) > 0 ? 'grass' : 'mud';
+    const ecology = this.grass.sampleVegetation(position.x, position.z);
+    return ecology.path >= this.config.vegetation.surfacePathThreshold ? 'mud' : 'grass';
   }
 
   #render() {
@@ -436,7 +416,7 @@ export class GrassDemo {
     this.meadow?.update(deltaSeconds, focus, this.environment.current);
     this.boundaryBarrier?.update(deltaSeconds, this.player.getPosition());
     this.water.update(deltaSeconds, this.player, this.environment.current.lighting);
-    this.pipeline.render({ occlusionEnabled: !this.grass.painter?.enabled });
+    this.pipeline.render({ occlusionEnabled: true });
     this.ui.update(deltaSeconds);
   }
 
@@ -445,7 +425,7 @@ export class GrassDemo {
     this.disposed = true;
     this.world?.renderer?.setAnimationLoop(null);
     for (const resource of [this.loading, this.pipeline, this.cinematicLighting,
-      this.meadow, this.ui, this.iris, this.grass?.painter, this.grass, this.trees, this.props,
+      this.meadow, this.ui, this.iris, this.grass, this.trees, this.props,
       this.collisions, this.player, this.leaves, this.birds, this.rain,
       this.boundaryBarrier, this.water, this.audio, this.environment, this.world]) {
       try { resource?.dispose?.(); } catch (error) { logger.warn('Demo cleanup failed.', error); }

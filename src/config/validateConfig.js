@@ -3,9 +3,9 @@
 // than a TypeError from deep inside a constructor.
 //
 // Scope is deliberately narrow: only keys read WITHOUT optional chaining or a
-// `??` fallback. Optional assets (assets.grassAtlas, assets.grassMask, zones)
-// are designed to fall back with a warning, and validating them would turn
-// documented "continue with warnings" behavior into a hard startup failure.
+// `??` fallback. Optional assets are designed to fall back with a warning, and
+// validating them would turn documented "continue with warnings" behavior into
+// a hard startup failure.
 
 import { grassFamily, isGrassShape } from '../grass/grassShapes.js';
 
@@ -13,9 +13,18 @@ const REQUIRED_OBJECTS = [
   ['camera', 'camera'],
   ['player', 'player'],
   ['terrain', 'terrain'],
-  ['painter', 'GrassPainter, GrassMask, GrassMaterial'],
   ['grass', 'GrassField'],
   ['grass.interaction', 'InteractionMap, PlayerController, DemoUi'],
+  ['vegetation', 'ProceduralVegetationField, MeadowDetails'],
+  ['vegetation.path', 'ProceduralVegetationField'],
+  ['vegetation.terrain', 'ProceduralVegetationField'],
+  ['vegetation.moisture', 'ProceduralVegetationField'],
+  ['vegetation.trees', 'ProceduralVegetationField'],
+  ['vegetation.density', 'ProceduralVegetationField'],
+  ['vegetation.height', 'ProceduralVegetationField'],
+  ['vegetation.understory', 'ProceduralVegetationField'],
+  ['vegetation.details', 'MeadowDetails'],
+  ['vegetation.noise', 'ProceduralVegetationField'],
   ['assets', 'asset loading'],
   ['assets.audio', 'AudioSystem'],
   ['assets.leaves', 'LeafSystem'],
@@ -52,7 +61,6 @@ export function validateConfig(config) {
     }
   }
 
-  // The initial selections must actually name an existing profile/preset.
   const initialQuality = config.ui?.initialQuality;
   if (initialQuality !== undefined && !config.quality?.[initialQuality]) {
     problems.push(`ui.initialQuality is "${initialQuality}", which is not a key of quality`);
@@ -63,9 +71,6 @@ export function validateConfig(config) {
     problems.push(`ui.initialPreset is "${initialPreset}", which is not a key of presets`);
   }
 
-  // GrassField, GrassGeometryFactory and GrassMaterial all index config by the
-  // shape's FAMILY without a guard, so a shape whose family has no parameter or
-  // LOD block crashes deep inside a constructor rather than here.
   const shape = config.grass?.shape;
   if (shape !== undefined) {
     if (!isGrassShape(shape)) {
@@ -83,7 +88,6 @@ export function validateConfig(config) {
     }
   }
 
-  // EnvironmentController reads fogMultiplier for whichever quality is active.
   for (const [name, profile] of Object.entries(config.quality ?? {})) {
     if (typeof profile?.fogMultiplier !== 'number') {
       problems.push(`quality.${name}.fogMultiplier is missing or not a number`);
