@@ -4,6 +4,7 @@ const GRASS_TYPES = ['blade', 'billboard'];
 const RAIN_ACTIVE_THRESHOLD = 0.001;
 const DEFAULT_TREE_WIND_SPEED_MULTIPLIER = 2;
 const DEFAULT_LEAF_WIND_STRENGTH_MULTIPLIER = 1;
+const ORIGINAL_RAIN_ROUGHNESS_KEY = 'originalRainRoughness';
 
 function color(value) {
   return new THREE.Color(value);
@@ -55,6 +56,19 @@ function setGrassSnapshotParameter(state, name, value) {
   for (const type of GRASS_TYPES) {
     if (typeof state.grass[type]?.[name] === 'number') state.grass[type][name] = value;
   }
+}
+
+function applyMaterialRainRoughness(material, target, intensity) {
+  if (!material || material.roughness === undefined) return;
+  material.userData ??= {};
+  if (material.userData[ORIGINAL_RAIN_ROUGHNESS_KEY] === undefined) {
+    material.userData[ORIGINAL_RAIN_ROUGHNESS_KEY] = material.roughness;
+  }
+  material.roughness = THREE.MathUtils.lerp(
+    material.userData[ORIGINAL_RAIN_ROUGHNESS_KEY],
+    target,
+    intensity,
+  );
 }
 
 export class EnvironmentController {
@@ -191,17 +205,9 @@ export class EnvironmentController {
     const defaultRainRoughness = this.config.rain.defaultRoughness ?? 0.2;
     this.scene.traverse((object) => {
       if (!object.isMesh || object.userData.grid || !object.material) return;
-      const material = object.material;
-      if (material.roughness === undefined) return;
-      if (object.userData.originalRoughness === undefined) {
-        object.userData.originalRoughness = material.roughness;
-      }
       const target = object.userData.rainRoughness ?? defaultRainRoughness;
-      material.roughness = THREE.MathUtils.lerp(
-        object.userData.originalRoughness,
-        target,
-        intensity,
-      );
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      for (const material of materials) applyMaterialRainRoughness(material, target, intensity);
     });
   }
 }
