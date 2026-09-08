@@ -128,6 +128,32 @@ function sampleArrayBilinear(data, resolution, u, v, channel, channels = CHANNEL
   return top + (bottom - top) * tz;
 }
 
+function waterMetrics(config, x, z, height) {
+  const position = config.water?.position ?? config.water?.fallbackPosition ?? [0, 0, 0];
+  const centerX = Number(position[0] ?? 0);
+  const surfaceY = Number(position[1] ?? 0);
+  const centerZ = Number(position[2] ?? 0);
+  const size = Math.max(0, Number(config.water?.size ?? config.water?.fallbackSize ?? 0));
+  const half = size * 0.5;
+  if (!(half > 0)) {
+    return {
+      distance: Math.hypot(x - centerX, z - centerZ),
+      submerged: false,
+    };
+  }
+
+  const localX = Math.abs(x - centerX);
+  const localZ = Math.abs(z - centerZ);
+  const dx = Math.max(localX - half, 0);
+  const dz = Math.max(localZ - half, 0);
+  const insideFootprint = localX <= half && localZ <= half;
+  const tolerance = config.vegetation.moisture.waterSurfaceTolerance;
+  return {
+    distance: Math.hypot(dx, dz),
+    submerged: insideFootprint && height <= surfaceY + tolerance,
+  };
+}
+
 export class ProceduralVegetationField {
   constructor(config, terrainSampler, trees = []) {
     this.config = config;
@@ -157,9 +183,6 @@ export class ProceduralVegetationField {
     const pathDistance = worldDistanceTransform(pathPixels, resolution, cellX, cellZ);
     const treeField = rasterizeTrees(this.trees, this.bounds, this.size, resolution, vegetation);
     const heightRange = Math.max(0.0001, this.bounds.max.y - this.bounds.min.y);
-    const waterPosition = this.config.water?.position ?? this.config.water?.fallbackPosition ?? [0, 0, 0];
-    const waterX = Number(waterPosition[0] ?? 0);
-    const waterZ = Number(waterPosition[2] ?? 0);
     const slopeStep = vegetation.terrain.slopeSampleDistance;
 
     for (let z = 0; z < resolution; z += 1) {
@@ -185,6 +208,7 @@ export class ProceduralVegetationField {
           vegetation.seed + 7919,
           vegetation.noise.octaves,
         );
+        const water = waterMetrics(this.config, worldX, worldZ, height);
         const index = z * resolution + x;
         const ecology = computeVegetationEcology({
           height01,
@@ -192,7 +216,8 @@ export class ProceduralVegetationField {
           pathDistance: pathDistance[index],
           treeShade: treeField.shade[index],
           nearestTreeDistance: treeField.nearest[index],
-          waterDistance: Math.hypot(worldX - waterX, worldZ - waterZ),
+          waterDistance: water.distance,
+          submerged: water.submerged,
           macroNoise,
           detailNoise,
         }, vegetation);
