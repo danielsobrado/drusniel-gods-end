@@ -45,6 +45,31 @@ vegetation:
   understory:
     treeWeight: 0.78
     moistureWeight: 0.42
+  details:
+    pathThreshold: 0.36
+    pathDecorationChance: 0.18
+    pathStoneChance: 0.46
+    wetThreshold: 0.62
+    understoryThreshold: 0.46
+    minimumPlantDensity: 0.2
+    meadowPatchThreshold: 0.08
+    fernChance: 0.58
+    flowerChance: 0.32
+    minScale: 0.65
+    maxScale: 1.5
+    reedBaseScale: 0.82
+    reedMoistureScale: 0.58
+    fernBaseScale: 0.72
+    fernUnderstoryScale: 0.55
+    plantBaseScale: 0.64
+    plantGrowthScale: 0.72
+    hueBase: 0.12
+    humidityTint: 0.035
+    shadeTint: 0.018
+    saturation: 0.12
+    lightnessBase: 0.84
+    lightnessShadeScale: 0.85
+    lightnessVariation: 0.1
   noise:
     macroScale: 0.018
     detailScale: 0.075
