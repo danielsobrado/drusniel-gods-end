@@ -1,6 +1,6 @@
-import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { logger } from '../utils/logger.js';
+import { createTerrainIndices, createWorldSpacePositions } from './terrainColliderGeometry.js';
 
 const CHARACTER_OFFSET = 0.01;
 const SNAP_TO_GROUND = 0.2;
@@ -10,20 +10,12 @@ const TERRAIN_FRICTION = 1;
 const PLAYER_FRICTION = 0;
 const PLAYER_RESTITUTION = 0;
 
-function createSequentialIndices(vertexCount) {
-  const indices = new Uint32Array(vertexCount);
-  for (let index = 0; index < vertexCount; index += 1) indices[index] = index;
-  return indices;
-}
-
 export class PlayerPhysics {
   static async create({ terrain, cameraPosition, config, capsule }) {
     await RAPIER.init();
     return new PlayerPhysics({ terrain, cameraPosition, config, capsule });
   }
 
-  // `capsule` carries the collider dimensions the controller derived from the actual
-  // scaled character model; without it the authored config values are used as-is.
   constructor({ terrain, cameraPosition, config, capsule }) {
     this.config = config;
     this.eyeHeight = capsule?.eyeHeight ?? config.player.eyeHeight ?? 0.5;
@@ -57,22 +49,14 @@ export class PlayerPhysics {
     let colliderCount = 0;
 
     terrain.traverse((object) => {
-      if (!object.isMesh) return;
-      const positionAttribute = object.geometry?.attributes?.position;
-      if (!positionAttribute?.array) return;
-
-      const vertices = positionAttribute.array;
-      const indices = object.geometry.index?.array
-        ?? createSequentialIndices(vertices.length / 3);
+      if (!object.isMesh || !object.geometry?.attributes?.position) return;
+      const vertices = createWorldSpacePositions(object);
+      if (!vertices) return;
+      const indices = createTerrainIndices(object.geometry);
       const colliderDescription = RAPIER.ColliderDesc.trimesh(vertices, indices);
       colliderDescription.setFriction(TERRAIN_FRICTION);
 
-      const bodyDescription = RAPIER.RigidBodyDesc.fixed();
-      const fixedBody = this.world.createRigidBody(bodyDescription);
-      const worldPosition = object.getWorldPosition(new THREE.Vector3());
-      const worldRotation = object.getWorldQuaternion(new THREE.Quaternion());
-      fixedBody.setTranslation(worldPosition, false);
-      fixedBody.setRotation(worldRotation, false);
+      const fixedBody = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
       this.world.createCollider(colliderDescription, fixedBody);
       colliderCount += 1;
     });
@@ -101,9 +85,10 @@ export class PlayerPhysics {
     this.body.setTranslation({ x, y: y - this.eyeHeight, z }, true);
   }
 
-  getVisualPosition(target = new THREE.Vector3()) {
+  getVisualPosition(target) {
     const position = this.body.translation();
-    return target.set(position.x, position.y + this.eyeHeight, position.z);
+    if (target) return target.set(position.x, position.y + this.eyeHeight, position.z);
+    return { x: position.x, y: position.y + this.eyeHeight, z: position.z };
   }
 
   getBodyPosition() {
@@ -111,9 +96,6 @@ export class PlayerPhysics {
   }
 
   dispose() {
-    // Rapier's World, bodies and colliders live in WASM linear memory, which
-    // JavaScript garbage collection cannot reclaim. Freeing the world releases
-    // every body and collider it owns.
     this.world?.free?.();
     this.world = null;
     this.body = null;
