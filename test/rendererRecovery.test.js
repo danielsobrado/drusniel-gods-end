@@ -23,6 +23,16 @@ test('forced WebGPU never silently changes backend', async () => {
   assert.deepEqual(attempts, ['webgpu']); assert.equal(failed, true);
 });
 
+test('a second WebGPU loss uses the remaining recovery attempt for WebGL', async () => {
+  const attempts = [];
+  const recovery = new RendererRecovery({ capture: () => ({}), release() {},
+    restart: async backend => { attempts.push(backend); },
+    onFailure: error => assert.fail(error.message) });
+  await recovery.recover('auto', 'webgpu', {});
+  await recovery.recover('auto', 'webgpu', {});
+  assert.deepEqual(attempts, ['webgpu', 'webgl']);
+});
+
 test('concurrent loss signals share one restart and disposal releases late session', async () => {
   let complete; let releases = 0; let starts = 0;
   const recovery = new RendererRecovery({ capture() {}, release: () => releases++,
