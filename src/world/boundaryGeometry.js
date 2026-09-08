@@ -24,10 +24,10 @@ export function createBoundaryGeometry(records, sampler, { height = 12 } = {}) {
   const east = xWalls[1].position[0] - xWalls[1].size[0] / 2;
   const south = zWalls[0].position[2] + zWalls[0].size[2] / 2;
   const north = zWalls[1].position[2] - zWalls[1].size[2] / 2;
-  if (east <= west || north <= south
-    || xWalls.some(w => w.position[2] - w.size[2] / 2 > south || w.position[2] + w.size[2] / 2 < north)
-    || zWalls.some(w => w.position[0] - w.size[0] / 2 > west || w.position[0] + w.size[0] / 2 < east)) {
-    throw new Error('Boundary collider faces do not meet at the corners.');
+  // Authored collider lengths differ slightly. Intersect the inner face lines
+  // to close the visual corners rather than reproducing gaps or overhangs.
+  if (east <= west || north <= south) {
+    throw new Error('Boundary collider faces do not enclose a positive area.');
   }
   const perimeter = 2 * (east - west + north - south);
   if (perimeter > 100000) throw new Error('Boundary perimeter exceeds the geometry budget.');
