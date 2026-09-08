@@ -1,0 +1,58 @@
+assets:
+  # Ground-surface classification only. Vegetation is generated procedurally.
+  groundBlend: Assets/blend2.jpg
+
+vegetation:
+  resolution: 256
+  seed: 28411
+  buildChunkRows: 8
+  growthThreshold: 0.12
+  distributionCellSize: 0.3
+  path:
+    sourceThreshold: 0.45
+    clearance: 0.8
+    falloff: 4.5
+  terrain:
+    slopeSampleDistance: 1.5
+    slopeStart: 0.18
+    slopeMax: 0.95
+  moisture:
+    waterDistance: 115
+    waterWeight: 0.48
+    lowlandWeight: 0.34
+    noiseWeight: 0.18
+    lowlandExponent: 1.35
+  trees:
+    trunkClearance: 1.6
+    shadeRadius: 14
+    grassShadePenalty: 0.55
+  density:
+    base: 0.62
+    moistureBoost: 0.28
+    macroVariation: 0.42
+    detailVariation: 0.18
+    highlandPenalty: 0.2
+  height:
+    base: 0.2
+    macroWeight: 0.46
+    moistureWeight: 0.42
+    pathPenalty: 0.28
+    slopePenalty: 0.22
+    shadePenalty: 0.18
+    minGrowth: 0.45
+    maxGrowth: 1.0
+  understory:
+    treeWeight: 0.78
+    moistureWeight: 0.42
+  noise:
+    macroScale: 0.018
+    detailScale: 0.075
+    octaves: 3
+
+# The old mask/painter cutoff remains only as the shader's smooth growth gate.
+grass:
+  vegetationCutoff: 0.08
+  maskSoftness: 0.1
+
+painter:
+  enabled: false
