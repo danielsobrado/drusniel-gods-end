@@ -9,6 +9,7 @@ export const CONFIG_FILES = [
   'character-visual.yaml',
   'cinematic-wind.yaml',
   'cinematic-look.yaml',
+  'vegetation.yaml',
   'painter-cursor.yaml',
   'characters.yaml',
 ];
