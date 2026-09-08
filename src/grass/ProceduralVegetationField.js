@@ -9,7 +9,6 @@ const GROWTH = 1;
 const MOISTURE = 2;
 const UNDERSTORY = 3;
 const PATH = 4;
-const DIAGONAL = Math.SQRT2;
 
 function nextFrame() {
   return new Promise(resolve => setTimeout(resolve, 0));
@@ -51,7 +50,7 @@ function worldDistanceTransform(pathPixels, resolution, cellX, cellZ) {
 }
 
 async function loadPathPixels(config, resolution) {
-  const path = config.assets?.groundBlend ?? config.assets?.grassMask;
+  const path = config.assets?.groundBlend;
   if (!path) return new Uint8Array(resolution * resolution);
 
   const texture = await new THREE.TextureLoader().loadAsync(assetUrl(path));
