@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { logger } from '../utils/logger.js';
 import { createTerrainIndices, createWorldSpacePositions } from './terrainColliderGeometry.js';
@@ -16,6 +17,8 @@ export class PlayerPhysics {
     return new PlayerPhysics({ terrain, cameraPosition, config, capsule });
   }
 
+  // `capsule` carries the collider dimensions the controller derived from the actual
+  // scaled character model; without it the authored config values are used as-is.
   constructor({ terrain, cameraPosition, config, capsule }) {
     this.config = config;
     this.eyeHeight = capsule?.eyeHeight ?? config.player.eyeHeight ?? 0.5;
@@ -85,10 +88,9 @@ export class PlayerPhysics {
     this.body.setTranslation({ x, y: y - this.eyeHeight, z }, true);
   }
 
-  getVisualPosition(target) {
+  getVisualPosition(target = new THREE.Vector3()) {
     const position = this.body.translation();
-    if (target) return target.set(position.x, position.y + this.eyeHeight, position.z);
-    return { x: position.x, y: position.y + this.eyeHeight, z: position.z };
+    return target.set(position.x, position.y + this.eyeHeight, position.z);
   }
 
   getBodyPosition() {
@@ -96,6 +98,9 @@ export class PlayerPhysics {
   }
 
   dispose() {
+    // Rapier's World, bodies and colliders live in WASM linear memory, which
+    // JavaScript garbage collection cannot reclaim. Freeing the world releases
+    // every body and collider it owns.
     this.world?.free?.();
     this.world = null;
     this.body = null;
