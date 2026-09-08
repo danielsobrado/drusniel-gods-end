@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { assetUrl } from '../assets/assetUrl.js';
 import { logger } from '../utils/logger.js';
-import { clamp01, computeVegetationEcology, fractalNoise, hash2d } from './vegetationEcology.js';
+import { clamp01, computeVegetationEcology, encodeVegetationShaderExclusion, fractalNoise, hash2d, vegetationCoverageChance } from './vegetationEcology.js';
 
 const CHANNELS = 5;
 const DENSITY = 0;
@@ -242,10 +242,14 @@ export class ProceduralVegetationField {
 
   #createTexture() {
     const pixels = new Uint8Array(this.resolution * this.resolution * 4);
+    const growthThreshold = this.config.vegetation.growthThreshold;
     for (let index = 0; index < this.resolution * this.resolution; index += 1) {
       const source = index * CHANNELS;
       const target = index * 4;
-      pixels[target] = Math.round((1 - this.data[source + GROWTH]) * 255);
+      pixels[target] = Math.round(encodeVegetationShaderExclusion({
+        density: this.data[source + DENSITY],
+        path: this.data[source + PATH],
+      }, growthThreshold) * 255);
       pixels[target + 1] = Math.round(this.data[source + MOISTURE] * 255);
       pixels[target + 2] = Math.round(this.data[source + UNDERSTORY] * 255);
       pixels[target + 3] = Math.round(this.data[source + PATH] * 255);
@@ -285,11 +289,16 @@ export class ProceduralVegetationField {
 
   allowsVegetation(x, z) {
     const sample = this.sampleWorld(x, z);
-    if (sample.density <= this.config.vegetation.growthThreshold) return false;
+    const chance = vegetationCoverageChance(
+      sample.density,
+      this.config.vegetation.growthThreshold,
+    );
+    if (chance <= 0) return false;
+    if (chance >= 1) return true;
     const scale = this.config.vegetation.distributionCellSize;
     const ix = Math.floor(x / scale);
     const iz = Math.floor(z / scale);
-    return hash2d(ix, iz, this.config.vegetation.seed + 3571) < sample.density;
+    return hash2d(ix, iz, this.config.vegetation.seed + 3571) < chance;
   }
 
   createEmptyTileSet(terrainSizeX, terrainSizeZ, tileSize) {

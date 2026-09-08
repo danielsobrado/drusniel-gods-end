@@ -30,6 +30,8 @@ import { loadWorldPropData } from '../world/loadWorldPropData.js';
 import { CinematicLighting } from '../rendering/CinematicLighting.js';
 import { CinematicPipeline } from '../rendering/CinematicPipeline.js';
 import { MeadowDetails } from '../foliage/MeadowDetails.js';
+import { UnderstorySystem } from '../foliage/UnderstorySystem.js';
+import { WildGrassSystem } from '../foliage/WildGrassSystem.js';
 import { ScenicTour } from '../rendering/ScenicTour.js';
 import { findCharacter } from '../config/characterRoster.js';
 
@@ -143,8 +145,31 @@ export class GrassDemo {
     await this.grass.init(this.abortController.signal);
     this.abortController.signal.throwIfAborted();
     if (this.config.cinematic?.enabled) {
-      this.meadow = new MeadowDetails(this.world.scene, this.config, this.world.terrainSampler, this.grass, this.trees);
+      this.meadow = new MeadowDetails(
+        this.world.scene,
+        this.config,
+        this.world.terrainSampler,
+        this.grass,
+        this.trees,
+        this.props.pebbleSources,
+      );
     }
+    this.wildGrass = new WildGrassSystem({
+      scene: this.world.scene,
+      config: this.config,
+      terrain: this.world.terrainSampler,
+      grass: this.grass,
+    });
+    await this.wildGrass.init();
+    this.abortController.signal.throwIfAborted();
+    this.understory = new UnderstorySystem({
+      scene: this.world.scene,
+      config: this.config,
+      terrain: this.world.terrainSampler,
+      grass: this.grass,
+    });
+    await this.understory.init();
+    this.abortController.signal.throwIfAborted();
 
     this.water = new WaterSurface(
       this.world.scene,
@@ -191,6 +216,8 @@ export class GrassDemo {
       leaves: this.leaves,
       audio: this.audio,
       terrain: this.world.terrainTarget,
+      wildGrass: this.wildGrass,
+      understory: this.understory,
       config: this.config,
     });
 
@@ -414,6 +441,8 @@ export class GrassDemo {
     this.environment.updateSunTarget(focus);
     this.cinematicLighting.update();
     this.meadow?.update(deltaSeconds, focus, this.environment.current);
+    this.wildGrass?.update(deltaSeconds, focus, this.environment.current);
+    this.understory?.update(deltaSeconds, focus, this.environment.current);
     this.boundaryBarrier?.update(deltaSeconds, this.player.getPosition());
     this.water.update(deltaSeconds, this.player, this.environment.current.lighting);
     this.pipeline.render({ occlusionEnabled: true });
@@ -425,7 +454,7 @@ export class GrassDemo {
     this.disposed = true;
     this.world?.renderer?.setAnimationLoop(null);
     for (const resource of [this.loading, this.pipeline, this.cinematicLighting,
-      this.meadow, this.ui, this.iris, this.grass, this.trees, this.props,
+      this.meadow, this.wildGrass, this.understory, this.ui, this.iris, this.grass, this.trees, this.props,
       this.collisions, this.player, this.leaves, this.birds, this.rain,
       this.boundaryBarrier, this.water, this.audio, this.environment, this.world]) {
       try { resource?.dispose?.(); } catch (error) { logger.warn('Demo cleanup failed.', error); }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { computeVegetationEcology, fractalNoise, hash2d } from '../src/grass/vegetationEcology.js';
+import { computeVegetationEcology, encodeVegetationShaderExclusion, fractalNoise, hash2d, vegetationCoverageChance } from '../src/grass/vegetationEcology.js';
 
 const config = {
   path: { clearance: 1, falloff: 4 },
@@ -124,4 +124,18 @@ test('distribution hash is deterministic and normalized', () => {
   assert.equal(first, hash2d(12, -8, 99));
   assert.ok(first >= 0 && first <= 1);
   assert.notEqual(first, hash2d(13, -8, 99));
+});
+
+test('shader exclusion keeps healthy meadow at full blade strength', () => {
+  assert.equal(encodeVegetationShaderExclusion({ density: 0.73, path: 0 }, 0.12), 0);
+  assert.equal(encodeVegetationShaderExclusion({ density: 0.4, path: 0.05 }, 0.12), 0.05);
+  assert.equal(encodeVegetationShaderExclusion({ density: 0.05, path: 0 }, 0.12), 1);
+  assert.equal(encodeVegetationShaderExclusion({ density: 0.9, path: 1 }, 0.12), 1);
+});
+
+test('healthy meadow coverage keeps almost every grass candidate', () => {
+  assert.equal(vegetationCoverageChance(0.73, 0.12, 0.55), 1);
+  assert.ok(vegetationCoverageChance(0.4, 0.12, 0.55) > 0.6);
+  assert.ok(vegetationCoverageChance(0.4, 0.12, 0.55) < 0.73);
+  assert.equal(vegetationCoverageChance(0.05, 0.12, 0.55), 0);
 });

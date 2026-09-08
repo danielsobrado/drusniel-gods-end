@@ -15,7 +15,9 @@ This document records the effective configuration contract on current `main`. Re
 6. public/cinematic-wind.yaml
 7. public/cinematic-look.yaml
 8. public/painter-cursor.yaml
-9. public/characters.yaml
+9. public/vegetation.yaml
+10. public/foliage.yaml
+11. public/characters.yaml
 ```
 
 Merge rules:
@@ -453,6 +455,8 @@ stoneSourceName: Stone
 lanternSourceName: Lantern
 rainRoughness: 0.1
 anisotropy: 16
+stonePackScale: 7
+pebbleMaxSize: 0.8
 ```
 
 <!-- effective-config: collisions -->

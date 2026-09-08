@@ -390,7 +390,12 @@ export class GrassMaterial {
         const heightFromTerrain = local.y.sub(terrain.height);
         if (this.config.cinematic?.enabled) {
           const patch = gradientNoise2d(baseWorld.xz.mul(0.065)).clamp(0, 1);
-          detailHeight.assign(mix(0.25, 0.6, patch));
+          const style = this.config.cinematic.style ?? {};
+          detailHeight.assign(mix(
+            style.bladeHeightScaleMin ?? 0.88,
+            style.bladeHeightScaleMax ?? 1.22,
+            patch,
+          ));
         }
         local.y.assign(
           terrain.height.add(heightFromTerrain.mul(detailHeight).mul(grassStrength)),

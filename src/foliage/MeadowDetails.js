@@ -4,8 +4,60 @@ import { attribute, positionGeometry, positionLocal, vec3, sin, uniform, smooths
 import { createSeededRandom } from '../core/math.js';
 import { foliageBacklight, foliageLight } from '../rendering/CinematicLighting.js';
 
+function isStoneType(type) {
+  return type === 'stone' || String(type).startsWith('stone:');
+}
+
+function sourceMaterial(source) {
+  return Array.isArray(source?.material) ? source.material[0] : source?.material;
+}
+
+function createMeadowLayer({
+  scene, config, radius, clock, wind, type, geometry, map = null, roughness = 0.9, key = type, disposeSource = false,
+}) {
+  const staticDetail = type === 'litter' || isStoneType(type);
+  const texturedStone = isStoneType(type) && map;
+  const material = new THREE.MeshStandardNodeMaterial({
+    side: texturedStone ? THREE.FrontSide : THREE.DoubleSide,
+    vertexColors: !texturedStone,
+    roughness,
+    metalness: 0,
+    map: map ?? null,
+  });
+  const origin = attribute('detailOrigin', 'vec3');
+  const distance = origin.xz.sub(cameraPosition.xz).length();
+  const fade = smoothstep(radius - 18, radius, distance).oneMinus();
+  const phase = clock.mul(type === 'fern' ? 1.25 : 1.8).add(origin.x.mul(0.13)).add(origin.z.mul(0.08));
+  const heightWeight = positionGeometry.y.max(0).pow(2);
+  const sway = sin(phase).add(sin(phase.mul(1.7).add(positionGeometry.x.mul(3))).mul(0.16))
+    .mul(wind.clamp(0, 3)).mul(heightWeight).mul(staticDetail ? 0 : 0.065);
+  const root = origin.sub(vec3(0, 0.015, 0));
+  material.positionNode = positionLocal.sub(root).add(vec3(sway, 0, sway.mul(0.35))).mul(fade).add(root);
+  if (!texturedStone) {
+    const pigment = attribute('color', 'vec3');
+    const fill = config.cinematic.style?.enabled ? (config.cinematic.style.foliageFill ?? 0.28) : 0;
+    material.emissiveNode = foliageBacklight(pigment, staticDetail ? 0 : config.cinematic.vegetation.backlight)
+      .add(pigment.mul(foliageLight.fill).mul(staticDetail ? fill * 0.35 : fill));
+  }
+  const count = config.cinematic.vegetation.count;
+  const instanceGeometry = geometry.clone();
+  if (disposeSource) geometry.dispose();
+  if (!instanceGeometry.boundingBox) instanceGeometry.computeBoundingBox();
+  instanceGeometry.setAttribute('detailOrigin', new THREE.InstancedBufferAttribute(new Float32Array(count * 3), 3));
+  const mesh = new THREE.InstancedMesh(instanceGeometry, material, count);
+  mesh.name = `Meadow ${key}`;
+  mesh.userData.excludeFromReflection = true;
+  mesh.userData.rainRoughness = config.props?.rainRoughness ?? 0.1;
+  mesh.count = 0;
+  mesh.frustumCulled = true;
+  mesh.receiveShadow = true;
+  mesh.castShadow = isStoneType(type);
+  scene.add(mesh);
+  return mesh;
+}
+
 export class MeadowDetails {
-  constructor(scene, config, terrain, grass, trees) {
+  constructor(scene, config, terrain, grass, trees, pebbleSources = []) {
     this.scene = scene;
     this.config = config;
     this.terrain = terrain;
@@ -18,34 +70,38 @@ export class MeadowDetails {
     this.dummy = new THREE.Object3D();
     this.color = new THREE.Color();
     this.meshes = new Map();
+    this.stoneMeshes = [];
     this.quality = config.ui.initialQuality;
-    for (const type of ['flower', 'seed', 'fern', 'reed', 'litter', 'stone']) {
-      const material = new THREE.MeshStandardNodeMaterial({ side: THREE.DoubleSide, vertexColors: true, roughness: 0.9 });
-      const origin = attribute('detailOrigin', 'vec3');
-      const distance = origin.xz.sub(cameraPosition.xz).length();
-      const fade = smoothstep(this.radius - 18, this.radius, distance).oneMinus();
-      const staticDetail = type === 'litter' || type === 'stone';
-      const phase = this.clock.mul(type === 'fern' ? 1.25 : 1.8).add(origin.x.mul(0.13)).add(origin.z.mul(0.08));
-      const heightWeight = positionGeometry.y.max(0).pow(2);
-      const sway = sin(phase).add(sin(phase.mul(1.7).add(positionGeometry.x.mul(3))).mul(0.16))
-        .mul(this.wind.clamp(0, 3)).mul(heightWeight).mul(staticDetail ? 0 : 0.065);
-      const root = origin.sub(vec3(0, 0.015, 0));
-      material.positionNode = positionLocal.sub(root).add(vec3(sway, 0, sway.mul(0.35))).mul(fade).add(root);
-      const pigment = attribute('color', 'vec3');
-      const fill = config.cinematic.style?.enabled ? (config.cinematic.style.foliageFill ?? 0.28) : 0;
-      material.emissiveNode = foliageBacklight(pigment, staticDetail ? 0 : config.cinematic.vegetation.backlight)
-        .add(pigment.mul(foliageLight.fill).mul(staticDetail ? fill * 0.35 : fill));
-      const geometry = createMeadowGeometry(type);
-      const count = config.cinematic.vegetation.count;
-      geometry.setAttribute('detailOrigin', new THREE.InstancedBufferAttribute(new Float32Array(count * 3), 3));
-      const mesh = new THREE.InstancedMesh(geometry, material, count);
-      mesh.name = `Meadow ${type}`;
-      mesh.userData.excludeFromReflection = true;
-      mesh.count = 0;
-      mesh.frustumCulled = true;
-      mesh.receiveShadow = true;
-      scene.add(mesh);
-      this.meshes.set(type, mesh);
+    const layer = (type, geometry, extra = {}) => createMeadowLayer({
+      scene,
+      config,
+      radius: this.radius,
+      clock: this.clock,
+      wind: this.wind,
+      type,
+      geometry,
+      ...extra,
+    });
+    for (const type of ['flower', 'seed', 'fern', 'reed', 'litter']) {
+      this.meshes.set(type, layer(type, createMeadowGeometry(type), { disposeSource: true }));
+    }
+    const pebbles = (pebbleSources ?? []).filter((source) => source?.geometry);
+    if (pebbles.length > 0) {
+      for (const [index, pebble] of pebbles.entries()) {
+        const material = sourceMaterial(pebble);
+        const key = pebbles.length === 1 ? 'stone' : `stone:${index}`;
+        const mesh = layer('stone', pebble.geometry, {
+          key,
+          map: material?.map ?? null,
+          roughness: material?.roughness ?? 0.88,
+        });
+        this.meshes.set(key, mesh);
+        this.stoneMeshes.push(mesh);
+      }
+    } else {
+      const mesh = layer('stone', createMeadowGeometry('stone'), { disposeSource: true });
+      this.meshes.set('stone', mesh);
+      this.stoneMeshes.push(mesh);
     }
   }
 
@@ -87,10 +143,12 @@ export class MeadowDetails {
             if (ecology.density < ecologyConfig.minimumPlantDensity || patch < ecologyConfig.meadowPatchThreshold) continue;
             type = random() < ecologyConfig.flowerChance ? 'flower' : 'seed';
           }
-          const mesh = this.meshes.get(type);
-          if (mesh.count >= mesh.instanceMatrix.count) continue;
+          const mesh = type === 'stone'
+            ? this.stoneMeshes[Math.floor(random() * this.stoneMeshes.length)]
+            : this.meshes.get(type);
+          if (!mesh || mesh.count >= mesh.instanceMatrix.count) continue;
           const index = mesh.count++;
-          this.dummy.position.set(px, py - 0.015, pz);
+          this.dummy.position.set(px, type === 'stone' ? py : py - 0.015, pz);
           this.dummy.rotation.set(0, random() * Math.PI * 2, 0);
           const baseScale = ecologyConfig.minScale + random() * (ecologyConfig.maxScale - ecologyConfig.minScale);
           const ecologyScale = type === 'reed'
@@ -98,20 +156,23 @@ export class MeadowDetails {
             : type === 'fern'
               ? ecologyConfig.fernBaseScale + ecology.understory * ecologyConfig.fernUnderstoryScale
               : ecologyConfig.plantBaseScale + ecology.growth * ecologyConfig.plantGrowthScale;
-          const scale = baseScale * ecologyScale;
+          const scale = type === 'stone' ? baseScale : baseScale * ecologyScale;
           const variation = Math.sin(px * 12.9898 + pz * 78.233) * 0.5 + 0.5;
-          this.dummy.scale.set(scale * (0.85 + variation * 0.3), scale * (1.12 - variation * 0.24), scale);
+          if (type === 'stone') this.dummy.scale.setScalar(scale);
+          else this.dummy.scale.set(scale * (0.85 + variation * 0.3), scale * (1.12 - variation * 0.24), scale);
           this.dummy.updateMatrix();
           mesh.setMatrixAt(index, this.dummy.matrix);
           mesh.geometry.attributes.detailOrigin.setXYZ(index, px, py, pz);
-          const humidityTint = ecology.moisture * ecologyConfig.humidityTint;
-          const shadeTint = ecology.understory * ecologyConfig.shadeTint;
-          this.color.setHSL(
-            ecologyConfig.hueBase + humidityTint - shadeTint,
-            ecologyConfig.saturation,
-            ecologyConfig.lightnessBase - shadeTint * ecologyConfig.lightnessShadeScale + random() * ecologyConfig.lightnessVariation,
-          );
-          mesh.setColorAt(index, this.color);
+          if (!mesh.material.map) {
+            const humidityTint = ecology.moisture * ecologyConfig.humidityTint;
+            const shadeTint = ecology.understory * ecologyConfig.shadeTint;
+            this.color.setHSL(
+              ecologyConfig.hueBase + humidityTint - shadeTint,
+              ecologyConfig.saturation,
+              ecologyConfig.lightnessBase - shadeTint * ecologyConfig.lightnessShadeScale + random() * ecologyConfig.lightnessVariation,
+            );
+            mesh.setColorAt(index, this.color);
+          }
         }
       }
     }

@@ -21,7 +21,9 @@ cinematic:
     grassBacklight: 0.85
     meadowPatchScale: 0.035
     groundTipMix: 0.12
-    bladeWidthScale: 0.82
+    bladeWidthScale: 1.05
+    bladeHeightScaleMin: 0.88
+    bladeHeightScaleMax: 1.22
     bladeCurve: 0.045
     foliageFill: 0.28
     canopyShadow: '#286746'

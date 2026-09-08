@@ -111,6 +111,11 @@ export class GrassField {
         density: lod[name].density,
       }),
     ]));
+    for (const tile of this.tiles) {
+      if (!tile.mesh) continue;
+      const lodName = tile.mesh.userData.currentLOD ?? 'veryLow';
+      tile.setGeometry(this.geometries[lodName] ?? this.geometries.veryLow, lodName, this.containsGrass);
+    }
     for (const geometry of Object.values(previous)) geometry.dispose();
   }
 
@@ -177,8 +182,9 @@ export class GrassField {
     this.#rebuildGeometries();
     this.materialController.setMaxDistance(this.#getQuality().maxDistance);
     this.materialController.setLod(this.#getQuality());
-    if (this.config.cinematic?.enabled) {
-      if (previousType !== this.type) this.#buildTilePool();
+    if (this.config.cinematic?.enabled && previousType !== this.type) {
+      this.#buildTilePool();
+      this.remapEmptyTiles();
       return;
     }
     for (const tile of this.tiles) {
@@ -186,6 +192,7 @@ export class GrassField {
       tile.mesh.material = this.materialController.material;
       tile.setGeometry(this.geometries[lodName] ?? this.geometries.veryLow, lodName, this.containsGrass);
     }
+    this.remapEmptyTiles();
   }
 
   setPreset(preset) {

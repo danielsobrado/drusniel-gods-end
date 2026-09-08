@@ -106,11 +106,11 @@ trunk core -> no grass
 
 Density and growth are separate ecology values.
 
-CPU candidate compaction uses `density` with deterministic hashing, so different regions submit different numbers of blades instead of merely making every blade transparent.
+CPU candidate compaction uses `density` with a coverage curve: healthy meadow keeps nearly every blade, and only thinner habitat is hash-thinned. Sparse regions still drop candidates instead of making every blade transparent.
 
-The existing recovered grass shader receives the generated procedural texture. Its red-channel compatibility value encodes `1 - growth`, so the shader reconstructs procedural growth and applies it to blade width and height.
+The recovered grass shader still reads a compatibility mask whose red channel means exclusion (`grassStrength = 1 - red`). That channel now stores the **path and barren gate**, not continuous growth. Healthy meadow stays black, so blades keep authored width and height. Paths and zero-density cells stay white and are removed by the existing cutoff.
 
-This preserves the proven recovered grass deformation/material path while changing where vegetation grows and how strongly it grows.
+Growth remains a CPU ecology signal for understory and meadow-detail scale. It is no longer used to shrink every procedural blade, which made the carpet look thin and left the ground showing.
 
 ## Understory biomes
 
@@ -128,13 +128,13 @@ Plant scale and color also respond to moisture, understory and growth, so the se
 `ProceduralVegetationField` uploads an RGBA texture for shader compatibility and future GPU consumers:
 
 ```text
-R = 1 - growth
+R = path/barren exclusion (0 in healthy meadow)
 G = moisture
 B = understory
 A = path influence
 ```
 
-The R encoding is intentionally inverted because the recovered grass shader historically interpreted red as exclusion and evaluates `1 - red` before its smooth growth gate.
+The R encoding is inverted relative to ecology coverage because the recovered grass shader historically interpreted red as exclusion and evaluates `1 - red` before its smooth growth gate. Continuous growth is not packed into R, so meadow blades are not uniformly shortened.
 
 ## Configuration
 

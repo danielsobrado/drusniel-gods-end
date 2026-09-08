@@ -31,13 +31,13 @@ vegetation:
     trunkClearance: 1.6
     trunkFalloff: 2.4
     shadeRadius: 14
-    grassShadePenalty: 0.55
+    grassShadePenalty: 0.38
   density:
-    base: 0.62
-    moistureBoost: 0.28
-    macroVariation: 0.42
-    detailVariation: 0.18
-    highlandPenalty: 0.2
+    base: 0.84
+    moistureBoost: 0.24
+    macroVariation: 0.28
+    detailVariation: 0.12
+    highlandPenalty: 0.1
   height:
     base: 0.2
     macroWeight: 0.46

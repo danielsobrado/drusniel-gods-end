@@ -61,7 +61,7 @@ export async function checkMeadowRendering(renderer) {
       probe.material = material;
       dummy.rotation.set(0, 0.8, 0);
       dummy.scale.set(1.4, 0.8, 1.1);
-      const staticDetail = type === 'litter' || type === 'stone';
+      const staticDetail = type === 'litter' || String(type).startsWith('stone');
       const point = [0.13, mesh.geometry.boundingBox.max.y, 0.07];
       let baselineMotion;
       for (const elevation of [0, 20, 80]) {

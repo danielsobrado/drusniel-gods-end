@@ -131,6 +131,10 @@ props:
   lanternSourceName: Lantern
   rainRoughness: 0.1
   anisotropy: 16
+  # The stylized pack is authored in centimeters. After the FBX 0.01 scale this
+  # brings the large rocks in line with the previous landscape Stone size.
+  stonePackScale: 7
+  pebbleMaxSize: 0.8
 collisions:
   activeDistance: 50
   inactiveDistance: 70

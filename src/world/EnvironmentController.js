@@ -86,6 +86,8 @@ export class EnvironmentController {
     leaves,
     audio,
     terrain,
+    wildGrass,
+    understory,
     config,
   }) {
     this.scene = scene;
@@ -101,6 +103,8 @@ export class EnvironmentController {
     this.leaves = leaves;
     this.audio = audio;
     this.terrain = terrain;
+    this.wildGrass = wildGrass;
+    this.understory = understory;
     this.config = config;
     this.quality = config.ui.initialQuality;
     this.currentPreset = config.ui.initialPreset;
@@ -118,12 +122,16 @@ export class EnvironmentController {
     this.grassOverrides = {};
     this.current = snapshot(preset);
     this.audio?.setPreset?.(name);
+    this.wildGrass?.setPreset?.(name);
+    this.understory?.setPreset?.(name);
     this.#apply();
   }
 
   setQuality(name) {
     if (!this.config.quality[name]) return;
     this.quality = name;
+    this.wildGrass?.setQuality?.(name);
+    this.understory?.setQuality?.(name);
     this.#apply();
   }
 

@@ -101,3 +101,20 @@ export function computeVegetationEcology(input, config) {
 
   return { density, growth, height, moisture, understory, path };
 }
+
+// Recovered grass shaders treat red as exclusion (`1 - red` = grass strength).
+// Encode the path/barren gate here, not continuous growth: healthy meadow must
+// stay black so blades keep authored width and height instead of shrinking.
+export function encodeVegetationShaderExclusion(ecology, growthThreshold = 0) {
+  if (!ecology) return 1;
+  const barren = Number(ecology.density) <= growthThreshold ? 1 : 0;
+  return clamp01(Math.max(Number(ecology.path) || 0, barren));
+}
+
+// Hash thinning should vanish in healthy meadow so the carpet can close.
+// Sparse habitat still drops candidates in proportion to density.
+export function vegetationCoverageChance(density, growthThreshold = 0, fullCoverageAt = 0.55) {
+  if (!(density > growthThreshold)) return 0;
+  const span = Math.max(fullCoverageAt - growthThreshold, 0.0001);
+  return clamp01((density - growthThreshold) / span);
+}

@@ -20,7 +20,7 @@ assets:
     - colliders: Assets/terrain/colliders/colliders.glb
     - structures/fence: Assets/terrain/structures/fence.glb
     - structures/sketchfab-world: Assets/terrain/structures/sketchfab-world.glb
-    - props/stone: Assets/terrain/props/stone.glb
+    - props/stone: Assets/terrain/props/free_pack_-_rocks_stylized.glb
     - props/lantern: Assets/terrain/props/lantern.glb
     - fauna/birds: Assets/terrain/fauna/birds.glb
     - trees/tree1: Assets/terrain/trees/tree1.glb

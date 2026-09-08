@@ -15,6 +15,8 @@ public/visual-parity.yaml
 
 The recovered original reads `Stone` and `Lantern` source objects from the terrain scene (now `Assets/terrain/props/stone.glb` and `Assets/terrain/props/lantern.glb`), prepares their mapped textures, clones them using authored transform arrays and adds the clones to the scene.
 
+The current runtime loads `Assets/terrain/props/free_pack_-_rocks_stylized.glb` in place of `stone.glb`. Large pack meshes (`SM_Rocks_01`–`05`, `08`, `09`) replace the recovered Stone clones at the same authored transforms; the four small meshes become meadow path pebbles. The original `Stone` object name remains a fallback if the pack is absent.
+
 The recovered arrays contain:
 
 ```text
@@ -106,7 +108,7 @@ The values in `world-props.json` are recovered authored transforms in the same w
 
 `GrassDemo` loads tree and prop world data in parallel during the foliage stage, then initializes world props before tree/leaves/birds setup.
 
-The prop system requires the already-loaded terrain root so it can find the `Stone` and `Lantern` source objects by exact name. The root is the assembled `TerrainRoot` group, so the lookup is unaffected by which part each object came from.
+The prop system prefers the stylized rock pack meshes (`SM_Rocks_*`) when they are present, and otherwise looks up `Stone` and `Lantern` by exact name. The root is the assembled `TerrainRoot` group, so the lookup is unaffected by which part each object came from.
 
 ## Configuration
 
@@ -119,6 +121,8 @@ props:
   lanternSourceName: Lantern
   rainRoughness: 0.1
   anisotropy: 16
+  stonePackScale: 7
+  pebbleMaxSize: 0.8
 ```
 
 ## Fallback behavior
@@ -133,7 +137,7 @@ This fallback behavior is a clean-room resilience feature, not evidence of origi
 
 - exactly 80 recovered Stone records are loaded,
 - exactly 21 recovered Lantern records are loaded,
-- source names are `Stone` and `Lantern`,
+- source names are `Stone` and `Lantern` as the lantern/fallback contract; landscape stones currently instance `SM_Rocks_*` pack variants,
 - authored X/Y/Z values are preserved,
 - Stone scale is preserved,
 - source maps use mipmaps/linear mip filtering/anisotropy 16,

@@ -28,6 +28,8 @@ test('effective config uses the runtime YAML file order', async () => {
     'cinematic-wind.yaml',
     'cinematic-look.yaml',
     'painter-cursor.yaml',
+    'vegetation.yaml',
+    'foliage.yaml',
     'characters.yaml',
   ]);
 

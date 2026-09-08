@@ -1,5 +1,14 @@
 import * as THREE from 'three';
 import { logger } from '../utils/logger.js';
+import {
+  bakeRockTemplate,
+  classifyRockTemplates,
+  collectRockMeshes,
+  DEFAULT_PEBBLE_MAX_SIZE,
+  DEFAULT_STONE_PACK_SCALE,
+  hideRockPack,
+  scaleRockTemplate,
+} from './rockPack.js';
 
 const DEFAULT_ANISOTROPY = 16;
 const DEFAULT_RAIN_ROUGHNESS = 0.1;
@@ -60,19 +69,25 @@ export class WorldPropSystem {
     this.data = data;
     this.collisionSystem = collisionSystem;
     this.instances = [];
+    this.ownedGeometries = [];
+    this.pebbleSources = [];
   }
 
   init() {
     if (!this.terrainRoot) return this;
 
     const propConfig = this.config.props ?? {};
-    const stoneSource = this.terrainRoot.getObjectByName(propConfig.stoneSourceName ?? 'Stone');
     const lanternSource = this.terrainRoot.getObjectByName(propConfig.lanternSourceName ?? 'Lantern');
+    const stoneSources = this.#createStoneSources(propConfig);
 
-    if (stoneSource) {
-      prepareSource(stoneSource, propConfig);
-      for (const record of this.data?.stones ?? []) {
-        const instance = createStone(this.scene, stoneSource, record, this.collisionSystem);
+    if (stoneSources.length > 0) {
+      for (const [index, record] of (this.data?.stones ?? []).entries()) {
+        const instance = createStone(
+          this.scene,
+          stoneSources[index % stoneSources.length],
+          record,
+          this.collisionSystem,
+        );
         if (instance) this.instances.push(instance);
       }
     } else {
@@ -91,13 +106,41 @@ export class WorldPropSystem {
 
     logger.info('Recovered world props initialized.', {
       stones: this.data?.stones?.length ?? 0,
+      stoneVariants: stoneSources.length,
+      pebbles: this.pebbleSources.length,
       lanterns: this.data?.lanterns?.length ?? 0,
     });
     return this;
   }
 
+  #createStoneSources(propConfig) {
+    const rockMeshes = collectRockMeshes(this.terrainRoot);
+    if (rockMeshes.length > 0) {
+      for (const mesh of rockMeshes) prepareSource(mesh, propConfig);
+      hideRockPack(rockMeshes);
+      const templates = rockMeshes.map((mesh) => bakeRockTemplate(mesh));
+      const { stones, pebbles } = classifyRockTemplates(
+        templates,
+        propConfig.pebbleMaxSize ?? DEFAULT_PEBBLE_MAX_SIZE,
+      );
+      const packScale = propConfig.stonePackScale ?? DEFAULT_STONE_PACK_SCALE;
+      for (const stone of stones) scaleRockTemplate(stone, packScale);
+      this.ownedGeometries.push(...templates.map((template) => template.geometry));
+      this.pebbleSources = pebbles;
+      return stones.length > 0 ? stones : templates;
+    }
+
+    const stoneSource = this.terrainRoot.getObjectByName(propConfig.stoneSourceName ?? 'Stone');
+    if (!stoneSource) return [];
+    prepareSource(stoneSource, propConfig);
+    return [stoneSource];
+  }
+
   dispose() {
     for (const instance of this.instances) this.scene.remove(instance);
     this.instances.length = 0;
+    for (const geometry of this.ownedGeometries) geometry.dispose();
+    this.ownedGeometries.length = 0;
+    this.pebbleSources = [];
   }
 }
