@@ -22,6 +22,7 @@ vegetation:
     slopeMax: 0.95
   moisture:
     waterDistance: 115
+    waterSurfaceTolerance: 0.15
     waterWeight: 0.48
     lowlandWeight: 0.34
     noiseWeight: 0.18
