@@ -178,17 +178,6 @@ export class WorldCollisionSystem {
     return body;
   }
 
-  dispose() {
-    // The rigid bodies and colliders registered here live in the player's
-    // Rapier world, so freeing that world releases them. This only drops the
-    // references, which would otherwise dangle once the world is freed --
-    // so it must run BEFORE PlayerPhysics.dispose().
-    this.colliders.length = 0;
-    this.world = null;
-    this.player = null;
-    this.scene = null;
-  }
-
   update() {
     if (!this.player) return;
     this.player.getWorldPosition(this.playerPosition);
@@ -213,8 +202,12 @@ export class WorldCollisionSystem {
   }
 
   dispose() {
-    if (!this.world) return;
-    for (const entry of this.colliders) this.world.removeRigidBody(entry.body);
+    if (this.world) {
+      for (const entry of this.colliders) this.world.removeRigidBody(entry.body);
+    }
     this.colliders.length = 0;
+    this.world = null;
+    this.player = null;
+    this.scene = null;
   }
 }
