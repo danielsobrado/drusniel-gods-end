@@ -28,6 +28,7 @@ vegetation:
     lowlandExponent: 1.35
   trees:
     trunkClearance: 1.6
+    trunkFalloff: 2.4
     shadeRadius: 14
     grassShadePenalty: 0.55
   density:
