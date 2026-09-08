@@ -25,7 +25,12 @@ export function readRendererCapabilities(renderer) {
       gpuTiming: Boolean(gl.getExtension('EXT_disjoint_timer_query_webgl2')),
       nativeCompute: false,
       indirectDraw: false,
-      colorTargetHalfFloat: Boolean(gl.getExtension('EXT_color_buffer_float')),
+      // Either extension makes a half-float colour target renderable, and a
+      // device may expose only the half-float one. Probing the float extension
+      // alone reports no renderable half-float target on such a device, so any
+      // pass that keys its precision off this drops to bytes for no reason.
+      colorTargetHalfFloat: Boolean(gl.getExtension('EXT_color_buffer_half_float'))
+        || Boolean(gl.getExtension('EXT_color_buffer_float')),
       sampledDepth: true,
     });
   }

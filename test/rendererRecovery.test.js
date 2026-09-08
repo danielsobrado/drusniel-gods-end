@@ -43,3 +43,49 @@ test('concurrent loss signals share one restart and disposal releases late sessi
   recovery.dispose(); complete(); await first;
   assert.equal(starts, 1); assert.equal(releases, 2);
 });
+
+test('an exhausted backend list releases once per attempt and still presents the failure', async () => {
+  // Forced WebGPU is one backend and one attempt, which makes the release count
+  // exact: one for the renderer being replaced, one for the failed attempt.
+  // A third — thrown into the shared catch on the way out — is the defect. It
+  // is not merely redundant: a release that throws there replaces the recovery
+  // failure the owner has to present with the cleanup error instead.
+  let releases = 0; const failures = [];
+  const recovery = new RendererRecovery({
+    capture() {},
+    release: () => { releases++; },
+    restart: async () => { throw Error('unavailable'); },
+    onFailure: (error) => failures.push(error),
+  });
+  await recovery.recover('webgpu', 'webgpu', {});
+  assert.equal(releases, 2);
+  assert.equal(failures.length, 1);
+  assert.match(failures[0].message, /Renderer recovery failed/);
+});
+
+test('cleanup failure retains the restart failure and is released only once', async () => {
+  let releases = 0;
+  const failures = [];
+  const recovery = new RendererRecovery({ capture: () => ({}),
+    release() { if (++releases > 1) throw new Error('cleanup fault'); },
+    async restart() { throw new Error('shader fault'); },
+    onFailure: error => failures.push(error) });
+  await recovery.recover('webgpu', 'webgpu', {});
+  assert.equal(releases, 2);
+  assert.equal(failures.length, 1);
+  assert.deepEqual(failures[0].errors.map(error => error.message), ['shader fault', 'cleanup fault']);
+});
+
+test('reentrant loss during capture coalesces with the already published recovery', async () => {
+  let nested;
+  let entered = false;
+  let starts = 0;
+  const recovery = new RendererRecovery({ capture() {
+    if (!entered) { entered = true; nested = recovery.recover('auto', 'webgpu', {}); }
+    return {};
+  }, release() {}, async restart() { starts++; }, onFailure: error => { throw error; } });
+  const pending = recovery.recover('auto', 'webgpu', {});
+  await pending;
+  assert.equal(nested, pending);
+  assert.equal(starts, 1);
+});

@@ -13,41 +13,52 @@ export class RendererRecovery {
   recover(request, actual, info) {
     if (this.disposed) return Promise.resolve();
     if (this.pending) return this.pending;
-    this.pending = this.#recover(request, actual, info).finally(() => { this.pending = null; });
-    return this.pending;
+    // Publish before capture/release can synchronously raise another loss.
+    let resolve;
+    let reject;
+    const pending = new Promise((done, failed) => { resolve = done; reject = failed; });
+    this.pending = pending;
+    void this.#recover(request, actual, info).then(
+      () => { this.pending = null; resolve(); },
+      error => { this.pending = null; reject(error); },
+    );
+    return pending;
   }
 
   async #recover(request, actual, info) {
     const errors = [];
-    try {
-      if (this.attempts >= 2) throw new Error('Renderer recovery budget exhausted. Reload to retry.');
-      const state = this.capture();
-      this.release();
-      const automaticGpuRecovery = request === 'auto' && actual === 'webgpu';
-      // A successful first retry can lose its device later. Reserve the second
-      // attempt for the fallback instead of spending both attempts on WebGPU.
-      const backends = automaticGpuRecovery
-        ? (this.attempts === 0 ? ['webgpu', 'webgl'] : ['webgl'])
-        : [actual === 'webgpu' ? 'webgpu' : 'webgl'];
-      for (const backend of backends) {
-        if (this.disposed || this.attempts >= 2) break;
-        this.attempts++;
-        try {
-          await this.restart(backend, state);
-          if (this.disposed) this.release();
-          return;
-        } catch (error) {
-          errors.push(error);
-          this.release();
-        }
-      }
-      if (!this.disposed) throw new AggregateError(errors, 'Renderer recovery failed.');
-    } catch (error) {
-      if (!this.disposed) {
-        this.release();
-        this.onFailure(error, info);
-      }
+    const release = () => {
+      try { this.release(); return true; }
+      catch (error) { errors.push(error); return false; }
+    };
+    const report = (reason = 'Renderer recovery failed.') => {
+      if (!this.disposed) this.onFailure(new AggregateError(errors, reason), info);
+    };
+    if (this.attempts >= 2) {
+      release(); report('Renderer recovery budget exhausted. Reload to retry.'); return;
     }
+    let state;
+    try { state = this.capture(); }
+    catch (error) { errors.push(error); release(); report(); return; }
+    if (!release()) { report(); return; }
+    // A successful first retry can lose its device later. Reserve the second
+    // attempt for the fallback instead of spending both attempts on WebGPU.
+    const backends = request === 'auto' && actual === 'webgpu'
+      ? (this.attempts === 0 ? ['webgpu', 'webgl'] : ['webgl'])
+      : [actual === 'webgpu' ? 'webgpu' : 'webgl'];
+    for (const backend of backends) {
+      if (this.disposed || this.attempts >= 2) break;
+      this.attempts++;
+      try { await this.restart(backend, state); }
+      catch (error) {
+        errors.push(error);
+        if (!release()) break;
+        continue;
+      }
+      if (this.disposed) release();
+      return;
+    }
+    report();
   }
 
   dispose() { this.disposed = true; }

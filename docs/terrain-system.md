@@ -70,7 +70,7 @@ Ground material details are documented in `ground-pbr-textures.md` and `recovere
 
 ## Clean-room terrain sampler
 
-The browser-delivered demo has its own gameplay/collision pipeline. This repository additionally maintains `TerrainSampler` as a practical adapter for the reconstructed player, grass height texture, leaf grounding and camera clearance.
+The browser-delivered demo has its own gameplay/collision pipeline. This repository additionally maintains `TerrainSampler` as a practical adapter for the reconstructed player, camera clearance, CPU terrain queries and the fallback grass height texture.
 
 `TerrainSampler` samples **Landscape002** because it is the configured gameplay target.
 
@@ -86,9 +86,9 @@ terrain:
 The sampler:
 
 1. calculates a world-space `Box3` for `Landscape002`,
-2. raycasts downward over a 192x192 grid during startup,
-3. keeps CPU heights as `Float32Array`,
-4. creates an 8-bit grayscale `DataTexture` for TSL grass sampling,
+2. builds a 192x192 CPU height grid from the mesh: cinematic mode rasterizes terrain triangles directly into the grid, while the non-cinematic path samples the mesh with downward raycasts,
+3. keeps CPU heights as a `Float32Array`,
+4. creates an 8-bit grayscale `DataTexture` from those CPU heights for use only when the preferred GPU grass height texture cannot be created,
 5. exposes the same XZ bounds to the player, grass mask and painter.
 
 This adapter is current repository behavior; it is not evidence that the original demo internally used this exact 192x192 CPU grid.
@@ -109,9 +109,24 @@ The camera enforces endpoint clearance with:
 cameraY >= sampleHeight(cameraX, cameraZ) + terrainClearance
 ```
 
-## GPU height texture
+## GPU grass height texture
 
-The TSL grass shader receives:
+Grass normally does **not** sample the 192x192 8-bit `TerrainSampler` texture.
+
+During `GrassField.init()`, `createGrassTerrainData()` renders `Landscape002` from above into a dedicated GPU height target using the configured grass resolution:
+
+```yaml
+grass:
+  heightResolution: 1024
+```
+
+The generated texture is a 1024x1024 `HalfFloat` render target. An orthographic camera covers the gameplay terrain bounds and the temporary material writes normalized world-space height:
+
+```text
+normalizedHeight = (positionWorld.y - minHeight) / (maxHeight - minHeight)
+```
+
+The grass shader receives:
 
 ```text
 texture
@@ -121,9 +136,13 @@ minHeight
 maxHeight
 ```
 
-World XZ is converted to 0..1 terrain UV and the red texture channel reconstructs height between `minHeight` and `maxHeight`.
+World XZ is converted to 0..1 terrain UV, the red texture channel is sampled, and height is reconstructed between `minHeight` and `maxHeight`.
 
-The logical terrain UV convention is shared with `blend2.jpg`, which is essential for grass/dirt alignment.
+If GPU height generation fails, `GrassField` logs a warning and falls back to `TerrainSampler`, whose 192x192 8-bit `DataTexture` implements the same shader-data contract.
+
+Both height textures are derived at runtime from the `Landscape002` GLB geometry. There is no authored PNG/JPG heightmap asset that controls terrain elevation.
+
+The logical terrain UV convention is shared with `blend2.jpg`, which is essential for grass/dirt alignment. `blend2.jpg` is a vegetation mask, not a heightmap.
 
 ## World props are not terrain samples
 
@@ -150,6 +169,7 @@ Before tuning grass or tree offsets, verify all of the following:
 - terrain meshes cast/receive shadows.
 - `rainRoughness` metadata is `0.1` on terrain meshes.
 - the gameplay sampler bounds come from `Landscape002`.
+- the preferred grass height texture is generated from `Landscape002` at `grass.heightResolution` and the CPU sampler is only its fallback.
 - recovered tree/stone/lantern authored Y values are preserved.
 
 If any of these fail, visual tuning on top of the wrong terrain coordinate system is invalid.
