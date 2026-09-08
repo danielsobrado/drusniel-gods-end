@@ -63,7 +63,11 @@ export function computeVegetationEcology(input, config) {
       + lowland * config.moisture.lowlandWeight
       + input.macroNoise * config.moisture.noiseWeight,
   );
-  const trunkOpen = smoothstep(0, config.trees.trunkClearance, input.nearestTreeDistance);
+  const trunkOpen = smoothstep(
+    config.trees.trunkClearance,
+    config.trees.trunkClearance + config.trees.trunkFalloff,
+    input.nearestTreeDistance,
+  );
   const fertility = clamp01(
     config.density.base
       + moisture * config.density.moistureBoost
