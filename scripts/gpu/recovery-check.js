@@ -1,7 +1,7 @@
 // Run from the Vite app after entering the scene with ?renderer=auto. Injecting
 // the loss callback exercises bootstrap's actual disposal/restart path without
 // relying on a driver crash. This deliberately consumes the page's retry budget.
-export async function checkRendererRecovery() {
+export async function checkRendererRecovery({ loseDuringRestart = false } = {}) {
   const initial = window.__grassDemo;
   if (!initial?.started || initial.world.renderer.backend.isWebGPUBackend !== true) {
     throw new Error('Start the development scene on WebGPU before checking recovery.');
@@ -12,7 +12,7 @@ export async function checkRendererRecovery() {
     const input = initial.ui.element.querySelector(selector);
     if (event === 'change') input.checked = value;
     else input.value = value;
-    input.dispatchEvent(new Event(event, { bubbles: true }));
+    input.dispatchEvent(new window.Event(event, { bubbles: true }));
   };
   edit('[data-grass-param="windIntensity"]', 2.1, 'input');
   edit('[data-grass-param="simulationSpeed"]', 0.7, 'input');
@@ -46,7 +46,26 @@ export async function checkRendererRecovery() {
     }
     throw new Error('Renderer recovery did not finish within 45 seconds.');
   };
-  const retried = await restart(initial, 'webgpu');
-  await restart(retried, 'webgl2');
+  if (loseDuringRestart) {
+    const prototype = initial.constructor.prototype;
+    const originalStart = prototype.start;
+    let injected = false;
+    prototype.start = function () {
+      const ready = this.onRendererReady;
+      this.onRendererReady = session => {
+        ready(session);
+        if (!injected) {
+          injected = true;
+          session.renderer.onDeviceLost({ api: 'WebGPU', message: 'Loss during recovery startup' });
+        }
+      };
+      return originalStart.call(this);
+    };
+    try { await restart(initial, 'webgl2'); }
+    finally { prototype.start = originalStart; }
+  } else {
+    const retried = await restart(initial, 'webgpu');
+    await restart(retried, 'webgl2');
+  }
   return { passed: failures.length === 0, failures };
 }

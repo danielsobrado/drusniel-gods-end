@@ -9,8 +9,8 @@ import { loadMergedConfig } from '../scripts/mergedConfig.mjs';
 async function fixture(t) {
   const oldWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
   const oldDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
-  globalThis.window = Object.assign(new EventTarget(), { innerWidth: 1280 });
-  globalThis.document = Object.assign(new EventTarget(), { baseURI: 'http://localhost/' });
+  globalThis.window = Object.assign(new globalThis.EventTarget(), { innerWidth: 1280 });
+  globalThis.document = Object.assign(new globalThis.EventTarget(), { baseURI: 'http://localhost/' });
   t.after(() => {
     if (oldWindow) Object.defineProperty(globalThis, 'window', oldWindow); else delete globalThis.window;
     if (oldDocument) Object.defineProperty(globalThis, 'document', oldDocument); else delete globalThis.document;
@@ -18,7 +18,7 @@ async function fixture(t) {
   const config = await loadMergedConfig();
   config.player.animationSources = [];
   const player = new PlayerController(new THREE.Scene(), new THREE.PerspectiveCamera(),
-    new EventTarget(), config, { sampleHeight: () => 0, contains: () => true }, null);
+    new globalThis.EventTarget(), config, { sampleHeight: () => 0, contains: () => true }, null);
   t.after(() => player.dispose());
   return player;
 }
