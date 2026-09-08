@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import argparse
 import io
-import os
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Iterable
+from urllib.parse import unquote
 
 from PIL import Image
 from pygltflib import GLTF2
@@ -68,7 +68,7 @@ def load_image_bytes(gltf: GLTF2, path: Path, image_index: int) -> tuple[bytes |
             except Exception:
                 return None, "embedded data URI"
 
-        image_path = (path.parent / image.uri).resolve()
+        image_path = (path.parent / unquote(image.uri)).resolve()
         try:
             return image_path.read_bytes(), f"external: {image.uri}"
         except OSError:
@@ -77,14 +77,23 @@ def load_image_bytes(gltf: GLTF2, path: Path, image_index: int) -> tuple[bytes |
     if image.bufferView is None:
         return None, "no URI/bufferView"
 
-    blob = gltf.binary_blob()
-    if blob is None:
-        return None, f"embedded bufferView {image.bufferView}"
-
     view = gltf.bufferViews[image.bufferView]
+    buffer = gltf.buffers[view.buffer]
+    location = f"bufferView {image.bufferView} in buffer {view.buffer}"
+    try:
+        if buffer.uri and buffer.uri.startswith("data:"):
+            blob = gltf.get_data_from_buffer_uri(buffer.uri)
+        elif buffer.uri:
+            blob = (path.parent / unquote(buffer.uri)).resolve().read_bytes()
+        else:
+            blob = gltf.binary_blob()
+    except (OSError, ValueError):
+        return None, f"missing {location}"
+    if blob is None:
+        return None, location
     start = view.byteOffset or 0
     end = start + view.byteLength
-    return blob[start:end], f"embedded bufferView {image.bufferView}"
+    return blob[start:end], location
 
 
 def image_info(data: bytes | None) -> tuple[str, str, str]:

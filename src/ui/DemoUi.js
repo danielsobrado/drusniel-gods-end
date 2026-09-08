@@ -67,11 +67,13 @@ export class DemoUi {
       label: quality.label,
     }));
     const initialPreset = this.config.presets[this.currentPreset];
-    const initialGrass = initialPreset.grass[grassFamily(this.currentGrassShape)];
+    const initialGrass = this.actions.getGrassParameters?.(grassFamily(this.currentGrassShape))
+      ?? initialPreset.grass[grassFamily(this.currentGrassShape)];
     const pixelRatio = this.actions.getPixelRatio?.()
       ?? this.config.ui.pixelRatio
       ?? Math.min(window.devicePixelRatio, this.config.renderer.pixelRatioCap);
-    const interactionEnabled = this.config.grass.interaction.enabled !== false;
+    const interactionEnabled = this.actions.getInteractionEnabled?.()
+      ?? (this.config.grass.interaction.enabled !== false);
 
     overlay.innerHTML = `
       <div class="scene-heading"><span class="scene-eyebrow">DRUSNIEL / EXPLORATION</span><h1>THE WILDS</h1><p>A living landscape</p></div>

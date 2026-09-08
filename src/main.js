@@ -44,6 +44,12 @@ async function bootstrap() {
         root.dataset.renderer = session.diagnostics.actual;
         console.info('[Renderer]', session.diagnostics);
         unsubscribeLoss = session.subscribeDeviceLoss((info) => {
+          if (recovery.pending) {
+            // This is the replacement's device: the old session unsubscribed
+            // during release. Abort its startup so recovery tries the fallback.
+            candidate.dispose();
+            return;
+          }
           void recovery.recover(requested, session.diagnostics.actual, info);
         });
       };

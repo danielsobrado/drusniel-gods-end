@@ -90,11 +90,11 @@ export class AudioSystem {
   }
 
   async start() {
-    if (!this.initialized) return false;
+    if (this.disposed || !this.initialized) return false;
     if (this.started) return true;
     const context = THREE.AudioContext.getContext();
     if (context.state === 'suspended') await context.resume();
-    if (context.state !== 'running') return false;
+    if (this.disposed || context.state !== 'running') return false;
     this.enabled = true;
     this.started = true;
     this.ambient.start(this.currentPreset);

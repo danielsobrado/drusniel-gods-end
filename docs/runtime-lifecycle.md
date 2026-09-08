@@ -198,4 +198,8 @@ mud otherwise
 
 `GrassDemo.dispose()` stops the animation loop, aborts listeners, removes a still-visible loading overlay, then disposes UI, painter, grass, foliage, collisions, player/Rapier world, weather, water, audio, environment, terrain animations, sky/clouds and renderer resources.
 
+Renderer recovery preserves explicit grass edits without replacing the distinct blade and billboard preset defaults. Controls are initialized from the restored state, and camera zoom is restored after resizing. Automatic recovery retries WebGPU once, then uses WebGL if that retry loses its device, including during startup. Forced WebGPU never switches backends. Late player models and physics worlds are released after cancellation; a pending audio resume cannot restart a disposed scene.
+
+To exercise the full restart path, enter the Vite app with `?renderer=auto&character=drusniel`, then run `const { checkRendererRecovery } = await import('/scripts/gpu/recovery-check.js'); await checkRendererRecovery()` in the browser console. It checks two consecutive losses, grass settings, controls and zoom. Reload and pass `{ loseDuringRestart: true }` to check a device loss while the replacement is still starting. These checks deliberately consume the page's recovery budget.
+
 This teardown is a clean-room robustness addition and does not alter the normal rendered result.

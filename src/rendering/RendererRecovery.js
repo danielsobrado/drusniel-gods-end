@@ -23,8 +23,12 @@ export class RendererRecovery {
       if (this.attempts >= 2) throw new Error('Renderer recovery budget exhausted. Reload to retry.');
       const state = this.capture();
       this.release();
-      const backends = actual === 'webgpu' ? ['webgpu'] : ['webgl'];
-      if (request === 'auto' && actual === 'webgpu') backends.push('webgl');
+      const automaticGpuRecovery = request === 'auto' && actual === 'webgpu';
+      // A successful first retry can lose its device later. Reserve the second
+      // attempt for the fallback instead of spending both attempts on WebGPU.
+      const backends = automaticGpuRecovery
+        ? (this.attempts === 0 ? ['webgpu', 'webgl'] : ['webgl'])
+        : [actual === 'webgpu' ? 'webgpu' : 'webgl'];
       for (const backend of backends) {
         if (this.disposed || this.attempts >= 2) break;
         this.attempts++;

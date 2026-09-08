@@ -7,6 +7,7 @@ import { clampCameraAboveTerrain } from './cameraTerrain.js';
 import { MobileControls } from './MobileControls.js';
 import { PlayerPhysics } from './PlayerPhysics.js';
 import { createLocomotionClips, FootPlacement } from './CharacterMotion.js';
+import { ResourceScope, captureObjectResources } from '../utils/ResourceScope.js';
 
 const MOVEMENT_KEYS = new Set([
   'KeyW',
@@ -83,6 +84,7 @@ export class PlayerController {
     this.influenceObjects = [];
     this.influencePoints = [];
     this.abortController = new AbortController();
+    this.resources = new ResourceScope();
     this.influenceFallback = [
       { position: new THREE.Vector3(), radius: config.grass.interaction.footRadius },
       { position: new THREE.Vector3(), radius: config.grass.interaction.footRadius },
@@ -99,6 +101,7 @@ export class PlayerController {
     this.root.position.set(config.player.start[0], 0, config.player.start[2]);
     this.#snapFallbackToTerrain();
     this.placeholder = this.#createPlaceholder();
+    this.resources.defer(captureObjectResources(this.placeholder));
     this.root.add(this.placeholder);
     scene.add(this.root);
     this.#initializeCamera();
@@ -107,6 +110,7 @@ export class PlayerController {
   }
 
   async loadModel() {
+    this.abortController.signal.throwIfAborted();
     const path = this.config.assets?.player;
     if (!path) {
       await this.#initializePhysics();
@@ -119,7 +123,9 @@ export class PlayerController {
       dracoLoader.setDecoderPath(this.config.assets.dracoDecoderPath);
       loader.setDRACOLoader(dracoLoader);
       const gltf = await loader.loadAsync(assetUrl(path));
-
+      // If disposal won the race, defer releases the late asset immediately.
+      this.resources.defer(captureObjectResources(gltf.scene));
+      this.abortController.signal.throwIfAborted();
       this.model = gltf.scene;
       // The collider and every vertical offset are derived from the scaled model,
       // so the model must be measured before physics builds the capsule.
@@ -139,12 +145,14 @@ export class PlayerController {
       this.root.add(this.model);
       this.placeholder.visible = false;
       await this.#initializePhysics();
+      this.abortController.signal.throwIfAborted();
       this.handleResize();
       this.#setupAnimations([...gltf.animations, ...await this.#loadExtraClips(loader)]);
       if (this.config.cinematic?.motion.footPlacement) this.footPlacement = new FootPlacement(this.model, this.terrainSampler, this.modelHeight);
       this.#findInfluenceObjects();
       return true;
     } catch (error) {
+      this.abortController.signal.throwIfAborted();
       logger.warn('Player GLB failed to load; using procedural fallback.', error);
       await this.#initializePhysics();
       return false;
@@ -161,8 +169,12 @@ export class PlayerController {
     for (const source of this.config.player.animationSources ?? []) {
       try {
         const gltf = await loader.loadAsync(assetUrl(source));
+        // Only the clips are retained; their source meshes and textures are not.
+        captureObjectResources(gltf.scene)();
+        this.abortController.signal.throwIfAborted();
         clips.push(...gltf.animations);
       } catch (error) {
+        this.abortController.signal.throwIfAborted();
         logger.warn(`Extra animation source failed to load: ${source}`, error);
       }
     }
@@ -230,15 +242,22 @@ export class PlayerController {
   }
 
   async #initializePhysics() {
+    this.abortController.signal.throwIfAborted();
     try {
-      this.physics = await PlayerPhysics.create({
+      const physics = await PlayerPhysics.create({
         terrain: this.terrain,
         cameraPosition: this.spawnPosition,
         config: this.config,
         capsule: this.metrics,
       });
+      if (this.abortController.signal.aborted) {
+        physics?.dispose();
+        this.abortController.signal.throwIfAborted();
+      }
+      this.physics = physics;
       this.setPosition(...this.config.player.start);
     } catch (error) {
+      this.abortController.signal.throwIfAborted();
       logger.warn('Rapier player physics failed; using terrain-height fallback.', error);
       this.physics = null;
       this.#snapFallbackToTerrain();
@@ -361,6 +380,7 @@ export class PlayerController {
   }
 
   dispose() {
+    if (this.abortController.signal.aborted) return;
     this.abortController.abort();
     this.mobileControls?.destroy();
     this.mobileControls = null;
@@ -368,6 +388,9 @@ export class PlayerController {
     this.physics?.dispose();
     this.physics = null;
     if (this.model) this.root.remove(this.model);
+    this.resources.dispose();
+    this.model = null;
+    this.animation = null;
     this.scene.remove(this.root);
   }
 

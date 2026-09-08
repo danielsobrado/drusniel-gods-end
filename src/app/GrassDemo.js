@@ -61,6 +61,7 @@ export class GrassDemo {
     });
     this.abortController.signal.throwIfAborted();
     this.onRendererReady?.(this.world.rendererSession);
+    this.abortController.signal.throwIfAborted();
     this.cinematicLighting = new CinematicLighting(this.world, this.config);
     this.root.appendChild(this.world.renderer.domElement);
 
@@ -200,6 +201,23 @@ export class GrassDemo {
       config: this.config,
     });
 
+    if (this.resumeState) {
+      // Restore state before constructing controls so their initial values
+      // describe the recovered scene, including each grass family's defaults.
+      for (const [name, value] of Object.entries(this.resumeState.grassParameters ?? {})) {
+        this.environment.setGrassParameter(name, value);
+      }
+      this.grass.setInteractionEnabled(this.resumeState.interactionEnabled ?? true);
+      if (Number.isFinite(this.resumeState.pixelRatioOverride)) {
+        this.pixelRatioOverride = this.resumeState.pixelRatioOverride;
+        this.pixelRatio = this.pixelRatioOverride;
+      }
+      if (this.resumeState.audioVolumes) {
+        this.audio.setMasterVolume(this.resumeState.audioVolumes.master);
+        this.audio.setAmbientVolume(this.resumeState.audioVolumes.ambient);
+        this.audio.setEnvironmentVolume(this.resumeState.audioVolumes.environment);
+      }
+    }
     this.tour = new ScenicTour(this.world, this.player, this.trees, this.water);
     this.iris = new IrisTransition(this.root);
     this.ui = new DemoUi(this.root, this.config, this.#createUiActions());
@@ -215,21 +233,9 @@ export class GrassDemo {
     loading.stage('ready');
     this.world.renderer.setAnimationLoop(() => this.#render());
     if (this.resumeState?.started) {
+      // Resize resets the controller's zoom, so restore the pose only after
+      // the final resize (including a recovered pixel-ratio override).
       this.#restorePose(this.resumeState);
-      if (Number.isFinite(this.resumeState.pixelRatioOverride)) {
-        this.pixelRatioOverride = this.resumeState.pixelRatioOverride;
-        this.pixelRatio = this.pixelRatioOverride;
-        this.#resize();
-      }
-      for (const [name, value] of Object.entries(this.resumeState.grassParameters ?? {})) {
-        this.environment.setGrassParameter(name, value);
-      }
-      if (this.resumeState.audioVolumes) {
-        this.audio.setMasterVolume(this.resumeState.audioVolumes.master);
-        this.audio.setAmbientVolume(this.resumeState.audioVolumes.ambient);
-        this.audio.setEnvironmentVolume(this.resumeState.audioVolumes.environment);
-      }
-      this.grass.setInteractionEnabled(this.resumeState.interactionEnabled ?? true);
       if (this.resumeState.soundEnabled) {
         try {
           await this.audio.start();
@@ -266,8 +272,7 @@ export class GrassDemo {
     return {
       config, characterId, started: Boolean(this.started), soundEnabled: Boolean(this.audio?.enabled),
       pixelRatioOverride: this.pixelRatioOverride,
-      grassParameters: Object.fromEntries(Object.entries(this.environment?.current.grass.blade ?? {})
-        .filter(([, value]) => typeof value === 'number')),
+      grassParameters: { ...this.environment?.grassOverrides },
       audioVolumes: this.audio && { master: this.audio.masterVolume,
         ambient: this.audio.ambientVolume, environment: this.audio.environmentVolume },
       interactionEnabled: this.grass?.interactionMap.enabled,
@@ -358,6 +363,7 @@ export class GrassDemo {
         this.#resize();
       },
       setInteractionEnabled: (enabled) => this.grass.setInteractionEnabled(enabled),
+      getInteractionEnabled: () => this.grass.interactionMap.enabled,
       togglePainter: () => { this.tour.stop(); return this.grass.togglePainter(); },
       isPainterEnabled: () => this.grass.painter?.enabled ?? false,
       getTriangleCount: () => this.world.renderer.info.render.triangles,

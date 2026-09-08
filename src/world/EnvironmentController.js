@@ -90,6 +90,7 @@ export class EnvironmentController {
     this.config = config;
     this.quality = config.ui.initialQuality;
     this.currentPreset = config.ui.initialPreset;
+    this.grassOverrides = {};
     this.current = snapshot(config.presets[config.ui.initialPreset]);
     this.#apply();
   }
@@ -100,6 +101,7 @@ export class EnvironmentController {
     const preset = this.config.presets[name];
     if (!preset) throw new Error(`Unknown environment preset: ${name}`);
     this.currentPreset = name;
+    this.grassOverrides = {};
     this.current = snapshot(preset);
     this.audio?.setPreset?.(name);
     this.#apply();
@@ -114,6 +116,8 @@ export class EnvironmentController {
   setGrassParameter(name, value) {
     const numericValue = Number(value);
     if (!Number.isFinite(numericValue)) return;
+    if (!GRASS_TYPES.some(type => typeof this.current.grass[type]?.[name] === 'number')) return;
+    this.grassOverrides[name] = numericValue;
     setGrassSnapshotParameter(this.current, name, numericValue);
     this.#apply();
   }
