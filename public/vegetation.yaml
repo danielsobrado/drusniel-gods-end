@@ -1,6 +1,7 @@
 assets:
   # Ground-surface classification only. Vegetation is generated procedurally.
   groundBlend: Assets/blend2.jpg
+  grassMask: null
 
 vegetation:
   resolution: 256
@@ -9,6 +10,8 @@ vegetation:
   growthThreshold: 0.12
   distributionCellSize: 0.3
   surfacePathThreshold: 0.45
+  shaderCutoff: 0.08
+  shaderSoftness: 0.1
   path:
     sourceThreshold: 0.45
     clearance: 0.8
@@ -75,10 +78,6 @@ vegetation:
     detailScale: 0.075
     octaves: 3
 
-# Legacy shader names; these now gate procedural growth strength, not image-mask pixels.
-grass:
-  vegetationCutoff: 0.08
-  maskSoftness: 0.1
-
+# The recovered shader still checks this flag, but no painter is constructed.
 painter:
   enabled: false
