@@ -28,6 +28,8 @@ import { assetUrl } from '../assets/assetUrl.js';
 import { foliageLight } from '../rendering/CinematicLighting.js';
 import { meadowRootColor } from '../rendering/MeadowPalette.js';
 import { groundGrassTexture, groundRoughness as turfRoughness, groundTurf } from '../rendering/GroundTurf.js';
+import { riverField } from '../water/riverNodes.js';
+import { coastXNode } from './coast.js';
 
 const ORIGINAL_ANISOTROPY = 16;
 const ORIGINAL_GRASS_UV_SCALE = 150;
@@ -180,12 +182,18 @@ export async function createGroundMaterial(config, terrainSampler = null) {
   const groundSample = texture(groundColor, groundUv);
   const normalSample = texture(groundNormal, groundUv);
   const roughnessSample = texture(groundRoughness, groundUv).r;
-  const blendUv = meadowStyle && terrainSampler
+  const blendUv = config.terrain.expansion?.enabled
+    ? positionWorld.xz.add(480).div(960).clamp(0, 1)
+    : meadowStyle && terrainSampler
     ? positionWorld.xz.sub(vec2(terrainSampler.bounds.min.x, terrainSampler.bounds.min.z))
       .div(vec2(terrainSampler.size.x, terrainSampler.size.z)).clamp(0, 1)
     : baseUv;
   const blendSample = texture(surfaceBlend, blendUv);
-  const blend = blendSample.r;
+  const insideAuthored = positionWorld.x.abs().lessThan(480).and(positionWorld.z.abs().lessThan(480));
+  const blend = terrainSampler?.paths?.texture
+    ? texture(terrainSampler.paths.texture, positionWorld.xz.sub(vec2(terrainSampler.bounds.min.x, terrainSampler.bounds.min.z))
+      .div(vec2(terrainSampler.size.x, terrainSampler.size.z))).r
+    : config.terrain.expansion?.enabled ? insideAuthored.select(blendSample.r, float(0)) : blendSample.r;
   const soil = config.cinematic?.enabled ? smoothstep(0.12, 0.88, blend) : float(1);
 
   const material = new THREE.MeshStandardNodeMaterial();
@@ -218,7 +226,10 @@ export async function createGroundMaterial(config, terrainSampler = null) {
       : groundSample.rgb;
     const earth = mix(grassPaint, pathPaint, soil);
     const variation = mix(1 - (config.ground.macroVariation ?? 0.2), 1.08, macro);
-    const bank = positionWorld.y.sub(config.water.position[1]).abs().smoothstep(0.2, 2.8).oneMinus();
+    const river = riverField(terrainSampler?.river).toVar();
+    const riverBank = river.y.smoothstep(-1, 6).oneMinus();
+    const bank = positionWorld.y.sub(config.water.position[1]).abs().smoothstep(0.2, 2.8).oneMinus()
+      .max(positionWorld.y.sub(river.x).abs().smoothstep(0.2, 3.5).oneMinus().mul(riverBank));
     const wet = wetness.max(bank.mul(0.65));
     material.colorNode = style?.enabled
       ? earth.mul(mix(1, variation.mul(mix(0.94, 1.04, flecks)), blend)).mul(wet.mul(0.16).oneMinus())
@@ -226,6 +237,50 @@ export async function createGroundMaterial(config, terrainSampler = null) {
         .mul(variation).mul(mix(0.94, 1.04, flecks)).mul(wet.mul(0.28).oneMinus());
     if (style?.enabled) material.emissiveNode = earth.mul(foliageLight.fill).mul(style.grassFill ?? 0.06);
     material.roughnessNode = turfRoughness(soil, roughnessSample, wet, turf.x);
+    if (terrainSampler?.river || config.terrain.expansion?.enabled) {
+      const highland = positionWorld.y.smoothstep(48, 100);
+      const cliff = normalWorld.y.abs().smoothstep(0.55, 0.88).oneMinus();
+      const rockyArea = world.sub(vec2(390, -220)).div(vec2(170, 160)).length().smoothstep(0.3, 1.1).oneMinus();
+      const lakeInside = positionWorld.x.sub(config.water.position[0]).abs().lessThan(config.water.size / 2)
+        .and(positionWorld.z.sub(config.water.position[2]).abs().lessThan(config.water.size / 2));
+      const lakeBed = lakeInside.select(float(config.water.position[1]).sub(positionWorld.y).smoothstep(-0.8, 0.4), float(0));
+      const rockBlend = highland.mul(0.85).max(cliff.mul(positionWorld.y.smoothstep(25, 55))).max(riverBank).max(rockyArea.mul(0.95)).max(lakeBed);
+      const grains = sin(world.x.mul(8.3).add(sin(world.y.mul(5.7)))).mul(sin(world.y.mul(11.1))).mul(0.1).add(0.9);
+      const strata = sin(positionWorld.y.mul(0.55).add(macro.mul(3))).mul(0.08).add(0.92);
+      const weights = normalWorld.abs().pow(4);
+      const stoneTexture = texture(groundColor, positionWorld.yz.mul(0.18)).rgb.mul(weights.x)
+        .add(texture(groundColor, positionWorld.xz.mul(0.18)).rgb.mul(weights.y))
+        .add(texture(groundColor, positionWorld.xy.mul(0.18)).rgb.mul(weights.z))
+        .div(weights.x.add(weights.y).add(weights.z).max(0.001));
+      const rock = mix(mix(color('#636e68'), color('#afa38d'), macro), color('#969480'), lakeBed.mul(0.55)).mul(stoneTexture.mul(0.6).add(0.65))
+        .mul(grains).mul(strata).mul(wet.mul(0.28).oneMinus());
+      material.colorNode = mix(material.colorNode, rock, rockBlend);
+      material.roughnessNode = mix(material.roughnessNode, mix(0.94, 0.38, wet), rockBlend);
+      const snow = positionWorld.y.add(macro.mul(12)).smoothstep(112, 153)
+        .mul(normalWorld.y.abs().smoothstep(0.45, 0.8));
+      material.colorNode = mix(material.colorNode, mix(color('#b4cbd3'), color('#ecf2ec'), normalWorld.y.max(0)), snow);
+      material.roughnessNode = mix(material.roughnessNode, float(0.9), snow);
+      const sea = config.water.sea;
+      const coastal = sea?.enabled ? positionWorld.x.sub(coastXNode(positionWorld.z, sea.shoreX)).smoothstep(-150, -85) : float(0);
+      if (sea?.enabled) {
+        const sandRipples = sin(world.y.mul(1.4).add(sin(world.x.mul(0.52)).mul(2))).mul(0.025).add(0.975);
+        const grains = sin(world.x.mul(31)).mul(sin(world.y.mul(27))).mul(0.018).add(0.982);
+        const wetSand = positionWorld.y.sub(sea.level).smoothstep(0.3, 3.5).oneMinus();
+        const sand = mix(color('#c0ac7b'), color('#e3cea0'), macro).mul(sandRipples).mul(grains)
+          .mul(wetSand.mul(0.32).oneMinus());
+        material.colorNode = mix(material.colorNode, sand, coastal);
+        material.roughnessNode = mix(material.roughnessNode, mix(0.97, 0.32, wetSand), coastal);
+      }
+      if (material.emissiveNode) material.emissiveNode = material.emissiveNode.mul(rockBlend.oneMinus());
+      // Gentle moving caustics only illuminate submerged riverbed / lake shallows.
+      const inlandY = river.y.lessThan(0).select(river.x, float(config.water.position[1]));
+      const surfaceY = coastal.greaterThan(0.5).select(float(sea?.level ?? -24), inlandY);
+      const depth = surfaceY.sub(positionWorld.y);
+      const submerged = depth.smoothstep(0.02, 0.3).mul(depth.smoothstep(1, 5).oneMinus());
+      const caustic = sin(world.x.mul(2.7).add(time.mul(0.7)).add(sin(world.y.mul(2.1))))
+        .mul(sin(world.y.mul(2.3).sub(time.mul(0.55)).add(sin(world.x.mul(2.5))))).abs().pow(14);
+      material.emissiveNode = (material.emissiveNode ?? vec3(0)).add(color('#c7e9d0').mul(caustic).mul(submerged).mul(foliageLight.fill).mul(0.32));
+    }
   }
 
   const rainController = createRainController(material, baseNormal, config, soil);

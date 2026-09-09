@@ -3,6 +3,7 @@ import { createMeadowGeometry } from './MeadowGeometry.js';
 import { attribute, positionGeometry, positionLocal, vec3, sin, uniform, smoothstep, cameraPosition } from 'three/tsl';
 import { createSeededRandom } from '../core/math.js';
 import { foliageBacklight, foliageLight } from '../rendering/CinematicLighting.js';
+import { coastX } from '../world/coast.js';
 
 function isStoneType(type) {
   return type === 'stone' || String(type).startsWith('stone:');
@@ -127,7 +128,9 @@ export class MeadowDetails {
           const pz = (z + random()) * 12;
           if (Math.hypot(px - position.x, pz - position.z) > this.radius || !this.terrain.contains(px, pz, 2)) continue;
           const py = this.terrain.sampleHeight(px, pz);
+          if (this.config.water.sea?.enabled && px > coastX(pz, this.config.water.sea.shoreX) - 50) continue;
           if (!Number.isFinite(py) || py < this.config.water.position[1] - 0.1) continue;
+          if ((this.terrain.river?.sample(px, pz)?.edge ?? 100) < 0.8) continue;
           const ecology = this.grass.sampleVegetation(px, pz);
           const patchScale = this.config.cinematic.vegetation.patchScale;
           const patch = Math.sin(px * patchScale + Math.sin(pz * patchScale * 0.62)) * Math.sin(pz * patchScale);

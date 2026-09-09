@@ -160,14 +160,14 @@ targetMeshName: Landscape002
 scale: 1
 position: [0, 0, 0]
 rotationY: 0
-heightResolution: 192
+heightResolution: 1536
 sampleChunkRows: 6
 fallbackSize: 160
 ```
 
 `Landscape002` is the gameplay/sampling target. `Landscape046` is a second ground-material target, not the player terrain.
 
-The 192×192 CPU sampler remains a clean-room adapter for gameplay/fallback queries, camera clearance, and grass tile height ranges. Grass blade placement uses the separate recovered 1024×1024 GPU height render target. Primary player collision uses Rapier against the terrain geometry.
+The expanded landscape uses a 1536×1536 CPU sampler with a half-float fallback texture and a 2048×2048 GPU height target for grass and water. Primary player collision uses Rapier against the same expanded and carved geometry. See [Expanded landscape](expanded-landscape.md).
 
 ## Ground material
 
@@ -201,7 +201,7 @@ Core active values include:
 tileSize: 25
 type: blade
 shape: slender
-heightResolution: 1024
+heightResolution: 2048
 maskThreshold: 0.08
 useTextureColor: false
 atlasColumns: 2
@@ -215,7 +215,7 @@ interaction:
   strength: 1
 ```
 
-`heightResolution: 1024` drives the recovered GPU terrain-height render target used by the grass TSL material.
+`heightResolution: 2048` drives the GPU terrain-height render target used by grass and water in the expanded landscape.
 
 Active draw distance, density and blade detail come from:
 
@@ -404,8 +404,8 @@ These drive the recovered GPU-instanced rain path. The old base values (`bottom:
 <!-- effective-config: water -->
 ```yaml
 colliderName: WaterCollider
-size: 400
-segments: 128
+size: 640
+segments: 256
 position: [312.7059326171875, -17, 163.0625]
 speed: 1.1
 waveHeight: 0.15

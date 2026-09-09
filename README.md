@@ -4,6 +4,8 @@ Clean-room reconstruction of a browser-delivered reference demo using Three.js. 
 
 The default presentation now uses a cinematic art pass. See [Cinematic rendering](docs/cinematic-rendering.md) for the lighting, quality budgets, procedural locomotion, and visual review notes. This intentionally changes the recovered look.
 
+The default map now has a 2,400 × 1,600 landscape with a mountain-fed river, a complete inland lake, forest trails, rocky uplands, snowy summits, and an eastern beach leading to deep sea. See [Expanded landscape](docs/expanded-landscape.md) for the terrain, water, routes, and quality controls. The scenic tour visits the forest, headwaters, river, lake, and coast.
+
 ## Parity rule
 
 For parity work, use this evidence order:

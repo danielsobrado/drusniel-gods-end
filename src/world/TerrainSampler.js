@@ -92,16 +92,18 @@ export class TerrainSampler {
   #createTexture() {
     const minHeight = this.bounds.min.y;
     const heightRange = Math.max(0.0001, this.bounds.max.y - minHeight);
-    const data = new Uint8Array(this.resolution * this.resolution * 4);
+    const precise = Boolean(this.config.terrain.expansion?.enabled);
+    const data = precise ? new Uint16Array(this.resolution * this.resolution * 4)
+      : new Uint8Array(this.resolution * this.resolution * 4);
 
     for (let index = 0; index < this.heights.length; index += 1) {
       const normalized = THREE.MathUtils.clamp((this.heights[index] - minHeight) / heightRange, 0, 1);
-      const value = Math.round(normalized * 255);
+      const value = precise ? THREE.DataUtils.toHalfFloat(normalized) : Math.round(normalized * 255);
       const offset = index * 4;
       data[offset] = value;
       data[offset + 1] = value;
       data[offset + 2] = value;
-      data[offset + 3] = 255;
+      data[offset + 3] = precise ? THREE.DataUtils.toHalfFloat(1) : 255;
     }
 
     this.texture?.dispose();
@@ -110,7 +112,7 @@ export class TerrainSampler {
       this.resolution,
       this.resolution,
       THREE.RGBAFormat,
-      THREE.UnsignedByteType,
+      precise ? THREE.HalfFloatType : THREE.UnsignedByteType,
     );
     this.texture.colorSpace = THREE.NoColorSpace;
     this.texture.flipY = false;

@@ -19,14 +19,18 @@ const sampler = {
 };
 const config = { collisions: { worldBounds }, boundaryBarrier: { enabled: true } };
 
-test('the shipped collider layout produces a closed barrier despite unequal wall extents', async () => {
+test('the expanded map boundary encloses the full lake and mountain terrain', async () => {
   const shipped = await loadMergedConfig();
   const geometry = createBoundaryGeometry(shipped.collisions.worldBounds, sampler, shipped.boundaryBarrier);
   try {
-    assert.equal(geometry.boundingBox.min.x, -414.5);
-    assert.equal(geometry.boundingBox.max.x, 383.5);
-    assert.equal(geometry.boundingBox.min.z, -417.5);
-    assert.equal(geometry.boundingBox.max.z, 408.5);
+    assert.equal(geometry.boundingBox.min.x, -769.5);
+    assert.equal(geometry.boundingBox.max.x, 1569.5);
+    assert.equal(geometry.boundingBox.min.z, -769.5);
+    assert.equal(geometry.boundingBox.max.z, 769.5);
+    const [x, , z] = shipped.water.position;
+    const half = shipped.water.size / 2;
+    assert.ok(x - half > geometry.boundingBox.min.x && x + half < geometry.boundingBox.max.x);
+    assert.ok(z - half > geometry.boundingBox.min.z && z + half < geometry.boundingBox.max.z);
   } finally { geometry.dispose(); }
 });
 

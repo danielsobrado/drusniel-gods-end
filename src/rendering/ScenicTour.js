@@ -17,6 +17,31 @@ export class ScenicTour {
     this.saved = { position: this.world.camera.position.clone(), quaternion: this.world.camera.quaternion.clone() };
     const start = this.player.getPosition().clone();
     const terrain = this.world.terrainSampler;
+    if (this.world.expansion?.river) {
+      const river = this.world.expansion.river;
+      const reach = fraction => river.samples[Math.round((river.samples.length - 1) * fraction)];
+      const riverView = (fraction, offset, lift) => {
+        const p = reach(fraction);
+        const x = p.x - p.dz * offset, z = p.z + p.dx * offset;
+        return new THREE.Vector3(x, Math.max(p.y, terrain.sampleHeight(x, z)) + lift, z);
+      };
+      const points = [
+        start.clone().setY(terrain.sampleHeight(start.x, start.z) + 12),
+        new THREE.Vector3(-170, terrain.sampleHeight(-170, 35) + 30, 35),
+        riverView(0.12, 55, 55), riverView(0.42, 28, 28),
+        riverView(0.72, -20, 16), riverView(0.9, 18, 12),
+        new THREE.Vector3(135, 5, 118),
+      ];
+      if (this.water.params.sea?.enabled) points.push(
+        new THREE.Vector3(580, terrain.sampleHeight(580, 170) + 35, 170),
+        new THREE.Vector3(950, terrain.sampleHeight(950, 80) + 20, 80),
+        new THREE.Vector3(1060, 0, 65),
+      );
+      this.curve = new THREE.CatmullRomCurve3(points, false, 'centripetal');
+      this.elapsed = 0; this.active = true; this.player.setEnabled(false);
+      this.player.root.visible = false; document.exitPointerLock?.();
+      return true;
+    }
     const grove = (this.trees.trees ?? []).filter(tree => {
       const distance = tree.position.distanceTo(start);
       return distance > 18 && distance < 85;
@@ -54,7 +79,8 @@ export class ScenicTour {
     this.curve.getPoint(t, this.position);
     this.curve.getPoint(Math.min(t + 0.045, 1), this.target);
     this.position.y = Math.max(this.position.y, this.world.terrainSampler.sampleHeight(this.position.x, this.position.z) + 4);
-    if (t > 0.94) this.target.copy(this.water.mesh.position).setY(this.water.mesh.position.y + 2);
+    if (t > 0.94 && this.water.params?.sea?.enabled) this.target.set(1500, this.water.params.sea.level + 2, 65);
+    else if (t > 0.94) this.target.copy(this.water.mesh.position).setY(this.water.mesh.position.y + 2);
     else this.target.y -= 2;
     this.world.camera.position.copy(this.position);
     this.world.camera.lookAt(this.target);

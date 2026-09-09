@@ -10,11 +10,12 @@ const ONE_SHOT_CLEANUP_MS = 10;
 const HALF = 0.5;
 
 export class FootstepAudioSystem {
-  constructor({ listener, controls, scene, waterMesh, config, levels, loadBuffer }) {
+  constructor({ listener, controls, scene, waterMesh, waterSurface = null, config, levels, loadBuffer }) {
     this.listener = listener;
     this.controls = controls;
     this.scene = scene;
     this.waterMesh = waterMesh;
+    this.waterSurface = waterSurface;
     this.config = config;
     this.loadBuffer = loadBuffer;
     this.masterVolume = levels.masterVolume;
@@ -185,6 +186,8 @@ export class FootstepAudioSystem {
   }
 
   #getTerrain(position) {
+    const paths = this.controls?.terrainSampler?.paths;
+    if (paths) return paths.sample(position.x, position.z) > 0.45 ? 'mud' : 'grass';
     if (!this.terrainBlendPixels || !this.terrainBlendWidth || !this.terrainBlendHeight) return 'grass';
     const halfSize = this.config.terrainSize * HALF;
     const u = (position.x - this.config.terrainOffsetX + halfSize) / this.config.terrainSize;
@@ -209,6 +212,9 @@ export class FootstepAudioSystem {
   }
 
   #isPlayerInWater() {
+    if (this.waterSurface && this.controls?.getPosition) {
+      return this.waterSurface.containsPoint(this.controls.getPosition(), this.controls.metrics?.rootToFeet ?? 1.5);
+    }
     if (!this.waterMesh || !this.waterBounds || !this.controls) return false;
     const position = this.controls.getCapsulePosition?.()
       ?? this.controls.physics?.getBodyPosition?.()

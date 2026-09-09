@@ -1,5 +1,7 @@
 # Terrain System
 
+The default expanded cinematic map is described in [Expanded landscape](expanded-landscape.md). It samples the source terrain, creates a larger carved runtime mesh, and hides the old backdrop. The reference reconstruction described below remains historical context and the unexpanded path.
+
 This document separates recovered reference behavior from the clean-room adapter used by this repository.
 
 ## Evidence priority

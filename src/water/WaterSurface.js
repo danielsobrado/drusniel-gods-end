@@ -27,7 +27,13 @@ import {
   vec2,
   vec3,
   uniformArray,
+  reflector,
 } from 'three/tsl';
+import { createCinematicWaterMaterial } from './WaterMaterial.js';
+import { createWaterGeometry } from './waterGeometry.js';
+import { RiverDetails } from './RiverDetails.js';
+import { coastX } from '../world/coast.js';
+import { ReflectionBudget } from './ReflectionBudget.js';
 
 const TWO_PI = 6.283185;
 const DEFAULT_WATER = Object.freeze({
@@ -348,10 +354,13 @@ function createWaterMaterial(mesh, params, terrainSampler, reflectionTexture) {
 }
 
 export class WaterSurface {
-  constructor(scene, renderer, terrainRoot, terrainSampler, config) {
+  constructor(scene, renderer, terrainRoot, terrainSampler, config, options = {}) {
     this.scene = scene;
     this.params = mergeWaterConfig(config);
     this.renderer = renderer;
+    this.river = options.river;
+    this.terrain = options.terrain;
+    this.enhanced = Boolean(this.river || this.params.sea?.enabled);
     this.cinematic = config.cinematic?.enabled ? config.cinematic.water : null;
     if (this.cinematic) this.params.reflectionResolution = this.cinematic.reflectionResolution;
     this.reflectionElapsed = 10;
@@ -361,18 +370,69 @@ export class WaterSurface {
     this.lastRipple = new THREE.Vector3(1e9, 1e9, 1e9);
     this.nearest = new THREE.Vector3();
     this.quality = config.ui.initialQuality;
-    this.geometry = new THREE.PlaneGeometry(
+    this.geometry = this.enhanced ? createWaterGeometry(this.params, this.river) : new THREE.PlaneGeometry(
       this.params.size,
       this.params.size,
       this.params.segments,
       this.params.segments,
     );
     this.mesh = new THREE.Mesh(this.geometry);
-    this.mesh.rotation.set(-Math.PI * 0.5, 0, 0);
+    if (!this.enhanced) this.mesh.rotation.set(-Math.PI * 0.5, 0, 0);
     this.mesh.position.fromArray(this.params.position);
+    this.mesh.name = 'River, lake and sea';
+    this.mesh.userData.occlusionCull = false;
 
     this.reflection = captureReflection(scene, renderer, this.mesh, this.params);
-    this.shader = createWaterMaterial(
+    if (this.enhanced) {
+      this.lakeReflectionBudget = new ReflectionBudget();
+      this.seaReflectionBudget = new ReflectionBudget();
+      // Distinct initial textures prevent TSL from sharing the two reflection
+      // bindings before their first render targets have been allocated.
+      this.reflectionPlaceholders = [new THREE.Texture(), new THREE.Texture()];
+      this.planar = reflector({ resolutionScale: this.cinematic?.planarReflectionScale ?? 0.75,
+        bounces: false, generateMipmaps: true, defaultTexture: this.reflectionPlaceholders[0] });
+      this.planar.target.rotation.x = -Math.PI / 2;
+      this.mesh.add(this.planar.target);
+      const update = this.planar.reflector.updateBefore.bind(this.planar.reflector);
+      this.planar.reflector.updateBefore = (frame) => {
+        if (!this.reflectionInitialized || frame.camera !== options.camera || this.quality === 'performance') return;
+        if (frame.camera.position.x > (this.params.sea?.shoreX ?? Infinity) - 60) return;
+        if (!this.lakeReflectionBudget.shouldRender(frame.camera, this.quality, performance.now())) return;
+        const hidden = [], shadows = [];
+        this.scene.traverse(object => {
+          if (object.visible && object.userData.excludeFromReflection) { hidden.push(object); object.visible = false; }
+          if (object.isLight && object.shadow) { shadows.push([object.shadow, object.shadow.autoUpdate]); object.shadow.autoUpdate = false; }
+        });
+        try { update(frame); } finally {
+          for (const object of hidden) object.visible = true;
+          for (const [shadow, autoUpdate] of shadows) shadow.autoUpdate = autoUpdate;
+        }
+      };
+      if (this.params.sea?.enabled) {
+        this.seaPlanar = reflector({ resolutionScale: this.cinematic?.planarReflectionScale ?? 0.75,
+          bounces: false, generateMipmaps: true, defaultTexture: this.reflectionPlaceholders[1] });
+        this.seaPlanar.target.rotation.x = -Math.PI / 2;
+        this.seaPlanar.target.position.y = this.params.sea.level - this.params.position[1];
+        this.mesh.add(this.seaPlanar.target);
+        const updateSea = this.seaPlanar.reflector.updateBefore.bind(this.seaPlanar.reflector);
+        this.seaPlanar.reflector.updateBefore = frame => {
+          if (!this.reflectionInitialized || frame.camera !== options.camera || this.quality === 'performance'
+            || frame.camera.position.x < this.params.sea.shoreX - 350) return;
+          if (!this.seaReflectionBudget.shouldRender(frame.camera, this.quality, performance.now())) return;
+          const hidden = [], shadows = [];
+          this.scene.traverse(object => {
+            if (object.visible && object.userData.excludeFromReflection) { hidden.push(object); object.visible = false; }
+            if (object.isLight && object.shadow) { shadows.push([object.shadow, object.shadow.autoUpdate]); object.shadow.autoUpdate = false; }
+          });
+          try { updateSea(frame); } finally {
+            for (const object of hidden) object.visible = true;
+            for (const [shadow, autoUpdate] of shadows) shadow.autoUpdate = autoUpdate;
+          }
+        };
+      }
+    }
+    this.shader = this.enhanced ? createCinematicWaterMaterial({ terrain: terrainSampler.getShaderData(),
+      river: this.river, params: this.params, reflection: this.reflection.texture, planar: this.planar, seaPlanar: this.seaPlanar }) : createWaterMaterial(
       this.mesh,
       this.params,
       terrainSampler,
@@ -380,7 +440,11 @@ export class WaterSurface {
     );
     this.material = this.shader.material;
     this.uniforms = this.shader.uniforms;
+    this.setQuality(this.quality);
+    this.mesh.material = this.material;
+    this.mesh.renderOrder = 1;
     scene.add(this.mesh);
+    this.details = this.river ? new RiverDetails(scene, this.river, options.terrain, options.rockSources, options.collisions) : null;
 
     const collider = terrainRoot?.getObjectByName(config.water?.colliderName ?? 'WaterCollider');
     this.bounds = collider
@@ -389,25 +453,40 @@ export class WaterSurface {
   }
 
   setRain(enabled) {
-    this.shader.setRain(enabled);
+    if (this.uniforms.rain) this.uniforms.rain.value = enabled ? 1 : 0;
+    else this.shader.setRain(enabled);
   }
 
-  setQuality(name) { this.quality = name; }
+  setQuality(name) {
+    this.quality = name;
+    this.lakeReflectionBudget?.reset();
+    this.seaReflectionBudget?.reset();
+    if (this.uniforms.rich) this.uniforms.rich.value = name === 'performance' ? 0 : 1;
+    if (this.planar) this.planar.reflector.resolutionScale = { performance: 0.25, balanced: 0.4, high: 0.75, ultra: 1 }[name] ?? 0.75;
+    if (this.seaPlanar) this.seaPlanar.reflector.resolutionScale = this.planar.reflector.resolutionScale;
+  }
 
   update(delta, player, lighting) {
     this.rippleElapsed += delta;
-    this.uniforms.rippleClock.value = this.rippleElapsed;
+    (this.uniforms.clock ?? this.uniforms.rippleClock).value = this.rippleElapsed;
     this.uniforms.sunColor.value.copy(lighting.color);
     this.uniforms.sunDirection.value.copy(lighting.position).normalize();
-    this.uniforms.sunStrength.value = this.params.sunStrength * Math.min(lighting.directionalIntensity / 3, 1);
+    this.uniforms.sunStrength.value = (this.enhanced ? 1 : this.params.sunStrength) * Math.min(lighting.directionalIntensity / 3, 1);
     const position = player.getPosition();
     const feetY = position.y - player.metrics.rootToFeet;
-    if (player.moving && Math.abs(feetY - this.mesh.position.y) < 1.5 && position.distanceTo(this.lastRipple) > 0.85) {
+    const river = this.river?.sample(position.x, position.z);
+    const sea = this.params.sea;
+    const atSea = sea?.enabled && position.x > coastX(position.z, sea.shoreX) - 30;
+    const surfaceY = river?.edge < 0 ? river.y : atSea ? sea.level : this.mesh.position.y;
+    if (player.moving && Math.abs(feetY - surfaceY) < 1.5 && this.containsPoint(position, player.metrics.rootToFeet)
+      && position.distanceTo(this.lastRipple) > 0.85) {
       this.uniforms.footsteps.array[this.rippleIndex].set(position.x, position.z, this.rippleElapsed, 1);
-      this.rippleIndex = (this.rippleIndex + 1) % 6;
+      this.rippleIndex = (this.rippleIndex + 1) % this.uniforms.footsteps.array.length;
       this.lastRipple.copy(position);
     }
-    if (this.reflectionInitialized && (!this.cinematic || this.quality === 'performance')) return;
+    // The enhanced upstream probe has a fixed position and represents static
+    // surroundings. Weather changes invalidate it; player movement does not.
+    if (this.reflectionInitialized && (this.enhanced || !this.cinematic || this.quality === 'performance')) return;
     this.reflectionElapsed += delta;
     this.bounds.clampPoint(position, this.nearest);
     const distance = Math.hypot(position.x - this.nearest.x, position.z - this.nearest.z);
@@ -445,6 +524,10 @@ export class WaterSurface {
   setRainIntensity(value) {
     const intensity = THREE.MathUtils.clamp(Number(value), 0, 1);
     this.setRain(intensity > RAIN_THRESHOLD);
+    if (this.uniforms.rain) this.uniforms.rain.value = intensity;
+    if (this.enhanced) this.reflectionInitialized = false;
+    this.lakeReflectionBudget?.reset();
+    this.seaReflectionBudget?.reset();
     if (this.uniforms.rainRippleThickness) {
       this.uniforms.rainRippleThickness.value = THREE.MathUtils.lerp(
         0,
@@ -454,7 +537,20 @@ export class WaterSurface {
     }
   }
 
-  containsPoint(position) {
+  containsPoint(position, rootToFeet = 1.5) {
+    if (this.enhanced) {
+      const sea = this.params.sea;
+      if (sea?.enabled && position.x > coastX(position.z, sea.shoreX) - 30
+        && this.terrain.sampleHeight(position.x, position.z) <= sea.level + 0.05) {
+        return position.y - rootToFeet <= sea.level + 0.5;
+      }
+      const p = this.river?.sample(position.x, position.z);
+      if (p?.edge < 0) return position.y - rootToFeet <= p.y + 0.45;
+      const half = this.params.size / 2;
+      return Math.abs(position.x - this.mesh.position.x) < half && Math.abs(position.z - this.mesh.position.z) < half
+        && this.terrain.sampleHeight(position.x, position.z) < this.mesh.position.y
+        && position.y - rootToFeet <= this.mesh.position.y + 0.45;
+    }
     return position.x >= this.bounds.min.x
       && position.x <= this.bounds.max.x
       && position.z >= this.bounds.min.z
@@ -463,6 +559,11 @@ export class WaterSurface {
   }
 
   dispose() {
+    this.details?.dispose();
+    this.planar?.dispose();
+    this.seaPlanar?.dispose();
+    this.reflectionPlaceholders?.forEach(texture => texture.dispose());
+    this.shader.dispose?.();
     this.scene?.remove(this.mesh);
     this.material?.dispose?.();
     this.geometry?.dispose?.();

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { assetUrl } from '../assets/assetUrl.js';
 import { logger } from '../utils/logger.js';
 import { clamp01, computeVegetationEcology, encodeVegetationShaderExclusion, fractalNoise, hash2d, vegetationCoverageChance } from './vegetationEcology.js';
+import { coastX } from '../world/coast.js';
 
 const CHANNELS = 5;
 const DENSITY = 0;
@@ -49,7 +50,7 @@ function worldDistanceTransform(pathPixels, resolution, cellX, cellZ) {
   return distances;
 }
 
-async function loadPathPixels(config, resolution) {
+async function loadPathPixels(config, resolution, bounds, size) {
   const path = config.assets?.groundBlend;
   if (!path) return new Uint8Array(resolution * resolution);
 
@@ -60,7 +61,10 @@ async function loadPathPixels(config, resolution) {
     canvas.height = resolution;
     const context = canvas.getContext('2d', { willReadFrequently: true });
     if (!context) throw new Error('2D canvas context unavailable.');
-    context.drawImage(texture.image, 0, 0, resolution, resolution);
+    if (config.terrain.expansion?.enabled) {
+      context.drawImage(texture.image, (-480 - bounds.min.x) / size.x * resolution,
+        (bounds.max.z - 480) / size.z * resolution, 960 / size.x * resolution, 960 / size.z * resolution);
+    } else context.drawImage(texture.image, 0, 0, resolution, resolution);
     const image = context.getImageData(0, 0, resolution, resolution);
     const threshold = Math.round(clamp01(config.vegetation.path.sourceThreshold) * 255);
     const pixels = new Uint8Array(resolution * resolution);
@@ -149,7 +153,7 @@ function waterMetrics(config, x, z, height) {
   const insideFootprint = localX <= half && localZ <= half;
   const tolerance = config.vegetation.moisture.waterSurfaceTolerance;
   return {
-    distance: Math.hypot(dx, dz),
+    distance: Math.hypot(dx, dz, Math.max(0, height - surfaceY) * 3),
     submerged: insideFootprint && height <= surfaceY + tolerance,
   };
 }
@@ -175,7 +179,14 @@ export class ProceduralVegetationField {
     const cellZ = this.size.z / Math.max(1, resolution - 1);
     let pathPixels;
     try {
-      pathPixels = await loadPathPixels(this.config, resolution);
+      if (this.terrainSampler.paths) {
+        pathPixels = new Uint8Array(resolution * resolution);
+        for (let z = 0; z < resolution; z++) for (let x = 0; x < resolution; x++) {
+          pathPixels[z * resolution + x] = this.terrainSampler.paths.sample(
+            this.bounds.min.x + x / (resolution - 1) * this.size.x,
+            this.bounds.min.z + z / (resolution - 1) * this.size.z) > 0.45 ? 1 : 0;
+        }
+      } else pathPixels = await loadPathPixels(this.config, resolution, this.bounds, this.size);
     } catch (error) {
       logger.warn('Ground blend could not seed dirt-way proximity; continuing without authored paths.', error);
       pathPixels = new Uint8Array(resolution * resolution);
@@ -209,6 +220,17 @@ export class ProceduralVegetationField {
           vegetation.noise.octaves,
         );
         const water = waterMetrics(this.config, worldX, worldZ, height);
+        const sea = this.config.water.sea;
+        const coastDistance = sea?.enabled ? coastX(worldZ, sea.shoreX) - worldX : Infinity;
+        if (sea?.enabled) {
+          water.distance = Math.min(water.distance, Math.max(0, coastDistance));
+          water.submerged ||= coastDistance < 30 && height < sea.level + 0.15;
+        }
+        const river = this.terrainSampler.river?.sample(worldX, worldZ);
+        if (river) {
+          water.distance = Math.min(water.distance, Math.max(0, river.edge));
+          water.submerged ||= river.edge < 1.3 && height < river.y + 0.8;
+        }
         const index = z * resolution + x;
         const ecology = computeVegetationEcology({
           height01,
@@ -221,6 +243,16 @@ export class ProceduralVegetationField {
           macroNoise,
           detailNoise,
         }, vegetation);
+        if (this.config.terrain.expansion?.enabled) {
+          const alpine = 1 - THREE.MathUtils.smoothstep(height, 95, 125);
+          const rocky = Math.hypot((worldX - 390) / 170, (worldZ + 220) / 160);
+          const soil = THREE.MathUtils.lerp(0.08, 1, THREE.MathUtils.smoothstep(rocky, 0.25, 1.1));
+          ecology.density *= alpine * soil;
+          ecology.growth *= alpine * soil;
+          ecology.understory *= alpine * soil;
+          const duneGrowth = THREE.MathUtils.smoothstep(coastDistance, 40, 115);
+          ecology.density *= duneGrowth; ecology.growth *= duneGrowth; ecology.understory *= duneGrowth;
+        }
         const offset = index * CHANNELS;
         this.data[offset + DENSITY] = ecology.density;
         this.data[offset + GROWTH] = ecology.growth;

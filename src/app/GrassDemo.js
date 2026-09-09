@@ -33,6 +33,7 @@ import { MeadowDetails } from '../foliage/MeadowDetails.js';
 import { UnderstorySystem } from '../foliage/UnderstorySystem.js';
 import { WildGrassSystem } from '../foliage/WildGrassSystem.js';
 import { ScenicTour } from '../rendering/ScenicTour.js';
+import { adaptLandscapeRecords } from '../world/ExpandedLandscape.js';
 import { findCharacter } from '../config/characterRoster.js';
 
 const MIN_PIXEL_RATIO = 0.5;
@@ -93,10 +94,13 @@ export class GrassDemo {
       config: this.config.collisions,
     });
 
-    const [treeWorldData, worldPropData] = await Promise.all([
+    const [loadedTrees, loadedProps] = await Promise.all([
       loadTreeWorldData(this.config),
       loadWorldPropData(this.config),
     ]);
+    const { trees: treeWorldData, props: worldPropData } = adaptLandscapeRecords(
+      loadedTrees, loadedProps, this.world.expansion, this.world.terrainSampler,
+    );
     this.abortController.signal.throwIfAborted();
     this.props = new WorldPropSystem({
       scene: this.world.scene,
@@ -177,6 +181,8 @@ export class GrassDemo {
       this.world.terrain,
       this.grass.grassTerrainData,
       this.config,
+      { river: this.world.expansion?.river, terrain: this.world.terrainSampler,
+        camera: this.world.camera, collisions: this.collisions, rockSources: this.props.pebbleSources },
     );
     this.boundaryBarrier = new BoundaryBarrier({
       scene: this.world.scene,
@@ -198,6 +204,7 @@ export class GrassDemo {
       controls: this.player,
       preset: this.config.ui.initialPreset,
       waterMesh: this.water.mesh,
+      waterSurface: this.water,
       config: this.config,
     });
     await this.audio.init();
@@ -398,7 +405,7 @@ export class GrassDemo {
 
   #detectSurface() {
     const position = this.player.getPosition();
-    if (this.water.containsPoint(position)) return 'water';
+    if (this.water.containsPoint(position, this.player.metrics.rootToFeet)) return 'water';
     const ecology = this.grass.sampleVegetation(position.x, position.z);
     return ecology.path >= this.config.vegetation.surfacePathThreshold ? 'mud' : 'grass';
   }

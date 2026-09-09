@@ -29,7 +29,7 @@ test('terrain collision vertices include parent transforms and scale', () => {
     expected.push(vertex.x, vertex.y, vertex.z);
   }
 
-  assert.deepEqual([...actual], expected);
+  assert.deepEqual(actual, new Float32Array(expected));
 });
 
 test('terrain indices preserve authored indices and generate sequential fallback', () => {

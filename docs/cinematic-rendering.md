@@ -1,5 +1,7 @@
 # Cinematic rendering
 
+The default scene now uses the [expanded landscape](expanded-landscape.md): a full inland lake, mountain-fed river, forest loop, rocky uplands and snowy summits. That document supersedes the earlier terrain size, authored path layout, lake-only reflection and grove-to-shore tour descriptions below.
+
 `public/cinematic-look.yaml` is the final art-direction layer before painter settings. The default Golden Hour treatment is a stylized adventure landscape: emerald grass with pale sunlit tips, warm sunlight, blue sky and distance haze, turquoise water, and broad soft cloud shapes. This is an intentional visual departure from the recovered reference; old parity screenshots are historical evidence, not acceptance criteria for this pass.
 
 `cinematic.style` preserves grass counts, placement, LOD thresholds and draw distances. `MeadowPalette.js` shares the active blade preset's root/tip uniforms between terrain and both grass renderers, including weather transitions. `meadowPatchScale` controls broad, smooth world-space patches; grass samples these at its stationary root so wind and LOD changes cannot move the pigment. `groundTipMix` blends a little tip color into the common root/ground color. The old independent `groundGrass` tint is replaced by this shared palette; `groundPath` still colors the paths.

@@ -9,7 +9,7 @@ const DEFAULT_PRESET_FADE_SECONDS = 1.5;
 const MIN_FADE_SECONDS = 0.01;
 
 export class AudioSystem {
-  constructor({ camera, scene = null, controls = null, preset = 'sunny', waterMesh = null, config }) {
+  constructor({ camera, scene = null, controls = null, preset = 'sunny', waterMesh = null, waterSurface = null, config }) {
     if (!camera) throw new Error('AudioSystem: camera is required.');
     this.camera = camera;
     this.scene = scene;
@@ -52,6 +52,7 @@ export class AudioSystem {
       controls,
       scene,
       waterMesh,
+      waterSurface,
       config: this.audioConfig.footsteps,
       levels: {
         masterVolume: this.masterVolume,

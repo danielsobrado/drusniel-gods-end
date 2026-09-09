@@ -4,7 +4,7 @@ assets:
   grassMask: null
 
 vegetation:
-  resolution: 256
+  resolution: 1024
   seed: 28411
   buildChunkRows: 8
   growthThreshold: 0.12
@@ -21,7 +21,7 @@ vegetation:
     slopeStart: 0.18
     slopeMax: 0.95
   moisture:
-    waterDistance: 115
+    waterDistance: 38
     waterSurfaceTolerance: 0.15
     waterWeight: 0.48
     lowlandWeight: 0.34

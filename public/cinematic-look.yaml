@@ -1,4 +1,20 @@
 # Art direction and effect budgets. Loaded after the recovered visual settings.
+terrain:
+  heightResolution: 1536
+  expansion:
+    enabled: true
+    size: 1600
+    width: 2400
+    depth: 1600
+    center: [400, 0]
+grass:
+  heightResolution: 2048
+collisions:
+  worldBounds:
+    - { position: [1570, 80, 0], size: [1, 500, 1540] }
+    - { position: [400, 80, 770], size: [2340, 500, 1] }
+    - { position: [400, 80, -770], size: [2340, 500, 1] }
+    - { position: [-770, 80, 0], size: [1, 400, 1540] }
 boundaryBarrier:
   enabled: true
   height: 12
@@ -12,7 +28,7 @@ boundaryBarrier:
   proximityRadius: 16
 cinematic:
   enabled: true
-  exposure: 1.05
+  exposure: 0.98
   style:
     enabled: true
     grassRootBrightness: 0.9
@@ -76,6 +92,7 @@ cinematic:
     reflectionInterval: 0.75
     reflectionDistance: 120
     reflectionResolution: 256
+    planarReflectionScale: 0.75
   presentation:
     title: THE WILDS
     subtitle: A living landscape
@@ -95,7 +112,7 @@ presets:
       position: [-28, 65, -30]
       hemisphereSkyColor: '#b6def1'
       hemisphereGroundColor: '#78945d'
-      hemisphereIntensity: 1.35
+      hemisphereIntensity: 0.95
       ambientColor: '#dceac5'
       ambientIntensity: 0.32
       environmentIntensity: 0.65
@@ -105,7 +122,7 @@ presets:
       sunHaloColor: '#ffe8ad'
       sunPosition: [-28, 65, -30]
       fogColor: '#a5ced3'
-      fogDensity: 0.0015
+      fogDensity: 0.0009
     cloudCoverage: 0.7
 ground:
   metalness: 0
@@ -114,6 +131,31 @@ ground:
   normalY: -1
   wetness: 0.7
 water:
+  size: 640
+  segments: 256
+  sea:
+    enabled: true
+    level: -24
+    shoreX: 1000
+    depth: 95
+  river:
+    enabled: true
+    # World X, Z and full channel width; elevations follow the mountain profile.
+    points:
+      - [15, -650, 7]
+      - [65, -555, 9]
+      - [105, -455, 11]
+      - [65, -355, 12]
+      - [25, -255, 10]
+      - [15, -165, 9]
+      - [45, -105, 8]
+      - [72, -76, 9]
+      - [65, -38, 10]
+      - [103, -8, 11]
+      - [128, 22, 12]
+      - [142, 53, 14]
+      - [171, 80, 18]
+      - [202, 97, 26]
   metalness: 0
   roughness: 0.24
   speed: 1.1

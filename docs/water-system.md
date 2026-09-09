@@ -1,5 +1,7 @@
 # Water System
 
+The default mountain river, lake and sea use the unified cinematic material documented in [Expanded landscape](expanded-landscape.md), including refraction and separate lake and sea reflections. The recovered lake-only shader and formulas below remain the fallback when both the river and sea are disabled.
+
 This document describes the water path recovered from the browser-delivered reference bundle and implemented on current `main`. For parity work, the recovered bundle is the source of truth; do not replace these formulas with a conventional ocean shader.
 
 ## Runtime construction

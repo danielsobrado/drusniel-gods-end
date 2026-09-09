@@ -10,6 +10,7 @@ import { loadEnvironment } from './loadEnvironment.js';
 import { loadTerrain } from './loadTerrain.js';
 import { createRendererSession, resolveRendererRequest } from '../rendering/RendererSession.js';
 import { ResourceScope, captureObjectResources } from '../utils/ResourceScope.js';
+import { expandLandscape } from './ExpandedLandscape.js';
 
 const DEFAULT_SHADOW = {
   mobileBreakpoint: 768,
@@ -138,8 +139,24 @@ export async function createWorld(config, onProgress = () => {}, { signal, rende
   ).init();
   scope.defer(() => terrainAnimations.dispose());
 
-  const terrainSampler = new TerrainSampler(terrainAsset.root, config);
+  let terrainSampler = new TerrainSampler(terrainAsset.root, config.terrain.expansion?.enabled
+    ? { ...config, terrain: { ...config.terrain, heightResolution: 384 } } : config);
   await terrainSampler.build();
+  const expansion = expandLandscape(terrainAsset.target, terrainSampler, config);
+  if (expansion) {
+    scope.defer(() => expansion.dispose());
+    terrainSampler = new TerrainSampler(terrainAsset.root, config);
+    await terrainSampler.build();
+    terrainSampler.river = expansion.river;
+    terrainSampler.paths = expansion.paths;
+    const backdrop = terrainAsset.root.getObjectByName('Landscape046');
+    if (backdrop) {
+      const visible = backdrop.visible;
+      backdrop.visible = false;
+      scope.defer(() => { backdrop.visible = visible; });
+    }
+  }
+  scope.defer(() => terrainSampler.texture?.dispose());
   signal?.throwIfAborted();
 
   let groundMaterial;
@@ -186,6 +203,7 @@ export async function createWorld(config, onProgress = () => {}, { signal, rende
     terrainAnimations,
     terrainTarget: terrainAsset.target ?? ground,
     terrainSampler,
+    expansion,
     sky,
     clouds,
     ...lights,
