@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { createSeaGeometry } from './seaGeometry.js';
+import { seaDisplacementBound } from './seaWaves.js';
 
 export function createWaterGeometry(params, river) {
   const lake = new THREE.PlaneGeometry(params.size, params.size, params.segments, params.segments);
@@ -48,16 +50,7 @@ export function createWaterGeometry(params, river) {
     lake.dispose(); ribbon.dispose();
   }
   if (params.sea?.enabled) {
-    // Continue beyond the playable seabed so the coast has a water horizon.
-    const ocean = new THREE.PlaneGeometry(5000, 6000, 256, 256);
-    ocean.rotateX(-Math.PI / 2);
-    ocean.translate(params.sea.shoreX + 2000, params.sea.level, 0);
-    ocean.deleteAttribute('uv'); ocean.deleteAttribute('normal');
-    const n = ocean.attributes.position.count;
-    ocean.setAttribute('waterKind', new THREE.Float32BufferAttribute(new Float32Array(n).fill(2), 1));
-    ocean.setAttribute('waterLevel', new THREE.Float32BufferAttribute(new Float32Array(n).fill(params.sea.level), 1));
-    ocean.setAttribute('waterFlow', new THREE.Float32BufferAttribute(new Float32Array(n * 4), 4));
-    ocean.setAttribute('riverSurface', new THREE.Float32BufferAttribute(new Float32Array(n * 4), 4));
+    const ocean = createSeaGeometry(params.sea);
     const merged = mergeGeometries([geometry, ocean]);
     geometry.dispose(); ocean.dispose(); geometry = merged;
   }
@@ -65,6 +58,9 @@ export function createWaterGeometry(params, river) {
   geometry.computeVertexNormals();
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();
-  geometry.boundingSphere.radius += 1.5;
+  const displacement = Math.max(1.5, params.sea?.enabled ? seaDisplacementBound(params.sea) : 0);
+  geometry.boundingBox.min.y -= displacement;
+  geometry.boundingBox.max.y += displacement;
+  geometry.boundingSphere.radius += displacement;
   return geometry;
 }
