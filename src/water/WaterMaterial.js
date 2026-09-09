@@ -1,9 +1,10 @@
 import * as THREE from 'three/webgpu';
-import { Fn, If, Discard, abs, attribute, cameraPosition, color, cos, cubeTexture, dot,
+import { Fn, If, Discard, abs, attribute, cameraPosition, color, cubeTexture, dot,
   float, fract, mix, normalize, normalWorld, positionLocal, positionWorld, pow, reflect, screenUV,
   sin, smoothstep, texture, uniform, uniformArray, vec2, vec3, viewportSharedTexture, viewportSafeUV } from 'three/tsl';
 import { riverField } from './riverNodes.js';
 import { coastXNode } from '../world/coast.js';
+import { createSeaNodes } from './seaNodes.js';
 
 export function createWaterDetailTexture() {
   const size = 256, data = new Uint8Array(size * size * 4);
@@ -48,12 +49,13 @@ export function createCinematicWaterMaterial({ terrain, river, params, reflectio
     clock: uniform(0), rain: uniform(0), sunColor: uniform(new THREE.Color('#fff0cc')),
     sunDirection: uniform(new THREE.Vector3(-0.4, 0.8, -0.4)), sunStrength: uniform(1),
     footsteps: uniformArray(Array.from({ length: 8 }, () => new THREE.Vector4(0, 0, -100, 0))),
-    rich: uniform(1),
+    rich: uniform(1), seaDetail: uniform(1),
   };
   const t = uniforms.clock;
   const body = attribute('waterKind', 'float');
   const kind = body.greaterThan(0.5).and(body.lessThan(1.5)).select(float(1), float(0));
   const sea = body.greaterThan(1.5).select(float(1), float(0));
+  const ocean = createSeaNodes(params.sea, t, uniforms.rain);
   const flowData = attribute('waterFlow', 'vec4');
   const surface = attribute('riverSurface', 'vec4');
   const currentUv = vec2(surface.x.mul(0.22), surface.y.mul(0.045).sub(t.mul(0.28)));
@@ -62,18 +64,22 @@ export function createCinematicWaterMaterial({ terrain, river, params, reflectio
   const terrainUv = positionWorld.xz.sub(vec2(terrain.boundsMin.x, terrain.boundsMin.z))
     .div(vec2(terrain.boundsSize.x, terrain.boundsSize.z)).clamp(0, 1);
   const groundY = texture(terrain.texture, terrainUv).r.mul(terrain.maxHeight - terrain.minHeight).add(terrain.minHeight);
-  const depth = positionWorld.y.sub(groundY).max(0);
+  // The analytic sea shelf continues outside the terrain height texture. Its
+  // zero-depth waterline agrees with the terrain's shared coast profile.
+  const oceanDepth = ocean.depth(positionWorld.xz).add(positionWorld.y.sub(params.sea?.level ?? -24));
+  const depth = mix(positionWorld.y.sub(groundY), oceanDepth, sea).max(0);
   const material = new THREE.MeshBasicNodeMaterial({ transparent: true, depthWrite: false, side: THREE.FrontSide });
   material.name = 'Mountain river, lake and coast';
   const broadWaves = Fn(([p]) => sin(p.x.mul(0.27).add(p.y.mul(0.11)).sub(t.mul(0.72))).mul(0.065)
     .add(sin(p.x.mul(-0.14).add(p.y.mul(0.31)).sub(t.mul(0.49))).mul(0.035)));
   const localWorld = positionLocal.xz.add(vec2(params.position[0], params.position[2]));
-  const offshore = localWorld.x.sub(coastXNode(localWorld.y, params.sea?.shoreX ?? 1000));
-  const swell = sin(localWorld.x.mul(0.075).add(localWorld.y.mul(0.025)).add(t.mul(1.1))).mul(0.48)
-    .add(sin(localWorld.x.mul(0.032).sub(localWorld.y.mul(0.018)).add(t.mul(0.7))).mul(0.3))
-    .mul(offshore.smoothstep(-6, 65)).mul(uniforms.rain.mul(0.65).add(1));
-  material.positionNode = positionLocal.add(vec3(0, mix(
-    broadWaves(positionLocal.xz).mul(kind.mul(level.sub(params.position[1]).smoothstep(0, 2)).mul(-0.5).add(1)), swell, sea), 0));
+  material.positionNode = Fn(() => {
+    const displacement = float(0).toVar();
+    If(body.greaterThan(1.5), () => { displacement.assign(ocean.height(localWorld)); })
+      .Else(() => { displacement.assign(broadWaves(positionLocal.xz)
+        .mul(kind.mul(level.sub(params.position[1]).smoothstep(0, 2)).mul(-0.5).add(1))); });
+    return positionLocal.add(vec3(0, displacement, 0));
+  })();
   const normals = Fn(() => {
     const flow = mix(vec2(0.13, 0.07), vec2(0, 0.2), kind);
     const phase = fract(t.mul(0.09));
@@ -83,7 +89,11 @@ export function createCinematicWaterMaterial({ terrain, river, params, reflectio
     const a = texture(detail, p.sub(flow.mul(phase))).rg.mul(2).sub(1);
     const b = texture(detail, p.sub(flow.mul(phaseB))).rg.mul(2).sub(1);
     const micro = texture(detail, p.mul(3.7).add(vec2(t.mul(-0.018), t.mul(0.013)))).rg.mul(2).sub(1);
-    const slope = mix(a, b, blend).mul(mix(0.15, 0.16, kind)).add(micro.mul(0.025));
+    const seaFade = cameraPosition.distance(positionWorld).smoothstep(35, 300).oneMinus();
+    const seaStrength = mix(float(0.07), float(0.3), ocean.offshore(positionWorld.xz));
+    const detailFade = mix(float(1), seaFade.mul(uniforms.seaDetail), sea);
+    const slope = mix(a, b, blend).mul(mix(mix(0.15, 0.16, kind), seaStrength, sea))
+      .add(micro.mul(mix(float(0.025), float(0.075), sea))).mul(detailFade);
     const acrossNormal = vec3(flowData.y.negate(), 0, flowData.x);
     const downstream = normalize(vec3(flowData.x, surface.z.negate(), flowData.y));
     const riverNormal = acrossNormal.mul(slope.x).add(downstream.mul(slope.y));
@@ -98,10 +108,10 @@ export function createCinematicWaterMaterial({ terrain, river, params, reflectio
       impacts.addAssign(delta.div(distance).mul(pulse));
     }
     const rain = sin(positionWorld.xz.mul(17).add(t.mul(7))).mul(0.05).mul(uniforms.rain);
-    const seaSlope = cos(positionWorld.x.mul(0.075).add(positionWorld.z.mul(0.025)).add(t.mul(1.1)))
-      .mul(0.036).mul(sea).mul(uniforms.rain.mul(0.65).add(1));
-    return normalize(normalWorld.add(mix(vec3(slope.x.negate(), 0, slope.y.negate()), riverNormal, kind))
-      .add(vec3(impacts.x.add(rain.x).add(seaSlope).negate(), 0, impacts.y.add(rain.y).add(seaSlope.mul(0.33)).negate())));
+    const base = normalWorld.toVar();
+    If(body.greaterThan(1.5), () => { base.assign(ocean.normal(positionWorld.xz)); });
+    return normalize(base.add(mix(vec3(slope.x.negate(), 0, slope.y.negate()), riverNormal, kind))
+      .add(vec3(impacts.x.add(rain.x).negate(), 0, impacts.y.add(rain.y).negate())));
   });
   const refraction = viewportSharedTexture();
   const cube = cubeTexture(reflection);
@@ -115,13 +125,14 @@ export function createCinematicWaterMaterial({ terrain, river, params, reflectio
     const falling = surface.z.smoothstep(0.18, 0.65).mul(kind);
     const view = normalize(cameraPosition.sub(positionWorld));
     const facing = dot(n, view).max(0);
-    const fresnel = pow(float(1).sub(facing), 5).mul(0.98).add(0.02);
+    const fresnel = pow(float(1).sub(facing), mix(float(5), float(3), sea)).mul(0.96).add(0.04);
     const distortion = n.xz.mul(0.014).mul(depth.smoothstep(0, 2));
     const refracted = refraction.sample(viewportSafeUV(screenUV.add(distortion))).rgb;
     const opticalDepth = depth.div(dot(normalWorld, view).abs().max(0.25)).min(28).add(falling.mul(3));
     const transmission = vec3(0.22, 0.085, 0.06).mul(opticalDepth.negate()).exp();
-    const waterColor = mix(mix(color('#164e52'), color('#246d70'), uniforms.sunStrength.mul(0.3).clamp(0, 1)),
-      color('#0a3856').mul(uniforms.sunStrength.mul(0.6).add(0.25)), sea);
+    const seaColor = mix(color('#168b87'), color('#043756'), ocean.depth(positionWorld.xz).smoothstep(2, 24))
+      .mul(uniforms.sunStrength.mul(0.75).add(0.25));
+    const waterColor = mix(mix(color('#164e52'), color('#246d70'), uniforms.sunStrength.mul(0.3).clamp(0, 1)), seaColor, sea);
     const underwater = refracted.mul(transmission).add(waterColor.mul(transmission.oneMinus()));
     const direction = reflect(view.negate(), n);
     const probe = cube.sample(direction).rgb;
@@ -133,7 +144,8 @@ export function createCinematicWaterMaterial({ terrain, river, params, reflectio
       const lakeWeight = level.sub(params.position[1]).abs().smoothstep(0.05, 3).oneMinus().mul(uniforms.rich);
       reflected = mix(probe, planar.sample(screenUV.flipX().add(distortion)).rgb, lakeWeight);
     }
-    if (seaPlanar) reflected = mix(reflected, mix(oceanSky, seaPlanar.sample(screenUV.flipX().add(distortion)).rgb, uniforms.rich), sea);
+    if (seaPlanar) reflected = mix(reflected, mix(oceanSky,
+      seaPlanar.sample(screenUV.flipX().add(distortion)).rgb, uniforms.rich.mul(0.65)), sea);
     const spec = dot(reflect(uniforms.sunDirection.negate(), n), view).max(0);
     const glint = pow(spec, 170).mul(1.8).add(pow(spec, 20).mul(0.08)).mul(uniforms.sunStrength).mul(uniforms.sunColor);
     const oceanFoamUv = vec2(positionWorld.x.mul(0.055).add(t.mul(0.025)), positionWorld.z.mul(0.048));
@@ -141,9 +153,15 @@ export function createCinematicWaterMaterial({ terrain, river, params, reflectio
     const turbulence = flowData.z.sub(0.7).mul(0.34).clamp(0, 0.65).mul(kind);
     const shore = depth.smoothstep(0.02, 0.13).mul(depth.smoothstep(0.22, 0.75).oneMinus());
     const streaks = texture(detail, currentUv.mul(vec2(0.7, 2.4)).add(vec2(0.3, 0.1))).b;
-    const coastalDistance = positionWorld.x.sub(coastXNode(positionWorld.z, params.sea?.shoreX ?? 1000));
-    const breaker = sin(coastalDistance.mul(0.23).add(t.mul(1.35)).add(foamNoise.mul(1.5))).mul(0.5).add(0.5).smoothstep(0.65, 0.95);
-    const surf = breaker.mul(depth.smoothstep(0.05, 0.4)).mul(depth.smoothstep(2, 8).oneMinus()).mul(sea);
+    const phase = ocean.beachPhase(positionWorld.xz);
+    const crest = sin(phase).smoothstep(0.55, 0.98);
+    const age = fract(phase.sub(Math.PI / 2).div(Math.PI * 2));
+    const wash = age.smoothstep(0, 0.035).mul(age.mul(-7).exp());
+    const foamBreakup = texture(detail, positionWorld.xz.mul(0.18).add(vec2(t.mul(0.035), 0))).b;
+    const breakup = foamNoise.mul(0.65).add(foamBreakup.mul(0.35)).smoothstep(0.28, 0.67);
+    const surf = crest.mul(0.9).add(wash.mul(0.7)).mul(breakup)
+      .mul(ocean.depth(positionWorld.xz).smoothstep(0.08, 0.45))
+      .mul(ocean.depth(positionWorld.xz).smoothstep(2, 7).oneMinus()).mul(sea);
     const bankFoam = bank.y.abs().smoothstep(0.1, 1.15).oneMinus().mul(kind)
       .mul(foamNoise.smoothstep(0.3, 0.75)).mul(0.5);
     const cascade = texture(detail, currentUv.mul(vec2(1.8, 1.8))).b.smoothstep(0.24, 0.7)
@@ -151,11 +169,13 @@ export function createCinematicWaterMaterial({ terrain, river, params, reflectio
     const landing = surface.w.mul(falling.oneMinus()).mul(kind)
       .mul(foamNoise.smoothstep(0.2, 0.65)).mul(0.85);
     const foam = foamNoise.smoothstep(0.48, 0.78).mul(shore.mul(0.6).add(turbulence.mul(streaks.pow(3))))
-      .add(surf.mul(foamNoise.mul(0.5).add(0.5))).add(bankFoam).add(cascade).add(landing).clamp(0, 0.94);
+      .add(surf).add(bankFoam).add(cascade).add(landing).clamp(0, 0.94);
     const foamColor = mix(color('#d6e7db').mul(uniforms.sunColor), color('#e4f5ff'), falling)
       .mul(uniforms.sunStrength.mul(0.3).add(0.5));
+    const crestLight = positionWorld.y.sub(params.sea?.level ?? -24).max(0).mul(0.075)
+      .mul(dot(n, uniforms.sunDirection).max(0)).mul(uniforms.sunStrength).mul(sea);
     return mix(mix(underwater, reflected, fresnel.mul(0.85).mul(falling.mul(0.85).oneMinus()))
-      .add(glint.mul(falling.mul(0.8).oneMinus())), foamColor, foam);
+      .add(glint.mul(falling.mul(0.8).oneMinus())).add(color('#65b7bb').mul(crestLight)), foamColor, foam);
   })();
   material.opacityNode = smoothstep(0.015, 0.15, depth)
     .mul(mix(float(1), bank.y.negate().smoothstep(0, 0.45), kind));

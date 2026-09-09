@@ -138,6 +138,11 @@ water:
     level: -24
     shoreX: 1000
     depth: 95
+    offshoreAmplitude: 1.2
+    beachAmplitude: 0.25
+    choppiness: 4
+    transitionStart: 30
+    transitionEnd: 180
   river:
     enabled: true
     # World X, Z and full channel width; elevations follow the mountain profile.

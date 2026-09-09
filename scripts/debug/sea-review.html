@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Sea rendering review</title>
+<style>
+body { margin: 0; background: #13232c; color: white; font: 13px system-ui; }
+nav { padding: 8px; display: flex; gap: 8px; align-items: center; }
+button, select { padding: 5px; }
+iframe { display: block; width: 100%; height: calc(100vh - 100px); border: 0; }
+output { display: block; padding: 8px; white-space: pre-wrap; }
+</style>
+<nav>
+  <button data-view="offshore">Offshore</button><button data-view="transition">Transition</button>
+  <button data-view="beach">Beach</button><button data-view="curve">Curved shore</button>
+  <button data-view="lake">Lake</button><button data-view="river">River</button>
+  <select aria-label="Weather"><option value="sunny">Daylight</option><option value="rainy">Rain</option><option value="night">Moonlight</option></select>
+  <select aria-label="Quality"><option>ultra</option><option>high</option><option>balanced</option><option>performance</option></select>
+  <button id="measure">Measure motion</button><button id="reflection">Reflection benchmark</button>
+  <button id="recovery">Check recovery</button>
+  <button id="diagnostics">Diagnostics</button>
+  <select aria-label="Surface diagnostic"><option value="color">Color</option><option value="normal">Wave normals</option><option value="height">Wave height</option><option value="view">View direction</option></select>
+</nav>
+<iframe title="World under review" allow="autoplay; fullscreen"></iframe>
+<output>Enter the scene, then select a view.</output>
+<script type="module" src="./sea-review.js"></script>
+</html>

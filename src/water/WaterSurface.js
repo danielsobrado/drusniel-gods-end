@@ -462,6 +462,7 @@ export class WaterSurface {
     this.lakeReflectionBudget?.reset();
     this.seaReflectionBudget?.reset();
     if (this.uniforms.rich) this.uniforms.rich.value = name === 'performance' ? 0 : 1;
+    if (this.uniforms.seaDetail) this.uniforms.seaDetail.value = { performance: 0.35, balanced: 0.65, high: 0.85, ultra: 1 }[name] ?? 0.85;
     if (this.planar) this.planar.reflector.resolutionScale = { performance: 0.25, balanced: 0.4, high: 0.75, ultra: 1 }[name] ?? 0.75;
     if (this.seaPlanar) this.seaPlanar.reflector.resolutionScale = this.planar.reflector.resolutionScale;
   }
