@@ -27,7 +27,9 @@ export class BoundaryBarrier {
       this.uniforms = shader.uniforms;
       this.mesh = new Mesh(geometry, this.material);
       this.mesh.name = 'BoundaryForceField';
-      this.mesh.renderOrder = 2;
+      // Compose the field before transparent water so a submerged boundary is
+      // absorbed by deep water instead of being added on top of the sea.
+      this.mesh.renderOrder = 0;
       this.mesh.userData.occlusionOccluder = false;
       this.mesh.userData.occlusionCull = false;
       this.mesh.userData.excludeFromReflection = true;

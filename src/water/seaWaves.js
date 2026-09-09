@@ -5,9 +5,9 @@ export const SEA_WAVE_DEFAULTS = Object.freeze({ offshoreAmplitude: 1.2, beachAm
   choppiness: 4, transitionStart: 30, transitionEnd: 180 });
 export const SEA_STORM_SCALE = 1.65;
 export const SEA_COMPONENTS = Object.freeze([
-  [68, 0.48, 1, 0.28, 0], [43, 0.25, 0.83, -0.55, 1.3],
-  [26, 0.14, 0.68, 0.74, 3.1], [15.5, 0.08, 0.96, -0.25, 0.8],
-  [9.2, 0.05, 0.3, 0.95, 4.6],
+  [38, 0.48, 1, 0.28, 0], [24, 0.25, 0.83, -0.55, 1.3],
+  [15, 0.14, 0.68, 0.74, 3.1], [9.5, 0.08, 0.96, -0.25, 0.8],
+  [6.2, 0.05, 0.3, 0.95, 4.6],
 ].map(([wavelength, weight, x, z, phase]) => Object.freeze({ wavelength, weight,
   x: x / Math.hypot(x, z), z: z / Math.hypot(x, z), phase,
   frequency: Math.PI * 2 / wavelength, speed: Math.sqrt(9.81 * Math.PI * 2 / wavelength) * 0.55 })));

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { coastX, coastalHeight } from '../src/world/coast.js';
 import { resolveSeaWaves, seaDepth, seaEnvelope, sampleSeaSurface, seaDisplacementBound } from '../src/water/seaWaves.js';
 import { createWaterGeometry } from '../src/water/waterGeometry.js';
+import { createSeaDetailTexture } from '../src/water/seaDetail.js';
 
 const sea = { enabled: true, level: -24, shoreX: 1000, depth: 95 };
 
@@ -13,10 +14,30 @@ test('existing sea settings get wave defaults; invalid wave controls fail with a
   assert.equal(p.transitionStart, 30);
   assert.equal(p.transitionEnd, 180);
   for (const change of [{ offshoreAmplitude: -1 }, { choppiness: NaN }, { beachAmplitude: Infinity },
-    { transitionStart: 200 }, { transitionEnd: 30 }]) {
+    { choppiness: 7 }, { transitionStart: 200 }, { transitionEnd: 30 }]) {
     assert.throws(() => resolveSeaWaves({ ...sea, ...change }), /water.sea/);
   }
   assert.equal(resolveSeaWaves({ ...sea, offshoreAmplitude: 0 }).offshoreAmplitude, 0);
+});
+
+test('choppy detail is deterministic, balanced, and wraps without a slope seam', () => {
+  const a = createSeaDetailTexture(), b = createSeaDetailTexture();
+  try {
+    assert.deepEqual(a.image.data, b.image.data);
+    const { data, width: size } = a.image;
+    let meanX = 0, meanZ = 0, interior = 0, seam = 0, variation = 0;
+    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+      const i = (y * size + x) * 4;
+      meanX += data[i]; meanZ += data[i + 1]; variation += Math.abs(data[i] - 128);
+      if (x) interior += Math.abs(data[i] - data[i - 4]);
+      else seam += Math.abs(data[i] - data[(y * size + size - 1) * 4]);
+    }
+    assert.ok(Math.abs(meanX / (size * size) - 127.5) < 2);
+    assert.ok(Math.abs(meanZ / (size * size) - 127.5) < 2);
+    assert.ok(variation / (size * size) > 10);
+    assert.ok(seam / size < interior / (size * (size - 1)) * 2);
+    assert.equal(a.generateMipmaps, true);
+  } finally { a.dispose(); b.dispose(); }
 });
 
 test('sea depth follows the authored shelf continuously and remains deep beyond the terrain map', () => {

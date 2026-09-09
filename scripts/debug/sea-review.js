@@ -3,8 +3,8 @@ const frame = document.querySelector('iframe'), output = document.querySelector(
 const backend = new URLSearchParams(window.location.search).get('renderer') ?? 'webgl';
 frame.src = `/?renderer=${backend}`;
 const views = {
-  offshore: [[1380, -19.5, 80], [1550, -24, 50]],
-  transition: [[1140, -18, 65], [1350, -24, 45]],
+  offshore: [[1380, -21, 80], [1470, -42, 65]],
+  transition: [[1140, -18, 65], [1350, -34, 45]],
   beach: [[1007, -20.5, 0], [1085, -24, 48]],
   curve: [[1070, -15, 260], [1040, -24, 130]],
   lake: [[140, -8, 110], [320, -17, 160]],
@@ -41,10 +41,7 @@ for (const button of document.querySelectorAll('[data-view]')) button.onclick = 
   try { showView(button.dataset.view); } catch (error) { output.textContent = error.message; }
 };
 document.querySelector('[aria-label="Weather"]').onchange = event => {
-  const d = demo(), names = Object.keys(d.config.presets);
-  const wanted = event.target.value;
-  const name = names.find(n => new RegExp(wanted === 'night' ? 'night|moon' : wanted === 'rainy' ? 'rain|storm' : 'sun|day', 'i').test(n));
-  if (!name) { output.textContent = `Available presets: ${names.join(', ')}`; return; }
+  const d = demo(), name = event.target.value;
   d.environment.setPreset(name); output.textContent = name;
 };
 document.querySelector('[aria-label="Quality"]').onchange = event => {
