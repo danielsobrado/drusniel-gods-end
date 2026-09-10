@@ -181,6 +181,8 @@ export class GrassDemo {
     this.abortController.signal.throwIfAborted();
     this.understory = new UnderstorySystem({
       scene: this.world.scene,
+      renderer: this.world.renderer,
+      camera: this.world.camera,
       config: this.config,
       terrain: this.world.terrainSampler,
       grass: this.grass,
@@ -429,6 +431,7 @@ export class GrassDemo {
       grass: this.grass?.stats ?? null,
       occlusion: this.pipeline?.gpuOcclusion.stats ?? null,
       reflections: this.water?.stats ?? null,
+      understory: this.understory?.stats ?? null,
     };
   }
 

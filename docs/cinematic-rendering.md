@@ -112,7 +112,7 @@ GPU regression checks run at `/scripts/gpu/occlusion-check.html` on the Vite dev
 
 `/scripts/gpu/blade-topology-check.html` renders shared versus duplicated blade templates at the same animation times and diffs the pixels. Density is unchanged.
 
-`/scripts/debug/scene-benchmark.html` runs the repeatable Ultra timing protocol against meadow, forest, river, lake and coast views. The protocol hides the avatar, places the player at character-root height, and uses a free camera above that root so relocated views are not captured from inside the character. Topology A/B records the forest first-arrival hitch separately, then compares shared / duplicated / shared templates after settling. See [Performance](performance.md).
+`/scripts/debug/scene-benchmark.html` runs the repeatable Ultra timing protocol against meadow, forest, river, lake and coast views. The protocol hides the avatar, places the player at character-root height, and uses a free camera above that root so relocated views are not captured from inside the character. Topology A/B records the forest first-arrival hitch separately, then compares shared / duplicated / shared templates after settling. Nested cinematic CPU marks stay inclusive; hitch inspection pairs program/pipeline duration with creation counts and does not treat creation during the stall as an explanation by itself. See [Performance](performance.md).
 
 The cinematic terrain sampler projects each triangle into the height grid, avoiding a complete mesh raycast for every grid cell. The legacy sampler remains available when cinematic rendering is disabled. This only changes sampled heights; Rapier continues to use the terrain mesh for collisions.
 

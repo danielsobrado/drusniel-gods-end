@@ -49,6 +49,8 @@ foliage:
     windBend: 0.08
     windFlutter: 0.018
     fadeWidth: 14
+    billboardStart: 22
+    billboardEnd: 30
     worldScale: 36
     density: 1
     moistureBias: 0

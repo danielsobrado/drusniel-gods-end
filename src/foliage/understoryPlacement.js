@@ -18,16 +18,18 @@ export const DEFAULT_UNDERSTORY = Object.freeze({
   windBend: 0.08,
   windFlutter: 0.018,
   fadeWidth: 14,
+  billboardStart: 22,
+  billboardEnd: 30,
   worldScale: 36,
   density: 1,
   moistureBias: 0,
   understoryBias: 0,
   seed: 41753,
   quality: Object.freeze({
-    performance: Object.freeze({ density: 0.3, radius: 0.46, shadows: false }),
-    balanced: Object.freeze({ density: 0.52, radius: 0.68, shadows: false }),
-    high: Object.freeze({ density: 0.84, radius: 0.9, shadows: true }),
-    ultra: Object.freeze({ density: 1, radius: 1, shadows: true }),
+    performance: Object.freeze({ density: 0.3, radius: 0.46, shadows: false, billboard: 0.55 }),
+    balanced: Object.freeze({ density: 0.52, radius: 0.68, shadows: false, billboard: 0.75 }),
+    high: Object.freeze({ density: 0.84, radius: 0.9, shadows: true, billboard: 1 }),
+    ultra: Object.freeze({ density: 1, radius: 1, shadows: true, billboard: 1.25 }),
   }),
 });
 
@@ -81,6 +83,9 @@ export function resolveUnderstorySettings(config = {}, presetName, qualityName) 
     moistureBias: preset.moistureBias ?? base.moistureBias,
     understoryBias: preset.understoryBias ?? base.understoryBias,
     castShadow: quality.shadows === true,
+    billboardStart: Math.max(0, (preset.billboardStart ?? base.billboardStart) * (quality.billboard ?? 1)),
+    billboardEnd: Math.max(1, (preset.billboardEnd ?? base.billboardEnd) * (quality.billboard ?? 1),
+      (preset.billboardStart ?? base.billboardStart) * (quality.billboard ?? 1) + 1),
   };
 }
 

@@ -120,9 +120,13 @@ Verify specialization with `/scripts/gpu/grass-shader-check.html` (WebGPU or `?r
 
 On 10 September 2026 a same-session Topology A/B ran on an RTX 4080 at Ultra, WebGPU, 3440 × 1440, pixel ratio 1: forest hitch with warm-up disabled, five seconds of settle, then 5 s + 30 s × 3 for shared templates and again for the duplicated strip. Cameras, settings and animation sequences matched. Density was unchanged. High-detail templates were 11 vertices versus 19; triangle counts matched.
 
-The forest first-arrival hitch was 4275 ms on the first frame (one frame ≥ 100 ms). That stall was inside the CPU `render` call (4214 ms). Grass CPU peaked at 57 ms and tile compaction at 54 ms. GPU render-query time in the same window peaked at 31 ms (median 7.3 ms). Compilation is a plausible cause; the timer did not split shader-module or pipeline creation, so the hitch is not attributed. After settling, forest protocol samples had zero frames ≥ 100 ms. Keep cold-start traces separate from settled medians.
+Keep the forest hitch separate from those settled medians. Nested marks on the stall frame stay inclusive: do not subtract `scene` or planar time from `render`. Inspect creation **durations and counts together**.
 
-Median of three repetition medians, milliseconds:
+An instrumented cold capture (fresh load, Ultra default, no quality switch) recorded 4104.5 ms processing, inclusive `render` 4044.1 ms, inclusive `scene` 4043.5 ms. `gpuProgram` was 0 ms / 0 creations and `gpuPipeline` was 0 ms / 0 creations, so `outsideCreationMs` is the whole inclusive render (4044.1 ms). Inclusive `planarReflections` was 1166.6 ms inside `scene`, not extra. Grass peaked at 57.3 ms, compaction at 53.7 ms, GPU render-query max 23.6 ms. Program or pipeline creation did not run in those wrappers on the stall frame, so it cannot explain the 4.10 s. Time outside those marks still needs investigation. Neither this instrumentation nor the earlier 4275 ms sample (CPU `render` 4214 ms, no creation split) establishes the cause.
+
+A later hitch of 15.86 s after `setQuality('ultra')` on an already-Ultra session is contaminated; do not use it as the cold result. That stall also showed 0/0 creation. Hitch samples stay out of settled medians.
+
+First settled comparison (shared then duplicated only; run-order heat possible). Median of three repetition medians, milliseconds:
 
 | View | Mode | Shared CPU | Dup. CPU | Shared GPU | Dup. GPU |
 |---|---|---:|---:|---:|---:|
@@ -137,7 +141,21 @@ Median of three repetition medians, milliseconds:
 | Coast | Stationary | 7.4 | 8.3 | 3.67 | 3.74 |
 | Coast | Moving | 7.6 | 8.6 | 4.13 | 4.19 |
 
-Grass-heavy GPU savings were about 0.3–0.5 ms (4–7%) with non-overlapping three-rep ranges. CPU processing stayed above GPU render-query time in every view. The 11.8 ms forest `render` median is the whole cinematic render call, not post-processing alone. Independent medians are not a partition: subtracting grass and render from processing does not yield a measured “other” subsystem. Shared ran first and duplicated second, so later CPU deltas on cheap views may include session heat. The next settled comparison alternates shared / duplicated / shared. Sharing is kept for the pixel-identical templates and the modest GPU save. It is not a 15% frame-time result. Effects, coverage samples and density stay unchanged. The next CPU profile splits scene+reflections, depth resolve/GTAO/bloom/composite, and hitch-time shader/pipeline creation.
+Grass-heavy GPU savings on that first comparison were about 0.3–0.5 ms (4–7%) with non-overlapping three-rep ranges. CPU processing stayed above GPU render-query time in every view. The 11.8 ms forest `render` median is the whole cinematic render call, not post-processing alone. Independent medians are not a partition. Shared ran first and duplicated second, so those deltas may include session heat.
+
+A later shared / duplicated / shared protocol on the same machine, viewport and quality compared the three legs to each other after the hitch capture. Nested marks stayed inclusive. That session’s hitch was the contaminated 15.86 s sample and is not mixed into these medians. Each 30 s window recorded about 30 frames (interval median ~1003 ms), so these GPU absolute values are not comparable to the ~6 ms table above.
+
+Stationary median of three repetition medians, milliseconds:
+
+| View | Shared CPU | Dup. CPU | Shared-repeat CPU | Shared GPU | Dup. GPU | Shared-repeat GPU |
+|---|---:|---:|---:|---:|---:|---:|
+| Opening meadow | 12.9 | 12.1 | 12.3 | 32.8 | 34.2 | 47.7 |
+| Dense forest | 17.0 | 14.1 | 14.1 | 42.6 | 63.0 | 57.5 |
+| River | 12.5 | 11.7 | 11.7 | 29.4 | 44.1 | 47.6 |
+| Lake | 10.3 | 10.2 | 9.9 | 38.1 | 31.0 | 31.6 |
+| Coast | 9.4 | 9.1 | 9.3 | 40.1 | 32.8 | 33.0 |
+
+Shared-repeat CPU tracks duplicated in every view; the first shared leg is the high outlier. Shared-repeat GPU also tracks duplicated on lake, coast, river, and forest moving. Switching back to shared templates does not recover the first shared GPU numbers. That is session drift and sample noise, not a confirmed topology frame-time save. Sharing stays for the pixel-identical templates. It is not a 15% frame-time result. Effects, coverage samples and density stay unchanged. Hitch cause remains unestablished; the remaining stall time is inclusive `scene` work outside the creation wrappers (and, on the cold capture, about 2.88 s of that is also outside nested planar).
 
 ## Vegetation rebuilds
 
@@ -179,6 +197,8 @@ The private r180 indirect-draw bridge remains disabled on the pinned r185 build;
 ## Water and reflections
 
 The expanded landscape uses one water mesh with lake and sea planar reflections plus an upstream cube probe. Capture cadence is gated by camera position and `ReflectionBudget`. Capture counts are on `water.stats`. See [Water performance](water-performance.md).
+
+High is now the startup default and uses cached lake reflections plus the ocean sky approximation. Only Ultra renders live planar views. Imported understory replaces distant meshes with baked billboards and drops their shadow passes. Imported foliage also skips full wind noise beyond 32 units, blending to simple sway over 20–32 units. These approximations retain per-frame camera response and animation; they trade distant detail for less rendering work. See [LOD system](lod-system.md) and [Procedural vegetation](procedural-vegetation.md).
 
 ## Terrain sampling
 

@@ -125,6 +125,10 @@ Plant scale and color also respond to moisture, understory and growth, so the se
 
 Meadow details, imported wild grass and imported understory populate through resumable jobs (`src/foliage/vegetationRebuild.js`) with a shared 2 ms CPU budget. Current instances stay visible until a replacement buffer is published. Quality, preset, relocation and disposal cancel the active job. Terrain height, containment and ecology samples are cached independently of camera origin for the active window plus one cell of padding. Seeded candidate order is unchanged.
 
+Imported understory also switches to billboards beyond the nearby mesh range. Eight views of each actual plant are baked into an albedo atlas once at load, then neighbouring views blend as the camera circles it. The cards receive scene lighting and keep their roots planted while swaying. Detailed meshes and cards share complementary dither coverage through the transition; far cards cast no shadows. Placement stays deterministic, and the CPU sends only the appropriate instances to each representation. See [LOD system](lod-system.md).
+
+Imported wild grass and nearby understory blend from the full spatial wind field to simple directional sway between 20 and 32 units from the camera. Beyond 32 units the vertex shader skips the expensive wind-noise calculation. Billboard cards always use simple sway. Both paths retain the preset's wind direction, intensity and simulation speed.
+
 ## GPU texture channels
 
 `ProceduralVegetationField` uploads an RGBA texture for shader compatibility and future GPU consumers:

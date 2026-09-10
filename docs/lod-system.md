@@ -2,16 +2,38 @@
 
 This document explains how Level of Detail (LOD) currently works in `grass-test`.
 
-The project uses LOD mainly for two expensive parts of the scene:
+The project uses LOD for:
 
 - grass
 - trees
+- imported understory plants
 
-The two systems use different strategies because their rendering problems are different.
+These systems use different strategies because their rendering problems are different.
 
 Grass uses a **camera-centered tile grid with multiple prebuilt geometries**. Trees use **high/low model pairs with distance-based cross-fading and final distance culling**.
 
+Imported understory uses full plant meshes nearby and two-triangle billboards in the distance. See the understory section below.
+
 Other systems such as rain, birds, falling leaves, sky, clouds, water, terrain, and the player do not currently have a dedicated LOD implementation.
+
+## Imported understory billboards
+
+`UnderstorySystem` bakes eight albedo views per imported plant variant at load. A distant plant becomes one camera-facing quad; adjacent atlas views blend continuously with the viewing angle. Cards use inexpensive directional sway and scene lighting, with no shadow casting or reflection participation.
+
+The full mesh and billboard overlap with complementary dither coverage across these default distances:
+
+| Quality | Transition starts | Full mesh ends |
+| --- | ---: | ---: |
+| Performance | 12.1 | 16.5 |
+| Balanced | 16.5 | 22.5 |
+| High | 22 | 30 |
+| Ultra | 27.5 | 37.5 |
+
+Tune `foliage.understory.billboardStart` and `billboardEnd` in `public/foliage.yaml`. The quality multiplier scales both. Existing radius fades still remove plants at the edge of the population window.
+
+The CPU partitions published instance buffers when the camera moves, at most every 100 ms for small movement and immediately after moving one unit. Two units of overlap padding cover movement between updates; GPU coverage and facing update every frame. Distant detailed meshes leave the submitted instance range. Staging buffers remain separate so an unfinished population job cannot overwrite the visible LOD data. Atlas targets and instance resources are disposed with the system.
+
+`/scripts/gpu/understory-billboard-check.html` checks all 80 captured silhouettes, real placement, camera relocation, quality-independent geometry replacement and disable/re-enable behavior. Append `?renderer=webgl` for the fallback. The 729-plant fixture submits 8,060 triangles instead of 29,328 (about 72% fewer, including transition overlap). These are geometry counts, not a whole-scene FPS claim. Runtime counts are available at `understory.stats` and `getProfileResults().understory`.
 
 ## Why LOD is necessary
 

@@ -50,7 +50,7 @@ forceWebGL: false
 <!-- effective-config: ui -->
 ```yaml
 pixelRatio: 1
-initialQuality: ultra
+initialQuality: high
 initialPreset: goldenHour
 ```
 

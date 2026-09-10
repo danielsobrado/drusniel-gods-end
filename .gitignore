@@ -5,11 +5,11 @@ dist/
 .tmp-*
 .history/
 
-.drive-tmp.mjs
+.*-tmp.mjs
 .browser-profile/
 .browser-check.ps1
 .cleanup-review.ps1
 baseline.png
 cinematic-*.png
 .cache/
-.playwright-mcp/
+
