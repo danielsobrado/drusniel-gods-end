@@ -38,6 +38,10 @@ import { findCharacter } from '../config/characterRoster.js';
 import { FrameProfiler, isProfileRequested } from '../debug/FrameProfiler.js';
 import { GpuCreationProbe } from '../debug/gpuCreationHooks.js';
 import { createVegetationJobScheduler } from '../foliage/vegetationRebuild.js';
+import { BiomePropSystem } from '../biome/BiomePropSystem.js';
+import { commitPresetChange, preparePresetChange } from '../biome/presetSwitch.js';
+import { resolvePresetConfig } from '../config/resolvePresetConfig.js';
+import { disposePresetAppearance } from '../rendering/PresetAppearance.js';
 
 const MIN_PIXEL_RATIO = 0.5;
 const TREE_COLLIDER_HEIGHT_FACTOR = 0.5;
@@ -58,8 +62,7 @@ export class GrassDemo {
     this.lastReflectionCaptures = 0;
     this.gpuTimestamp = null;
     this.gpuTimestampPending = false;
-    this.gpuTimestamp = null;
-    this.gpuTimestampPending = false;
+    this.presetGeneration = 0;
   }
 
   async start() {
@@ -243,6 +246,41 @@ export class GrassDemo {
       understory: this.understory,
       config: this.config,
     });
+    this.biome = new BiomePropSystem({
+      scene: this.world.scene,
+      camera: this.world.camera,
+      config: this.config,
+      jobs: this.vegetationJobs,
+      collisions: this.collisions,
+      grass: this.grass,
+      stones: this.props?.stoneSources ?? [],
+      trees: this.trees?.trees ?? [],
+      props: this.props?.instances ?? [],
+    });
+    if (resolvePresetConfig(this.config, this.config.ui.initialPreset)?.activeBiome) {
+      try {
+        const prepared = await this.biome.prepare(
+          resolvePresetConfig(this.config, this.config.ui.initialPreset).biome,
+          this.player.getPosition(),
+          {
+            signal: this.abortController.signal,
+            ecology: this.grass.vegetation,
+            terrain: this.world.terrainSampler,
+          },
+        );
+        if (prepared?.active) {
+          await this.grass.prepareLayout({ field: prepared.field, solids: prepared.solids }, {
+            signal: this.abortController.signal,
+          });
+          this.biome.commit(prepared);
+          this.grass.commitLayout();
+          this.biome.setPreset(this.config.ui.initialPreset);
+        }
+      } catch (error) {
+        logger.warn('Reference biome could not start; continuing with the original look.', error);
+        this.grass.abortLayout();
+      }
+    }
 
     if (this.resumeState) {
       // Restore state before constructing controls so their initial values
@@ -378,9 +416,26 @@ export class GrassDemo {
     }
   }
 
+  async #switchPreset(name) {
+    const generation = ++this.presetGeneration;
+    try {
+      const payload = await preparePresetChange(this, name, generation);
+      if (generation !== this.presetGeneration) return;
+      return this.iris.run(() => {
+        const result = commitPresetChange(this, payload);
+        if (!result.applied && result.reason === 'unsafe') {
+          logger.warn('Preset switch had no safe pose; keeping the current world.');
+        }
+      }, 'preset');
+    } catch (error) {
+      this.grass?.abortLayout();
+      logger.error('Preset preparation failed; keeping the current world.', error);
+    }
+  }
+
   #createUiActions() {
     return {
-      setPreset: (name) => this.iris.run(() => this.environment.setPreset(name), 'preset'),
+      setPreset: (name) => this.#switchPreset(name),
       toggleTour: () => this.tour.start(),
       stopTour: () => this.tour.stop(),
       isTourActive: () => this.tour.active,
@@ -390,6 +445,7 @@ export class GrassDemo {
         this.pipeline?.setQuality(name);
         this.meadow?.setQuality(name);
         this.water?.setQuality(name);
+        this.biome?.setQuality(name);
       },
       setGrassShape: (shape) => this.iris.run(() => this.grass.setGrassShape(shape), 'grassShape'),
       getGrassParameters: (family) => this.environment.current.grass[family],
@@ -432,6 +488,8 @@ export class GrassDemo {
       occlusion: this.pipeline?.gpuOcclusion.stats ?? null,
       reflections: this.water?.stats ?? null,
       understory: this.understory?.stats ?? null,
+      biome: this.biome?.stats ?? null,
+      referenceBiome: this.config.biomes?.referenceScrub?.enabled === true,
     };
   }
 
@@ -501,6 +559,7 @@ export class GrassDemo {
     time('meadow', () => this.meadow?.update(deltaSeconds, focus, this.environment.current));
     time('wildGrass', () => this.wildGrass?.update(deltaSeconds, focus, this.environment.current));
     time('understory', () => this.understory?.update(deltaSeconds, focus, this.environment.current));
+    time('biome', () => this.biome?.update(deltaSeconds, this.world.camera, this.player.getPosition()));
     time('vegetationJobs', () => this.vegetationJobs?.tick());
     this.boundaryBarrier?.update(deltaSeconds, this.player.getPosition());
     time('water', () => this.water.update(deltaSeconds, this.player, this.environment.current.lighting));
@@ -533,6 +592,12 @@ export class GrassDemo {
       occlusionMs: this.pipeline?.gpuOcclusion.lastPrepareMs ?? 0,
       gpuPrograms: this.gpuCreationProbe?.stats.programs ?? 0,
       gpuPipelines: this.gpuCreationProbe?.stats.pipelines ?? 0,
+      colliders: this.collisions?.colliders?.filter((entry) => entry.active)?.length ?? 0,
+      biomeNear: this.biome?.stats?.near ?? 0,
+      biomeMid: this.biome?.stats?.mid ?? 0,
+      biomeFar: this.biome?.stats?.far ?? 0,
+      biomeBookkeepingMs: this.biome?.stats?.bookkeepingMs ?? 0,
+      biomeTriangles: this.biome?.stats?.triangles ?? 0,
     });
     this.#queueGpuTimestamp();
   }
@@ -559,11 +624,12 @@ export class GrassDemo {
     this.disposed = true;
     this.world?.renderer?.setAnimationLoop(null);
     for (const resource of [this.loading, this.pipeline, this.cinematicLighting,
-      this.meadow, this.wildGrass, this.understory, this.vegetationJobs, this.ui, this.iris, this.grass, this.trees, this.props,
+      this.meadow, this.wildGrass, this.understory, this.biome, this.vegetationJobs, this.ui, this.iris, this.grass, this.trees, this.props,
       this.collisions, this.player, this.leaves, this.birds, this.rain,
       this.boundaryBarrier, this.water, this.audio, this.environment, this.world]) {
       try { resource?.dispose?.(); } catch (error) { logger.warn('Demo cleanup failed.', error); }
     }
+    disposePresetAppearance(this.config);
     this.gpuCreationProbe?.dispose();
     this.abortController.abort();
   }

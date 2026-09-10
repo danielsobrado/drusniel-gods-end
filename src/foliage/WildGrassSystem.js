@@ -1,3 +1,4 @@
+import { capPopulation } from './populationCap.js';
 import * as THREE from 'three/webgpu';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { uniform } from 'three/tsl';
@@ -261,6 +262,7 @@ export class WildGrassSystem {
   }
 
   #invalidatePopulate() {
+    this.sampleCache.clear();
     this.jobs?.cancel(this.jobId);
     this.lastCell = '';
     this.populateGeneration += 1;
@@ -305,9 +307,10 @@ export class WildGrassSystem {
     this.pending.sort((a, b) => {
       const da = (a.x - origin.x) ** 2 + (a.z - origin.z) ** 2;
       const db = (b.x - origin.x) ** 2 + (b.z - origin.z) ** 2;
-      return da - db;
+      return da - db || a.x - b.x || a.z - b.z || a.variant - b.variant;
     });
     yield undefined;
+    capPopulation(this.pending, this.#settings().maxInstancesTotal);
     this.#resetStaging();
     for (let i = 0; i < this.pending.length; i += 1) {
       this.#stageClump(this.pending[i]);

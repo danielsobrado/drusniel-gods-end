@@ -34,6 +34,7 @@ export class GrassMaterial {
     interactionMap,
     type = config.grass.type,
     atlasTexture = null,
+    referenceBiome = false,
   ) {
     this.config = config;
     this.type = type;
@@ -63,6 +64,7 @@ export class GrassMaterial {
       type,
       atlasTexture,
       {
+        referenceBiome,
         includeRecoveredWind: !cinematicWind,
         includeRecoveredHeightVariation: !cinematic,
         includeCinematicHeight: cinematic,

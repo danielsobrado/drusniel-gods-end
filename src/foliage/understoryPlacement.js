@@ -1,3 +1,5 @@
+import { resolvePresetConfig } from '../config/resolvePresetConfig.js';
+import { resolvePopulationCap } from './populationCap.js';
 import { createSeededRandom } from '../core/math.js';
 
 export const DEFAULT_UNDERSTORY = Object.freeze({
@@ -53,7 +55,7 @@ export function resolveUnderstorySettings(config = {}, presetName, qualityName) 
     quality: mergeQuality(DEFAULT_UNDERSTORY.quality, configured?.quality),
   };
   if (base.seed == null) base.seed = (config.vegetation?.seed ?? 0) + DEFAULT_UNDERSTORY.seed;
-  const preset = config.presets?.[presetName]?.foliage?.understory ?? {};
+  const preset = resolvePresetConfig(config, presetName)?.foliage?.understory ?? {};
   const quality = base.quality[qualityName] ?? DEFAULT_UNDERSTORY.quality.high;
   const enabled = preset.enabled ?? base.enabled;
   if (enabled === false) {
@@ -82,7 +84,8 @@ export function resolveUnderstorySettings(config = {}, presetName, qualityName) 
     windBend: preset.windBend ?? base.windBend,
     moistureBias: preset.moistureBias ?? base.moistureBias,
     understoryBias: preset.understoryBias ?? base.understoryBias,
-    castShadow: quality.shadows === true,
+    castShadow: preset.castShadow ?? (quality.shadows === true),
+    maxInstancesTotal: resolvePopulationCap(preset.maxInstancesTotal ?? base.maxInstancesTotal, qualityName),
     billboardStart: Math.max(0, (preset.billboardStart ?? base.billboardStart) * (quality.billboard ?? 1)),
     billboardEnd: Math.max(1, (preset.billboardEnd ?? base.billboardEnd) * (quality.billboard ?? 1),
       (preset.billboardStart ?? base.billboardStart) * (quality.billboard ?? 1) + 1),

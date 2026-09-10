@@ -13,6 +13,7 @@ export const CONFIG_FILES = [
   'vegetation.yaml',
   'foliage.yaml',
   'characters.yaml',
+  'reference-biome.yaml',
 ];
 
 function isRecord(value) {

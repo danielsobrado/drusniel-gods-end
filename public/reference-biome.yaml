@@ -1,0 +1,111 @@
+# Release gate stays off until paired backend benchmarks satisfy the 10% budget.
+biomes:
+  referenceScrub:
+    enabled: false
+    seed: 28411
+    resolution: 1024
+    cellSize: 32
+    clusterChance: 0.55
+    radius: 160
+    collisionGroup: referenceBiome
+    retentionPadding: 40
+    leafCutoff: 0.35
+    asset: Assets/terrain/reference-biome/reference-plants.glb
+    manifest: Assets/terrain/reference-biome/manifest.json
+    quality:
+      performance: { shrubDensity: 0.35, nearStart: 12, nearEnd: 18, farStart: 40, farEnd: 50 }
+      balanced: { shrubDensity: 0.6, nearStart: 12, nearEnd: 18, farStart: 40, farEnd: 50 }
+      high: { shrubDensity: 0.85, nearStart: 18, nearEnd: 24, farStart: 55, farEnd: 65 }
+      ultra: { shrubDensity: 1, nearStart: 18, nearEnd: 24, farStart: 55, farEnd: 65 }
+
+presets:
+  sunny:
+    biomeProfile: referenceScrub
+    referenceLook:
+      grass:
+        blade: { bladeHeight: 1.3, bladeWidth: 0.22, bladeStiffness: 0.9, baseBend: 0.12, windIntensity: 1.7, windDirection: 35, windNoiseScale: 0.3, simulationSpeed: 0.9, sheen: 0.08, baseColor: '#4a5426', tipColor: '#a7ac55' }
+        billboard: { bladeHeight: 0.9, bladeWidth: 1.35, bladeStiffness: 0.9, baseBend: 0.12, windIntensity: 1.7, windDirection: 35, windNoiseScale: 0.3, simulationSpeed: 0.9, sheen: 0.08, baseColor: '#4a5426', tipColor: '#a7ac55' }
+      style: &referenceStyle
+        grassRootBrightness: 0.72
+        grassGradientPower: 1.9
+        grassFill: 0.04
+        grassBacklight: 0.5
+        groundTipMix: 0.18
+        dryRoot: '#6e6530'
+        dryTip: '#c1b253'
+        canopyShadow: '#293a22'
+        canopyLight: '#929a4a'
+        canopyTint: 0.75
+        foliageFill: 0.16
+        directionalBend: 0.45
+      foliage: &referenceFoliage
+        wildGrass:
+          castShadow: false
+          maxInstancesTotal: { performance: 96, balanced: 160, high: 240, ultra: 320 }
+        understory:
+          castShadow: false
+          maxInstancesTotal: { performance: 64, balanced: 96, high: 128, ultra: 160 }
+        shrub:
+          windBend: 0.08
+          windFlutter: 0.015
+        cactus:
+          windBend: 0.015
+          windFlutter: 0
+      lighting:
+        color: '#fff1ce'
+        directionalIntensity: 3.1
+        position: [-30, 50, 35]
+        hemisphereSkyColor: '#b7c7c6'
+        hemisphereGroundColor: '#595638'
+        hemisphereIntensity: 0.6
+        ambientColor: '#d5d1ad'
+        ambientIntensity: 0.18
+        environmentIntensity: 0.35
+      sky: { sunPosition: [-30, 50, 35], fogColor: '#b4c3b8', fogDensity: 0.0017 }
+      cloudCoverage: 0.6
+      rain: false
+  windy:
+    biomeProfile: referenceScrub
+    referenceLook:
+      grass:
+        blade: { bladeHeight: 1.2, bladeWidth: 0.22, bladeStiffness: 0.65, baseBend: 0.28, windIntensity: 2.8, windDirection: 75, windNoiseScale: 0.3, simulationSpeed: 1.05, sheen: 0.1, baseColor: '#4a5426', tipColor: '#a7ac55' }
+        billboard: { bladeHeight: 0.85, bladeWidth: 1.35, bladeStiffness: 0.65, baseBend: 0.28, windIntensity: 2.8, windDirection: 75, windNoiseScale: 0.3, simulationSpeed: 1.05, sheen: 0.1, baseColor: '#4a5426', tipColor: '#a7ac55' }
+      style:
+        grassRootBrightness: 0.72
+        grassGradientPower: 1.9
+        grassFill: 0.04
+        grassBacklight: 0.5
+        groundTipMix: 0.18
+        dryRoot: '#6e6530'
+        dryTip: '#c1b253'
+        canopyShadow: '#293a22'
+        canopyLight: '#929a4a'
+        canopyTint: 0.75
+        foliageFill: 0.16
+        directionalBend: 0.85
+      foliage:
+        wildGrass:
+          castShadow: false
+          maxInstancesTotal: { performance: 96, balanced: 160, high: 240, ultra: 320 }
+        understory:
+          castShadow: false
+          maxInstancesTotal: { performance: 64, balanced: 96, high: 128, ultra: 160 }
+        shrub:
+          windBend: 0.14
+          windFlutter: 0.025
+        cactus:
+          windBend: 0.015
+          windFlutter: 0
+      lighting:
+        color: '#c4b687'
+        directionalIntensity: 1.15
+        position: [-35, 18, 40]
+        hemisphereSkyColor: '#788177'
+        hemisphereGroundColor: '#454735'
+        hemisphereIntensity: 0.4
+        ambientColor: '#969982'
+        ambientIntensity: 0.12
+        environmentIntensity: 0.2
+      sky: { sunPosition: [-35, 18, 40], fogColor: '#777963', fogDensity: 0.0025, horizonColor: '#a5a17d', zenithColor: '#41473d', groundColor: '#474734' }
+      cloudCoverage: 0.18
+      rain: false

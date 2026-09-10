@@ -3,6 +3,7 @@ import RAPIER from '@dimforge/rapier3d-compat';
 
 const DEFAULT_ACTIVE_DISTANCE = 50;
 const DEFAULT_INACTIVE_DISTANCE = 70;
+const DEFAULT_RETENTION_PADDING = 40;
 const DEFAULT_RADIUS = 0;
 const COLLIDER_FRICTION = 1;
 const HALF = 0.5;
@@ -33,18 +34,35 @@ function horizontalRadius(root, center) {
   return Math.sqrt(radiusX * radiusX + radiusZ * radiusZ);
 }
 
+function pointsRadius(points, scale = { x: 1, z: 1 }) {
+  let radius = 0;
+  for (let i = 0; i < points.length; i += 3) {
+    const x = points[i] * (scale.x ?? 1);
+    const z = points[i + 2] * (scale.z ?? 1);
+    radius = Math.max(radius, Math.hypot(x, z));
+  }
+  return radius;
+}
+
 export class WorldCollisionSystem {
-  constructor({ physics, player, scene, config = {} }) {
+  constructor({ physics, player, scene, config = {}, convexHull, createFixedBody } = {}) {
     this.world = physics?.world ?? null;
     this.player = player ?? null;
     this.scene = scene ?? null;
     this.activeDistance = Number(config.activeDistance ?? DEFAULT_ACTIVE_DISTANCE);
     this.inactiveDistance = Number(config.inactiveDistance ?? DEFAULT_INACTIVE_DISTANCE);
+    this.retentionPadding = Number(config.retentionPadding ?? DEFAULT_RETENTION_PADDING);
+    this.convexHull = convexHull ?? ((points) => RAPIER.ColliderDesc.convexHull(points));
+    this.createFixedBody = createFixedBody ?? ((position, rotation) => this.world.createRigidBody(
+      RAPIER.RigidBodyDesc.fixed()
+        .setTranslation(position.x, position.y, position.z)
+        .setRotation({ x: rotation.x, y: rotation.y, z: rotation.z, w: rotation.w }),
+    ));
     this.colliders = [];
     this.playerPosition = new THREE.Vector3();
   }
 
-  #register({ body, collider, position, radius = DEFAULT_RADIUS }) {
+  #register({ body, collider, position, radius = DEFAULT_RADIUS, group = null, id = null, groupEnabled = true }) {
     if (!body || !collider) return null;
     const entry = {
       body,
@@ -52,8 +70,12 @@ export class WorldCollisionSystem {
       position: position.clone(),
       radius,
       active: true,
+      group,
+      id,
+      groupEnabled,
     };
     this.colliders.push(entry);
+    collider.setEnabled(groupEnabled);
     return entry;
   }
 
@@ -109,12 +131,12 @@ export class WorldCollisionSystem {
         .setTranslation(position.x, position.y, position.z)
         .setRotation({ x: rotation.x, y: rotation.y, z: rotation.z, w: rotation.w }),
     );
-    const colliderDescription = RAPIER.ColliderDesc.convexHull(new Float32Array(points));
+    const colliderDescription = this.convexHull(new Float32Array(points));
     if (!colliderDescription) {
       this.world.removeRigidBody(body);
       return null;
     }
-    colliderDescription.setFriction(COLLIDER_FRICTION);
+    colliderDescription.setFriction?.(COLLIDER_FRICTION);
     const collider = this.world.createCollider(colliderDescription, body);
     this.#register({
       body,
@@ -178,6 +200,77 @@ export class WorldCollisionSystem {
     return body;
   }
 
+  addPreparedConvex(shape, transform, { group, id } = {}) {
+    const points = shape instanceof Float32Array ? shape : new Float32Array(shape);
+    const position = transform.position.clone();
+    const rotation = transform.rotation?.clone?.() ?? new THREE.Quaternion();
+    const scale = transform.scale?.clone?.() ?? new THREE.Vector3(1, 1, 1);
+    const radius = Number(transform.radius) || pointsRadius(points, scale);
+    const entry = {
+      kind: 'preparedConvex',
+      points,
+      position,
+      rotation,
+      scale,
+      radius,
+      group: group ?? null,
+      id: id ?? null,
+      groupEnabled: true,
+      body: null,
+      collider: null,
+      active: false,
+      retained: false,
+    };
+    this.colliders.push(entry);
+    return entry;
+  }
+
+  setGroupEnabled(group, enabled) {
+    const on = Boolean(enabled);
+    for (const entry of this.colliders) {
+      if (entry.group !== group) continue;
+      entry.groupEnabled = on;
+      entry.collider?.setEnabled(on && entry.active);
+    }
+  }
+
+  removeGroup(group) {
+    const kept = [];
+    for (const entry of this.colliders) {
+      if (entry.group === group) {
+        this.#unloadPrepared(entry);
+        continue;
+      }
+      kept.push(entry);
+    }
+    this.colliders = kept;
+  }
+
+  #loadPrepared(entry) {
+    if (!this.world || entry.body) return;
+    const body = this.createFixedBody(entry.position, entry.rotation);
+    const colliderDescription = this.convexHull(entry.points);
+    if (!colliderDescription) {
+      this.world.removeRigidBody(body);
+      return;
+    }
+    colliderDescription.setFriction?.(COLLIDER_FRICTION);
+    const collider = this.world.createCollider(colliderDescription, body);
+    entry.body = body;
+    entry.collider = collider;
+    entry.retained = true;
+    collider.setEnabled(false);
+  }
+
+  #unloadPrepared(entry) {
+    if (!entry.body) return;
+    if (this.world) this.world.removeRigidBody(entry.body);
+    entry.body = null;
+    entry.collider = null;
+    entry.retained = false;
+    entry.active = false;
+  }
+
   update() {
     if (!this.player) return;
     this.player.getWorldPosition(this.playerPosition);
@@ -188,22 +281,34 @@ export class WorldCollisionSystem {
       const distanceSq = dx * dx + dz * dz;
       const activeRadius = this.activeDistance + entry.radius;
       const inactiveRadius = this.inactiveDistance + entry.radius;
+      const retainRadius = entry.kind === 'preparedConvex'
+        ? this.inactiveDistance + this.retentionPadding + entry.radius
+        : inactiveRadius;
+
+      if (entry.kind === 'preparedConvex') {
+        if (distanceSq > retainRadius * retainRadius) {
+          this.#unloadPrepared(entry);
+          continue;
+        }
+        this.#loadPrepared(entry);
+      }
 
       if (entry.active && distanceSq > inactiveRadius * inactiveRadius) {
-        entry.collider.setEnabled(false);
         entry.active = false;
-        continue;
-      }
-      if (!entry.active && distanceSq < activeRadius * activeRadius) {
-        entry.collider.setEnabled(true);
+      } else if (!entry.active && distanceSq < activeRadius * activeRadius) {
         entry.active = true;
       }
+
+      const enabled = entry.active && entry.groupEnabled !== false;
+      entry.collider?.setEnabled(enabled);
     }
   }
 
   dispose() {
     if (this.world) {
-      for (const entry of this.colliders) this.world.removeRigidBody(entry.body);
+      for (const entry of this.colliders) {
+        if (entry.body) this.world.removeRigidBody(entry.body);
+      }
     }
     this.colliders.length = 0;
     this.world = null;

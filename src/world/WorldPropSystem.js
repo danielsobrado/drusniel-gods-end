@@ -71,6 +71,7 @@ export class WorldPropSystem {
     this.instances = [];
     this.ownedGeometries = [];
     this.pebbleSources = [];
+    this.stoneSources = [];
   }
 
   init() {
@@ -127,6 +128,7 @@ export class WorldPropSystem {
       for (const stone of stones) scaleRockTemplate(stone, packScale);
       this.ownedGeometries.push(...templates.map((template) => template.geometry));
       this.pebbleSources = pebbles;
+      this.stoneSources = stones;
       return stones.length > 0 ? stones : templates;
     }
 

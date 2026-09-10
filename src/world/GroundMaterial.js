@@ -27,6 +27,7 @@ import {
 import { assetUrl } from '../assets/assetUrl.js';
 import { foliageLight } from '../rendering/CinematicLighting.js';
 import { meadowRootColor } from '../rendering/MeadowPalette.js';
+import { getPresetAppearance, sampleReferenceField } from '../rendering/PresetAppearance.js';
 import { groundGrassTexture, groundRoughness as turfRoughness, groundTurf } from '../rendering/GroundTurf.js';
 import { riverField } from '../water/riverNodes.js';
 import { coastXNode } from './coast.js';
@@ -195,6 +196,9 @@ export async function createGroundMaterial(config, terrainSampler = null) {
       .div(vec2(terrainSampler.size.x, terrainSampler.size.z))).r
     : config.terrain.expansion?.enabled ? insideAuthored.select(blendSample.r, float(0)) : blendSample.r;
   const soil = config.cinematic?.enabled ? smoothstep(0.12, 0.88, blend) : float(1);
+  const appearance = getPresetAppearance(config);
+  const field = sampleReferenceField(positionWorld.xz, config);
+  const soilPaint = mix(soil, soil.max(field.a), appearance.enabled);
 
   const material = new THREE.MeshStandardNodeMaterial();
   material.name = 'GroundReferenceBlendMaterial';
@@ -214,7 +218,7 @@ export async function createGroundMaterial(config, terrainSampler = null) {
     const style = config.cinematic.style;
     const turf = style?.enabled ? groundTurf(world).toVar() : vec3(0);
     if (style?.enabled) {
-      const turfSlope = vec3(turf.y, 0, turf.z).mul(soil.oneMinus());
+      const turfSlope = vec3(turf.y, 0, turf.z).mul(soilPaint.oneMinus());
       baseNormal = normalize(baseNormal.add(cameraViewMatrix.mul(vec4(turfSlope, 0)).xyz));
       material.normalNode = baseNormal;
     }
@@ -224,7 +228,7 @@ export async function createGroundMaterial(config, terrainSampler = null) {
     const pathPaint = style?.enabled
       ? mix(groundSample.rgb, color(style.groundPath).mul(groundSample.r.mul(0.65).add(0.65)), 0.48)
       : groundSample.rgb;
-    const earth = mix(grassPaint, pathPaint, soil);
+    const earth = mix(grassPaint, pathPaint, soilPaint);
     const variation = mix(1 - (config.ground.macroVariation ?? 0.2), 1.08, macro);
     const river = riverField(terrainSampler?.river).toVar();
     const riverBank = river.y.smoothstep(-1, 6).oneMinus();
@@ -235,8 +239,8 @@ export async function createGroundMaterial(config, terrainSampler = null) {
       ? earth.mul(mix(1, variation.mul(mix(0.94, 1.04, flecks)), blend)).mul(wet.mul(0.16).oneMinus())
       : mix(earth, earth.mul(vec3(0.7, 0.87, 0.56)), moss)
         .mul(variation).mul(mix(0.94, 1.04, flecks)).mul(wet.mul(0.28).oneMinus());
-    if (style?.enabled) material.emissiveNode = earth.mul(foliageLight.fill).mul(style.grassFill ?? 0.06);
-    material.roughnessNode = turfRoughness(soil, roughnessSample, wet, turf.x);
+    if (style?.enabled) material.emissiveNode = earth.mul(foliageLight.fill).mul(appearance.grassFill);
+    material.roughnessNode = turfRoughness(soilPaint, roughnessSample, wet, turf.x);
     if (terrainSampler?.river || config.terrain.expansion?.enabled) {
       const highland = positionWorld.y.smoothstep(48, 100);
       const cliff = normalWorld.y.abs().smoothstep(0.55, 0.88).oneMinus();
@@ -283,7 +287,7 @@ export async function createGroundMaterial(config, terrainSampler = null) {
     }
   }
 
-  const rainController = createRainController(material, baseNormal, config, soil);
+  const rainController = createRainController(material, baseNormal, config, soilPaint);
   material.userData = {
     ...material.userData,
     textures: [grassColor, groundColor, surfaceBlend, groundNormal, groundRoughness],

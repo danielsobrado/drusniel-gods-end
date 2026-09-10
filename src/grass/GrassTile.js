@@ -6,6 +6,9 @@ export class GrassTile {
     this.scene = scene;
     this.cinematic = cinematic;
     this.cache = new Map();
+    this.staging = new Map();
+    this.layoutRevision = 0;
+    this.stagingRevision = -1;
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.name = 'GrassTile';
     this.mesh.userData.excludeFromReflection = true;
@@ -29,7 +32,11 @@ export class GrassTile {
     this.mesh.userData.tileZ = tileZ;
   }
 
-  setGeometry(source, lodName, containsGrass) {
+  setGeometry(source, lodName, containsGrass, layoutRevision = 0) {
+    if (this.layoutRevision !== layoutRevision) {
+      this.invalidate();
+      this.layoutRevision = layoutRevision;
+    }
     let geometry = source;
     let compacted = false;
     if (this.cinematic && containsGrass) {
@@ -50,9 +57,46 @@ export class GrassTile {
     this.mesh.visible = visible;
   }
 
+  stageGeometry(source, lodName, containsGrass, layoutRevision = 0) {
+    if (this.stagingRevision !== layoutRevision) {
+      this.#disposeMap(this.staging);
+      this.stagingRevision = layoutRevision;
+    }
+    let compacted = false;
+    if (this.cinematic && containsGrass && !this.staging.has(source)) {
+      const started = performance.now();
+      this.staging.set(source, compactGrassGeometry(source, this.mesh.position.x, this.mesh.position.z, containsGrass));
+      this.lastCompactionMs = performance.now() - started;
+      compacted = true;
+    }
+    this.stagedLod = lodName;
+    return compacted;
+  }
+
+  commitStaged(layoutRevision) {
+    if (this.stagingRevision !== layoutRevision) return;
+    this.#disposeMap(this.cache);
+    this.cache = this.staging;
+    this.staging = new Map();
+    this.layoutRevision = layoutRevision;
+    if (this.stagedLod) this.mesh.userData.currentLOD = this.stagedLod;
+    const source = [...this.cache.values()].at(-1);
+    if (source) this.mesh.geometry = source;
+  }
+
+  discardStaging() {
+    this.#disposeMap(this.staging);
+    this.stagingRevision = -1;
+  }
+
+  #disposeMap(map) {
+    for (const geometry of map.values()) geometry.dispose();
+    map.clear();
+  }
+
   invalidate() {
-    for (const geometry of this.cache.values()) geometry.dispose();
-    this.cache.clear();
+    this.#disposeMap(this.cache);
+    this.#disposeMap(this.staging);
   }
 
   dispose(scene) {
