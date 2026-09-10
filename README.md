@@ -39,7 +39,8 @@ Start with `docs/README.md`. Do not tune around a contradiction before checking 
 - cloned/animated birds with deterministic orbit behavior
 - procedural TSL sky and recovered horizontal cloud plane
 - recovered GPU-instanced rain and wet-material response
-- recovered generated water plane, geometric waves and one-time cube reflection
+- recovered generated water plane, geometric waves and one-time cube reflection (unexpanded fallback)
+- expanded river/lake/sea water with planar reflections, an upstream cube probe and `ReflectionBudget`
 - seven environment presets (Highfield, Emberfall, Greyrain, Galewind, Stillmeadow, Lowsway, Moonrise), switched as a hard cut behind a circle-iris wipe
 - four grass silhouettes (Slender, Reed, Broadleaf, Tufted) sharing two render families
 - wind/rain/insect/lake/bird/footstep audio
@@ -61,6 +62,8 @@ npm test
 npm run check:docs
 npm run build
 ```
+
+Desktop Ultra timings use `?profile=1` and `/scripts/debug/scene-benchmark.html`. See [Performance](docs/performance.md).
 
 ## Controls
 

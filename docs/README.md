@@ -32,16 +32,18 @@ Before modifying a subsystem, read both `recovered-original-parity.md` and that 
 ## Core rendering and world
 
 - [Rendering architecture](rendering-architecture.md) — WebGPU/TSL renderer, lighting, node materials, instancing and fallbacks.
+- [Cinematic rendering](cinematic-rendering.md) — default lighting, grass style, occlusion, meadow jobs and visual review.
 - [Runtime lifecycle](runtime-lifecycle.md) — startup and frame update order.
 - [Configuration reference](config-reference.md) — merged YAML sources and consumers.
 - [Asset contract](asset-contract.md) — exact assets and GLB names.
-- [Performance](performance.md) — quality controls and expensive paths.
+- [Performance](performance.md) — quality controls, specialized grass shaders, vegetation jobs and opt-in `?profile=1` timings.
 - [Reference parity](reference-parity.md) — recovered versus clean-room behavior.
 - [Visual parity checklist](visual-parity-checklist.md) — visual acceptance criteria.
 
 ## Terrain and environment
 
 - [Terrain system](terrain-system.md) — `Landscape002` gameplay terrain, GLB preprocessing and clean-room height sampling.
+- [Expanded landscape](expanded-landscape.md) — default 2,400 × 1,600 map, river/lake/sea and routes.
 - [Ground PBR textures](ground-pbr-textures.md) — recovered grass/dirt TSL blend material.
 - [Recovered world props](world-props.md) — exact Stone and Lantern source preparation, authored transforms and collision shapes.
 - [Sky and clouds](sky-cloud-system.md) — procedural TSL sky and cloud system.
@@ -49,6 +51,7 @@ Before modifying a subsystem, read both `recovered-original-parity.md` and that 
 - [Wind system](wind-system.md) — grass/tree/leaf/cloud/rain wind behavior.
 - [Rain system](rain-system.md) — GPU rain and wet-environment integration.
 - [Water system](water-system.md) — recovered lake geometry, waves, reflection and rain response.
+- [Water performance](water-performance.md) — planar/cube capture budgets and `water.stats`.
 
 ## Grass
 
@@ -66,6 +69,7 @@ Before modifying a subsystem, read both `recovered-original-parity.md` and that 
 ## Vegetation and wildlife
 
 - [Tree system](tree-system.md) — recovered authored tree world data, high/billboard LOD and foliage materials.
+- [Procedural vegetation](procedural-vegetation.md) — ecology field, meadow/wild-grass/understory jobs.
 - [Leaf system](leaf-system.md) — falling leaf instancing, variants and zones.
 - [Bird system](bird-system.md) — source cloning, animation and orbit motion.
 - [Zone system](zone-system.md) — GLB zone helpers.

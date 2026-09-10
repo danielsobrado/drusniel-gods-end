@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  Box3, BoxGeometry, InstancedBufferGeometry, Matrix4, Mesh, MeshBasicMaterial,
-  PerspectiveCamera, Vector3, WebGPUCoordinateSystem,
+  Box3, BoxGeometry, InstancedBufferGeometry, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial,
+  Object3D, PerspectiveCamera, Vector3, WebGPUCoordinateSystem,
 } from 'three';
 import { GpuOcclusion } from '../src/rendering/GpuOcclusion.js';
 import { isSolidOccluder, occlusionDrawRange, projectOcclusionBounds } from '../src/rendering/occlusionBounds.js';
@@ -122,3 +122,40 @@ test('unverified private occlusion bridge is disabled on the pinned r185 build',
   assert.equal(culling.stats.supported, false);
   culling.dispose();
 });
+
+test('empty candidate lists enter the existing probe cooldown', () => {
+  const culling = new GpuOcclusion({ renderer: { backend: {} } }, { probeInterval: 30 });
+  culling.enabled = true;
+  culling.stats.occluders = 0;
+  culling.backoffIfEmpty();
+  assert.equal(culling.cooldown, 29);
+  assert.equal(culling.active.size, 0);
+  culling.prepare();
+  assert.equal(culling.cooldown, 28);
+  culling.dispose();
+});
+
+test('instance bounds are cached until geometry, transforms, or count change', () => {
+  const culling = new GpuOcclusion({ renderer: { backend: {} } });
+  const geometry = new BoxGeometry(2, 2, 2);
+  const material = new MeshBasicMaterial();
+  const mesh = new InstancedMesh(geometry, material, 2);
+  const dummy = new Object3D();
+  dummy.position.set(0, 0, 0);
+  dummy.updateMatrix();
+  mesh.setMatrixAt(0, dummy.matrix);
+  dummy.position.set(40, 0, 0);
+  dummy.updateMatrix();
+  mesh.setMatrixAt(1, dummy.matrix);
+  mesh.count = 2;
+  mesh.instanceMatrix.needsUpdate = true;
+  mesh.updateMatrixWorld();
+  const wide = culling.occlusionBounds(mesh).clone();
+  mesh.count = 1;
+  const narrow = culling.occlusionBounds(mesh);
+  assert.ok(wide.max.x > narrow.max.x + 10);
+  geometry.dispose();
+  material.dispose();
+  culling.dispose();
+});
+

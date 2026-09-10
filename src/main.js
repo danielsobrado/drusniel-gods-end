@@ -53,7 +53,12 @@ async function bootstrap() {
           void recovery.recover(requested, session.diagnostics.actual, info);
         });
       };
-      if (import.meta.env.DEV) window.__grassDemo = demo;
+      if (import.meta.env.DEV) {
+        window.__grassDemo = demo;
+        if (new URLSearchParams(window.location.search).get('profile') === '1') {
+          demo.profiling = true;
+        }
+      }
       try {
         await candidate.start();
       } catch (error) {

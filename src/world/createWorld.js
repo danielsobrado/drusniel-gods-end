@@ -90,7 +90,7 @@ function createLights(scene, config) {
   return { sun, hemisphere, ambient };
 }
 
-export async function createWorld(config, onProgress = () => {}, { signal, rendererRequest } = {}) {
+export async function createWorld(config, onProgress = () => {}, { signal, rendererRequest, rendererOptions } = {}) {
   const scope = new ResourceScope();
   const abort = () => scope.dispose();
   signal?.throwIfAborted();
@@ -111,7 +111,7 @@ export async function createWorld(config, onProgress = () => {}, { signal, rende
   onProgress('renderer');
   const rendererSession = await createRendererSession({
     request: rendererRequest ?? resolveRendererRequest(window.location.search, config.renderer.forceWebGL),
-    options: { antialias: true, powerPreference: 'high-performance' },
+    options: { antialias: true, powerPreference: 'high-performance', ...rendererOptions },
     signal,
   });
   scope.defer(() => rendererSession.dispose());

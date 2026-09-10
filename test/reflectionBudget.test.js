@@ -4,15 +4,43 @@ import { PerspectiveCamera, Scene, Object3D, Vector3, Color, Box3 } from 'three'
 import { ReflectionBudget } from '../src/water/ReflectionBudget.js';
 import { WaterSurface } from '../src/water/WaterSurface.js';
 
-test('moving main camera does not trigger a full reflection on every frame', () => {
-  const budget = new ReflectionBudget(), camera = new PerspectiveCamera();
-  const captures = [];
-  for (let frame = 0; frame < 60; frame++) {
-    camera.position.x = frame * 0.1;
-    if (budget.shouldRender(camera, 'ultra', frame * 1000 / 60)) captures.push(frame);
+test('planar reflections follow every moving frame, including slow movement and tiny turns', () => {
+  for (const quality of ['ultra', 'high', 'balanced']) {
+    for (const motion of ['translation', 'rotation']) {
+      const budget = new ReflectionBudget(), camera = new PerspectiveCamera();
+      for (let frame = 0; frame < 60; frame++) {
+        if (motion === 'translation') camera.position.x = frame * 0.001;
+        else camera.rotation.y = frame * 0.0001;
+        assert.equal(budget.shouldRender(camera, quality, frame * 1000 / 60), true,
+          `${quality} ${motion} frame ${frame} must sample the current view`);
+      }
+    }
   }
-  assert.ok(captures.length >= 10 && captures.length <= 13);
-  assert.equal(captures[0], 0);
+});
+
+test('parent motion and projection changes invalidate the captured view immediately', () => {
+  const budget = new ReflectionBudget(), camera = new PerspectiveCamera(), rig = new Object3D();
+  rig.add(camera);
+  assert.equal(budget.shouldRender(camera, 'high', 0), true);
+  rig.position.x += 0.01;
+  assert.equal(budget.shouldRender(camera, 'high', 1), true);
+  camera.fov = 60; camera.updateProjectionMatrix();
+  assert.equal(budget.shouldRender(camera, 'high', 2), true);
+  camera.aspect = 2; camera.updateProjectionMatrix();
+  assert.equal(budget.shouldRender(camera, 'high', 3), true);
+  assert.equal(budget.shouldRender(camera, 'high', 4), false);
+});
+
+test('stopping movement returns to the idle budget, and performance skips moving captures', () => {
+  const budget = new ReflectionBudget(), camera = new PerspectiveCamera();
+  assert.equal(budget.shouldRender(camera, 'balanced', 0), true);
+  camera.position.x = 1;
+  assert.equal(budget.shouldRender(camera, 'balanced', 16), true);
+  assert.equal(budget.shouldRender(camera, 'balanced', 32), false);
+  assert.equal(budget.shouldRender(camera, 'balanced', 265), false);
+  assert.equal(budget.shouldRender(camera, 'balanced', 266), true);
+  camera.position.x = 2;
+  assert.equal(budget.shouldRender(camera, 'performance', 267), false);
 });
 
 test('stationary reflections still animate, invalidation refreshes immediately, performance skips capture', () => {

@@ -5,6 +5,12 @@ import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { fxaa } from 'three/addons/tsl/display/FXAANode.js';
 import { GpuOcclusion } from './GpuOcclusion.js';
 import { createDepthNormals } from './DepthNormals.js';
+import {
+  accountComposite,
+  applyCpuMarks,
+  resetCpuStats,
+  wrapNodeUpdateBefore,
+} from '../debug/cinematicCpuBreakdown.js';
 
 export class CinematicPipeline {
   constructor(world, config) {
@@ -12,6 +18,8 @@ export class CinematicPipeline {
     this.settings = config.cinematic?.post;
     this.enabled = Boolean(config.cinematic?.enabled);
     this.gpuOcclusion = new GpuOcclusion(world, config.cinematic?.occlusion);
+    this.cpu = resetCpuStats({});
+    this.cpuHooksInstalled = false;
     if (!this.enabled) return;
     this.post = new RenderPipeline(world.renderer);
     this.post.outputColorTransform = false;
@@ -46,13 +54,33 @@ export class CinematicPipeline {
     this.post.needsUpdate = true;
   }
 
-  render({ occlusionEnabled = true } = {}) {
+  #installCpuHooks() {
+    if (this.cpuHooksInstalled || !this.enabled) return;
+    this.cpuHooksInstalled = true;
+    wrapNodeUpdateBefore(this.scenePass, this.cpu, 'scene');
+    wrapNodeUpdateBefore(this.aoDepth, this.cpu, 'depthResolve');
+    wrapNodeUpdateBefore(this.occlusion, this.cpu, 'gtao');
+    wrapNodeUpdateBefore(this.bloom, this.cpu, 'bloom');
+  }
+
+  render({ occlusionEnabled = true, profiler } = {}) {
+    this.#installCpuHooks();
+    resetCpuStats(this.cpu);
+    const started = performance.now();
     if (occlusionEnabled) this.gpuOcclusion.prepare();
     else this.gpuOcclusion.active.clear();
+    this.gpuOcclusion.lastPrepareMs = performance.now() - started;
+    const drawStart = performance.now();
     this.gpuOcclusion.render(() => {
       if (this.enabled) this.post.render();
-      else this.world.renderer.render(this.world.scene, this.world.camera);
+      else {
+        const sceneStart = performance.now();
+        this.world.renderer.render(this.world.scene, this.world.camera);
+        this.cpu.scene += performance.now() - sceneStart;
+      }
     });
+    accountComposite(this.cpu, performance.now() - drawStart);
+    applyCpuMarks(profiler, this.cpu);
   }
 
   dispose() {

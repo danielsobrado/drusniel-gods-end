@@ -123,6 +123,8 @@ Growth remains a CPU ecology signal for understory and meadow-detail scale. It i
 
 Plant scale and color also respond to moisture, understory and growth, so the secondary vegetation does not repeat one uniform scatter pattern over the entire world.
 
+Meadow details, imported wild grass and imported understory populate through resumable jobs (`src/foliage/vegetationRebuild.js`) with a shared 2 ms CPU budget. Current instances stay visible until a replacement buffer is published. Quality, preset, relocation and disposal cancel the active job. Terrain height, containment and ecology samples are cached independently of camera origin for the active window plus one cell of padding. Seeded candidate order is unchanged.
+
 ## GPU texture channels
 
 `ProceduralVegetationField` uploads an RGBA texture for shader compatibility and future GPU consumers:

@@ -5,7 +5,8 @@ import { assetUrl } from '../assets/assetUrl.js';
 import { logger } from '../utils/logger.js';
 import { captureObjectResources } from '../utils/ResourceScope.js';
 import { createWildGrassMaterial } from './wildGrassMaterial.js';
-import { placeWildGrassClumps, resolveWildGrassSettings } from './wildGrassPlacement.js';
+import { VegetationJob, VegetationSampleCache } from './vegetationRebuild.js';
+import { iterateWildGrassClumps, resolveWildGrassSettings } from './wildGrassPlacement.js';
 
 const ANISOTROPY = 8;
 
@@ -74,11 +75,15 @@ function bakeClump(root, worldScale = 1) {
 }
 
 export class WildGrassSystem {
-  constructor({ scene, config, terrain, grass }) {
+  constructor({ scene, config, terrain, grass, jobs = null }) {
     this.scene = scene;
     this.config = config;
     this.terrain = terrain;
     this.grass = grass;
+    this.jobs = jobs;
+    this.jobId = 'wildGrass';
+    this.populateGeneration = 0;
+    this.sampleCache = new VegetationSampleCache();
     this.presetName = config.ui?.initialPreset;
     this.qualityName = config.ui?.initialQuality;
     this.variants = [];
@@ -134,13 +139,13 @@ export class WildGrassSystem {
   setPreset(name) {
     this.presetName = name;
     this.#applySettings();
-    this.lastCell = '';
+    this.#invalidatePopulate();
   }
 
   setQuality(name) {
     this.qualityName = name;
     this.#applySettings();
-    this.lastCell = '';
+    this.#invalidatePopulate();
   }
 
   update(delta, position, environment) {
@@ -151,6 +156,7 @@ export class WildGrassSystem {
       this.windIntensity.value = Number(grass.windIntensity) || 0;
     }
     if (!settings.enabled || settings.candidatesPerCell <= 0 || settings.radius <= 0) {
+      this.jobs?.cancel(this.jobId);
       if (this.lastCell !== 'off') {
         this.#clearInstances();
         this.lastCell = 'off';
@@ -162,10 +168,12 @@ export class WildGrassSystem {
     const cell = `${Math.floor(position.x / cellSize)},${Math.floor(position.z / cellSize)}`;
     if (cell === this.lastCell) return;
     this.lastCell = cell;
-    this.#populate(position, settings);
+    this.#startPopulate(position, settings);
   }
 
   dispose() {
+    this.jobs?.cancel(this.jobId);
+    this.sampleCache.clear();
     for (const mesh of this.meshes) {
       mesh.removeFromParent();
       mesh.geometry.dispose();
@@ -245,14 +253,24 @@ export class WildGrassSystem {
         this.meshes.push(mesh);
         variant.primitives.push(mesh);
       }
+      variant.matrices = new Float32Array(capacity * 16);
+      variant.origins = new Float32Array(capacity * 3);
+      variant.stagingCount = 0;
       this.variants.push(variant);
     }
   }
 
-  #populate(origin, settings) {
-    this.#clearInstances();
+  #invalidatePopulate() {
+    this.jobs?.cancel(this.jobId);
+    this.lastCell = '';
+    this.populateGeneration += 1;
+  }
+
+  #startPopulate(origin, settings) {
+    const generation = ++this.populateGeneration;
     const waterY = (this.config.water?.position?.[1] ?? 0) - 0.1;
-    const clumps = placeWildGrassClumps({
+    this.pending = [];
+    const generate = () => iterateWildGrassClumps({
       origin,
       settings,
       variantCount: this.variants.length,
@@ -260,37 +278,108 @@ export class WildGrassSystem {
       contains: (x, z) => this.terrain.contains(x, z, 2),
       sampleHeight: (x, z) => this.terrain.sampleHeight(x, z),
       waterY,
+      cache: this.sampleCache,
     });
-    clumps.sort((a, b) => {
+    const publish = () => {
+      if (generation !== this.populateGeneration) return;
+      this.#publishStaging();
+    };
+    if (!this.jobs) {
+      for (const clump of generate()) {
+        if (clump) this.pending.push(clump);
+      }
+      Array.from(this.#finalizePopulate(origin));
+      publish();
+      return;
+    }
+    this.jobs.replace(this.jobId, new VegetationJob({
+      generate,
+      consume: (clump) => this.pending.push(clump),
+      reset: () => { this.pending = []; },
+      finalize: () => this.#finalizePopulate(origin),
+      publish,
+    }));
+  }
+
+  *#finalizePopulate(origin) {
+    this.pending.sort((a, b) => {
       const da = (a.x - origin.x) ** 2 + (a.z - origin.z) ** 2;
       const db = (b.x - origin.x) ** 2 + (b.z - origin.z) ** 2;
       return da - db;
     });
-
-    for (const clump of clumps) {
-      const variant = this.variants[clump.variant];
-      if (!variant?.primitives.length || variant.count >= variant.primitives[0].instanceMatrix.count) continue;
-      const index = variant.count++;
-      this.dummy.position.set(clump.x, clump.y, clump.z);
-      this.dummy.rotation.set(0, clump.yaw, 0);
-      this.dummy.scale.set(clump.scaleX, clump.scaleY, clump.scaleZ);
-      this.dummy.updateMatrix();
-      for (const mesh of variant.primitives) {
-        mesh.setMatrixAt(index, this.dummy.matrix);
-        mesh.geometry.attributes.clumpOrigin.setXYZ(index, clump.x, clump.y, clump.z);
-      }
+    yield undefined;
+    this.#resetStaging();
+    for (let i = 0; i < this.pending.length; i += 1) {
+      this.#stageClump(this.pending[i]);
+      if ((i & 15) === 15) yield undefined;
     }
-
+    this.pending.length = 0;
     for (const variant of this.variants) {
-      for (const mesh of variant.primitives) {
-        mesh.count = variant.count;
+      this.#prepareVariantBounds(variant);
+      yield undefined;
+    }
+  }
+
+  #resetStaging() {
+    for (const variant of this.variants) variant.stagingCount = 0;
+  }
+
+  #stageClump(clump) {
+    const variant = this.variants[clump.variant];
+    if (!variant?.primitives.length || !variant.matrices) return;
+    const capacity = variant.matrices.length / 16;
+    if (variant.stagingCount >= capacity) return;
+    const index = variant.stagingCount++;
+    this.dummy.position.set(clump.x, clump.y, clump.z);
+    this.dummy.rotation.set(0, clump.yaw, 0);
+    this.dummy.scale.set(clump.scaleX, clump.scaleY, clump.scaleZ);
+    this.dummy.updateMatrix();
+    this.dummy.matrix.toArray(variant.matrices, index * 16);
+    variant.origins[index * 3] = clump.x;
+    variant.origins[index * 3 + 1] = clump.y;
+    variant.origins[index * 3 + 2] = clump.z;
+  }
+
+  #prepareVariantBounds(variant) {
+    const padding = Math.max(variant.height, 1) * 1.4;
+    const matrix = this.boundMatrix ??= new THREE.Matrix4();
+    const local = this.boundLocal ??= new THREE.Box3();
+    variant.primitiveBounds = variant.primitives.map((mesh) => {
+      if (!mesh.geometry.boundingBox) mesh.geometry.computeBoundingBox();
+      const world = new THREE.Box3();
+      for (let i = 0; i < variant.stagingCount; i += 1) {
+        matrix.fromArray(variant.matrices, i * 16);
+        local.copy(mesh.geometry.boundingBox).applyMatrix4(matrix);
+        world.union(local);
+      }
+      if (variant.stagingCount > 0) world.expandByScalar(padding);
+      const sphere = new THREE.Sphere();
+      if (!world.isEmpty()) world.getBoundingSphere(sphere);
+      return { box: world, sphere };
+    });
+  }
+
+  #publishStaging() {
+    for (const variant of this.variants) {
+      const count = variant.stagingCount;
+      variant.count = count;
+      for (const [index, mesh] of variant.primitives.entries()) {
+        mesh.instanceMatrix.array.set(variant.matrices.subarray(0, count * 16));
         mesh.instanceMatrix.needsUpdate = true;
+        mesh.geometry.attributes.clumpOrigin.array.set(variant.origins.subarray(0, count * 3));
         mesh.geometry.attributes.clumpOrigin.needsUpdate = true;
-        mesh.computeBoundingBox();
-        const padding = Math.max(variant.height, 1) * 1.4;
-        mesh.boundingBox?.expandByScalar(padding);
-        mesh.boundingSphere ??= new THREE.Sphere();
-        mesh.boundingBox?.getBoundingSphere(mesh.boundingSphere);
+        mesh.count = count;
+        const bounds = variant.primitiveBounds?.[index];
+        if (bounds) {
+          mesh.boundingBox = bounds.box;
+          mesh.boundingSphere = bounds.sphere;
+        } else {
+          mesh.computeBoundingBox();
+          const padding = Math.max(variant.height, 1) * 1.4;
+          mesh.boundingBox?.expandByScalar(padding);
+          mesh.boundingSphere ??= new THREE.Sphere();
+          mesh.boundingBox?.getBoundingSphere(mesh.boundingSphere);
+        }
       }
     }
   }

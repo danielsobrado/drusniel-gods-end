@@ -29,6 +29,7 @@ export class GrassField {
     this.shape = resolveGrassShape(config.grass);
     this.type = grassFamily(this.shape);
     this.qualityName = config.ui.initialQuality;
+    this.shareVertices = true;
     this.tiles = [];
     this.terrainCenter = new THREE.Vector3();
     this.cameraTile = new THREE.Vector2(Number.NaN, Number.NaN);
@@ -50,7 +51,10 @@ export class GrassField {
     this.atlasTexture = null;
     this.gridSizeX = 0;
     this.gridSizeZ = 0;
-    this.stats = { visibleTiles: 0, submittedBlades: 0, proceduralCulledBlades: 0 };
+    this.stats = {
+      visibleTiles: 0, submittedBlades: 0, proceduralCulledBlades: 0,
+      compactionMs: 0, compactionTiles: 0,
+    };
   }
 
   async init(signal) {
@@ -109,6 +113,7 @@ export class GrassField {
         shape: this.shape,
         detail: lod[name].detail,
         density: lod[name].density,
+        shareVertices: this.shareVertices,
       }),
     ]));
     for (const tile of this.tiles) {
@@ -171,6 +176,14 @@ export class GrassField {
   setQuality(name) {
     if (name === this.qualityName) return;
     this.#applyQuality(name);
+  }
+
+  setShareVertices(shareVertices) {
+    const next = shareVertices !== false;
+    if (next === this.shareVertices) return;
+    this.shareVertices = next;
+    this.#rebuildGeometries();
+    this.remapEmptyTiles();
   }
 
   setGrassShape(shape) {
@@ -263,7 +276,11 @@ export class GrassField {
     this.camera.updateMatrixWorld();
     this.projectionView.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
     this.frustum.setFromProjectionMatrix(this.projectionView, this.camera.coordinateSystem);
-    Object.assign(this.stats, { visibleTiles: 0, submittedBlades: 0, proceduralCulledBlades: 0 });
+    Object.assign(this.stats, {
+      visibleTiles: 0, submittedBlades: 0, proceduralCulledBlades: 0,
+      compactionMs: 0, compactionTiles: 0,
+      shareVertices: this.shareVertices,
+    });
     this.materialController.setFrame(elapsedSeconds, this.camera.position);
     this.materialController.setViewProjection(this.projectionView);
 
@@ -303,7 +320,11 @@ export class GrassField {
       if (!tile.mesh.visible) continue;
 
       const lodName = selectGrassLod(distanceSquared, maxDistance, quality.lod);
-      tile.setGeometry(this.geometries[lodName], lodName, this.containsGrass);
+      const compacted = tile.setGeometry(this.geometries[lodName], lodName, this.containsGrass);
+      if (compacted) {
+        this.stats.compactionMs += tile.lastCompactionMs;
+        this.stats.compactionTiles += 1;
+      }
       if (tile.mesh.geometry.instanceCount === 0) tile.setVisible(false);
       else this.stats.visibleTiles++;
       this.stats.submittedBlades += tile.mesh.geometry.instanceCount;

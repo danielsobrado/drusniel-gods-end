@@ -44,6 +44,13 @@ test('forceWebGL option cannot be overwritten by caller options', async () => {
   session.dispose();
 });
 
+test('timestamp tracking is forwarded to the renderer constructor', async () => {
+  const f = fixture();
+  const session = await createRendererSession({ ...f, options: { trackTimestamp: true } });
+  assert.equal(f.calls[0].trackTimestamp, true);
+  session.dispose();
+});
+
 test('failed init preserves original error and releases candidate', async () => {
   const error = new Error('adapter failed');
   const f = fixture('webgpu', async () => { throw error; });

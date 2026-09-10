@@ -2,7 +2,7 @@
 
 The default runtime uses the **cinematic wind model**. It deliberately improves on the recovered reference wind by replacing the visible far-field sine/cosine bands with an advected, multi-scale wind field and by giving each vegetation class a different physical response.
 
-The exact recovered implementation is still preserved in `src/grass/RecoveredGrassMaterial.js`. Set `wind.model: recovered` to compare against the recovered source behavior.
+The exact recovered implementation is still preserved in `src/grass/RecoveredGrassMaterial.js` and is generated only when `wind.model` is not `cinematic`. Cinematic grass no longer evaluates recovered wind at intensity zero. Set `wind.model: recovered` to compare against the recovered source behavior.
 
 ## Source files
 
@@ -180,7 +180,7 @@ This produces local variation without letting the field lose the global wind dir
 
 ## Grass response
 
-`src/grass/GrassMaterial.js` wraps the recovered material. In cinematic mode it sets the recovered dynamic wind intensity to zero, retaining the recovered terrain placement, mask, interaction, static base bend, coloring and LOD behavior. It then applies cinematic wind to the recovered vertex position.
+`src/grass/GrassMaterial.js` constructs `RecoveredGrassMaterial` with feature flags. Cinematic wind omits the recovered wind graph instead of evaluating it at intensity zero. Cinematic height omits recovered per-blade height hashes because the cinematic height patch overwrites them. Terrain height, visibility and LOD coverage share one sample; stems that are already hidden skip further deformation. Cached terrain normals replace four height taps when that texture exists. Recovered placement, mask, interaction, static base bend, coloring and LOD behavior remain.
 
 The stem response is angular:
 
@@ -264,9 +264,7 @@ The live wind-strength and simulation-speed controls continue to work through th
 
 ## Performance
 
-The cinematic grass path currently wraps the recovered shader and disables its old dynamic wind contribution rather than deleting the recovered calculations. This keeps `wind.model: recovered` available without duplicating the full recovered material implementation. Tree and rain wind remain GPU-side; falling leaves use one CPU wind-field sample per frame.
-
-If profiling later shows the disabled recovered wind arithmetic to be material, the next optimization should split shared terrain/mask/interaction placement from the two wind-response implementations. That optimization must not change the cinematic field or recovered fallback output.
+Cinematic and recovered wind remain two construction paths of the same recovered material, selected by `wind.model`. Tree and rain wind remain GPU-side; falling leaves use one CPU wind-field sample per frame. See [Performance](performance.md) for shader specialization, vegetation jobs and opt-in profiling.
 
 ## Regression requirements
 

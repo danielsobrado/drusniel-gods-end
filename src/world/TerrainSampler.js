@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { rasterizeTerrain } from './rasterizeTerrain.js';
+import { createTerrainNormalDataTexture } from '../grass/terrainNormals.js';
 
 const DOWN = new THREE.Vector3(0, -1, 0);
 const MISS_HEIGHT = Number.NEGATIVE_INFINITY;
@@ -20,6 +21,7 @@ export class TerrainSampler {
     this.heights = new Float32Array(this.resolution * this.resolution);
     this.heights.fill(MISS_HEIGHT);
     this.texture = null;
+    this.normalTexture = null;
     this.ready = false;
   }
 
@@ -121,6 +123,10 @@ export class TerrainSampler {
     this.texture.wrapS = THREE.ClampToEdgeWrapping;
     this.texture.wrapT = THREE.ClampToEdgeWrapping;
     this.texture.needsUpdate = true;
+    this.normalTexture?.dispose();
+    this.normalTexture = this.config.cinematic?.enabled
+      ? createTerrainNormalDataTexture(this.heights, this.resolution, this.size)
+      : null;
   }
 
   sampleHeight(x, z) {
@@ -196,6 +202,7 @@ export class TerrainSampler {
   getShaderData() {
     return {
       texture: this.texture,
+      normalTexture: this.normalTexture ?? null,
       boundsMin: this.bounds.min,
       boundsSize: this.size,
       minHeight: this.bounds.min.y,

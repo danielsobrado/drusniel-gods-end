@@ -2,9 +2,19 @@
 
 The expanded map exposed excessive reflection rendering: lake/sea planar captures ran every frame and the stationary inland cubemap rendered six views every 0.75 seconds. Isolating the planar captures removed most of the steady frame cost; removing periodic cubemap captures reduced spikes. Disabling water geometry or bank rocks separately made little further difference in the measured river view.
 
-`ReflectionBudget` refreshes moving-camera reflections at most every 80 / 100 / 160 ms for Ultra / High / Balanced. Stationary views refresh every 250 ms so reflected foliage can still animate. Performance skips planar captures. Quality and weather changes invalidate the budget. The enhanced fixed cubemap captures initially and on environment invalidation; the legacy lake path retains its existing cadence. Main-view resolution, geometry, water animation and quality remain unchanged. Reflection motion is less frequent than main-view motion.
+`ReflectionBudget` refreshes planar reflections on every camera world-transform or projection change for Ultra, High and Balanced. The water shader samples these textures in current screen coordinates, so throttling a moving view leaves reflections attached to an old view until they jump on refresh. Exact matrix comparisons also catch slow motion, tiny turns, parent-rig movement, zoom and aspect changes. Stationary views refresh every 250 ms so reflected foliage can still animate. Performance skips planar captures. Quality and weather changes invalidate the budget. The enhanced fixed cubemap captures initially and on environment invalidation; the legacy lake path retains its existing cadence. Existing reflection resolution scales and scene exclusions still apply.
 
-## Reproduce the comparison
+Capture counts for cube, lake planar and sea planar refreshes live on `water.stats`. Opt-in `?profile=1` includes those counts in `getProfileResults()`.
+
+## Camera-motion regression
+
+Open `/scripts/gpu/reflection-motion-check.html` (append `?renderer=webgl` for the fallback backend). It renders the production water material with frozen waves and static markers, then compares translated, rotated, slowly moving and zooming cameras against an unthrottled reference. Results are also available through `window.__reflectionMotionCheck`. Each moving frame must match the reference within one color value and produce a fresh capture. Node tests cover idle cadence, Performance, parent transforms, projection changes and fixed-probe invalidation.
+
+Before this correction, the GPU check captured only one or two of eight frames per sequence. At 128 × 128, it found 4,179 differing pixels during translation and 5,331 during rotation. A full-scene WebGPU lake check also measured reflection misalignment of up to 1.28 pixels and gaps of five frames during gentle motion. Refreshing each moving frame removed that misalignment. Moving views now perform more planar captures; the original moving-view savings below are historical and do not describe the corrected policy.
+
+After the correction, all five GPU sequences matched the fresh reference exactly on both WebGPU and WebGL, with eight captures in eight frames. The full lake scene also captured all 90 measured moving frames with alignment error below `1e-10` pixels and no render errors.
+
+## Original performance comparison
 
 With the development scene loaded, run this in browser developer tools:
 

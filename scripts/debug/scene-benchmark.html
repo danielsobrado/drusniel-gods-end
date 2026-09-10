@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Scene performance benchmark</title>
+<style>
+body { margin: 0; background: #15171a; color: #eee; font: 13px system-ui; }
+nav { padding: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+button, select { padding: 5px; }
+iframe { display: block; width: 100%; height: calc(100vh - 140px); border: 0; }
+output { display: block; padding: 8px; white-space: pre-wrap; max-height: 28vh; overflow: auto; }
+</style>
+<nav>
+  <button id="full">Full protocol (5s + 30s × 3)</button>
+  <button id="topology">Topology A/B (hitch + shared/duplicated/shared)</button>
+  <button id="quick">Quick (1s + 3s × 1)</button>
+  <select aria-label="Renderer"><option value="auto">auto</option><option value="webgpu">webgpu</option><option value="webgl">webgl</option></select>
+  <span>Requires ?profile=1 on the scene. Enter the world first.</span>
+</nav>
+<iframe title="World under test" allow="autoplay; fullscreen"></iframe>
+<output>Load the scene, press Start, then run a benchmark. JSON is also at window.__grassDemo.getProfileResults() and lastBenchmark.</output>
+<script type="module">
+const frame = document.querySelector('iframe');
+const output = document.querySelector('output');
+const backend = new URLSearchParams(location.search).get('renderer')
+  ?? document.querySelector('[aria-label="Renderer"]').value;
+frame.src = `/?profile=1&renderer=${backend}&character=drusniel`;
+document.querySelector('[aria-label="Renderer"]').onchange = (event) => {
+  frame.src = `/?profile=1&renderer=${event.target.value}&character=drusniel`;
+};
+async function run({ warmupSeconds, measureSeconds, repetitions }) {
+  const demo = frame.contentWindow.__grassDemo;
+  if (!demo?.started) throw new Error('Enter the scene and wait for loading to finish.');
+  output.textContent = `Running ${repetitions} repetition(s), ${warmupSeconds}s warm-up + ${measureSeconds}s measure…`;
+  const module = await frame.contentWindow.eval("import('/scripts/debug/scene-benchmark.js')");
+  const result = await module.runSceneBenchmark({ demo, warmupSeconds, measureSeconds, repetitions });
+  output.textContent = JSON.stringify(result, null, 2);
+  window.__sceneBenchmark = result;
+}
+document.querySelector('#full').onclick = () => run({ warmupSeconds: 5, measureSeconds: 30, repetitions: 3 }).catch((error) => {
+  output.textContent = error.stack;
+});
+document.querySelector('#topology').onclick = async () => {
+  const demo = frame.contentWindow.__grassDemo;
+  if (!demo?.started) {
+    output.textContent = 'Enter the scene and wait for loading to finish.';
+    return;
+  }
+  output.textContent = 'Recording forest hitch, then shared / duplicated / shared 5s + 30s × 3…';
+  try {
+    const module = await frame.contentWindow.eval("import('/scripts/debug/scene-benchmark.js')");
+    const result = await module.runTopologyComparison({
+      demo,
+      onProgress: (status) => {
+        output.textContent = JSON.stringify(status, null, 2);
+      },
+    });
+    output.textContent = JSON.stringify(result, null, 2);
+    window.__topologyComparison = result;
+  } catch (error) {
+    output.textContent = error.stack;
+  }
+};
+document.querySelector('#quick').onclick = () => run({ warmupSeconds: 1, measureSeconds: 3, repetitions: 1 }).catch((error) => {
+  output.textContent = error.stack;
+});
+</script>
+</html>

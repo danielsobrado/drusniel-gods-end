@@ -91,9 +91,10 @@ BirdSystem
 
 loading stage: grass
 GrassField
-Grass Painter attachment
+MeadowDetails / WildGrassSystem / UnderstorySystem (resumable populate jobs)
 
 WaterSurface
+BoundaryBarrier
 RainSystem
 
 loading stage: audio
@@ -165,8 +166,8 @@ elapsedSeconds = clock.elapsedTime
 The current executable order is:
 
 ```text
-1.  environment.update(deltaSeconds)
-2.  player.update(deltaSeconds)
+1.  player.update(deltaSeconds)
+2.  tour.update(deltaSeconds)
 3.  terrainAnimations.update(deltaSeconds)
 4.  leaves.update(deltaSeconds)
 5.  clouds.update(deltaSeconds)
@@ -176,13 +177,20 @@ The current executable order is:
 9.  detect player surface
 10. audio.update(deltaSeconds)
 11. collisions.update()
-12. grass.update(deltaSeconds, elapsedSeconds, playerPosition, influencePoints)
-13. environment.updateSunTarget(playerPosition)
-14. renderer.render(scene, camera)
-15. ui.update(deltaSeconds)
+12. grass.update(...)
+13. environment.updateSunTarget(focus)
+14. cinematicLighting.update()
+15. meadow / wildGrass / understory.update (queue rebuilds)
+16. vegetationJobs.tick()            // shared 2 ms budget
+17. boundaryBarrier.update(...)
+18. water.update(...)
+19. pipeline.render()                // occlusion prepare + beauty/post
+20. ui.update(deltaSeconds)
 ```
 
-The environment controller is a clean-room interpolation adapter for behavior that the recovered application delegated to GSAP; its explicit frame position is therefore repository behavior rather than a claim about original source structure.
+With `?profile=1`, those steps are timed into JSON on `window.__grassDemo.getProfileResults()`.
+
+The environment controller is a clean-room interpolation adapter for behavior that the recovered application delegated to GSAP; it applies on preset/quality changes rather than every frame.
 
 ## Surface detection
 

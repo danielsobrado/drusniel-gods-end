@@ -368,6 +368,9 @@ export class WaterSurface {
     this.rippleElapsed = 0;
     this.rippleIndex = 0;
     this.lastRipple = new THREE.Vector3(1e9, 1e9, 1e9);
+    this.stats = { cubeCaptures: 0, lakePlanarCaptures: 0, seaPlanarCaptures: 0 };
+    this.lastCubeCaptureMs = 0;
+    this.lastPlanarCaptureMs = 0;
     this.nearest = new THREE.Vector3();
     this.quality = config.ui.initialQuality;
     this.geometry = this.enhanced ? createWaterGeometry(this.params, this.river) : new THREE.PlaneGeometry(
@@ -403,7 +406,12 @@ export class WaterSurface {
           if (object.visible && object.userData.excludeFromReflection) { hidden.push(object); object.visible = false; }
           if (object.isLight && object.shadow) { shadows.push([object.shadow, object.shadow.autoUpdate]); object.shadow.autoUpdate = false; }
         });
-        try { update(frame); } finally {
+        try {
+          const started = performance.now();
+          update(frame);
+          this.lastPlanarCaptureMs = (this.lastPlanarCaptureMs ?? 0) + (performance.now() - started);
+          this.stats.lakePlanarCaptures += 1;
+        } finally {
           for (const object of hidden) object.visible = true;
           for (const [shadow, autoUpdate] of shadows) shadow.autoUpdate = autoUpdate;
         }
@@ -424,7 +432,12 @@ export class WaterSurface {
             if (object.visible && object.userData.excludeFromReflection) { hidden.push(object); object.visible = false; }
             if (object.isLight && object.shadow) { shadows.push([object.shadow, object.shadow.autoUpdate]); object.shadow.autoUpdate = false; }
           });
-          try { updateSea(frame); } finally {
+          try {
+            const started = performance.now();
+            updateSea(frame);
+            this.lastPlanarCaptureMs = (this.lastPlanarCaptureMs ?? 0) + (performance.now() - started);
+            this.stats.seaPlanarCaptures += 1;
+          } finally {
             for (const object of hidden) object.visible = true;
             for (const [shadow, autoUpdate] of shadows) shadow.autoUpdate = autoUpdate;
           }
@@ -513,8 +526,13 @@ export class WaterSurface {
     });
     this.mesh.visible = false;
     this.scene.add(camera);
-    try { camera.update(this.renderer, this.scene); this.reflectionInitialized = true; }
-    finally {
+    try {
+      const started = performance.now();
+      camera.update(this.renderer, this.scene);
+      this.lastCubeCaptureMs = performance.now() - started;
+      this.reflectionInitialized = true;
+      (this.stats ??= { cubeCaptures: 0, lakePlanarCaptures: 0, seaPlanarCaptures: 0 }).cubeCaptures += 1;
+    } finally {
       this.mesh.visible = visible;
       for (const object of hidden) object.visible = true;
       for (const [shadow, autoUpdate] of shadows) shadow.autoUpdate = autoUpdate;

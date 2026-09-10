@@ -31,14 +31,19 @@ export class GrassTile {
 
   setGeometry(source, lodName, containsGrass) {
     let geometry = source;
+    let compacted = false;
     if (this.cinematic && containsGrass) {
       if (!this.cache.has(source)) {
+        const started = performance.now();
         this.cache.set(source, compactGrassGeometry(source, this.mesh.position.x, this.mesh.position.z, containsGrass));
+        this.lastCompactionMs = performance.now() - started;
+        compacted = true;
       }
       geometry = this.cache.get(source);
     }
     this.mesh.geometry = geometry;
     this.mesh.userData.currentLOD = lodName;
+    return compacted;
   }
 
   setVisible(visible) {

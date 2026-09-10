@@ -276,12 +276,16 @@ It forwards:
 
 ```text
 type
+shape
 detail
 density
+shareVertices
 config.grass.tileSize
 ```
 
 into `createGrassGeometry()`.
+
+`GrassField.setShareVertices()` rebuilds those templates in place so a same-session A/B can switch the duplicated recovered strip without changing density. Production keeps `shareVertices: true`.
 
 The same generator is used for all quality profiles and both grass modes.
 
@@ -352,10 +356,12 @@ For each segment except the last, geometry adds a quad-like two-triangle section
 
 The final segment terminates in one triangle at zero tip width.
 
+Segment boundaries are stored once and shared through the index buffer. An unwelded strip would store `4S - 1` vertices because each interior ring was emitted twice.
+
 For `segments = S`:
 
 ```text
-unique stored vertices in generated template = 4S - 1
+stored vertices in generated template = 2S + 1
 triangles per blade template = 2S - 1
 ```
 
@@ -363,13 +369,13 @@ Examples:
 
 ```text
 detail 1 -> 3 vertices, 1 triangle
-detail 2 -> 7 vertices, 3 triangles
-detail 3 -> 11 vertices, 5 triangles
-detail 4 -> 15 vertices, 7 triangles
-detail 5 -> 19 vertices, 9 triangles
+detail 2 -> 5 vertices, 3 triangles
+detail 3 -> 7 vertices, 5 triangles
+detail 4 -> 9 vertices, 7 triangles
+detail 5 -> 11 vertices, 9 triangles
 ```
 
-Higher detail provides more vertices for smooth wind/base/interactions bends.
+Higher detail still provides more vertices for smooth wind/base/interactions bends. Sharing does not change triangle count or silhouette.
 
 ---
 
@@ -931,7 +937,9 @@ where:
 heightRange = max(0.0001, maxHeight - minHeight)
 ```
 
-The grass therefore uses the 8-bit GPU height texture, not CPU raycasts per blade.
+The grass therefore uses the GPU height texture, not CPU raycasts per blade. Recovered fallback sampling uses the 8-bit `TerrainSampler` texture; cinematic grass uses the half-float height target from `createGrassTerrainData()`.
+
+Cinematic construction specializes this graph: recovered wind and overwritten height hashes are omitted, terrain/visibility samples are shared, hidden stems skip extra deformation, and slope lighting may sample a cached terrain-normal texture. See [Performance](performance.md) and [Wind system](wind-system.md).
 
 ---
 
@@ -1338,19 +1346,7 @@ Every app frame:
 
 ## 57. App-level update placement
 
-Current `GrassDemo` performs:
-
-```text
-player.update
-surface detection
-grass.update
-trees.update
-...
-environment.update
-render
-```
-
-The grass update receives current player/influence positions before the environment controller applies that frame's newest interpolated grass preset values, but those uniforms are updated before render.
+Current `GrassDemo` order is documented in [Runtime lifecycle](runtime-lifecycle.md). Grass updates after collisions and before meadow/wild-grass/understory jobs. The environment controller applies interpolated grass preset values on preset/quality changes, not every frame; those uniforms are already current before render.
 
 ---
 
@@ -1367,6 +1363,8 @@ visible tile.geometry.userData.instanceCount
 It counts instances for visible tile LODs.
 
 It does not inspect mask strength per instance, so GPU-hidden blades pushed below terrain are still counted if their tile is visible.
+
+Cinematic tiles also record `grass.stats.compactionMs` and `compactionTiles` when a recycled tile first compacts mask-hidden stems into a LOD geometry. Use those counters to separate compaction cost from vegetation rebuild jobs.
 
 ---
 

@@ -44,7 +44,7 @@ function gradientNoise2d(x, y) {
   ) + 0.5;
 }
 
-function createBladeTemplate(detail, profile) {
+function createDuplicatedBladeTemplate(detail, profile) {
   const segments = Math.max(1, Math.round(detail));
   const positions = [];
   const uvs = [];
@@ -79,6 +79,42 @@ function createBladeTemplate(detail, profile) {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function createBladeTemplate(detail, profile, shareVertices = true) {
+  if (!shareVertices) return createDuplicatedBladeTemplate(detail, profile);
+  const segments = Math.max(1, Math.round(detail));
+  const positions = [];
+  const uvs = [];
+  const bladeSides = [];
+  const indices = [];
+  const scale = profile.widthScale * 0.5;
+
+  for (let ring = 0; ring < segments; ring += 1) {
+    const ratio = ring / segments;
+    const halfWidth = profile.width(ratio) * scale;
+    positions.push(-halfWidth, ratio, 0, halfWidth, ratio, 0);
+    uvs.push(0, ratio, 1, ratio);
+    bladeSides.push(-1, 1);
+  }
+  positions.push(0, 1, 0);
+  uvs.push(0, 1);
+  bladeSides.push(-1);
+
+  for (let segment = 0; segment < segments - 1; segment += 1) {
+    const vertex = segment * 2;
+    indices.push(vertex, vertex + 1, vertex + 2, vertex + 1, vertex + 3, vertex + 2);
+  }
+  const last = (segments - 1) * 2;
+  indices.push(last, last + 1, last + 2);
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setAttribute('bladeSide', new THREE.Float32BufferAttribute(bladeSides, 1));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
   return geometry;
@@ -157,10 +193,11 @@ export function createGrassGeometry({
   tileSize,
   bladeHeight,
   stable = false,
+  shareVertices = true,
 }) {
   const baseGeometry = type === 'billboard'
     ? createBillboardTemplate(detail)
-    : createBladeTemplate(detail, grassShapeProfile(shape));
+    : createBladeTemplate(detail, grassShapeProfile(shape), shareVertices);
   const buffers = createInstanceBuffers(type, density, tileSize, stable);
   const geometry = new THREE.InstancedBufferGeometry();
 
@@ -182,11 +219,15 @@ export function createGrassGeometry({
     new THREE.StorageInstancedBufferAttribute(buffers.data, 4),
   );
 
-  const sideValues = new Float32Array(baseGeometry.getAttribute('position').count);
-  for (let index = 0; index < sideValues.length; index += 1) {
-    sideValues[index] = index % 2 === 0 ? -1 : 1;
+  if (baseGeometry.attributes.bladeSide) {
+    geometry.attributes.bladeSide = baseGeometry.attributes.bladeSide;
+  } else {
+    const sideValues = new Float32Array(baseGeometry.getAttribute('position').count);
+    for (let index = 0; index < sideValues.length; index += 1) {
+      sideValues[index] = index % 2 === 0 ? -1 : 1;
+    }
+    geometry.setAttribute('bladeSide', new THREE.Float32BufferAttribute(sideValues, 1));
   }
-  geometry.setAttribute('bladeSide', new THREE.Float32BufferAttribute(sideValues, 1));
 
   const height = Number(bladeHeight ?? 1.5);
   const halfSize = tileSize * 0.5;
@@ -199,7 +240,7 @@ export function createGrassGeometry({
     Math.sqrt(tileSize * tileSize * 2) * 0.5 + height,
   );
   geometry.userData.instanceCount = buffers.count;
-  geometry.userData.lod = { type, shape, detail, density };
+  geometry.userData.lod = { type, shape, detail, density, shareVertices };
   baseGeometry.dispose();
   return geometry;
 }

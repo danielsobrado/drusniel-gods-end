@@ -86,7 +86,7 @@ Non-final segment vertices:
 ( nextHalfWidth, nextRatio, 0)
 ```
 
-The final segment is a triangle. Vertex normals are generated with `computeVertexNormals()`.
+The recovered generator stored the next-ring pair again on the following segment (`4N - 1` vertices at detail `N`). The current template indexes the same positions once (`2N + 1` vertices). Triangle count, winding and silhouette are unchanged. The final segment is a triangle. Vertex normals are generated with `computeVertexNormals()`.
 
 Instance grid:
 

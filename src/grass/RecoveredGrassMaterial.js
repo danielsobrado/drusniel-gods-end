@@ -66,10 +66,22 @@ const gradientNoise2d = Fn(([point]) => {
 });
 
 export class GrassMaterial {
-  constructor(config, terrainSampler, grassMask, interactionMap, type = config.grass.type, atlasTexture = null) {
+  constructor(config, terrainSampler, grassMask, interactionMap, type = config.grass.type, atlasTexture = null, options = {}) {
     this.config = config;
     this.type = type;
     this.painterEnabled = Boolean(config.painter.enabled);
+    this.shaderOptions = options;
+    this.deformVisible = options.deformVisible ?? null;
+    this.lodCoverage = options.lodCoverage ?? null;
+    this.shaderFeatures = {
+      recoveredWind: options.includeRecoveredWind !== false,
+      recoveredHeightVariation: options.includeRecoveredHeightVariation !== false,
+      cinematicHeight: Boolean(options.includeCinematicHeight),
+      cinematicWind: Boolean(options.deformVisible),
+      sharedTerrainSample: true,
+      skipDeformWhenInvisible: true,
+      cachedTerrainNormals: Boolean(options.useCachedTerrainNormals && terrainSampler.getShaderData().normalTexture),
+    };
     const terrain = terrainSampler.getShaderData();
     const interaction = interactionMap.getShaderData();
     const grass = config.grass[type];
@@ -108,10 +120,11 @@ export class GrassMaterial {
       grassMask.vegetationTexture,
       interaction.texture,
       atlasTexture,
+      terrain.normalTexture,
     );
   }
 
-  #createMaterial(heightTexture, maskTexture, interactionTexture, atlasTexture) {
+  #createMaterial(heightTexture, maskTexture, interactionTexture, atlasTexture, normalTexture) {
     const instancePosition = attribute('instancePosition', 'vec3');
     const instanceRotation = attribute('instanceRotation', 'vec2');
     const instanceData = attribute('instanceData', 'vec4');
@@ -141,6 +154,9 @@ export class GrassMaterial {
     const terrainNormal = style ? Fn(() => {
       const root = modelWorldMatrix.mul(vec4(instancePosition, 1)).xyz;
       const uv = root.xz.sub(this.uniforms.terrainMin.xz).div(this.uniforms.terrainSize.xz);
+      if (this.shaderFeatures.cachedTerrainNormals && normalTexture) {
+        return texture(normalTexture, uv.clamp(0, 1)).xyz.mul(2).sub(1).normalize();
+      }
       const step = 0.8;
       const dx = vec2(step, 0).div(this.uniforms.terrainSize.xz);
       const dz = vec2(0, step).div(this.uniforms.terrainSize.xz);
@@ -349,165 +365,186 @@ export class GrassMaterial {
       const baseWorld = modelWorldMatrix.mul(vec4(instancePosition, 1)).xyz;
       const terrain = this.#sampleTerrain(heightTexture, baseWorld);
       const visibility = this.#createVisibility(baseWorld, terrain.height);
+      const coverage = this.lodCoverage
+        ? this.lodCoverage({ visibility, instanceData, baseWorld, terrain })
+        : float(1);
+      const hidden = visibility.visible.not().or(coverage.lessThanEqual(0));
 
-      If(visibility.visible.not(), () => {
+      If(hidden, () => {
         local.assign(vec3(1e9));
       });
 
-      If(visibility.visible, () => {
+      If(visibility.visible.and(coverage.greaterThan(0)), () => {
         const grassStrength = this.#vegetationStrength(maskTexture, terrain.terrainUv);
-        this.#sampleInteractionBlade(interactionTexture, baseWorld, local, grassStrength);
-
-        local.x.mulAssign(uniforms.bladeWidth.mul(sqrt(grassStrength)));
-        if (this.config.cinematic?.enabled && this.config.cinematic.style?.enabled) {
-          const style = this.config.cinematic.style;
-          const taper = mix(1, 0.62, bladeUv.y);
-          local.x.mulAssign(taper.mul(style.bladeWidthScale ?? 0.82).mul(mix(0.88, 1.12, instanceData.w)));
-          local.z.addAssign(bladeUv.y.pow(2).mul(this.uniforms.bladeHeight)
-            .mul(style.bladeCurve ?? 0.045).mul(mix(0.7, 1.3, instanceData.w)));
-        }
-        local.y.mulAssign(uniforms.bladeHeight);
-        this.#rotateInstance(local, instanceRotation);
-        local.x.addAssign(instancePosition.x);
-        local.z.addAssign(instancePosition.z);
-        local.y.addAssign(terrain.height);
-
-        const detailHeight = float(1).toVar();
-        const useDetail = this.painterEnabled
-          ? float(1).greaterThan(0)
-          : visibility.distance.lessThanEqual(uniforms.maxDistance.mul(0.5));
-        If(useDetail, () => {
-          const hashA = fract(
-            sin(dot(baseWorld.xz.mul(0.15), vec2(0.9898, 0.2330))).mul(HASH_SCALE),
-          );
-          const hashB = fract(
-            sin(dot(baseWorld.xz, vec2(0.3468, 0.1357))).mul(24634.6345),
-          );
-          const detailNoise = pow(hashA.mul(0.7).add(hashB.mul(0.3)), 0.6);
-          detailHeight.assign(mix(0.1, 0.5, detailNoise));
-        });
-
-        const heightFromTerrain = local.y.sub(terrain.height);
-        if (this.config.cinematic?.enabled) {
-          const patch = gradientNoise2d(baseWorld.xz.mul(0.065)).clamp(0, 1);
-          const style = this.config.cinematic.style ?? {};
-          detailHeight.assign(mix(
-            style.bladeHeightScaleMin ?? 0.88,
-            style.bladeHeightScaleMax ?? 1.22,
-            patch,
-          ));
-        }
-        local.y.assign(
-          terrain.height.add(heightFromTerrain.mul(detailHeight).mul(grassStrength)),
-        );
-
         If(grassStrength.lessThanEqual(0), () => {
           local.assign(vec3(1e9));
         });
+        If(grassStrength.greaterThan(0), () => {
+          this.#sampleInteractionBlade(interactionTexture, baseWorld, local, grassStrength);
 
-        const heightRatio = bladeUv.y.clamp(0, 1);
-        const randomDirectionX = cos(instanceData.z);
-        const randomDirectionZ = sin(instanceData.z);
-        const windDirectionX = float(0).toVar();
-        const windDirectionZ = float(0).toVar();
-        const windAngle = float(0).toVar();
-        const useDetailedWind = this.painterEnabled
-          ? float(1).greaterThan(0)
-          : visibility.distance.lessThanEqual(uniforms.maxDistance.mul(0.7));
+          local.x.mulAssign(uniforms.bladeWidth.mul(sqrt(grassStrength)));
+          if (this.config.cinematic?.enabled && this.config.cinematic.style?.enabled) {
+            const style = this.config.cinematic.style;
+            const taper = mix(1, 0.62, bladeUv.y);
+            local.x.mulAssign(taper.mul(style.bladeWidthScale ?? 0.82).mul(mix(0.88, 1.12, instanceData.w)));
+            local.z.addAssign(bladeUv.y.pow(2).mul(this.uniforms.bladeHeight)
+              .mul(style.bladeCurve ?? 0.045).mul(mix(0.7, 1.3, instanceData.w)));
+          }
+          local.y.mulAssign(uniforms.bladeHeight);
+          this.#rotateInstance(local, instanceRotation);
+          local.x.addAssign(instancePosition.x);
+          local.z.addAssign(instancePosition.z);
+          local.y.addAssign(terrain.height);
 
-        If(useDetailedWind, () => {
-          const clock = uniforms.time.mul(uniforms.simulationSpeed);
-          const point = baseWorld.xz
-            .mul(uniforms.windNoiseScale)
-            .add(vec2(clock, clock));
-          const noiseX = gradientNoise2d(point).sub(0.5).mul(2);
-          const noiseZ = gradientNoise2d(point.add(vec2(0.7, 0.3))).sub(0.5).mul(2);
-          const direction = uniforms.windDirection.mul(DEG_TO_RAD);
-          const directionCos = cos(direction);
-          const directionSin = sin(direction);
-          const rotatedX = noiseX.mul(directionCos).sub(noiseZ.mul(directionSin));
-          const rotatedZ = noiseX.mul(directionSin).add(noiseZ.mul(directionCos));
-          const magnitude = sqrt(rotatedX.mul(rotatedX).add(rotatedZ.mul(rotatedZ)));
-          let normalizedX = rotatedX.div(max(magnitude, WIND_EPSILON));
-          let normalizedZ = rotatedZ.div(max(magnitude, WIND_EPSILON));
-          const normalizedLength = sqrt(
-            normalizedX.mul(normalizedX).add(normalizedZ.mul(normalizedZ)),
+          const detailHeight = float(1).toVar();
+          if (this.shaderFeatures.recoveredHeightVariation) {
+            const useDetail = this.painterEnabled
+              ? float(1).greaterThan(0)
+              : visibility.distance.lessThanEqual(uniforms.maxDistance.mul(0.5));
+            If(useDetail, () => {
+              const hashA = fract(
+                sin(dot(baseWorld.xz.mul(0.15), vec2(0.9898, 0.2330))).mul(HASH_SCALE),
+              );
+              const hashB = fract(
+                sin(dot(baseWorld.xz, vec2(0.3468, 0.1357))).mul(24634.6345),
+              );
+              const detailNoise = pow(hashA.mul(0.7).add(hashB.mul(0.3)), 0.6);
+              detailHeight.assign(mix(0.1, 0.5, detailNoise));
+            });
+          }
+          const heightFromTerrain = local.y.sub(terrain.height);
+          if (this.shaderFeatures.cinematicHeight) {
+            const patch = gradientNoise2d(baseWorld.xz.mul(0.065)).clamp(0, 1);
+            const style = this.config.cinematic.style ?? {};
+            detailHeight.assign(mix(
+              style.bladeHeightScaleMin ?? 0.88,
+              style.bladeHeightScaleMax ?? 1.22,
+              patch,
+            ));
+          }
+          local.y.assign(
+            terrain.height.add(heightFromTerrain.mul(detailHeight).mul(grassStrength)),
           );
-          const safeLength = max(normalizedLength, WIND_EPSILON);
-          normalizedX = normalizedX.div(safeLength);
-          normalizedZ = normalizedZ.div(safeLength);
-          windDirectionX.assign(normalizedX);
-          windDirectionZ.assign(normalizedZ);
-          windAngle.assign(
-            magnitude
-              .mul(0.3)
-              .mul(uniforms.windIntensity)
-              .mul(grassStrength)
-              .mul(HALF_PI),
+
+          const heightRatio = bladeUv.y.clamp(0, 1);
+          const randomDirectionX = cos(instanceData.z);
+          const randomDirectionZ = sin(instanceData.z);
+          const windDirectionX = float(0).toVar();
+          const windDirectionZ = float(0).toVar();
+          const windAngle = float(0).toVar();
+
+          if (this.shaderFeatures.recoveredWind) {
+            const useDetailedWind = this.painterEnabled
+              ? float(1).greaterThan(0)
+              : visibility.distance.lessThanEqual(uniforms.maxDistance.mul(0.7));
+
+            If(useDetailedWind, () => {
+              const clock = uniforms.time.mul(uniforms.simulationSpeed);
+              const point = baseWorld.xz
+                .mul(uniforms.windNoiseScale)
+                .add(vec2(clock, clock));
+              const noiseX = gradientNoise2d(point).sub(0.5).mul(2);
+              const noiseZ = gradientNoise2d(point.add(vec2(0.7, 0.3))).sub(0.5).mul(2);
+              const direction = uniforms.windDirection.mul(DEG_TO_RAD);
+              const directionCos = cos(direction);
+              const directionSin = sin(direction);
+              const rotatedX = noiseX.mul(directionCos).sub(noiseZ.mul(directionSin));
+              const rotatedZ = noiseX.mul(directionSin).add(noiseZ.mul(directionCos));
+              const magnitude = sqrt(rotatedX.mul(rotatedX).add(rotatedZ.mul(rotatedZ)));
+              let normalizedX = rotatedX.div(max(magnitude, WIND_EPSILON));
+              let normalizedZ = rotatedZ.div(max(magnitude, WIND_EPSILON));
+              const normalizedLength = sqrt(
+                normalizedX.mul(normalizedX).add(normalizedZ.mul(normalizedZ)),
+              );
+              const safeLength = max(normalizedLength, WIND_EPSILON);
+              normalizedX = normalizedX.div(safeLength);
+              normalizedZ = normalizedZ.div(safeLength);
+              windDirectionX.assign(normalizedX);
+              windDirectionZ.assign(normalizedZ);
+              windAngle.assign(
+                magnitude
+                  .mul(0.3)
+                  .mul(uniforms.windIntensity)
+                  .mul(grassStrength)
+                  .mul(HALF_PI),
+              );
+            });
+
+            If(useDetailedWind.not(), () => {
+              const clock = uniforms.time.mul(uniforms.simulationSpeed).mul(2);
+              const direction = uniforms.windDirection.mul(DEG_TO_RAD);
+              const globalX = cos(direction);
+              const globalZ = sin(direction);
+              const along = baseWorld.x.mul(globalX).add(baseWorld.z.mul(globalZ));
+              const across = baseWorld.x.mul(globalZ).sub(baseWorld.z.mul(globalX));
+              const waveA = sin(along.mul(uniforms.windNoiseScale).add(clock));
+              const waveB = cos(
+                across
+                  .mul(uniforms.windNoiseScale)
+                  .mul(0.5)
+                  .add(clock.mul(0.7)),
+              );
+              const gust = waveA
+                .mul(0.5)
+                .add(0.5)
+                .mul(waveB.mul(0.25).add(0.75))
+                .mul(0.3);
+              const mixedX = mix(globalX, randomDirectionX, 0.2);
+              const mixedZ = mix(globalZ, randomDirectionZ, 0.2);
+              const magnitude = sqrt(mixedX.mul(mixedX).add(mixedZ.mul(mixedZ)));
+              const safeMagnitude = max(magnitude, WIND_EPSILON);
+              windDirectionX.assign(mixedX.div(safeMagnitude));
+              windDirectionZ.assign(mixedZ.div(safeMagnitude));
+              windAngle.assign(
+                gust.mul(uniforms.windIntensity).mul(grassStrength).mul(HALF_PI),
+              );
+            });
+          }
+
+          const bendPower = pow(heightRatio, uniforms.bladeStiffness);
+          const baseAngle = uniforms.baseBend
+            .mul(grassStrength)
+            .mul(HALF_PI)
+            .mul(bendPower);
+          const baseHorizontal = uniforms.bladeHeight
+            .mul(sin(baseAngle))
+            .mul(heightRatio);
+          local.x.addAssign(randomDirectionX.mul(baseHorizontal));
+          local.z.addAssign(randomDirectionZ.mul(baseHorizontal));
+          local.y.subAssign(
+            uniforms.bladeHeight
+              .mul(cos(baseAngle).sub(1))
+              .mul(heightRatio)
+              .abs(),
           );
+
+          if (this.shaderFeatures.recoveredWind) {
+            const animatedAngle = windAngle.mul(bendPower);
+            const windHorizontal = uniforms.bladeHeight
+              .mul(sin(animatedAngle))
+              .mul(heightRatio);
+            local.x.addAssign(windDirectionX.mul(windHorizontal));
+            local.z.addAssign(windDirectionZ.mul(windHorizontal));
+            local.y.subAssign(
+              uniforms.bladeHeight
+                .mul(cos(animatedAngle).sub(1))
+                .mul(heightRatio)
+                .abs(),
+            );
+          }
+
+          this.deformVisible?.({
+            local, baseWorld, terrain, visibility, grassStrength, coverage,
+            bladeUv, instanceData, instancePosition, instanceRotation,
+          });
+
+          if (this.lodCoverage) {
+            const anchor = vec3(instancePosition.x, terrain.height, instancePosition.z);
+            local.assign(anchor.add(local.sub(anchor).mul(coverage)));
+          }
+
+          local.assign(mix(vec3(local.x, terrain.height, local.z), local, materialOpacity));
         });
-
-        If(useDetailedWind.not(), () => {
-          const clock = uniforms.time.mul(uniforms.simulationSpeed).mul(2);
-          const direction = uniforms.windDirection.mul(DEG_TO_RAD);
-          const globalX = cos(direction);
-          const globalZ = sin(direction);
-          const along = baseWorld.x.mul(globalX).add(baseWorld.z.mul(globalZ));
-          const across = baseWorld.x.mul(globalZ).sub(baseWorld.z.mul(globalX));
-          const waveA = sin(along.mul(uniforms.windNoiseScale).add(clock));
-          const waveB = cos(
-            across
-              .mul(uniforms.windNoiseScale)
-              .mul(0.5)
-              .add(clock.mul(0.7)),
-          );
-          const gust = waveA
-            .mul(0.5)
-            .add(0.5)
-            .mul(waveB.mul(0.25).add(0.75))
-            .mul(0.3);
-          const mixedX = mix(globalX, randomDirectionX, 0.2);
-          const mixedZ = mix(globalZ, randomDirectionZ, 0.2);
-          const magnitude = sqrt(mixedX.mul(mixedX).add(mixedZ.mul(mixedZ)));
-          const safeMagnitude = max(magnitude, WIND_EPSILON);
-          windDirectionX.assign(mixedX.div(safeMagnitude));
-          windDirectionZ.assign(mixedZ.div(safeMagnitude));
-          windAngle.assign(
-            gust.mul(uniforms.windIntensity).mul(grassStrength).mul(HALF_PI),
-          );
-        });
-
-        const bendPower = pow(heightRatio, uniforms.bladeStiffness);
-        const baseAngle = uniforms.baseBend
-          .mul(grassStrength)
-          .mul(HALF_PI)
-          .mul(bendPower);
-        const baseHorizontal = uniforms.bladeHeight
-          .mul(sin(baseAngle))
-          .mul(heightRatio);
-        local.x.addAssign(randomDirectionX.mul(baseHorizontal));
-        local.z.addAssign(randomDirectionZ.mul(baseHorizontal));
-        local.y.subAssign(
-          uniforms.bladeHeight
-            .mul(cos(baseAngle).sub(1))
-            .mul(heightRatio)
-            .abs(),
-        );
-
-        const animatedAngle = windAngle.mul(bendPower);
-        const windHorizontal = uniforms.bladeHeight
-          .mul(sin(animatedAngle))
-          .mul(heightRatio);
-        local.x.addAssign(windDirectionX.mul(windHorizontal));
-        local.z.addAssign(windDirectionZ.mul(windHorizontal));
-        local.y.subAssign(
-          uniforms.bladeHeight
-            .mul(cos(animatedAngle).sub(1))
-            .mul(heightRatio)
-            .abs(),
-        );
-
-        local.assign(mix(vec3(local.x, terrain.height, local.z), local, materialOpacity));
       });
 
       return local;
@@ -529,154 +566,172 @@ export class GrassMaterial {
       const baseWorld = modelWorldMatrix.mul(vec4(instancePosition, 1)).xyz;
       const terrain = this.#sampleTerrain(heightTexture, baseWorld);
       const visibility = this.#createVisibility(baseWorld, terrain.height);
+      const coverage = this.lodCoverage
+        ? this.lodCoverage({ visibility, instanceData, baseWorld, terrain })
+        : float(1);
 
-      If(visibility.visible.not(), () => {
+      If(visibility.visible.not().or(coverage.lessThanEqual(0)), () => {
         local.assign(vec3(1e9));
       });
 
-      If(visibility.visible, () => {
+      If(visibility.visible.and(coverage.greaterThan(0)), () => {
         const grassStrength = this.#vegetationStrength(maskTexture, terrain.terrainUv);
-        const strengthRoot = sqrt(grassStrength);
-        this.#sampleInteractionBillboard(interactionTexture, baseWorld, local);
-
-        const sourceX = local.x;
-        const sourceZ = local.z;
-        const rotatedX = sourceX
-          .mul(instanceRotation.y)
-          .sub(sourceZ.mul(instanceRotation.x));
-        const rotatedZ = sourceX
-          .mul(instanceRotation.x)
-          .add(sourceZ.mul(instanceRotation.y));
-        local.assign(vec3(
-          rotatedX.mul(uniforms.bladeWidth.mul(strengthRoot)),
-          local.y.mul(uniforms.bladeHeight),
-          rotatedZ.mul(uniforms.bladeWidth.mul(strengthRoot)),
-        ));
-        local.x.addAssign(instancePosition.x);
-        local.z.addAssign(instancePosition.z);
-        local.y.addAssign(terrain.height);
-
-        const detailHeight = float(1).toVar();
-        const useDetail = this.painterEnabled
-          ? float(1).greaterThan(0)
-          : visibility.distance.lessThanEqual(uniforms.maxDistance.mul(0.5));
-        If(useDetail, () => {
-          const hashA = fract(
-            sin(dot(instancePosition.xz.mul(0.15), vec2(0.9898, 0.2330))).mul(HASH_SCALE),
-          );
-          const hashB = fract(
-            sin(dot(instancePosition.xz, vec2(0.3468, 0.1357))).mul(24634.6345),
-          );
-          const detailNoise = pow(hashA.mul(0.7).add(hashB.mul(0.3)), 0.6);
-          detailHeight.assign(mix(0.1, 1.8, detailNoise));
-        });
-
-        const heightFromTerrain = local.y.sub(terrain.height);
-        if (this.config.cinematic?.enabled) {
-          const patch = gradientNoise2d(baseWorld.xz.mul(0.065)).clamp(0, 1);
-          detailHeight.assign(mix(0.5, 1.25, patch));
-        }
-        local.y.assign(
-          terrain.height.add(heightFromTerrain.mul(detailHeight).mul(grassStrength)),
-        );
-
         If(grassStrength.lessThanEqual(0), () => {
           local.assign(vec3(1e9));
         });
+        If(grassStrength.greaterThan(0), () => {
+          const strengthRoot = sqrt(grassStrength);
+          this.#sampleInteractionBillboard(interactionTexture, baseWorld, local);
 
-        const heightRatio = uv().y.clamp(0, 1);
-        const useDetailedWind = this.painterEnabled
-          ? float(1).greaterThan(0)
-          : visibility.distance.lessThanEqual(uniforms.maxDistance.mul(0.7));
-        const windDirectionX = float(0).toVar();
-        const windDirectionZ = float(0).toVar();
-        const windAngle = float(0).toVar();
-        const randomDirectionX = cos(instanceData.z);
-        const randomDirectionZ = sin(instanceData.z);
+          const sourceX = local.x;
+          const sourceZ = local.z;
+          const rotatedX = sourceX
+            .mul(instanceRotation.y)
+            .sub(sourceZ.mul(instanceRotation.x));
+          const rotatedZ = sourceX
+            .mul(instanceRotation.x)
+            .add(sourceZ.mul(instanceRotation.y));
+          local.assign(vec3(
+            rotatedX.mul(uniforms.bladeWidth.mul(strengthRoot)),
+            local.y.mul(uniforms.bladeHeight),
+            rotatedZ.mul(uniforms.bladeWidth.mul(strengthRoot)),
+          ));
+          local.x.addAssign(instancePosition.x);
+          local.z.addAssign(instancePosition.z);
+          local.y.addAssign(terrain.height);
 
-        If(useDetailedWind, () => {
-          const clock = uniforms.time.mul(uniforms.simulationSpeed);
-          const point = instancePosition.xz
-            .mul(uniforms.windNoiseScale)
-            .add(vec2(clock, clock));
-          const noiseX = gradientNoise2d(point).sub(0.5).mul(2);
-          const noiseZ = gradientNoise2d(point.add(vec2(0.7, 0.3))).sub(0.5).mul(2);
-          const direction = uniforms.windDirection.mul(DEG_TO_RAD);
-          const globalX = cos(direction);
-          const globalZ = sin(direction);
-          const rotatedNoiseX = noiseX.mul(globalX).sub(noiseZ.mul(globalZ));
-          const rotatedNoiseZ = noiseX.mul(globalZ).add(noiseZ.mul(globalX));
-          const magnitude = sqrt(
-            rotatedNoiseX.mul(rotatedNoiseX).add(rotatedNoiseZ.mul(rotatedNoiseZ)),
+          const detailHeight = float(1).toVar();
+          if (this.shaderFeatures.recoveredHeightVariation) {
+            const useDetail = this.painterEnabled
+              ? float(1).greaterThan(0)
+              : visibility.distance.lessThanEqual(uniforms.maxDistance.mul(0.5));
+            If(useDetail, () => {
+              const hashA = fract(
+                sin(dot(instancePosition.xz.mul(0.15), vec2(0.9898, 0.2330))).mul(HASH_SCALE),
+              );
+              const hashB = fract(
+                sin(dot(instancePosition.xz, vec2(0.3468, 0.1357))).mul(24634.6345),
+              );
+              const detailNoise = pow(hashA.mul(0.7).add(hashB.mul(0.3)), 0.6);
+              detailHeight.assign(mix(0.1, 1.8, detailNoise));
+            });
+          }
+          const heightFromTerrain = local.y.sub(terrain.height);
+          if (this.shaderFeatures.cinematicHeight) {
+            const patch = gradientNoise2d(baseWorld.xz.mul(0.065)).clamp(0, 1);
+            detailHeight.assign(mix(0.5, 1.25, patch));
+          }
+          local.y.assign(
+            terrain.height.add(heightFromTerrain.mul(detailHeight).mul(grassStrength)),
           );
-          const mixedX = mix(
-            rotatedNoiseX.div(max(magnitude, WIND_EPSILON)),
-            randomDirectionX,
-            0.2,
-          );
-          const mixedZ = mix(
-            rotatedNoiseZ.div(max(magnitude, WIND_EPSILON)),
-            randomDirectionZ,
-            0.2,
-          );
-          const mixedLength = sqrt(mixedX.mul(mixedX).add(mixedZ.mul(mixedZ)));
-          const safeLength = max(mixedLength, WIND_EPSILON);
-          windDirectionX.assign(mixedX.div(safeLength));
-          windDirectionZ.assign(mixedZ.div(safeLength));
-          windAngle.assign(
-            magnitude
-              .mul(0.3)
-              .mul(uniforms.windIntensity)
-              .mul(grassStrength)
-              .mul(HALF_PI),
-          );
+
+          const heightRatio = uv().y.clamp(0, 1);
+          const randomDirectionX = cos(instanceData.z);
+          const randomDirectionZ = sin(instanceData.z);
+
+          if (this.shaderFeatures.recoveredWind) {
+            const useDetailedWind = this.painterEnabled
+              ? float(1).greaterThan(0)
+              : visibility.distance.lessThanEqual(uniforms.maxDistance.mul(0.7));
+            const windDirectionX = float(0).toVar();
+            const windDirectionZ = float(0).toVar();
+            const windAngle = float(0).toVar();
+
+            If(useDetailedWind, () => {
+              const clock = uniforms.time.mul(uniforms.simulationSpeed);
+              const point = instancePosition.xz
+                .mul(uniforms.windNoiseScale)
+                .add(vec2(clock, clock));
+              const noiseX = gradientNoise2d(point).sub(0.5).mul(2);
+              const noiseZ = gradientNoise2d(point.add(vec2(0.7, 0.3))).sub(0.5).mul(2);
+              const direction = uniforms.windDirection.mul(DEG_TO_RAD);
+              const globalX = cos(direction);
+              const globalZ = sin(direction);
+              const rotatedNoiseX = noiseX.mul(globalX).sub(noiseZ.mul(globalZ));
+              const rotatedNoiseZ = noiseX.mul(globalZ).add(noiseZ.mul(globalX));
+              const magnitude = sqrt(
+                rotatedNoiseX.mul(rotatedNoiseX).add(rotatedNoiseZ.mul(rotatedNoiseZ)),
+              );
+              const mixedX = mix(
+                rotatedNoiseX.div(max(magnitude, WIND_EPSILON)),
+                randomDirectionX,
+                0.2,
+              );
+              const mixedZ = mix(
+                rotatedNoiseZ.div(max(magnitude, WIND_EPSILON)),
+                randomDirectionZ,
+                0.2,
+              );
+              const mixedLength = sqrt(mixedX.mul(mixedX).add(mixedZ.mul(mixedZ)));
+              const safeLength = max(mixedLength, WIND_EPSILON);
+              windDirectionX.assign(mixedX.div(safeLength));
+              windDirectionZ.assign(mixedZ.div(safeLength));
+              windAngle.assign(
+                magnitude
+                  .mul(0.3)
+                  .mul(uniforms.windIntensity)
+                  .mul(grassStrength)
+                  .mul(HALF_PI),
+              );
+            });
+
+            If(useDetailedWind.not(), () => {
+              const clock = uniforms.time.mul(uniforms.simulationSpeed).mul(2);
+              const direction = uniforms.windDirection.mul(DEG_TO_RAD);
+              const globalX = cos(direction);
+              const globalZ = sin(direction);
+              const along = instancePosition.x.mul(globalX).add(instancePosition.z.mul(globalZ));
+              const across = instancePosition.x.mul(globalZ).sub(instancePosition.z.mul(globalX));
+              const waveA = sin(along.mul(uniforms.windNoiseScale).add(clock));
+              const waveB = cos(
+                across
+                  .mul(uniforms.windNoiseScale)
+                  .mul(0.5)
+                  .add(clock.mul(0.7)),
+              );
+              const gust = waveA
+                .mul(0.5)
+                .add(0.5)
+                .mul(waveB.mul(0.25).add(0.75))
+                .mul(0.2);
+              const mixedX = mix(globalX, randomDirectionX, 0.2);
+              const mixedZ = mix(globalZ, randomDirectionZ, 0.2);
+              const magnitude = sqrt(mixedX.mul(mixedX).add(mixedZ.mul(mixedZ)));
+              const safeMagnitude = max(magnitude, WIND_EPSILON);
+              windDirectionX.assign(mixedX.div(safeMagnitude));
+              windDirectionZ.assign(mixedZ.div(safeMagnitude));
+              windAngle.assign(
+                gust.mul(uniforms.windIntensity).mul(grassStrength).mul(HALF_PI),
+              );
+            });
+
+            const bendPower = pow(heightRatio, 3);
+            const animatedAngle = windAngle.mul(bendPower);
+            const horizontal = uniforms.bladeHeight
+              .mul(sin(animatedAngle))
+              .mul(heightRatio);
+            local.x.addAssign(windDirectionX.mul(horizontal));
+            local.z.addAssign(windDirectionZ.mul(horizontal));
+            local.y.subAssign(
+              uniforms.bladeHeight
+                .mul(cos(animatedAngle).sub(1))
+                .mul(heightRatio)
+                .abs(),
+            );
+          }
+
+          this.deformVisible?.({
+            local, baseWorld, terrain, visibility, grassStrength, coverage,
+            bladeUv: uv(), instanceData, instancePosition, instanceRotation,
+          });
+
+          if (this.lodCoverage) {
+            const anchor = vec3(instancePosition.x, terrain.height, instancePosition.z);
+            local.assign(anchor.add(local.sub(anchor).mul(coverage)));
+          }
+
+          local.assign(mix(vec3(local.x, terrain.height, local.z), local, materialOpacity));
         });
-
-        If(useDetailedWind.not(), () => {
-          const clock = uniforms.time.mul(uniforms.simulationSpeed).mul(2);
-          const direction = uniforms.windDirection.mul(DEG_TO_RAD);
-          const globalX = cos(direction);
-          const globalZ = sin(direction);
-          const along = instancePosition.x.mul(globalX).add(instancePosition.z.mul(globalZ));
-          const across = instancePosition.x.mul(globalZ).sub(instancePosition.z.mul(globalX));
-          const waveA = sin(along.mul(uniforms.windNoiseScale).add(clock));
-          const waveB = cos(
-            across
-              .mul(uniforms.windNoiseScale)
-              .mul(0.5)
-              .add(clock.mul(0.7)),
-          );
-          const gust = waveA
-            .mul(0.5)
-            .add(0.5)
-            .mul(waveB.mul(0.25).add(0.75))
-            .mul(0.2);
-          const mixedX = mix(globalX, randomDirectionX, 0.2);
-          const mixedZ = mix(globalZ, randomDirectionZ, 0.2);
-          const magnitude = sqrt(mixedX.mul(mixedX).add(mixedZ.mul(mixedZ)));
-          const safeMagnitude = max(magnitude, WIND_EPSILON);
-          windDirectionX.assign(mixedX.div(safeMagnitude));
-          windDirectionZ.assign(mixedZ.div(safeMagnitude));
-          windAngle.assign(
-            gust.mul(uniforms.windIntensity).mul(grassStrength).mul(HALF_PI),
-          );
-        });
-
-        const bendPower = pow(heightRatio, 3);
-        const animatedAngle = windAngle.mul(bendPower);
-        const horizontal = uniforms.bladeHeight
-          .mul(sin(animatedAngle))
-          .mul(heightRatio);
-        local.x.addAssign(windDirectionX.mul(horizontal));
-        local.z.addAssign(windDirectionZ.mul(horizontal));
-        local.y.subAssign(
-          uniforms.bladeHeight
-            .mul(cos(animatedAngle).sub(1))
-            .mul(heightRatio)
-            .abs(),
-        );
-
-        local.assign(mix(vec3(local.x, terrain.height, local.z), local, materialOpacity));
       });
 
       return local;

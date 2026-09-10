@@ -104,7 +104,7 @@ export function createUnderstoryCellRandom(cellX, cellZ, seed) {
   return createSeededRandom(Math.imul(cellX, 19349663) ^ Math.imul(cellZ, 83492791) ^ (seed | 0));
 }
 
-export function placeUnderstoryPlants({
+export function* iterateUnderstoryPlants({
   origin,
   settings,
   variantCount,
@@ -112,9 +112,9 @@ export function placeUnderstoryPlants({
   contains,
   sampleHeight,
   waterY = Number.NEGATIVE_INFINITY,
-}) {
-  const plants = [];
-  if (!settings?.enabled || !(settings.radius > 0) || !(variantCount > 0)) return plants;
+  cache,
+} = {}) {
+  if (!settings?.enabled || !(settings.radius > 0) || !(variantCount > 0) || !origin) return;
 
   const cellSize = settings.cellSize ?? DEFAULT_UNDERSTORY.cellSize;
   const candidates = settings.candidatesPerCell ?? 0;
@@ -126,6 +126,7 @@ export function placeUnderstoryPlants({
   const embed = settings.embed ?? 0;
   const minScale = settings.minScale ?? DEFAULT_UNDERSTORY.minScale;
   const maxScale = settings.maxScale ?? DEFAULT_UNDERSTORY.maxScale;
+  cache?.setWindow(cx, cz, extent, cellSize);
 
   for (let x = cx - extent; x <= cx + extent; x += 1) {
     for (let z = cz - extent; z <= cz + extent; z += 1) {
@@ -133,15 +134,26 @@ export function placeUnderstoryPlants({
       for (let i = 0; i < candidates; i += 1) {
         const px = (x + random()) * cellSize;
         const pz = (z + random()) * cellSize;
+        if (((x + z + i) & 15) === 0) yield undefined;
         if (Math.hypot(px - origin.x, pz - origin.z) > settings.radius) continue;
-        if (contains && !contains(px, pz)) continue;
-        const py = sampleHeight?.(px, pz);
+        const sampled = cache
+          ? cache.getOrCompute(px, pz, (x, z) => ({
+            contains: contains ? contains(x, z) : true,
+            height: sampleHeight?.(x, z),
+            ecology: sampleEcology?.(x, z),
+          }))
+          : {
+            contains: contains ? contains(px, pz) : true,
+            height: sampleHeight?.(px, pz),
+            ecology: sampleEcology?.(px, pz),
+          };
+        if (!sampled.contains) continue;
+        const py = sampled.height;
         if (!Number.isFinite(py) || py < waterY) continue;
-        const ecology = sampleEcology?.(px, pz);
-        if (random() > understoryPlacementChance(ecology, settings)) continue;
+        if (random() > understoryPlacementChance(sampled.ecology, settings)) continue;
         const scale = minScale + random() * (maxScale - minScale);
         const stretch = 1 + (random() * 2 - 1) * stretchAmount;
-        plants.push({
+        yield {
           x: px,
           y: py - embed,
           z: pz,
@@ -150,9 +162,12 @@ export function placeUnderstoryPlants({
           scaleY: scale,
           scaleZ: scale / Math.max(stretch, 0.001),
           variant: Math.floor(random() * variantCount),
-        });
+        };
       }
     }
   }
-  return plants;
+}
+
+export function placeUnderstoryPlants(options) {
+  return [...iterateUnderstoryPlants(options)].filter(Boolean);
 }

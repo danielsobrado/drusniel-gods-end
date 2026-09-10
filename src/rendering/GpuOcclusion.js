@@ -32,6 +32,19 @@ export class GpuOcclusion {
     this.size = new Vector2();
     this.frame = 0;
     this.cooldown = 0;
+    this.lastPrepareMs = 0;
+    this.boundsCache = new WeakMap();
+    this.stagingCapacity = 0;
+    this.stagingBuffer = null;
+    this.stagingFloats = null;
+    this.stagingInts = null;
+    this.copyGroup = null;
+    this.copyDepth = null;
+    this.copyPyramid = null;
+    this.visibilityGroup = null;
+    this.visibilityInput = null;
+    this.visibilityOutput = null;
+    this.visibilityPyramid = null;
     this.stats = { supported: false, candidates: 0, occluders: 0, culledDraws: 0, culledTriangles: 0 };
   }
 
@@ -66,6 +79,8 @@ export class GpuOcclusion {
     if (this.target?.width === width && this.target?.height === height) return;
     this.target?.dispose();
     this.pyramid?.destroy();
+    this.copyGroup = this.copyDepth = this.copyPyramid = null;
+    this.visibilityGroup = this.visibilityInput = this.visibilityOutput = this.visibilityPyramid = null;
     this.target = new RenderTarget(width, height, { depthBuffer: true, stencilBuffer: false });
     this.target.depthTexture = new DepthTexture(width, height, UnsignedIntType);
     const w = nextPowerOfTwo(width);
@@ -89,11 +104,21 @@ export class GpuOcclusion {
 
   #bounds(object) {
     if (object.userData.occlusionBounds) return this.box.copy(object.userData.occlusionBounds);
-    // Unknown shader/skinning/morph deformation cannot safely use rest-pose bounds.
     const materials = Array.isArray(object.material) ? object.material : [object.material];
     if (object.isSkinnedMesh || object.morphTargetInfluences?.length
       || materials.some((m) => (m.positionNode || m.vertexNode || m.displacementMap)
         && object.userData.occlusionPadding === undefined)) return null;
+
+    const instanceVersion = object.instanceMatrix?.version ?? 0;
+    const cached = this.boundsCache.get(object);
+    if (cached
+      && cached.geometry === object.geometry
+      && cached.count === (object.count ?? 1)
+      && cached.instanceVersion === instanceVersion
+      && cached.matrixWorld.equals(object.matrixWorld)) {
+      return this.box.copy(cached.box);
+    }
+
     if (object.isInstancedMesh) {
       object.computeBoundingBox();
       this.box.copy(object.boundingBox);
@@ -103,6 +128,13 @@ export class GpuOcclusion {
     }
     this.box.expandByScalar(object.userData.occlusionPadding ?? 0);
     this.box.applyMatrix4(object.matrixWorld).expandByScalar(this.settings.boundsPadding);
+    this.boundsCache.set(object, {
+      geometry: object.geometry,
+      count: object.count ?? 1,
+      instanceVersion,
+      matrixWorld: object.matrixWorld.clone(),
+      box: this.box.clone(),
+    });
     return this.box;
   }
 
@@ -193,6 +225,16 @@ export class GpuOcclusion {
     return entries;
   }
 
+  backoffIfEmpty() {
+    this.active.clear();
+    this.stats.culledDraws = this.stats.culledTriangles = 0;
+    this.cooldown = Math.max(0, this.settings.probeInterval - 1);
+  }
+
+  occlusionBounds(object) {
+    return this.#bounds(object);
+  }
+
   prepare() {
     this.active.clear();
     if (!this.enabled || this.disposed) return;
@@ -210,8 +252,7 @@ export class GpuOcclusion {
       this.#resize(this.size.x, this.size.y);
       const entries = this.#collect(this.size.x, this.size.y);
       if (!entries.length || !this.stats.occluders) {
-        this.active.clear();
-        this.stats.culledDraws = this.stats.culledTriangles = 0;
+        this.backoffIfEmpty();
         return;
       }
       const previousTarget = this.renderer.getRenderTarget();
@@ -240,15 +281,21 @@ export class GpuOcclusion {
       this.capacity = nextPowerOfTwo(count);
       this.input = this.device.createBuffer({ size: this.capacity * 48, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
       this.output = this.device.createBuffer({ size: this.capacity * 20, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC });
+      this.visibilityGroup = this.visibilityInput = this.visibilityOutput = this.visibilityPyramid = null;
     }
-    const data = new ArrayBuffer(count * 48);
-    const floats = new Float32Array(data);
-    const ints = new Uint32Array(data);
+    if (!this.stagingCapacity || count > this.stagingCapacity) {
+      this.stagingCapacity = nextPowerOfTwo(count);
+      this.stagingBuffer = new ArrayBuffer(this.stagingCapacity * 48);
+      this.stagingFloats = new Float32Array(this.stagingBuffer);
+      this.stagingInts = new Uint32Array(this.stagingBuffer);
+    }
+    const floats = this.stagingFloats;
+    const ints = this.stagingInts;
     entries.forEach(({ rect, draw }, i) => {
       floats.set([rect.minX, rect.minY, rect.maxX, rect.maxY, rect.depth, this.settings.depthBias, 0, 0], i * 12);
       ints.set([draw.count, draw.instances, draw.first, 0], i * 12 + 8);
     });
-    this.device.queue.writeBuffer(this.input, 0, data);
+    this.device.queue.writeBuffer(this.input, 0, this.stagingBuffer, 0, count * 48);
     const encoder = this.device.createCommandEncoder({ label: 'Same-frame occlusion' });
     const run = (pipeline, group, x, y = 1) => {
       const pass = encoder.beginComputePass();
@@ -257,20 +304,31 @@ export class GpuOcclusion {
       pass.dispatchWorkgroups(x, y);
       pass.end();
     };
-    const copyGroup = this.device.createBindGroup({ layout: this.copyPipeline.getBindGroupLayout(0), entries: [
-      { binding: 0, resource: this.renderer.backend.get(this.target.depthTexture).texture.createView() },
-      { binding: 1, resource: this.pyramid.createView({ baseMipLevel: 0, mipLevelCount: 1 }) },
-    ] });
-    run(this.copyPipeline, copyGroup, Math.ceil(this.pyramidSize[0] / 8), Math.ceil(this.pyramidSize[1] / 8));
+    const depthTexture = this.renderer.backend.get(this.target.depthTexture).texture;
+    if (!this.copyGroup || this.copyDepth !== depthTexture || this.copyPyramid !== this.pyramid) {
+      this.copyDepth = depthTexture;
+      this.copyPyramid = this.pyramid;
+      this.copyGroup = this.device.createBindGroup({ layout: this.copyPipeline.getBindGroupLayout(0), entries: [
+        { binding: 0, resource: depthTexture.createView() },
+        { binding: 1, resource: this.pyramid.createView({ baseMipLevel: 0, mipLevelCount: 1 }) },
+      ] });
+    }
+    run(this.copyPipeline, this.copyGroup, Math.ceil(this.pyramidSize[0] / 8), Math.ceil(this.pyramidSize[1] / 8));
     this.reduceGroups.forEach((group, i) => run(this.reducePipeline, group,
       Math.ceil(Math.max(1, this.pyramidSize[0] >> (i + 1)) / 8),
       Math.ceil(Math.max(1, this.pyramidSize[1] >> (i + 1)) / 8)));
-    const visibilityGroup = this.device.createBindGroup({ layout: this.visibilityPipeline.getBindGroupLayout(0), entries: [
-      { binding: 0, resource: this.pyramid.createView() },
-      { binding: 1, resource: { buffer: this.input, size: count * 48 } },
-      { binding: 2, resource: { buffer: this.output, size: count * 20 } },
-    ] });
-    run(this.visibilityPipeline, visibilityGroup, Math.ceil(count / 64));
+    if (!this.visibilityGroup || this.visibilityInput !== this.input
+      || this.visibilityOutput !== this.output || this.visibilityPyramid !== this.pyramid) {
+      this.visibilityInput = this.input;
+      this.visibilityOutput = this.output;
+      this.visibilityPyramid = this.pyramid;
+      this.visibilityGroup = this.device.createBindGroup({ layout: this.visibilityPipeline.getBindGroupLayout(0), entries: [
+        { binding: 0, resource: this.pyramid.createView() },
+        { binding: 1, resource: { buffer: this.input, size: this.capacity * 48 } },
+        { binding: 2, resource: { buffer: this.output, size: this.capacity * 20 } },
+      ] });
+    }
+    run(this.visibilityPipeline, this.visibilityGroup, Math.ceil(count / 64));
     entries.forEach((record, i) => encoder.copyBufferToBuffer(this.output, i * 20,
       this.renderer.backend.get(record.indirect).buffer, 0, 20));
     const readStats = !this.reading && count <= 8192 && this.frame++ % 30 === 0;

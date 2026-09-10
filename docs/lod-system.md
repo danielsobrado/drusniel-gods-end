@@ -200,7 +200,7 @@ The code does:
 const segments = Math.max(1, Math.round(detail));
 ```
 
-For every segment boundary, two vertices are created.
+For every segment boundary, two vertices are created. Adjacent segments share that pair through the index buffer. The tip is a single vertex.
 
 A blade with:
 

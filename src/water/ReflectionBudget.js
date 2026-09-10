@@ -1,10 +1,10 @@
-import { Quaternion, Vector3 } from 'three';
+import { Matrix4 } from 'three';
 
-/** Reflection rendering has its own cadence; the main view remains unrestricted. */
+/** Reuse screen-space reflections only while their captured view is unchanged. */
 export class ReflectionBudget {
   constructor() {
-    this.position = new Vector3();
-    this.rotation = new Quaternion();
+    this.worldMatrix = new Matrix4();
+    this.projectionMatrix = new Matrix4();
     this.reset();
   }
 
@@ -12,13 +12,15 @@ export class ReflectionBudget {
 
   shouldRender(camera, quality, now) {
     if (quality === 'performance') return false;
-    const moving = camera.position.distanceToSquared(this.position) > 0.0025
-      || camera.quaternion.angleTo(this.rotation) > 0.002;
-    const interval = moving ? ({ ultra: 80, high: 100, balanced: 160 }[quality] ?? 100) : 250;
-    if (now - this.lastTime < interval) return false;
+    camera.updateWorldMatrix(true, false);
+    const viewChanged = !camera.matrixWorld.equals(this.worldMatrix)
+      || !camera.projectionMatrix.equals(this.projectionMatrix);
+    // The shader samples in current screen coordinates. Even a small change
+    // makes a cached capture slide, then snap when the old timer expires.
+    if (!viewChanged && now - this.lastTime < 250) return false;
     this.lastTime = now;
-    this.position.copy(camera.position);
-    this.rotation.copy(camera.quaternion);
+    this.worldMatrix.copy(camera.matrixWorld);
+    this.projectionMatrix.copy(camera.projectionMatrix);
     return true;
   }
 }

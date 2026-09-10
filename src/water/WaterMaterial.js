@@ -62,6 +62,12 @@ export function createCinematicWaterMaterial({ terrain, river, params, reflectio
   const surface = attribute('riverSurface', 'vec4');
   const currentUv = vec2(surface.x.mul(0.22), surface.y.mul(0.045).sub(t.mul(0.28)));
   const level = attribute('waterLevel', 'float');
+  const lakeHere = positionWorld.x.sub(params.position[0]).abs().lessThan(params.size / 2)
+    .and(positionWorld.z.sub(params.position[2]).abs().lessThan(params.size / 2));
+  // Lose the channel's directional ripples as it settles to lake level. At the
+  // mouth both meshes must sample exactly the same world-space detail.
+  const current = kind.mul(lakeHere.select(level.sub(params.position[1]).smoothstep(0, 2), float(1)));
+  const detailUv = mix(positionWorld.xz.mul(0.065), currentUv, current);
   const bank = riverField(river).toVar();
   const terrainUv = positionWorld.xz.sub(vec2(terrain.boundsMin.x, terrain.boundsMin.z))
     .div(vec2(terrain.boundsSize.x, terrain.boundsSize.z)).clamp(0, 1);
@@ -83,18 +89,18 @@ export function createCinematicWaterMaterial({ terrain, river, params, reflectio
     return positionLocal.add(vec3(0, displacement, 0));
   })();
   const normals = Fn(() => {
-    const flow = mix(vec2(0.13, 0.07), vec2(0, 0.2), kind);
+    const flow = mix(vec2(0.13, 0.07), vec2(0, 0.2), current);
     const phase = fract(t.mul(0.09));
     const phaseB = fract(phase.add(0.5));
     const blend = abs(phase.mul(2).sub(1));
-    const p = mix(positionWorld.xz.mul(0.065), currentUv, kind);
+    const p = detailUv;
     const a = texture(detail, p.sub(flow.mul(phase))).rg.mul(2).sub(1);
     const b = texture(detail, p.sub(flow.mul(phaseB))).rg.mul(2).sub(1);
     const micro = texture(detail, p.mul(3.7).add(vec2(t.mul(-0.018), t.mul(0.013)))).rg.mul(2).sub(1);
     const seaFade = cameraPosition.distance(positionWorld).smoothstep(35, 300).oneMinus();
     const seaStrength = mix(float(0.07), float(0.3), ocean.offshore(positionWorld.xz));
     const detailFade = mix(float(1), seaFade.mul(uniforms.seaDetail), sea);
-    const slope = mix(a, b, blend).mul(mix(mix(0.15, 0.16, kind), seaStrength, sea))
+    const slope = mix(a, b, blend).mul(mix(mix(0.15, 0.16, current), seaStrength, sea))
       .add(micro.mul(mix(float(0.025), float(0.075), sea))).mul(detailFade).toVar();
     If(body.greaterThan(1.5), () => {
       const oceanUv = positionWorld.xz.mul(1 / 32);
@@ -123,20 +129,23 @@ export function createCinematicWaterMaterial({ terrain, river, params, reflectio
     const rain = sin(positionWorld.xz.mul(17).add(t.mul(7))).mul(0.05).mul(uniforms.rain);
     const base = normalWorld.toVar();
     If(body.greaterThan(1.5), () => { base.assign(ocean.normal(positionWorld.xz)); });
-    return normalize(base.add(mix(vec3(slope.x.negate(), 0, slope.y.negate()), riverNormal, kind))
+    return normalize(base.add(mix(vec3(slope.x.negate(), 0, slope.y.negate()), riverNormal, current))
       .add(vec3(impacts.x.add(rain.x).negate(), 0, impacts.y.add(rain.y).negate())));
   });
   const refraction = viewportSharedTexture();
   const cube = cubeTexture(reflection);
   const normalNode = normals();
   material.colorNode = Fn(() => {
-    const riverHere = bank.y.lessThan(0);
+    // Let the lake grid own the level mouth: independently tessellated waves
+    // otherwise leave hairline cracks even with identical shading and phase.
+    // A flat river outside the lake footprint still needs its own ribbon.
+    const riverHere = bank.y.lessThan(0).and(bank.x.greaterThan(params.position[1]).or(lakeHere.not()));
     If(body.lessThan(0.5).and(riverHere), () => Discard());
     If(kind.greaterThan(0.5).and(riverHere.not()), () => Discard());
     If(sea.greaterThan(0.5).and(positionWorld.x.lessThan(coastXNode(positionWorld.z, params.sea?.shoreX ?? 1000).sub(180))), () => Discard());
     If(depth.lessThan(0.015), () => Discard());
     const n = normalNode.toVar();
-    const falling = surface.z.smoothstep(0.18, 0.65).mul(kind);
+    const falling = surface.z.smoothstep(0.18, 0.65).mul(current);
     const view = normalize(cameraPosition.sub(positionWorld));
     const facing = dot(n, view).max(0);
     const fresnel = pow(float(1).sub(facing), mix(float(5), float(3), sea))
@@ -165,8 +174,8 @@ export function createCinematicWaterMaterial({ terrain, river, params, reflectio
     const spec = dot(reflect(uniforms.sunDirection.negate(), n), view).max(0);
     const glint = pow(spec, 170).mul(1.8).add(pow(spec, 20).mul(0.08)).mul(uniforms.sunStrength).mul(uniforms.sunColor);
     const oceanFoamUv = vec2(positionWorld.x.mul(0.055).add(t.mul(0.025)), positionWorld.z.mul(0.048));
-    const foamNoise = texture(detail, mix(currentUv, oceanFoamUv, sea)).b;
-    const turbulence = flowData.z.sub(0.7).mul(0.34).clamp(0, 0.65).mul(kind);
+    const foamNoise = texture(detail, mix(detailUv, oceanFoamUv, sea)).b;
+    const turbulence = flowData.z.sub(0.7).mul(0.34).clamp(0, 0.65).mul(current);
     const shore = depth.smoothstep(0.02, 0.13).mul(depth.smoothstep(0.22, 0.75).oneMinus());
     const streaks = texture(detail, currentUv.mul(vec2(0.7, 2.4)).add(vec2(0.3, 0.1))).b;
     const phase = ocean.beachPhase(positionWorld.xz);
@@ -178,11 +187,11 @@ export function createCinematicWaterMaterial({ terrain, river, params, reflectio
     const surf = crest.mul(0.9).add(wash.mul(0.7)).mul(breakup)
       .mul(ocean.depth(positionWorld.xz).smoothstep(0.08, 0.45))
       .mul(ocean.depth(positionWorld.xz).smoothstep(2, 7).oneMinus()).mul(sea);
-    const bankFoam = bank.y.abs().smoothstep(0.1, 1.15).oneMinus().mul(kind)
+    const bankFoam = bank.y.abs().smoothstep(0.1, 1.15).oneMinus().mul(current)
       .mul(foamNoise.smoothstep(0.3, 0.75)).mul(0.5);
     const cascade = texture(detail, currentUv.mul(vec2(1.8, 1.8))).b.smoothstep(0.24, 0.7)
       .mul(falling).mul(0.8);
-    const landing = surface.w.mul(falling.oneMinus()).mul(kind)
+    const landing = surface.w.mul(falling.oneMinus()).mul(current)
       .mul(foamNoise.smoothstep(0.2, 0.65)).mul(0.85);
     const foam = foamNoise.smoothstep(0.48, 0.78).mul(shore.mul(0.6).add(turbulence.mul(streaks.pow(3))))
       .add(surf).add(bankFoam).add(cascade).add(landing).clamp(0, 0.94);
@@ -194,7 +203,9 @@ export function createCinematicWaterMaterial({ terrain, river, params, reflectio
       .add(glint.mul(falling.mul(0.8).oneMinus())).add(color('#65b7bb').mul(crestLight)), foamColor, foam);
   })();
   material.opacityNode = smoothstep(0.015, 0.15, depth)
-    .mul(mix(float(1), bank.y.negate().smoothstep(0, 0.45), kind));
+    // Only a raised channel has banks here. Fading the lake-level ribbon's
+    // edge exposes the bed because the lake is masked out beneath it.
+    .mul(mix(float(1), bank.y.negate().smoothstep(0, 0.45), current));
   return { material, uniforms, detail, normalNode, dispose() {
     material.dispose(); detail.dispose(); if (seaDetail !== detail) seaDetail.dispose();
   } };

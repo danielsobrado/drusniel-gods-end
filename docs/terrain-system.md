@@ -124,7 +124,7 @@ grass:
   heightResolution: 1024
 ```
 
-The generated texture is a 1024x1024 `HalfFloat` render target. An orthographic camera covers the gameplay terrain bounds and the temporary material writes normalized world-space height:
+The generated texture is a `HalfFloat` render target at `grass.heightResolution` (1024 in visual-parity, 2048 in the default cinematic expansion). An orthographic camera covers the gameplay terrain bounds and the temporary material writes normalized world-space height:
 
 ```text
 normalizedHeight = (positionWorld.y - minHeight) / (maxHeight - minHeight)
@@ -142,7 +142,9 @@ maxHeight
 
 World XZ is converted to 0..1 terrain UV, the red texture channel is sampled, and height is reconstructed between `minHeight` and `maxHeight`.
 
-If GPU height generation fails, `GrassField` logs a warning and falls back to `TerrainSampler`, whose 192x192 8-bit `DataTexture` implements the same shader-data contract.
+Cinematic expansion uses a 2048-square half-float height target (`grass.heightResolution` in `public/cinematic-look.yaml`). The recovered visual-parity path remains 1024. `createGrassTerrainData()` also bakes a terrain-normal texture from the same height map, using the same world-XZ UV and a four-tap world step of 0.8 units. Grass slope lighting samples that map when present; the original four height taps remain the fallback and generate the cached map.
+
+If GPU height generation fails, `GrassField` logs a warning and falls back to `TerrainSampler`. The recovered sampler is 192×192 8-bit; cinematic expansion rasterizes 1536×1536. Both implement the same shader-data contract, including an optional `normalTexture` when cinematic rendering is enabled.
 
 Both height textures are derived at runtime from the `Landscape002` GLB geometry. There is no authored PNG/JPG heightmap asset that controls terrain elevation.
 

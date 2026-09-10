@@ -1,9 +1,9 @@
 import * as THREE from 'three/webgpu';
 import { createMeadowGeometry } from './MeadowGeometry.js';
 import { attribute, positionGeometry, positionLocal, vec3, sin, uniform, smoothstep, cameraPosition } from 'three/tsl';
-import { createSeededRandom } from '../core/math.js';
 import { foliageBacklight, foliageLight } from '../rendering/CinematicLighting.js';
-import { coastX } from '../world/coast.js';
+import { iterateMeadowDetails } from './meadowPlacement.js';
+import { VegetationJob, VegetationSampleCache } from './vegetationRebuild.js';
 
 function isStoneType(type) {
   return type === 'stone' || String(type).startsWith('stone:');
@@ -54,11 +54,17 @@ function createMeadowLayer({
   mesh.receiveShadow = true;
   mesh.castShadow = isStoneType(type);
   scene.add(mesh);
-  return mesh;
+  return {
+    mesh,
+    matrices: new Float32Array(count * 16),
+    origins: new Float32Array(count * 3),
+    colors: new Float32Array(count * 3),
+    stagingCount: 0,
+  };
 }
 
 export class MeadowDetails {
-  constructor(scene, config, terrain, grass, trees, pebbleSources = []) {
+  constructor(scene, config, terrain, grass, trees, pebbleSources = [], options = {}) {
     this.scene = scene;
     this.config = config;
     this.terrain = terrain;
@@ -68,45 +74,61 @@ export class MeadowDetails {
     this.clock = uniform(0);
     this.wind = uniform(0.2);
     this.lastCell = '';
+    this.jobs = options.jobs ?? null;
+    this.jobId = 'meadow';
+    this.populateGeneration = 0;
+    this.sampleCache = new VegetationSampleCache();
     this.dummy = new THREE.Object3D();
     this.color = new THREE.Color();
     this.meshes = new Map();
+    this.layers = new Map();
     this.stoneMeshes = [];
+    this.stoneLayers = [];
     this.quality = config.ui.initialQuality;
-    const layer = (type, geometry, extra = {}) => createMeadowLayer({
-      scene,
-      config,
-      radius: this.radius,
-      clock: this.clock,
-      wind: this.wind,
-      type,
-      geometry,
-      ...extra,
-    });
+    const layer = (type, geometry, extra = {}) => {
+      const created = createMeadowLayer({
+        scene,
+        config,
+        radius: this.radius,
+        clock: this.clock,
+        wind: this.wind,
+        type,
+        geometry,
+        ...extra,
+      });
+      this.meshes.set(extra.key ?? type, created.mesh);
+      this.layers.set(extra.key ?? type, created);
+      return created;
+    };
     for (const type of ['flower', 'seed', 'fern', 'reed', 'litter']) {
-      this.meshes.set(type, layer(type, createMeadowGeometry(type), { disposeSource: true }));
+      layer(type, createMeadowGeometry(type), { disposeSource: true });
     }
     const pebbles = (pebbleSources ?? []).filter((source) => source?.geometry);
     if (pebbles.length > 0) {
       for (const [index, pebble] of pebbles.entries()) {
         const material = sourceMaterial(pebble);
         const key = pebbles.length === 1 ? 'stone' : `stone:${index}`;
-        const mesh = layer('stone', pebble.geometry, {
+        const created = layer('stone', pebble.geometry, {
           key,
           map: material?.map ?? null,
           roughness: material?.roughness ?? 0.88,
         });
-        this.meshes.set(key, mesh);
-        this.stoneMeshes.push(mesh);
+        this.stoneMeshes.push(created.mesh);
+        this.stoneLayers.push(created);
       }
     } else {
-      const mesh = layer('stone', createMeadowGeometry('stone'), { disposeSource: true });
-      this.meshes.set('stone', mesh);
-      this.stoneMeshes.push(mesh);
+      const created = layer('stone', createMeadowGeometry('stone'), { disposeSource: true });
+      this.stoneMeshes.push(created.mesh);
+      this.stoneLayers.push(created);
     }
   }
 
-  setQuality(name) { this.quality = name; this.lastCell = ''; }
+  setQuality(name) {
+    this.quality = name;
+    this.jobs?.cancel(this.jobId);
+    this.lastCell = '';
+    this.populateGeneration += 1;
+  }
 
   update(delta, position, environment) {
     this.clock.value += delta * environment.grass.blade.simulationSpeed;
@@ -116,73 +138,86 @@ export class MeadowDetails {
     const cell = `${cx},${cz}`;
     if (cell === this.lastCell) return;
     this.lastCell = cell;
-    const density = { performance: 3, balanced: 6, high: 10, ultra: 14 }[this.quality] ?? 10;
-    const ecologyConfig = this.config.vegetation.details;
-    for (const mesh of this.meshes.values()) mesh.count = 0;
-    const extent = Math.ceil(this.radius / 12);
-    for (let x = cx - extent; x <= cx + extent; x++) {
-      for (let z = cz - extent; z <= cz + extent; z++) {
-        const random = createSeededRandom(Math.imul(x, 73856093) ^ Math.imul(z, 19349663));
-        for (let i = 0; i < density; i++) {
-          const px = (x + random()) * 12;
-          const pz = (z + random()) * 12;
-          if (Math.hypot(px - position.x, pz - position.z) > this.radius || !this.terrain.contains(px, pz, 2)) continue;
-          const py = this.terrain.sampleHeight(px, pz);
-          if (this.config.water.sea?.enabled && px > coastX(pz, this.config.water.sea.shoreX) - 50) continue;
-          if (!Number.isFinite(py) || py < this.config.water.position[1] - 0.1) continue;
-          if ((this.terrain.river?.sample(px, pz)?.edge ?? 100) < 0.8) continue;
-          const ecology = this.grass.sampleVegetation(px, pz);
-          const patchScale = this.config.cinematic.vegetation.patchScale;
-          const patch = Math.sin(px * patchScale + Math.sin(pz * patchScale * 0.62)) * Math.sin(pz * patchScale);
-          let type;
-          if (ecology.path >= ecologyConfig.pathThreshold) {
-            if (random() > ecologyConfig.pathDecorationChance) continue;
-            type = random() > ecologyConfig.pathStoneChance ? 'litter' : 'stone';
-          } else if (ecology.moisture >= ecologyConfig.wetThreshold && ecology.density >= ecologyConfig.minimumPlantDensity) {
-            type = 'reed';
-          } else if (ecology.understory >= ecologyConfig.understoryThreshold) {
-            type = random() < ecologyConfig.fernChance ? 'fern' : 'litter';
-          } else {
-            if (ecology.density < ecologyConfig.minimumPlantDensity || patch < ecologyConfig.meadowPatchThreshold) continue;
-            type = random() < ecologyConfig.flowerChance ? 'flower' : 'seed';
-          }
-          const mesh = type === 'stone'
-            ? this.stoneMeshes[Math.floor(random() * this.stoneMeshes.length)]
-            : this.meshes.get(type);
-          if (!mesh || mesh.count >= mesh.instanceMatrix.count) continue;
-          const index = mesh.count++;
-          this.dummy.position.set(px, type === 'stone' ? py : py - 0.015, pz);
-          this.dummy.rotation.set(0, random() * Math.PI * 2, 0);
-          const baseScale = ecologyConfig.minScale + random() * (ecologyConfig.maxScale - ecologyConfig.minScale);
-          const ecologyScale = type === 'reed'
-            ? ecologyConfig.reedBaseScale + ecology.moisture * ecologyConfig.reedMoistureScale
-            : type === 'fern'
-              ? ecologyConfig.fernBaseScale + ecology.understory * ecologyConfig.fernUnderstoryScale
-              : ecologyConfig.plantBaseScale + ecology.growth * ecologyConfig.plantGrowthScale;
-          const scale = type === 'stone' ? baseScale : baseScale * ecologyScale;
-          const variation = Math.sin(px * 12.9898 + pz * 78.233) * 0.5 + 0.5;
-          if (type === 'stone') this.dummy.scale.setScalar(scale);
-          else this.dummy.scale.set(scale * (0.85 + variation * 0.3), scale * (1.12 - variation * 0.24), scale);
-          this.dummy.updateMatrix();
-          mesh.setMatrixAt(index, this.dummy.matrix);
-          mesh.geometry.attributes.detailOrigin.setXYZ(index, px, py, pz);
-          if (!mesh.material.map) {
-            const humidityTint = ecology.moisture * ecologyConfig.humidityTint;
-            const shadeTint = ecology.understory * ecologyConfig.shadeTint;
-            this.color.setHSL(
-              ecologyConfig.hueBase + humidityTint - shadeTint,
-              ecologyConfig.saturation,
-              ecologyConfig.lightnessBase - shadeTint * ecologyConfig.lightnessShadeScale + random() * ecologyConfig.lightnessVariation,
-            );
-            mesh.setColorAt(index, this.color);
-          }
-        }
+    this.#startPopulate(position);
+  }
+
+  #startPopulate(origin) {
+    const generation = ++this.populateGeneration;
+    const generate = () => iterateMeadowDetails({
+      origin,
+      radius: this.radius,
+      quality: this.quality,
+      config: this.config,
+      stoneCount: this.stoneLayers.length,
+      stoneHasColor: this.stoneLayers.map((layer) => !layer.mesh.material.map),
+      cache: this.sampleCache,
+      contains: (x, z) => this.terrain.contains(x, z, 2),
+      sampleHeight: (x, z) => this.terrain.sampleHeight(x, z),
+      sampleEcology: (x, z) => this.grass.sampleVegetation(x, z),
+      sampleRiverEdge: (x, z) => this.terrain.river?.sample(x, z)?.edge ?? 100,
+    });
+    const publish = () => {
+      if (generation !== this.populateGeneration) return;
+      this.#publishStaging();
+    };
+    if (!this.jobs) {
+      this.#resetStaging();
+      for (const item of generate()) {
+        if (item) this.#stageItem(item);
       }
+      publish();
+      return;
     }
-    for (const mesh of this.meshes.values()) {
+    this.jobs.replace(this.jobId, new VegetationJob({
+      generate,
+      consume: (item) => this.#stageItem(item),
+      reset: () => this.#resetStaging(),
+      publish,
+    }));
+  }
+
+  #resetStaging() {
+    for (const layer of this.layers.values()) layer.stagingCount = 0;
+  }
+
+  #stageItem(item) {
+    const layer = item.type === 'stone'
+      ? this.stoneLayers[item.stoneIndex] ?? this.stoneLayers[0]
+      : this.layers.get(item.type);
+    if (!layer) return;
+    const capacity = layer.matrices.length / 16;
+    if (layer.stagingCount >= capacity) return;
+    const index = layer.stagingCount++;
+    this.dummy.position.set(item.x, item.y, item.z);
+    this.dummy.rotation.set(0, item.yaw, 0);
+    this.dummy.scale.set(item.scaleX, item.scaleY, item.scaleZ);
+    this.dummy.updateMatrix();
+    this.dummy.matrix.toArray(layer.matrices, index * 16);
+    layer.origins[index * 3] = item.x;
+    layer.origins[index * 3 + 1] = item.originY;
+    layer.origins[index * 3 + 2] = item.z;
+    this.color.setHSL(item.hue, item.saturation, item.lightness);
+    layer.colors[index * 3] = this.color.r;
+    layer.colors[index * 3 + 1] = this.color.g;
+    layer.colors[index * 3 + 2] = this.color.b;
+  }
+
+  #publishStaging() {
+    for (const layer of this.layers.values()) {
+      const count = layer.stagingCount;
+      const mesh = layer.mesh;
+      mesh.instanceMatrix.array.set(layer.matrices.subarray(0, count * 16));
       mesh.instanceMatrix.needsUpdate = true;
+      mesh.geometry.attributes.detailOrigin.array.set(layer.origins.subarray(0, count * 3));
       mesh.geometry.attributes.detailOrigin.needsUpdate = true;
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      if (!mesh.material.map) {
+        if (!mesh.instanceColor) {
+          mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(layer.colors.length), 3);
+        }
+        mesh.instanceColor.array.set(layer.colors.subarray(0, count * 3));
+        mesh.instanceColor.needsUpdate = true;
+      }
+      mesh.count = count;
       mesh.computeBoundingBox();
       const height = mesh.geometry.boundingBox.max.y;
       const padding = height * height * 3 * 0.065 * 1.16 * 1.5 * 1.15;
@@ -193,6 +228,8 @@ export class MeadowDetails {
   }
 
   dispose() {
+    this.jobs?.cancel(this.jobId);
+    this.sampleCache.clear();
     for (const mesh of this.meshes.values()) {
       mesh.removeFromParent();
       mesh.geometry.dispose();

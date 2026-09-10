@@ -35,6 +35,9 @@ import { WildGrassSystem } from '../foliage/WildGrassSystem.js';
 import { ScenicTour } from '../rendering/ScenicTour.js';
 import { adaptLandscapeRecords } from '../world/ExpandedLandscape.js';
 import { findCharacter } from '../config/characterRoster.js';
+import { FrameProfiler, isProfileRequested } from '../debug/FrameProfiler.js';
+import { GpuCreationProbe } from '../debug/gpuCreationHooks.js';
+import { createVegetationJobScheduler } from '../foliage/vegetationRebuild.js';
 
 const MIN_PIXEL_RATIO = 0.5;
 const TREE_COLLIDER_HEIGHT_FACTOR = 0.5;
@@ -51,6 +54,12 @@ export class GrassDemo {
     this.renderErrorLogged = false;
     this.loading = null;
     this.disposed = false;
+    this.profiler = null;
+    this.lastReflectionCaptures = 0;
+    this.gpuTimestamp = null;
+    this.gpuTimestampPending = false;
+    this.gpuTimestamp = null;
+    this.gpuTimestampPending = false;
   }
 
   async start() {
@@ -62,6 +71,7 @@ export class GrassDemo {
     this.world = await createWorld(this.config, (stage) => loading.stage(stage), {
       signal: this.abortController.signal,
       rendererRequest: this.rendererRequest,
+      rendererOptions: { trackTimestamp: isProfileRequested() },
     });
     this.abortController.signal.throwIfAborted();
     this.onRendererReady?.(this.world.rendererSession);
@@ -138,6 +148,7 @@ export class GrassDemo {
     });
 
     loading.stage('grass');
+    this.vegetationJobs = createVegetationJobScheduler();
     this.grass = new GrassField(
       this.world.scene,
       this.world.camera,
@@ -156,6 +167,7 @@ export class GrassDemo {
         this.grass,
         this.trees,
         this.props.pebbleSources,
+        { jobs: this.vegetationJobs },
       );
     }
     this.wildGrass = new WildGrassSystem({
@@ -163,6 +175,7 @@ export class GrassDemo {
       config: this.config,
       terrain: this.world.terrainSampler,
       grass: this.grass,
+      jobs: this.vegetationJobs,
     });
     await this.wildGrass.init();
     this.abortController.signal.throwIfAborted();
@@ -171,6 +184,7 @@ export class GrassDemo {
       config: this.config,
       terrain: this.world.terrainSampler,
       grass: this.grass,
+      jobs: this.vegetationJobs,
     });
     await this.understory.init();
     this.abortController.signal.throwIfAborted();
@@ -249,6 +263,10 @@ export class GrassDemo {
     this.iris = new IrisTransition(this.root);
     this.ui = new DemoUi(this.root, this.config, this.#createUiActions());
     this.pipeline = new CinematicPipeline(this.world, this.config);
+    if (isProfileRequested()) {
+      this.profiler = new FrameProfiler();
+      this.gpuCreationProbe = new GpuCreationProbe(this.world.renderer);
+    }
 
     loading.stage('shaders');
     this.cinematicLighting.activateShadows();
@@ -389,6 +407,28 @@ export class GrassDemo {
       getInteractionEnabled: () => this.grass.interactionMap.enabled,
       getTriangleCount: () => this.world.renderer.info.render.triangles,
       getOcclusionStats: () => this.pipeline?.gpuOcclusion.stats,
+      getProfileResults: () => this.getProfileResults(),
+    };
+  }
+
+  getProfileResults() {
+    const renderer = this.world?.renderer;
+    const size = new THREE.Vector2();
+    const drawing = new THREE.Vector2();
+    renderer?.getSize(size);
+    renderer?.getDrawingBufferSize?.(drawing);
+    const capabilities = this.world?.rendererSession?.capabilities;
+    return {
+      backend: this.world?.rendererSession?.diagnostics?.actual ?? renderer?.backend?.constructor?.name ?? null,
+      requestedBackend: this.world?.rendererSession?.diagnostics?.requested ?? null,
+      viewport: { width: size.x, height: size.y, drawingBuffer: { width: drawing.x, height: drawing.y } },
+      pixelRatio: this.pixelRatio,
+      gpuTiming: capabilities?.gpuTiming ?? false,
+      quality: this.grass?.qualityName,
+      frames: this.profiler?.summarize() ?? null,
+      grass: this.grass?.stats ?? null,
+      occlusion: this.pipeline?.gpuOcclusion.stats ?? null,
+      reflections: this.water?.stats ?? null,
     };
   }
 
@@ -425,8 +465,16 @@ export class GrassDemo {
     if (this.disposed) return;
     const deltaSeconds = Math.min(this.clock.getDelta(), 0.05);
     const elapsedSeconds = this.clock.elapsedTime;
+    const profiler = this.profiler;
+    profiler?.beginFrame();
+    this.gpuCreationProbe?.beginFrame();
+    if (this.water) {
+      this.water.lastCubeCaptureMs = 0;
+      this.water.lastPlanarCaptureMs = 0;
+    }
+    const time = profiler ? (name, fn) => profiler.time(name, fn) : (_name, fn) => fn();
 
-    this.player.update(deltaSeconds);
+    time('player', () => this.player.update(deltaSeconds));
     this.tour.update(deltaSeconds);
     this.world.terrainAnimations?.update(deltaSeconds);
     this.leaves.update(deltaSeconds);
@@ -438,22 +486,69 @@ export class GrassDemo {
     this.surface = this.#detectSurface();
     this.audio.update(deltaSeconds);
     this.collisions.update();
-    this.grass.update(
+    time('grass', () => this.grass.update(
       deltaSeconds,
       elapsedSeconds,
       this.player.getPosition(),
       this.player.getInfluencePoints(),
-    );
+    ));
     const focus = this.tour.active ? this.world.camera.position : this.player.getPosition();
     this.environment.updateSunTarget(focus);
     this.cinematicLighting.update();
-    this.meadow?.update(deltaSeconds, focus, this.environment.current);
-    this.wildGrass?.update(deltaSeconds, focus, this.environment.current);
-    this.understory?.update(deltaSeconds, focus, this.environment.current);
+    time('meadow', () => this.meadow?.update(deltaSeconds, focus, this.environment.current));
+    time('wildGrass', () => this.wildGrass?.update(deltaSeconds, focus, this.environment.current));
+    time('understory', () => this.understory?.update(deltaSeconds, focus, this.environment.current));
+    time('vegetationJobs', () => this.vegetationJobs?.tick());
     this.boundaryBarrier?.update(deltaSeconds, this.player.getPosition());
-    this.water.update(deltaSeconds, this.player, this.environment.current.lighting);
-    this.pipeline.render({ occlusionEnabled: true });
+    time('water', () => this.water.update(deltaSeconds, this.player, this.environment.current.lighting));
+    time('render', () => this.pipeline.render({ occlusionEnabled: true, profiler }));
     this.ui.update(deltaSeconds);
+
+    const captures = (this.water?.stats.cubeCaptures ?? 0)
+      + (this.water?.stats.lakePlanarCaptures ?? 0)
+      + (this.water?.stats.seaPlanarCaptures ?? 0);
+    const reflectionDelta = captures - this.lastReflectionCaptures;
+    this.lastReflectionCaptures = captures;
+    const info = this.world.renderer.info.render;
+    if (profiler) {
+      const created = this.gpuCreationProbe?.stats;
+      if (created) {
+        profiler.marks.gpuProgram = created.programMs;
+        profiler.marks.gpuPipeline = created.pipelineMs;
+      }
+      if (this.water) {
+        profiler.marks.cubeReflections = this.water.lastCubeCaptureMs ?? 0;
+        profiler.marks.planarReflections = this.water.lastPlanarCaptureMs ?? 0;
+      }
+    }
+    profiler?.endFrame({
+      drawCalls: info.drawCalls,
+      triangles: info.triangles,
+      gpuTimestamp: this.gpuTimestamp,
+      reflectionCaptures: reflectionDelta,
+      compactionMs: this.grass?.stats.compactionMs ?? 0,
+      occlusionMs: this.pipeline?.gpuOcclusion.lastPrepareMs ?? 0,
+      gpuPrograms: this.gpuCreationProbe?.stats.programs ?? 0,
+      gpuPipelines: this.gpuCreationProbe?.stats.pipelines ?? 0,
+    });
+    this.#queueGpuTimestamp();
+  }
+
+  #queueGpuTimestamp() {
+    if (!this.profiler || this.gpuTimestampPending || this.disposed) return;
+    const renderer = this.world?.renderer;
+    if (!renderer?.backend?.trackTimestamp || typeof renderer.resolveTimestampsAsync !== 'function') {
+      this.gpuTimestamp = null;
+      return;
+    }
+    this.gpuTimestampPending = true;
+    Promise.resolve(renderer.resolveTimestampsAsync('render')).then((duration) => {
+      this.gpuTimestamp = Number.isFinite(duration) && duration > 0 ? duration : null;
+    }).catch(() => {
+      this.gpuTimestamp = null;
+    }).finally(() => {
+      this.gpuTimestampPending = false;
+    });
   }
 
   dispose() {
@@ -461,11 +556,12 @@ export class GrassDemo {
     this.disposed = true;
     this.world?.renderer?.setAnimationLoop(null);
     for (const resource of [this.loading, this.pipeline, this.cinematicLighting,
-      this.meadow, this.wildGrass, this.understory, this.ui, this.iris, this.grass, this.trees, this.props,
+      this.meadow, this.wildGrass, this.understory, this.vegetationJobs, this.ui, this.iris, this.grass, this.trees, this.props,
       this.collisions, this.player, this.leaves, this.birds, this.rain,
       this.boundaryBarrier, this.water, this.audio, this.environment, this.world]) {
       try { resource?.dispose?.(); } catch (error) { logger.warn('Demo cleanup failed.', error); }
     }
+    this.gpuCreationProbe?.dispose();
     this.abortController.abort();
   }
 }
