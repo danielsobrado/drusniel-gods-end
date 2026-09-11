@@ -33,6 +33,11 @@ const showView = name => {
   const d = demo(); currentView = name;
   d.player.setEnabled(false); d.player.update = () => {}; d.tour.active = false;
   d.player.root.visible = false;
+  if (name === 'river' && d.world.expansion?.river) {
+    const samples = d.world.expansion.river.samples;
+    const p = samples[Math.floor(samples.length * 0.62)];
+    views.river = [[p.x, p.y + 35, p.z + 16], [p.x, p.y, p.z]];
+  }
   const [position, target] = views[name];
   d.player.setPosition(...position); d.world.camera.position.set(...position); d.world.camera.lookAt(...target);
   output.textContent = `${name} | ${d.world.rendererSession.diagnostics.actual} | ${d.water.quality}`;

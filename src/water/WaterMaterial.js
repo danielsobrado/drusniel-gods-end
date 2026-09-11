@@ -1,7 +1,8 @@
 import * as THREE from 'three/webgpu';
+import { WaterRefractionNode } from './WaterRefractionNode.js';
 import { Fn, If, Discard, abs, attribute, cameraPosition, color, cubeTexture, dot,
   float, fract, mix, normalize, normalWorld, positionLocal, positionWorld, pow, reflect, screenUV,
-  sin, smoothstep, texture, uniform, uniformArray, vec2, vec3, viewportSharedTexture, viewportSafeUV } from 'three/tsl';
+  sin, smoothstep, texture, uniform, uniformArray, vec2, vec3, nodeObject, viewportSafeUV } from 'three/tsl';
 import { riverField } from './riverNodes.js';
 import { coastXNode } from '../world/coast.js';
 import { createSeaNodes } from './seaNodes.js';
@@ -45,6 +46,7 @@ export function createWaterDetailTexture() {
 }
 
 export function createCinematicWaterMaterial({ terrain, river, params, reflection, planar, seaPlanar }) {
+  const seaPalette = params.sea?.colors ?? {};
   const detail = createWaterDetailTexture();
   const seaDetail = params.sea?.enabled ? createSeaDetailTexture(params.sea.choppiness) : detail;
   const uniforms = {
@@ -108,7 +110,7 @@ export function createCinematicWaterMaterial({ terrain, river, params, reflectio
       const second = texture(seaDetail, oceanUv.mul(1.73).add(vec2(t.mul(-0.006), t.mul(0.005)))).rg.mul(2).sub(1);
       const fine = texture(seaDetail, oceanUv.mul(5.7).add(vec2(t.mul(0.005), t.mul(-0.004)))).rg.mul(2).sub(1);
       slope.assign(first.mul(0.65).add(second.mul(0.35)).add(fine.mul(0.15))
-        .mul(mix(float(0.16), float(0.8), ocean.offshore(positionWorld.xz))).mul(detailFade));
+        .mul(mix(float(0.16), float(0.8), ocean.offshore(positionWorld.xz))).mul(detailFade).mul(uniforms.rain.mul(0.35).add(1)));
     });
     const acrossNormal = vec3(flowData.y.negate(), 0, flowData.x);
     // Lake/sea flow attributes are zero. normalize(0) poisons mix(..., 0)
@@ -132,7 +134,7 @@ export function createCinematicWaterMaterial({ terrain, river, params, reflectio
     return normalize(base.add(mix(vec3(slope.x.negate(), 0, slope.y.negate()), riverNormal, current))
       .add(vec3(impacts.x.add(rain.x).negate(), 0, impacts.y.add(rain.y).negate())));
   });
-  const refraction = viewportSharedTexture();
+  const refraction = nodeObject(new WaterRefractionNode());
   const cube = cubeTexture(reflection);
   const normalNode = normals();
   material.colorNode = Fn(() => {
@@ -155,13 +157,14 @@ export function createCinematicWaterMaterial({ terrain, river, params, reflectio
     const opticalDepth = depth.div(dot(normalWorld, view).abs().max(0.25))
       .min(mix(float(28), float(120), sea)).add(falling.mul(3));
     const transmission = vec3(0.22, 0.085, 0.06).mul(opticalDepth.negate()).exp();
-    const seaColor = mix(color('#168b87'), color('#032d48'), ocean.depth(positionWorld.xz).smoothstep(2, 24))
+    const seaColor = mix(mix(color(seaPalette.sunny?.shallow ?? '#259eac'), color(seaPalette.storm?.shallow ?? '#176662'), uniforms.rain),
+      mix(color(seaPalette.sunny?.deep ?? '#073c58'), color(seaPalette.storm?.deep ?? '#032d48'), uniforms.rain), ocean.depth(positionWorld.xz).smoothstep(2, 24))
       .mul(uniforms.sunStrength.mul(0.75).add(0.25));
     const waterColor = mix(mix(color('#164e52'), color('#246d70'), uniforms.sunStrength.mul(0.3).clamp(0, 1)), seaColor, sea);
     const underwater = refracted.mul(transmission).add(waterColor.mul(transmission.oneMinus()));
     const direction = reflect(view.negate(), n);
     const probe = cube.sample(direction).rgb;
-    const oceanSky = mix(color('#adc9d0'), color('#466f94'), direction.y.smoothstep(0, 0.7))
+    const oceanSky = mix(color('#81a8b4'), color('#38658a'), direction.y.smoothstep(0, 0.7))
       .mul(uniforms.sunStrength.mul(0.85).add(0.12));
     let reflected = mix(probe, oceanSky, sea);
     if (planar) {
@@ -179,12 +182,12 @@ export function createCinematicWaterMaterial({ terrain, river, params, reflectio
     const shore = depth.smoothstep(0.02, 0.13).mul(depth.smoothstep(0.22, 0.75).oneMinus());
     const streaks = texture(detail, currentUv.mul(vec2(0.7, 2.4)).add(vec2(0.3, 0.1))).b;
     const phase = ocean.beachPhase(positionWorld.xz);
-    const crest = sin(phase).smoothstep(0.55, 0.98);
+    const crest = sin(phase).smoothstep(mix(0.78, 0.35, uniforms.rain), 0.98);
     const age = fract(phase.sub(Math.PI / 2).div(Math.PI * 2));
-    const wash = age.smoothstep(0, 0.035).mul(age.mul(-7).exp());
+    const wash = age.smoothstep(0, 0.035).mul(age.mul(mix(-9, -4, uniforms.rain)).exp());
     const foamBreakup = texture(detail, positionWorld.xz.mul(0.18).add(vec2(t.mul(0.035), 0))).b;
-    const breakup = foamNoise.mul(0.65).add(foamBreakup.mul(0.35)).smoothstep(0.28, 0.67);
-    const surf = crest.mul(0.9).add(wash.mul(0.7)).mul(breakup)
+    const breakup = foamNoise.mul(0.65).add(foamBreakup.mul(0.35)).smoothstep(mix(0.32, 0.18, uniforms.rain), 0.67);
+    const surf = crest.mul(mix(0.68, 0.9, uniforms.rain)).add(wash.mul(mix(0.3, 0.7, uniforms.rain))).mul(breakup)
       .mul(ocean.depth(positionWorld.xz).smoothstep(0.08, 0.45))
       .mul(ocean.depth(positionWorld.xz).smoothstep(2, 7).oneMinus()).mul(sea);
     const bankFoam = bank.y.abs().smoothstep(0.1, 1.15).oneMinus().mul(current)
@@ -207,6 +210,6 @@ export function createCinematicWaterMaterial({ terrain, river, params, reflectio
     // edge exposes the bed because the lake is masked out beneath it.
     .mul(mix(float(1), bank.y.negate().smoothstep(0, 0.45), current));
   return { material, uniforms, detail, normalNode, dispose() {
-    material.dispose(); detail.dispose(); if (seaDetail !== detail) seaDetail.dispose();
+    material.dispose(); refraction.dispose(); detail.dispose(); if (seaDetail !== detail) seaDetail.dispose();
   } };
 }

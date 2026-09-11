@@ -243,6 +243,9 @@ export class GrassDemo {
     });
 
     if (this.resumeState) {
+      const moisture = this.world.terrainTarget.material.userData.beachMoisture;
+      if (moisture && Number.isFinite(this.resumeState.beachMoisture)) moisture.value = this.resumeState.beachMoisture;
+      if (Number.isFinite(this.resumeState.waveClock)) this.water.rippleElapsed = this.resumeState.waveClock;
       // Restore state before constructing controls so their initial values
       // describe the recovered scene, including each grass family's defaults.
       for (const [name, value] of Object.entries(this.resumeState.grassParameters ?? {})) {
@@ -316,6 +319,8 @@ export class GrassDemo {
     if (!findCharacter(config, characterId)) throw new Error('Cannot recover unknown character.');
     return {
       config, characterId, started: Boolean(this.started), soundEnabled: Boolean(this.audio?.enabled),
+      beachMoisture: this.world?.terrainTarget?.material?.userData.beachMoisture?.value,
+      waveClock: this.water?.rippleElapsed,
       pixelRatioOverride: this.pixelRatioOverride,
       grassParameters: { ...this.environment?.grassOverrides },
       audioVolumes: this.audio && { master: this.audio.masterVolume,
@@ -501,6 +506,7 @@ export class GrassDemo {
     time('vegetationJobs', () => this.vegetationJobs?.tick());
     this.boundaryBarrier?.update(deltaSeconds, this.player.getPosition());
     time('water', () => this.water.update(deltaSeconds, this.player, this.environment.current.lighting));
+    this.world.terrainTarget.material.userData.updateCoast?.(deltaSeconds, this.water.rippleElapsed);
     time('render', () => this.pipeline.render({ occlusionEnabled: true, profiler }));
     this.ui.update(deltaSeconds);
 

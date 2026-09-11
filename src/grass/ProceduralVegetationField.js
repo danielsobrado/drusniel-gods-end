@@ -3,6 +3,7 @@ import { assetUrl } from '../assets/assetUrl.js';
 import { logger } from '../utils/logger.js';
 import { clamp01, computeVegetationEcology, encodeVegetationShaderExclusion, fractalNoise, hash2d, vegetationCoverageChance } from './vegetationEcology.js';
 import { coastX } from '../world/coast.js';
+import { sampleCoastField } from '../world/CoastField.js';
 
 const CHANNELS = 5;
 const DENSITY = 0;
@@ -250,7 +251,7 @@ export class ProceduralVegetationField {
           ecology.density *= alpine * soil;
           ecology.growth *= alpine * soil;
           ecology.understory *= alpine * soil;
-          const duneGrowth = THREE.MathUtils.smoothstep(coastDistance, 40, 115);
+          const duneGrowth = sea?.enabled ? sampleCoastField(worldX, worldZ, 0, sea).vegetationSuitability : 1;
           ecology.density *= duneGrowth; ecology.growth *= duneGrowth; ecology.understory *= duneGrowth;
         }
         const offset = index * CHANNELS;

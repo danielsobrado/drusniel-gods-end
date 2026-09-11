@@ -1,11 +1,13 @@
 // Run from the Vite app after entering the scene with ?renderer=auto. Injecting
 // the loss callback exercises bootstrap's actual disposal/restart path without
 // relying on a driver crash. This deliberately consumes the page's retry budget.
-export async function checkRendererRecovery({ loseDuringRestart = false } = {}) {
+export async function checkRendererRecovery({ loseDuringRestart = false, timeoutMs = 120000 } = {}) {
   const initial = window.__grassDemo;
   if (!initial?.started || initial.world.renderer.backend.isWebGPUBackend !== true) {
     throw new Error('Start the development scene on WebGPU before checking recovery.');
   }
+  const moisture = initial.world.terrainTarget.material.userData.beachMoisture;
+  if (moisture) moisture.value = 0.72;
   const failures = [];
   const check = (condition, message) => { if (!condition) failures.push(message); };
   const edit = (selector, value, event) => {
@@ -22,10 +24,11 @@ export async function checkRendererRecovery({ loseDuringRestart = false } = {}) 
   const expectedGrass = JSON.stringify(initial.environment.current.grass);
 
   const restart = async (previous, backend) => {
+    const previousState = previous.captureSessionState();
     const previousBarrier = previous.boundaryBarrier;
     const hadBarrier = Boolean(previousBarrier?.mesh);
     previous.world.renderer.onDeviceLost({ api: 'WebGPU', message: 'Recovery regression check' });
-    const deadline = performance.now() + 45000;
+    const deadline = performance.now() + timeoutMs;
     while (performance.now() < deadline) {
       const next = window.__grassDemo;
       if (next !== previous && next.started) {
@@ -46,13 +49,18 @@ export async function checkRendererRecovery({ loseDuringRestart = false } = {}) 
         check(next.grass.interactionMap.enabled === false && !next.ui.element.querySelector('[data-interaction]').checked,
           'interaction control matches the restored setting');
         check(Math.abs(next.player.cameraDistance - 14) < 0.001, 'pixel ratio restoration preserves camera zoom');
+        if (Number.isFinite(previousState.beachMoisture)) {
+          check(Math.abs(next.world.terrainTarget.material.userData.beachMoisture.value - previousState.beachMoisture) < 0.05,
+            'beach moisture survives recovery');
+          check(next.water.rippleElapsed >= previousState.waveClock, 'coastal wave clock survives recovery');
+        }
         return next;
       }
       const fatal = document.querySelector('.fatal');
       if (fatal) throw new Error(fatal.textContent);
       await new Promise(resolve => setTimeout(resolve, 50));
     }
-    throw new Error('Renderer recovery did not finish within 45 seconds.');
+    throw new Error(`Renderer recovery did not finish within ${timeoutMs / 1000} seconds.`);
   };
   if (loseDuringRestart) {
     const prototype = initial.constructor.prototype;

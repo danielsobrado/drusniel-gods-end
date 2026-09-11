@@ -2,6 +2,7 @@ import * as THREE from 'three/webgpu';
 import {
   abs,
   cameraViewMatrix,
+  cameraPosition,
   color,
   dot,
   float,
@@ -29,7 +30,7 @@ import { foliageLight } from '../rendering/CinematicLighting.js';
 import { meadowRootColor } from '../rendering/MeadowPalette.js';
 import { groundGrassTexture, groundRoughness as turfRoughness, groundTurf } from '../rendering/GroundTurf.js';
 import { riverField } from '../water/riverNodes.js';
-import { coastXNode } from './coast.js';
+import { createCoastNodes, advanceBeachMoisture } from './CoastField.js';
 
 const ORIGINAL_ANISOTROPY = 16;
 const ORIGINAL_GRASS_UV_SCALE = 150;
@@ -206,6 +207,7 @@ export async function createGroundMaterial(config, terrainSampler = null) {
   material.metalnessNode = float(config.ground.metalness ?? ORIGINAL_METALNESS);
 
   const wetness = uniform(0);
+  const coastClock = uniform(0), coastRain = uniform(0), beachMoisture = uniform(0);
   if (config.cinematic?.enabled) {
     const world = positionWorld.xz;
     const macro = sin(world.x.mul(0.037).add(sin(world.y.mul(0.053)))).mul(sin(world.y.mul(0.071))).mul(0.5).add(0.5);
@@ -261,17 +263,28 @@ export async function createGroundMaterial(config, terrainSampler = null) {
       material.colorNode = mix(material.colorNode, mix(color('#b4cbd3'), color('#ecf2ec'), normalWorld.y.max(0)), snow);
       material.roughnessNode = mix(material.roughnessNode, float(0.9), snow);
       const sea = config.water.sea;
-      const coastal = sea?.enabled ? positionWorld.x.sub(coastXNode(positionWorld.z, sea.shoreX)).smoothstep(-150, -85) : float(0);
+      const coast = sea?.enabled ? createCoastNodes(sea, coastClock, coastRain) : null;
+      const coastal = coast ? coast.distance(world).smoothstep(-150, -85) : float(0);
       if (sea?.enabled) {
         const sandRipples = sin(world.y.mul(1.4).add(sin(world.x.mul(0.52)).mul(2))).mul(0.025).add(0.975);
-        const grains = sin(world.x.mul(31)).mul(sin(world.y.mul(27))).mul(0.018).add(0.982);
-        const wetSand = positionWorld.y.sub(sea.level).smoothstep(0.3, 3.5).oneMinus();
-        const sand = mix(color('#c0ac7b'), color('#e3cea0'), macro).mul(sandRipples).mul(grains)
-          .mul(wetSand.mul(0.32).oneMinus());
+        const grainFade = cameraPosition.distance(positionWorld).smoothstep(8, 60).oneMinus();
+        const grains = sin(world.x.mul(31)).mul(sin(world.y.mul(27))).mul(0.018).mul(grainFade).add(0.982);
+        const meso = sin(world.x.mul(0.73).add(sin(world.y.mul(0.91)))).mul(sin(world.y.mul(1.27))).mul(0.5).add(0.5);
+        const wetSand = coast.baseMoisture(world).mul(mix(0.8, 1.15, meso))
+          .add(coast.waveWash(world).mul(0.55)).add(beachMoisture.mul(0.8)).clamp(0, 1);
+        const sand = mix(color('#b39a72'), color('#d6be96'), macro).mul(sandRipples).mul(grains)
+          .mul(mix(0.84, 1.04, meso)).mul(wetSand.mul(0.55).oneMinus());
         material.colorNode = mix(material.colorNode, sand, coastal);
-        material.roughnessNode = mix(material.roughnessNode, mix(0.97, 0.32, wetSand), coastal);
+        material.roughnessNode = mix(material.roughnessNode, mix(0.97, 0.24, wetSand.pow(2)), coastal);
+        material.metalnessNode = mix(material.metalnessNode, float(0), coastal);
+        // Sand is dielectric; broad, faint grain detail flattens under saturation.
+        const sandSlope = vec3(sin(world.x.mul(18.7)), 0, sin(world.y.mul(21.3))).mul(0.025)
+          .mul(wetSand.mul(0.7).oneMinus()).mul(grainFade);
+        const sandNormal = normalize(cameraViewMatrix.mul(vec4(normalWorld.add(sandSlope), 0)).xyz);
+        baseNormal = normalize(mix(baseNormal, sandNormal, coastal));
+        material.normalNode = baseNormal;
       }
-      if (material.emissiveNode) material.emissiveNode = material.emissiveNode.mul(rockBlend.oneMinus());
+      if (material.emissiveNode) material.emissiveNode = material.emissiveNode.mul(rockBlend.oneMinus()).mul(coastal.oneMinus());
       // Gentle moving caustics only illuminate submerged riverbed / lake shallows.
       const inlandY = river.y.lessThan(0).select(river.x, float(config.water.position[1]));
       const surfaceY = coastal.greaterThan(0.5).select(float(sea?.level ?? -24), inlandY);
@@ -287,7 +300,13 @@ export async function createGroundMaterial(config, terrainSampler = null) {
   material.userData = {
     ...material.userData,
     textures: [grassColor, groundColor, surfaceBlend, groundNormal, groundRoughness],
+    updateCoast: (delta, clock) => {
+      coastClock.value = clock;
+      beachMoisture.value = advanceBeachMoisture(beachMoisture.value, coastRain.value, delta);
+    },
+    beachMoisture,
     setRainIntensity: (value) => {
+      coastRain.value = THREE.MathUtils.clamp(value, 0, 1);
       wetness.value = value * (config.ground.wetness ?? 0.7);
       rainController.setRain(value > 0.001);
     },

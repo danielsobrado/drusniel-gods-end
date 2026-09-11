@@ -2,6 +2,7 @@ import * as THREE from 'three/webgpu';
 import { fog, uniform, positionWorld, positionView, cameraPosition, mix, dot, smoothstep, float } from 'three/tsl';
 import { CSMShadowNode } from 'three/addons/csm/CSMShadowNode.js';
 import { prepareAtmosphereMaterials } from './atmosphereMaterials.js';
+import { coastXNode } from '../world/coast.js';
 
 // Shared by leaves, grass and atmosphere; updated from the active weather preset.
 export const foliageLight = {
@@ -23,7 +24,12 @@ export class CinematicLighting {
     const distance = positionView.z.negate().max(0);
     const height = positionWorld.y.add(cameraPosition.y).mul(0.5);
     const lowMist = height.sub(atmosphere.height).mul(-atmosphere.falloff).exp().clamp(0.08, 2);
-    const density = this.fogDensity.add(lowMist.mul(atmosphere.density));
+    // The low sea elevation otherwise doubles meadow mist even on clear days.
+    // Keep a hazy horizon, but let nearby sunny sand and water retain contrast.
+    const sea = config.water.sea;
+    const coastal = sea?.enabled ? cameraPosition.x.sub(coastXNode(cameraPosition.z, sea.shoreX)).smoothstep(-200, 0) : float(0);
+    const coastalHaze = mix(0.5, 1, this.fogDensity.smoothstep(0.0015, 0.003));
+    const density = this.fogDensity.add(lowMist.mul(atmosphere.density)).mul(mix(1, coastalHaze, coastal));
     const factor = distance.mul(density).pow(2).negate().exp().oneMinus().clamp(0, 1);
     const towardSun = dot(positionWorld.sub(cameraPosition).normalize(), foliageLight.direction).max(0).pow(8);
     const mistColor = mix(this.fogColor, foliageLight.color, towardSun.mul(0.16));

@@ -11,6 +11,7 @@ import { loadTerrain } from './loadTerrain.js';
 import { createRendererSession, resolveRendererRequest } from '../rendering/RendererSession.js';
 import { ResourceScope, captureObjectResources } from '../utils/ResourceScope.js';
 import { expandLandscape } from './ExpandedLandscape.js';
+import { createBeachScatter, disposeBeachScatter } from './BeachScatter.js';
 
 const DEFAULT_SHADOW = {
   mobileBreakpoint: 768,
@@ -176,6 +177,12 @@ export async function createWorld(config, onProgress = () => {}, { signal, rende
     ? (terrainAsset.target ?? materialTargets[0] ?? terrainAsset.root)
     : createFallbackGround(scene, groundMaterial, config);
   if (!terrainAsset.root) scope.defer(() => { ground.geometry.dispose(); ground.removeFromParent(); });
+
+  if (config.terrain.expansion?.enabled && config.water.sea?.enabled) {
+    const beachScatter = createBeachScatter(terrainSampler, config.water.sea);
+    scene.add(beachScatter);
+    scope.defer(() => disposeBeachScatter(beachScatter));
+  }
 
   let sky = null;
   let clouds = null;

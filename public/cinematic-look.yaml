@@ -102,6 +102,32 @@ leaves:
   count: 240
   spawnInterval: 0.06
 presets:
+  sunny:
+    lighting:
+      color: '#fff5e7'
+      directionalIntensity: 2.7
+      hemisphereSkyColor: '#a8d0ed'
+      hemisphereGroundColor: '#807258'
+      hemisphereIntensity: 0.65
+      ambientColor: '#d6e5ed'
+      ambientIntensity: 0.24
+      environmentIntensity: 0.48
+    sky:
+      horizonColor: '#b8d2df'
+      zenithColor: '#467bac'
+      sunHaloColor: '#fff4df'
+      fogColor: '#a9c5d2'
+      fogDensity: 0.0011
+    cloudCoverage: 0.55
+  rainy:
+    lighting:
+      directionalIntensity: 0.55
+      ambientIntensity: 0.35
+      environmentIntensity: 0.16
+    sky:
+      horizonColor: '#657e89'
+      fogColor: '#617d88'
+      fogDensity: 0.0035
   goldenHour:
     grass:
       blade: { baseColor: '#50852b', tipColor: '#a6bf65', sheen: 0.055 }
@@ -138,6 +164,9 @@ water:
     level: -24
     shoreX: 1000
     depth: 95
+    colors:
+      sunny: { shallow: '#259eac', deep: '#073c58' }
+      storm: { shallow: '#176662', deep: '#032d48' }
     offshoreAmplitude: 1.2
     beachAmplitude: 0.25
     choppiness: 4

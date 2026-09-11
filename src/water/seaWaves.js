@@ -1,5 +1,5 @@
 import { MathUtils } from 'three';
-import { coastX } from '../world/coast.js';
+import { sampleCoastField, coastDepth } from '../world/CoastField.js';
 
 export const SEA_WAVE_DEFAULTS = Object.freeze({ offshoreAmplitude: 1.2, beachAmplitude: 0.25,
   choppiness: 4, transitionStart: 30, transitionEnd: 180 });
@@ -23,10 +23,7 @@ export function resolveSeaWaves(sea = {}) {
 }
 
 // Same analytic shelf as coastalHeight, including beyond the finite terrain map.
-export function seaDepth(distance, sea) {
-  return 9 * MathUtils.smoothstep(distance, 0, 80)
-    + ((sea.depth ?? 95) - 9) * MathUtils.smoothstep(distance, 80, 500);
-}
+export const seaDepth = coastDepth;
 
 export function seaEnvelope(distance, sea, rain = 0) {
   const p = resolveSeaWaves(sea), depth = seaDepth(distance, p);
@@ -50,11 +47,13 @@ export function seaWaveShape(phase, sharpness) {
 // CPU reference used by coastal diagnostics and invariant tests. The shader uses
 // these same coefficients and envelope; neither changes the player's water level.
 export function sampleSeaSurface(x, z, time, sea, rain = 0) {
-  const p = resolveSeaWaves(sea), distance = x - coastX(z, p.shoreX);
+  const p = resolveSeaWaves(sea);
+  const { signedCoastDistance: distance, beachPhase } = sampleCoastField(x, z, time, p, rain);
+  rain = MathUtils.clamp(rain, 0, 1);
   const envelope = seaEnvelope(distance, p, rain);
-  const sharpness = p.choppiness * 0.075;
+  const sharpness = p.choppiness * 0.075 * (1 + rain * 0.5);
   const swell = SEA_COMPONENTS.reduce((height, wave) => height + wave.weight * seaWaveShape(
     (x * wave.x + z * wave.z) * wave.frequency + time * wave.speed + wave.phase, sharpness), 0);
-  const beach = seaWaveShape(distance * (Math.PI * 2 / 13) + time * 1.35 + Math.sin(z * 0.085) * 0.32, 0.45);
+  const beach = seaWaveShape(beachPhase, 0.45 + rain * 0.2);
   return MathUtils.lerp(beach, swell, envelope.offshore) * envelope.amplitude;
 }

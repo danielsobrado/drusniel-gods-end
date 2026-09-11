@@ -36,3 +36,30 @@ A same-session comparison at 1440 × 900, Ultra, headless Chrome WebGL2 gave:
 This is a roughly 25% reduction in average moving-view frame time, not a universal FPS guarantee. Automated tests exercise moving/idle capture cadence and the actual `WaterSurface.update` fixed-probe path, including invalidation. Future water changes should run this visual benchmark as well as geometry tests: compilation and geometry correctness alone do not detect excess scene captures.
 
 A repeat using the saved harness measured 33.2 → 24.2 ms mean frame time while moving (27% lower). Its P95 was approximately 35 ms in both modes; the larger periodic spikes in the first run were not present in every sample. Average frame-time reduction was repeatable.
+
+## Coast implementation review
+
+The graded sea grid replaces 66,049 coarse sea vertices with approximately
+265,856 vertices, concentrating geometry around the surf and playable water.
+Wave detail fades with distance and quality; the reflection refresh policy above
+is retained. Refraction captures are now local to the water material and render
+target, so an HDR scene pass cannot reuse a canvas-format texture after renderer
+recovery. Captures are disposed with the material.
+
+A matching 1280 × 720 coastal pass in native headless Chrome on Metal measured
+approximately 16.67 ms mean and 16.8 ms P95 for both the original sea and the
+updated offshore, transition, beach and curved-shore views. Both runs were
+refresh-rate limited. These results do **not** measure isolated GPU cost or prove
+that the denser geometry is free.
+
+The existing reflection benchmark measured 16.67 ms mean with the current
+policy for stationary and moving views; its historical-policy comparison was
+16.67 ms stationary and 17.64 ms moving. These refresh-rate-limited numbers are
+validation of the harness, not a new performance improvement claim.
+
+Local comparison captures and JSON reports are in `.cache/sea-review/`:
+`before-*.png`, `after-*.png`, `beach-day.png`, `beach-rain.png`,
+`beach-clearing.png`, and `beach-dry-again.png`. The daylight/rain sequence advances
+moisture analytically by 60 seconds of rain, 10 seconds of clearing, then 400
+seconds of drying, while rendering the actual scene and continuing wave motion.
+See [Coast and beach](coast.md) for the runtime review and GPU-check entry points.

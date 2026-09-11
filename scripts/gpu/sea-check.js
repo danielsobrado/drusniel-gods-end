@@ -3,6 +3,7 @@ import { attribute, positionLocal, positionWorld, uniform, vec3, vec4 } from 'th
 import { createSeaNodes } from '../../src/water/seaNodes.js';
 import { sampleSeaSurface } from '../../src/water/seaWaves.js';
 import { coastX } from '../../src/world/coast.js';
+import { createCoastNodes, sampleCoastField } from '../../src/world/CoastField.js';
 import { createCinematicWaterMaterial } from '../../src/water/WaterMaterial.js';
 
 async function checkFiniteWaterNormals(renderer) {
@@ -12,7 +13,7 @@ async function checkFiniteWaterNormals(renderer) {
   const reflection = new THREE.CubeTexture();
   const shader = createCinematicWaterMaterial({
     terrain: { texture: terrainTexture, boundsMin: { x: 0, z: 0 }, boundsSize: { x: 1000, z: 1000 }, minHeight: -95, maxHeight: 0 },
-    river: null, reflection, params: { position: [0, 0, 0], sea: { enabled: true, shoreX: 0, level: 0, depth: 95 } },
+    river: null, reflection, params: { size: 640, position: [0, 0, 0], sea: { enabled: true, shoreX: 0, level: 0, depth: 95 } },
   });
   const geometry = new THREE.PlaneGeometry(8, 8, 4, 4);
   geometry.rotateX(-Math.PI / 2); geometry.translate(500, 0, 0);
@@ -89,8 +90,25 @@ async function check() {
         }
       }
     }
+    const coast = createCoastNodes(sea, clock, rain);
+    material.fragmentNode = vec4(coast.depth(p).div(100), coast.waveWash(p), coast.baseMoisture(p), 1);
+    material.needsUpdate = true;
+    let coastComparisons = 0;
+    for (const wetness of [0, 1]) for (const time of [0, 1, 3, 730]) {
+      rain.value = wetness; clock.value = time;
+      renderer.setRenderTarget(target); await renderer.renderAsync(scene, camera);
+      const pixels = await renderer.readRenderTargetPixelsAsync(target, 0, 0, points.length, 1);
+      for (let i = 0; i < points.length; i++) {
+        const field = sampleCoastField(...points[i], time, sea, wetness);
+        for (const [channel, expected] of [field.oceanDepth / 100, field.waveWash, field.baseMoisture, 1].entries()) {
+          const actual = THREE.DataUtils.fromHalfFloat(pixels[i * 4 + channel]);
+          if (!Number.isFinite(actual) || Math.abs(actual - expected) > 0.004) throw new Error(`Coast moisture sample ${i}: ${actual} != ${expected}`);
+          coastComparisons++;
+        }
+      }
+    }
     const finiteNormals = await checkFiniteWaterNormals(renderer);
-    return { passed: true, backend: renderer.backend.isWebGPUBackend ? 'webgpu' : 'webgl2', comparisons, maxError, finiteNormals };
+    return { passed: true, backend: renderer.backend.isWebGPUBackend ? 'webgpu' : 'webgl2', comparisons, coastComparisons, maxError, finiteNormals };
   } finally { geometry.dispose(); material.dispose(); target.dispose(); renderer.dispose(); }
 }
 
