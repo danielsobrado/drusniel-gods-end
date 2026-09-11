@@ -3,7 +3,7 @@ import { RiverCourse } from '../water/RiverCourse.js';
 import { fractalNoise } from '../grass/vegetationEcology.js';
 import { createSeededRandom } from '../core/math.js';
 import { LandscapePaths, forestWeight } from './LandscapePaths.js';
-import { coastalHeight, coastX } from './coast.js';
+import { coastalHeight, sampleCoastField } from './CoastField.js';
 
 const smooth = (a, b, x) => THREE.MathUtils.smoothstep(x, a, b);
 
@@ -125,7 +125,8 @@ export function adaptLandscapeRecords(trees, props, expansion, terrain) {
       const px = x + random() * 20, pz = z + random() * 20;
       if (Math.abs(px) < 465 && Math.abs(pz) < 465) continue;
       const py = terrain.sampleHeight(px, pz);
-      if (terrain.config.water.sea?.enabled && px > coastX(pz, terrain.config.water.sea.shoreX) - 105) continue;
+      const sea = terrain.config.water.sea;
+      if (sea?.enabled && sampleCoastField(px, pz, 0, sea).signedCoastDistance > -105) continue;
       const slope = Math.hypot(terrain.sampleHeight(px + 3, pz) - py, terrain.sampleHeight(px, pz + 3) - py) / 3;
       if (py < -15 || py > 100 || slope > 0.65 || random() > 0.55 || (river?.sample(px, pz)?.edge ?? 100) < 9) continue;
       result.push([px, py, pz, random() * Math.PI * 2, 0.8 + random() * 0.5, Math.floor(random() * 9)]);
