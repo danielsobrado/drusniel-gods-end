@@ -241,3 +241,130 @@ export async function runTopologyComparison({
 }
 
 export { DEFAULT_SCENARIOS, pose, capturePoseMeta };
+
+export const BIOME_SCENARIOS = [
+  ...DEFAULT_SCENARIOS,
+  { id: 'closeShrubs', position: [12, null, 8], target: [16, 1.2, 10], move: [8, 0, 4], gameplay: true },
+  { id: 'lowGrassAngle', position: [2, null, -5], target: [18, 0.4, 4], move: [12, 0, 0], eyeHeight: 1.4 },
+  { id: 'lodNearBoundary', position: [2, null, -5], target: [22, 4, 8], move: [20, 0, 0] },
+  { id: 'lodFarBoundary', position: [2, null, -5], target: [70, 8, 8], move: [48, 0, 0] },
+  { id: 'cellCrossing', position: [0, null, 0], target: [40, 6, 0], move: [64, 0, 0] },
+];
+
+export function poseGameplay(demo, scenario, phase = 0) {
+  const x = scenario.position[0] + scenario.move[0] * phase;
+  const z = scenario.position[2] + scenario.move[2] * phase;
+  const ground = sampleHeight(demo, x, z);
+  const { rootToFeet, groundOffset } = demo.player.metrics;
+  demo.player.setPosition(x, ground + rootToFeet + groundOffset, z);
+  demo.player.cameraYaw ??= 0;
+  demo.player.cameraPitch ??= demo.config?.camera?.pitch ?? -0.25;
+  demo.player.targetCameraDistance = demo.player.cameraDistance;
+  if (typeof demo.player.update === 'function' && demo.player.enabled) return;
+  const height = scenario.eyeHeight ?? (demo.player.cameraControls?.cameraHeight ?? 4);
+  demo.world.camera.position.set(x, ground + rootToFeet + height, z + (demo.player.cameraDistance ?? 5));
+  const target = scenario.target.slice();
+  if (target[1] == null) target[1] = sampleHeight(demo, target[0], target[2]) + 2;
+  demo.world.camera.lookAt(...target);
+}
+
+function percentileMean(runs, path) {
+  const values = runs.map((run) => path(run)).filter((value) => Number.isFinite(value));
+  if (!values.length) return null;
+  values.sort((a, b) => a - b);
+  const mid = Math.floor(values.length / 2);
+  return values.length % 2 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
+}
+
+export function evaluateBiomeGate(baseline, feature) {
+  const failures = [];
+  const limitations = [];
+  for (const [id, record] of Object.entries(feature.scenarios ?? {})) {
+    const baseRecord = baseline.scenarios?.[id];
+    if (!baseRecord) {
+      failures.push(`${id}: missing baseline`);
+      continue;
+    }
+    for (const mode of ['stationary', 'moving']) {
+      const nextRuns = record[mode] ?? [];
+      const baseRuns = baseRecord[mode] ?? [];
+      const processingMedian = percentileMean(nextRuns, (run) => run.processing?.median);
+      const processingP95 = percentileMean(nextRuns, (run) => run.processing?.p95);
+      const baseMedian = percentileMean(baseRuns, (run) => run.processing?.median);
+      const baseP95 = percentileMean(baseRuns, (run) => run.processing?.p95);
+      if (processingMedian > baseMedian * 1.10) {
+        failures.push(`${id} ${mode} processing median ${processingMedian.toFixed(3)} > ${ (baseMedian * 1.10).toFixed(3)}`);
+      }
+      if (processingP95 > baseP95 * 1.10) {
+        failures.push(`${id} ${mode} processing p95 ${processingP95.toFixed(3)} > ${(baseP95 * 1.10).toFixed(3)}`);
+      }
+      const gpuMedian = percentileMean(nextRuns, (run) => run.gpuTimestamp?.median);
+      const gpuP95 = percentileMean(nextRuns, (run) => run.gpuTimestamp?.p95);
+      const baseGpuMedian = percentileMean(baseRuns, (run) => run.gpuTimestamp?.median);
+      const baseGpuP95 = percentileMean(baseRuns, (run) => run.gpuTimestamp?.p95);
+      if (gpuMedian == null || baseGpuMedian == null) {
+        limitations.push(`${id} ${mode}: GPU timestamps unavailable; not treated as zero cost`);
+      } else {
+        if (gpuMedian > baseGpuMedian * 1.10) {
+          failures.push(`${id} ${mode} GPU median ${gpuMedian.toFixed(3)} > ${(baseGpuMedian * 1.10).toFixed(3)}`);
+        }
+        if (gpuP95 > baseGpuP95 * 1.10) {
+          failures.push(`${id} ${mode} GPU p95 ${gpuP95.toFixed(3)} > ${(baseGpuP95 * 1.10).toFixed(3)}`);
+        }
+      }
+    }
+  }
+  return {
+    pass: failures.length === 0,
+    failures,
+    limitations,
+    verified: failures.length === 0 && limitations.length === 0,
+  };
+}
+
+export async function runBiomeBenchmark({
+  demo = window.__grassDemo,
+  presets = ['sunny', 'windy'],
+  qualities = ['performance', 'balanced', 'high', 'ultra'],
+  ...options
+} = {}) {
+  const results = {
+    commit: demo.world?.rendererSession?.diagnostics ?? null,
+    backend: demo.getProfileResults()?.backend,
+    browser: navigator.userAgent,
+    gpu: demo.world?.renderer?.backend?.getContext?.()?.getParameter?.(0x1F00) ?? null,
+    viewport: demo.getProfileResults()?.viewport,
+    pixelRatio: demo.getProfileResults()?.pixelRatio,
+    presets: {},
+    gate: null,
+  };
+  const savedEnabled = demo.config.biomes?.referenceScrub?.enabled === true;
+  try {
+    for (const preset of presets) {
+      results.presets[preset] = {};
+      for (const quality of qualities) {
+        demo.ui?.actions?.setQuality?.(quality);
+        demo.config.biomes.referenceScrub.enabled = false;
+        await demo.ui.actions.setPreset(preset);
+        const baseline = await runSceneBenchmark({
+          demo, scenarios: BIOME_SCENARIOS, ...options,
+        });
+        demo.config.biomes.referenceScrub.enabled = true;
+        await demo.ui.actions.setPreset(preset);
+        const feature = await runSceneBenchmark({
+          demo, scenarios: BIOME_SCENARIOS, ...options,
+        });
+        const gate = evaluateBiomeGate(baseline, feature);
+        results.presets[preset][quality] = { baseline, feature, gate };
+      }
+    }
+    const failures = Object.values(results.presets).flatMap((qualityMap) => (
+      Object.values(qualityMap).flatMap((entry) => entry.gate.failures)
+    ));
+    results.gate = { pass: failures.length === 0, failures };
+  } finally {
+    demo.config.biomes.referenceScrub.enabled = savedEnabled;
+  }
+  demo.lastBiomeBenchmark = results;
+  return results;
+}

@@ -16,6 +16,7 @@ import { createGrassTerrainData } from './GrassTerrainData.js';
 import { GrassTile } from './GrassTile.js';
 import { InteractionMap } from './InteractionMap.js';
 import { ProceduralVegetationField } from './ProceduralVegetationField.js';
+import { collectCooperative } from '../foliage/vegetationRebuild.js';
 
 const GRASS_TYPES = ['blade', 'billboard'];
 
@@ -41,7 +42,11 @@ export class GrassField {
     this.tileBoxMax = new THREE.Vector3();
     this.emptyGrassTiles = new Set();
     this.vegetation = new ProceduralVegetationField(config, terrainSampler, trees);
-    this.containsGrass = (x, z) => this.vegetation.allowsVegetation(x, z);
+    this.layoutRevision = 0;
+    this.referenceState = null;
+    this.containsGrass = (x, z) => this.vegetation.allowsVegetation(x, z)
+      && (!this.referenceState || (!this.referenceState.solids.overlaps(x, z)
+        && this.referenceState.field.retainsGrass(x, z)));
     this.interactionMap = new InteractionMap(config, terrainSampler);
     this.geometryFactory = new GrassGeometryFactory(config);
     this.geometries = {};
@@ -119,7 +124,7 @@ export class GrassField {
     for (const tile of this.tiles) {
       if (!tile.mesh) continue;
       const lodName = tile.mesh.userData.currentLOD ?? 'veryLow';
-      tile.setGeometry(this.geometries[lodName] ?? this.geometries.veryLow, lodName, this.containsGrass);
+      tile.setGeometry(this.geometries[lodName] ?? this.geometries.veryLow, lodName, this.containsGrass, this.layoutRevision);
     }
     for (const geometry of Object.values(previous)) geometry.dispose();
   }
@@ -167,7 +172,7 @@ export class GrassField {
       for (const tile of this.tiles) {
         const lodName = tile.mesh.userData.currentLOD ?? 'veryLow';
         tile.mesh.material = this.materialController.material;
-        tile.setGeometry(this.geometries[lodName] ?? this.geometries.veryLow, lodName, this.containsGrass);
+        tile.setGeometry(this.geometries[lodName] ?? this.geometries.veryLow, lodName, this.containsGrass, this.layoutRevision);
       }
     }
     this.remapEmptyTiles();
@@ -203,9 +208,81 @@ export class GrassField {
     for (const tile of this.tiles) {
       const lodName = tile.mesh.userData.currentLOD ?? 'veryLow';
       tile.mesh.material = this.materialController.material;
-      tile.setGeometry(this.geometries[lodName] ?? this.geometries.veryLow, lodName, this.containsGrass);
+      tile.setGeometry(this.geometries[lodName] ?? this.geometries.veryLow, lodName, this.containsGrass, this.layoutRevision);
     }
     this.remapEmptyTiles();
+  }
+
+  prepareReferenceMaterials() {
+    if (this.referenceControllers) return;
+    this.originalControllers = this.materialControllers;
+    this.referenceControllers = {};
+    for (const type of GRASS_TYPES) {
+      this.referenceControllers[type] = new GrassMaterial(this.config, this.grassTerrainData,
+        this.vegetation, this.interactionMap, type, type === 'billboard' ? this.atlasTexture : null, true);
+    }
+  }
+
+  setReferenceBiome(state) {
+    if (state === this.referenceState) return;
+    if (state) this.prepareReferenceMaterials();
+    this.referenceState = state;
+    this.layoutRevision += 1;
+    this.materialControllers = state ? this.referenceControllers : this.originalControllers ?? this.materialControllers;
+    this.materialController = this.materialControllers[this.type];
+    this.materialController.setMaxDistance(this.#getQuality().maxDistance);
+    this.materialController.setLod(this.#getQuality());
+    for (const tile of this.tiles) {
+      tile.invalidate();
+      tile.mesh.material = this.materialController.material;
+    }
+  }
+
+  containsPredicate(state) {
+    return (x, z) => this.vegetation.allowsVegetation(x, z)
+      && (!state || (!state.solids.overlaps(x, z) && state.field.retainsGrass(x, z)));
+  }
+
+  async prepareLayout(state, { signal } = {}) {
+    if (state) this.prepareReferenceMaterials();
+    const revision = this.layoutRevision + 1;
+    const containsGrass = this.containsPredicate(state);
+    await collectCooperative((function* stageTiles() {
+      for (const tile of this.tiles) {
+        const lodName = tile.mesh.userData.currentLOD ?? 'veryLow';
+        const source = this.geometries[lodName];
+        if (source) tile.stageGeometry(source, lodName, containsGrass, revision);
+        yield;
+      }
+    }).call(this), { signal });
+    this.pendingLayout = { state, revision };
+    return this.pendingLayout;
+  }
+
+  commitLayout(prepared = this.pendingLayout) {
+    if (!prepared) {
+      this.setReferenceBiome(null);
+      return;
+    }
+    const { state, revision } = prepared;
+    if (state) this.prepareReferenceMaterials();
+    this.referenceState = state;
+    this.layoutRevision = revision;
+    this.containsGrass = this.containsPredicate(state);
+    this.materialControllers = state ? this.referenceControllers : this.originalControllers ?? this.materialControllers;
+    this.materialController = this.materialControllers[this.type];
+    this.materialController.setMaxDistance(this.#getQuality().maxDistance);
+    this.materialController.setLod(this.#getQuality());
+    for (const tile of this.tiles) {
+      tile.commitStaged(revision);
+      tile.mesh.material = this.materialController.material;
+    }
+    this.pendingLayout = null;
+  }
+
+  abortLayout() {
+    for (const tile of this.tiles) tile.discardStaging();
+    this.pendingLayout = null;
   }
 
   setPreset(preset) {
@@ -271,7 +348,7 @@ export class GrassField {
     const maxDistance = quality.maxDistance;
     const maxDistanceSquared = maxDistance * maxDistance;
     const bounds = this.terrainSampler.bounds;
-    const bladeHeight = Number(this.materialController.uniforms.bladeHeight.value);
+    const bladeHeight = Number(this.materialController.uniforms.bladeHeight.value) * (this.referenceState ? 2.6 : 1);
 
     this.camera.updateMatrixWorld();
     this.projectionView.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
@@ -320,7 +397,7 @@ export class GrassField {
       if (!tile.mesh.visible) continue;
 
       const lodName = selectGrassLod(distanceSquared, maxDistance, quality.lod);
-      const compacted = tile.setGeometry(this.geometries[lodName], lodName, this.containsGrass);
+      const compacted = tile.setGeometry(this.geometries[lodName], lodName, this.containsGrass, this.layoutRevision);
       if (compacted) {
         this.stats.compactionMs += tile.lastCompactionMs;
         this.stats.compactionTiles += 1;
@@ -333,7 +410,12 @@ export class GrassField {
   }
 
   sampleVegetation(x, z) {
-    return this.vegetation.sampleWorld(x, z);
+    const ecology = this.vegetation.sampleWorld(x, z);
+    if (!this.referenceState) return ecology;
+    if (this.referenceState.solids.overlaps(x, z)) return { ...ecology, density: 0, growth: 0, understory: 0, path: 1 };
+    const mass = this.referenceState.field.sampleWorld(x, z).mass;
+    return { ...ecology, density: ecology.density * (0.6 + 0.4 * mass),
+      understory: ecology.understory * (0.6 + 0.4 * mass) };
   }
 
   dispose() {
@@ -341,7 +423,8 @@ export class GrassField {
     this.disposed = true;
     for (const tile of this.tiles) tile.dispose(this.scene);
     for (const geometry of Object.values(this.geometries)) geometry.dispose();
-    for (const controller of Object.values(this.materialControllers)) controller.dispose();
+    for (const controller of new Set([...Object.values(this.materialControllers),
+      ...Object.values(this.originalControllers ?? {}), ...Object.values(this.referenceControllers ?? {})])) controller.dispose();
     this.atlasTexture?.dispose?.();
     if (this.grassTerrainData !== this.terrainSampler) this.grassTerrainData?.dispose?.();
     this.interactionMap.texture.dispose();

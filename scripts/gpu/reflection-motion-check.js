@@ -34,10 +34,10 @@ export async function checkReflectionMotion(renderer) {
   const target = new THREE.RenderTarget(size, size);
   const previousTarget = renderer.getRenderTarget();
   const update = planar.reflector.updateBefore.bind(planar.reflector);
-  let budget, unthrottled, now, captures;
+  let budget, unthrottled, now, captures, quality;
   planar.reflector.updateBefore = frame => {
     if (frame.camera !== camera) return;
-    if (unthrottled || budget.shouldRender(camera, 'ultra', now)) { update(frame); captures++; }
+    if (unthrottled || budget.shouldRender(camera, quality, now)) { update(frame); captures++; }
   };
   const motion = {
     translation: frame => { camera.position.x += frame * 0.25; },
@@ -46,8 +46,10 @@ export async function checkReflectionMotion(renderer) {
     slowRotation: frame => { camera.rotateY(frame * 0.001); },
     projection: frame => { camera.fov += frame * 0.3; camera.updateProjectionMatrix(); },
   };
-  const run = async (pose, fresh) => {
+  const run = async (pose, fresh, qualityName) => {
     budget = new ReflectionBudget(); unthrottled = fresh; captures = 0;
+    quality = qualityName;
+    shader.uniforms.rich.value = quality === 'ultra' ? 1 : 0;
     const frames = [];
     for (let frame = 0; frame < 8; frame++) {
       now = frame * 1000 / 60;
@@ -63,8 +65,8 @@ export async function checkReflectionMotion(renderer) {
   };
   const checks = [];
   try {
-    for (const [name, pose] of Object.entries(motion)) {
-      const actual = await run(pose, false), reference = await run(pose, true);
+    for (const quality of ['ultra', 'high', 'balanced', 'performance']) for (const [name, pose] of Object.entries(motion)) {
+      const actual = await run(pose, false, quality), reference = await run(pose, true, quality);
       let differingPixels = 0, maxDifference = 0;
       for (let frame = 0; frame < actual.frames.length; frame++) {
         const a = actual.frames[frame], b = reference.frames[frame];
@@ -74,7 +76,9 @@ export async function checkReflectionMotion(renderer) {
           if (difference > 1) differingPixels++;
         }
       }
-      checks.push({ name, passed: differingPixels === 0 && actual.captures === 8 && reference.captures === 8,
+      const expectedCaptures = quality === 'ultra' ? 8 : 0;
+      checks.push({ name: `${quality} ${name}`, passed: differingPixels === 0
+        && actual.captures === expectedCaptures && reference.captures === 8,
         differingPixels, maxDifference, captures: actual.captures, referenceCaptures: reference.captures });
     }
     return { passed: checks.every(check => check.passed), checks, backend: renderer.backend.constructor.name };

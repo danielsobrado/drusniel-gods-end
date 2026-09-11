@@ -125,6 +125,12 @@ export class FrameProfiler {
       occlusionMs: snapshot.occlusionMs ?? 0,
       gpuPrograms: snapshot.gpuPrograms ?? 0,
       gpuPipelines: snapshot.gpuPipelines ?? 0,
+      colliders: snapshot.colliders ?? 0,
+      biomeNear: snapshot.biomeNear ?? 0,
+      biomeMid: snapshot.biomeMid ?? 0,
+      biomeFar: snapshot.biomeFar ?? 0,
+      biomeBookkeepingMs: snapshot.biomeBookkeepingMs ?? 0,
+      biomeTriangles: snapshot.biomeTriangles ?? 0,
     });
     if (windowClosed) this.recording = false;
   }
@@ -152,6 +158,14 @@ export class FrameProfiler {
       reflectionCaptures: this.samples.reduce((total, sample) => total + sample.reflectionCaptures, 0),
       compactionMs: summarizeValues(this.samples.map((sample) => sample.compactionMs)),
       gpuTimestamp: gpuValues.length ? summarizeValues(gpuValues) : null,
+      colliders: summarizeValues(this.samples.map((sample) => sample.colliders ?? 0)),
+      biome: {
+        near: summarizeValues(this.samples.map((sample) => sample.biomeNear ?? 0)),
+        mid: summarizeValues(this.samples.map((sample) => sample.biomeMid ?? 0)),
+        far: summarizeValues(this.samples.map((sample) => sample.biomeFar ?? 0)),
+        bookkeepingMs: summarizeValues(this.samples.map((sample) => sample.biomeBookkeepingMs ?? 0)),
+        triangles: summarizeValues(this.samples.map((sample) => sample.biomeTriangles ?? 0)),
+      },
       hitch: {
         firstProcessingMs: this.samples[0]?.processingMs ?? 0,
         firstIntervalMs: this.samples[0]?.intervalMs ?? 0,

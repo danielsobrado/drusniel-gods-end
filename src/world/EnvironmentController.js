@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { resolvePresetConfig } from '../config/resolvePresetConfig.js';
+import { setPresetAppearance } from '../rendering/PresetAppearance.js';
 
 const GRASS_TYPES = ['blade', 'billboard'];
 const RAIN_ACTIVE_THRESHOLD = 0.001;
@@ -109,18 +111,20 @@ export class EnvironmentController {
     this.quality = config.ui.initialQuality;
     this.currentPreset = config.ui.initialPreset;
     this.grassOverrides = {};
-    this.current = snapshot(config.presets[config.ui.initialPreset]);
+    this.current = snapshot(resolvePresetConfig(config, config.ui.initialPreset));
+    setPresetAppearance(config, this.currentPreset);
     this.#apply();
   }
 
   // A hard cut, not a cross-fade: the caller plays this behind a closed iris,
   // so interpolating the sun across the sky would only read as a time-lapse.
   setPreset(name) {
-    const preset = this.config.presets[name];
+    const preset = resolvePresetConfig(this.config, name);
     if (!preset) throw new Error(`Unknown environment preset: ${name}`);
     this.currentPreset = name;
     this.grassOverrides = {};
     this.current = snapshot(preset);
+    setPresetAppearance(this.config, name);
     this.audio?.setPreset?.(name);
     this.wildGrass?.setPreset?.(name);
     this.understory?.setPreset?.(name);

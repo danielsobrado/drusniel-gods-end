@@ -1,3 +1,4 @@
+import { capPopulation } from './populationCap.js';
 import * as THREE from 'three/webgpu';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { uniform } from 'three/tsl';
@@ -7,6 +8,8 @@ import { captureObjectResources } from '../utils/ResourceScope.js';
 import { createWildGrassMaterial } from './wildGrassMaterial.js';
 import { VegetationJob, VegetationSampleCache } from './vegetationRebuild.js';
 import { iterateUnderstoryPlants, resolveUnderstorySettings } from './understoryPlacement.js';
+import { bakeUnderstoryBillboard, createUnderstoryBillboard, understoryCoverage } from './understoryBillboard.js';
+import { UnderstoryLod } from './understoryLod.js';
 
 const PLANT_ROOT_PATTERN = /^Plants_\d+$/i;
 
@@ -73,8 +76,10 @@ function bakePlant(root, worldScale = 1) {
 }
 
 export class UnderstorySystem {
-  constructor({ scene, config, terrain, grass, jobs = null }) {
+  constructor({ scene, renderer, camera, config, terrain, grass, jobs = null }) {
     this.scene = scene;
+    this.renderer = renderer;
+    this.camera = camera;
     this.config = config;
     this.terrain = terrain;
     this.grass = grass;
@@ -87,6 +92,8 @@ export class UnderstorySystem {
     this.variants = [];
     this.meshes = [];
     this.materials = [];
+    this.geometries = new Set();
+    this.disposed = false;
     this.releaseGltf = null;
     this.lastCell = '';
     this.dummy = new THREE.Object3D();
@@ -96,6 +103,12 @@ export class UnderstorySystem {
     this.windIntensity = uniform(0.2);
     this.windBend = uniform(0.08);
     this.windFlutter = uniform(0.018);
+    this.lodStart = uniform(22);
+    this.lodEnd = uniform(30);
+    this.lodPosition = new THREE.Vector3(Infinity, Infinity, Infinity);
+    this.cameraPosition = new THREE.Vector3();
+    this.lodElapsed = 0;
+    this.stats = { plants: 0, near: 0, billboards: 0, triangles: 0, fullMeshTriangles: 0 };
   }
 
   async init() {
@@ -107,19 +120,22 @@ export class UnderstorySystem {
 
     try {
       const gltf = await new GLTFLoader().loadAsync(assetUrl(path));
+      if (this.disposed) { captureObjectResources(gltf.scene)(); return this; }
       this.releaseGltf = captureObjectResources(gltf.scene);
       gltf.scene.updateMatrixWorld(true);
       const worldScale = this.#settings().worldScale ?? 1;
       const plants = collectPlantRoots(gltf.scene)
         .map((root) => bakePlant(root, worldScale))
         .filter(Boolean);
+      for (const plant of plants) for (const primitive of plant.primitives) this.geometries.add(primitive.geometry);
       if (plants.length === 0) {
         logger.warn('Understory GLB contained no usable plant meshes; skipping imported plants.');
         this.releaseGltf?.();
         this.releaseGltf = null;
         return this;
       }
-      this.#createInstances(plants);
+      await this.#createInstances(plants);
+      if (this.disposed) return this;
       this.ready = true;
       this.#applySettings();
       logger.info('Imported understory plants initialized.', {
@@ -128,8 +144,7 @@ export class UnderstorySystem {
       });
     } catch (error) {
       logger.warn('Understory GLB failed to load; continuing without imported plants.', error);
-      this.releaseGltf?.();
-      this.releaseGltf = null;
+      this.dispose();
     }
     return this;
   }
@@ -163,6 +178,13 @@ export class UnderstorySystem {
     }
 
     const cellSize = settings.cellSize;
+    this.lodElapsed += delta;
+    this.camera?.getWorldPosition(this.cameraPosition);
+    if (!this.camera) this.cameraPosition.copy(position);
+    if ((this.lodElapsed >= 0.1 && !this.cameraPosition.equals(this.lodPosition))
+      || this.cameraPosition.distanceToSquared(this.lodPosition) > 1) {
+      this.#updateLod();
+    }
     const cell = `${Math.floor(position.x / cellSize)},${Math.floor(position.z / cellSize)}`;
     if (cell === this.lastCell) return;
     this.lastCell = cell;
@@ -170,14 +192,23 @@ export class UnderstorySystem {
   }
 
   dispose() {
+    this.disposed = true;
     this.jobs?.cancel(this.jobId);
     this.sampleCache.clear();
     for (const mesh of this.meshes) {
       mesh.removeFromParent();
-      mesh.geometry.dispose();
       mesh.dispose();
     }
+    for (const variant of this.variants) {
+      variant.billboard?.geometry.dispose();
+      variant.billboard?.material.dispose();
+      variant.billboard?.removeFromParent();
+      variant.billboard?.dispose();
+      variant.atlas?.target.dispose();
+    }
     this.meshes.length = 0;
+    for (const geometry of this.geometries) geometry.dispose();
+    this.geometries.clear();
     this.variants.length = 0;
     for (const material of this.materials) material.dispose();
     this.materials.length = 0;
@@ -196,15 +227,23 @@ export class UnderstorySystem {
     this.fadeWidth.value = settings.fadeWidth;
     this.windBend.value = settings.windBend;
     this.windFlutter.value = settings.windFlutter;
+    this.lodStart.value = settings.billboardStart;
+    this.lodEnd.value = settings.billboardEnd;
+    this.lodElapsed = Infinity;
+    this.lodPosition.set(Infinity, Infinity, Infinity);
     for (const mesh of this.meshes) mesh.castShadow = settings.castShadow;
   }
 
   #clearInstances() {
     for (const mesh of this.meshes) mesh.count = 0;
-    for (const variant of this.variants) variant.count = 0;
+    for (const variant of this.variants) {
+      variant.count = 0;
+      if (variant.billboard) variant.billboard.count = 0;
+    }
+    for (const key of Object.keys(this.stats)) this.stats[key] = 0;
   }
 
-  #createInstances(plants) {
+  async #createInstances(plants) {
     const settings = this.#settings();
     const cinematic = Boolean(this.config.cinematic?.enabled);
     const capacity = Math.max(1, settings.count ?? 800);
@@ -220,6 +259,16 @@ export class UnderstorySystem {
 
     for (const plant of plants) {
       const variant = { primitives: [], count: 0, height: plant.height };
+      this.variants.push(variant);
+      if (this.renderer) {
+        for (const primitive of plant.primitives) prepareAtlas(primitive.sourceMaterial?.map);
+        variant.atlas = await bakeUnderstoryBillboard(this.renderer, plant);
+        if (this.disposed) { variant.atlas.target.dispose(); return; }
+        variant.billboard = createUnderstoryBillboard({ ...shared, atlas: variant.atlas, capacity,
+          lodStart: this.lodStart, lodEnd: this.lodEnd });
+        variant.billboard.name = `Understory billboard ${plant.name}`;
+        this.scene.add(variant.billboard);
+      }
       const height = uniform(plant.height);
       for (const primitive of plant.primitives) {
         const source = primitive.sourceMaterial;
@@ -233,6 +282,7 @@ export class UnderstorySystem {
           height,
           alphaTest: settings.alphaTest,
           shadowAlphaTest: settings.shadowAlphaTest,
+          coverage: variant.billboard ? understoryCoverage(this.lodStart, this.lodEnd).near : null,
         });
         this.materials.push(material);
         primitive.geometry.setAttribute(
@@ -253,12 +303,15 @@ export class UnderstorySystem {
       }
       variant.matrices = new Float32Array(capacity * 16);
       variant.origins = new Float32Array(capacity * 3);
+      variant.publishedMatrices = new Float32Array(capacity * 16);
+      variant.publishedOrigins = new Float32Array(capacity * 3);
+      variant.lod = new UnderstoryLod(capacity);
       variant.stagingCount = 0;
-      this.variants.push(variant);
     }
   }
 
   #invalidatePopulate() {
+    this.sampleCache.clear();
     this.jobs?.cancel(this.jobId);
     this.lastCell = '';
     this.populateGeneration += 1;
@@ -303,9 +356,10 @@ export class UnderstorySystem {
     this.pending.sort((a, b) => {
       const da = (a.x - origin.x) ** 2 + (a.z - origin.z) ** 2;
       const db = (b.x - origin.x) ** 2 + (b.z - origin.z) ** 2;
-      return da - db;
+      return da - db || a.x - b.x || a.z - b.z || a.variant - b.variant;
     });
     yield undefined;
+    capPopulation(this.pending, this.#settings().maxInstancesTotal);
     this.#resetStaging();
     for (let i = 0; i < this.pending.length; i += 1) {
       this.#stagePlant(this.pending[i]);
@@ -361,6 +415,8 @@ export class UnderstorySystem {
     for (const variant of this.variants) {
       const count = variant.stagingCount;
       variant.count = count;
+      variant.publishedMatrices.set(variant.matrices.subarray(0, count * 16));
+      variant.publishedOrigins.set(variant.origins.subarray(0, count * 3));
       for (const [index, mesh] of variant.primitives.entries()) {
         mesh.instanceMatrix.array.set(variant.matrices.subarray(0, count * 16));
         mesh.instanceMatrix.needsUpdate = true;
@@ -379,6 +435,56 @@ export class UnderstorySystem {
           mesh.boundingBox?.getBoundingSphere(mesh.boundingSphere);
         }
       }
+      if (variant.billboard) {
+        // A sphere covering all plants is conservative for every camera-facing
+        // orientation, including the overlap while the CPU partition catches up.
+        variant.billboard.boundingBox = new THREE.Box3();
+        for (const bounds of variant.primitiveBounds ?? []) variant.billboard.boundingBox.union(bounds.box);
+        variant.billboard.boundingSphere = new THREE.Sphere();
+        if (!variant.billboard.boundingBox.isEmpty()) {
+          variant.billboard.boundingBox.expandByScalar(Math.max(variant.atlas.width, variant.atlas.height));
+          variant.billboard.boundingBox.getBoundingSphere(variant.billboard.boundingSphere);
+        }
+      }
+    }
+    this.camera?.getWorldPosition(this.cameraPosition);
+    this.#updateLod();
+  }
+
+  #updateLod() {
+    this.lodElapsed = 0;
+    this.lodPosition.copy(this.cameraPosition);
+    const stats = this.stats;
+    for (const key of Object.keys(stats)) stats[key] = 0;
+    for (const variant of this.variants) {
+      stats.plants += variant.count;
+      const triangles = variant.primitives.reduce((sum, mesh) => sum
+        + (mesh.geometry.index?.count ?? mesh.geometry.attributes.position.count) / 3, 0);
+      stats.fullMeshTriangles += triangles * variant.count;
+      if (!variant.billboard) { stats.near += variant.count; stats.triangles += triangles * variant.count; continue; }
+      const lod = variant.lod.partition(variant.publishedOrigins, variant.count, this.cameraPosition,
+        this.lodStart.value, this.lodEnd.value);
+      stats.near += lod.nearCount; stats.billboards += lod.farCount;
+      stats.triangles += triangles * lod.nearCount + 2 * lod.farCount;
+      for (const mesh of variant.primitives) {
+        for (let i = 0; i < lod.nearCount; i++) {
+          const source = lod.near[i];
+          mesh.instanceMatrix.array.set(variant.publishedMatrices.subarray(source * 16, source * 16 + 16), i * 16);
+          mesh.geometry.attributes.clumpOrigin.array.set(variant.publishedOrigins.subarray(source * 3, source * 3 + 3), i * 3);
+        }
+        mesh.count = lod.nearCount;
+        mesh.instanceMatrix.needsUpdate = mesh.geometry.attributes.clumpOrigin.needsUpdate = true;
+      }
+      const mesh = variant.billboard, attributes = mesh.geometry.attributes;
+      for (let i = 0; i < lod.farCount; i++) {
+        const source = lod.far[i], offset = source * 16, m = variant.publishedMatrices;
+        attributes.clumpOrigin.array.set(variant.publishedOrigins.subarray(source * 3, source * 3 + 3), i * 3);
+        const scale = Math.max(Math.hypot(m[offset], m[offset + 2]), Math.hypot(m[offset + 8], m[offset + 10]));
+        attributes.billboardShape.setXYZ(i, variant.atlas.width * scale, variant.atlas.height * m[offset + 5],
+          Math.atan2(m[offset + 8], m[offset + 10]));
+      }
+      mesh.count = lod.farCount;
+      attributes.clumpOrigin.needsUpdate = attributes.billboardShape.needsUpdate = true;
     }
   }
 }

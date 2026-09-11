@@ -1,3 +1,4 @@
+import { getPresetAppearance } from '../rendering/PresetAppearance.js';
 import * as THREE from 'three/webgpu';
 import { attribute, texture, uv, vec3, vec4 } from 'three/tsl';
 import { adventureCanopyColor } from '../rendering/AdventurePalette.js';
@@ -110,7 +111,7 @@ function createBillboardMaterial(sourceMaterial, opacityAttributeName, config) {
     const leafSample = texture(material.map, uv());
     const canopy = adventureCanopyColor(leafSample.rgb, config);
     material.colorNode = vec4(canopy, leafSample.a);
-    material.emissiveNode = canopy.mul(foliageLight.fill).mul(config.cinematic.style.foliageFill);
+    material.emissiveNode = canopy.mul(foliageLight.fill).mul(getPresetAppearance(config).foliageFill);
   }
   return material;
 }

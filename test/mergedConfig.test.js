@@ -31,6 +31,7 @@ test('effective config uses the runtime YAML file order', async () => {
     'vegetation.yaml',
     'foliage.yaml',
     'characters.yaml',
+    'reference-biome.yaml',
   ]);
 
   const config = await loadMergedConfig();

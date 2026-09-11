@@ -281,7 +281,7 @@ audio:
 ui:
   showStats: true
   showAdvanced: true
-  initialQuality: ultra
+  initialQuality: high
   initialPreset: sunny
 quality:
   performance:

@@ -1,3 +1,4 @@
+import { getPresetAppearance, sampleReferenceField } from '../rendering/PresetAppearance.js';
 import * as THREE from 'three/webgpu';
 import { foliageBacklight, foliageLight } from '../rendering/CinematicLighting.js';
 import { resolveVegetationPolicy } from './vegetationPolicy.js';
@@ -380,6 +381,7 @@ export class GrassMaterial {
           local.assign(vec3(1e9));
         });
         If(grassStrength.greaterThan(0), () => {
+          this.#applyReferenceShape(local, baseWorld);
           this.#sampleInteractionBlade(interactionTexture, baseWorld, local, grassStrength);
 
           local.x.mulAssign(uniforms.bladeWidth.mul(sqrt(grassStrength)));
@@ -427,8 +429,9 @@ export class GrassMaterial {
           );
 
           const heightRatio = bladeUv.y.clamp(0, 1);
-          const randomDirectionX = cos(instanceData.z);
-          const randomDirectionZ = sin(instanceData.z);
+          const referenceDirection = this.#referenceDirection(instanceData.z);
+          const randomDirectionX = referenceDirection.x;
+          const randomDirectionZ = referenceDirection.y;
           const windDirectionX = float(0).toVar();
           const windDirectionZ = float(0).toVar();
           const windAngle = float(0).toVar();
@@ -581,6 +584,7 @@ export class GrassMaterial {
         });
         If(grassStrength.greaterThan(0), () => {
           const strengthRoot = sqrt(grassStrength);
+          this.#applyReferenceShape(local, baseWorld);
           this.#sampleInteractionBillboard(interactionTexture, baseWorld, local);
 
           const sourceX = local.x;
@@ -626,8 +630,9 @@ export class GrassMaterial {
           );
 
           const heightRatio = uv().y.clamp(0, 1);
-          const randomDirectionX = cos(instanceData.z);
-          const randomDirectionZ = sin(instanceData.z);
+          const referenceDirection = this.#referenceDirection(instanceData.z);
+          const randomDirectionX = referenceDirection.x;
+          const randomDirectionZ = referenceDirection.y;
 
           if (this.shaderFeatures.recoveredWind) {
             const useDetailedWind = this.painterEnabled
@@ -828,21 +833,35 @@ export class GrassMaterial {
     }
   }
 
+  #referenceDirection(angle) {
+    const random = vec2(cos(angle), sin(angle));
+    if (!this.shaderOptions.referenceBiome) return random;
+    const wind = this.uniforms.windDirection.mul(Math.PI / 180);
+    return mix(random, vec2(cos(wind), sin(wind)), getPresetAppearance(this.config).directionalBend).normalize();
+  }
+
+  #applyReferenceShape(local, root) {
+    if (!this.shaderOptions.referenceBiome) return;
+    const mass = sampleReferenceField(root.xz, this.config).b;
+    const middle = smoothstep(0.34, 0.42, mass), tall = smoothstep(0.64, 0.72, mass);
+    local.x.mulAssign(middle.mul(0.3).sub(tall.mul(0.5)).add(0.85));
+    local.y.mulAssign(middle.mul(0.4).add(tall.mul(0.3)).add(0.6));
+  }
+
   #configureMeadowMaterial(material, bladeUv, instanceData) {
-    const style = this.config.cinematic.style;
     const rootWorld = modelWorldMatrix.mul(vec4(attribute('instancePosition', 'vec3'), 1)).xyz;
-    const palette = meadowColors(rootWorld.xz, this.config);
+    const palette = meadowColors(rootWorld.xz, this.config, this.shaderOptions.referenceBiome);
     const height = bladeUv.y.clamp(0, 1);
-    const colorHeight = height.pow(style.grassGradientPower ?? 2.6);
+    const colorHeight = height.pow(getPresetAppearance(this.config).grassGradientPower);
     const pigment = mix(palette.root.toVarying('meadowRootPigment'), palette.tip.toVarying('meadowTipPigment'), colorHeight);
-    const rootShade = mix(style.grassRootBrightness ?? 0.9, 1, smoothstep(0, 0.45, height));
+    const rootShade = mix(getPresetAppearance(this.config).grassRootBrightness, 1, smoothstep(0, 0.45, height));
     const variation = mix(0.96, 1.04, instanceData.w);
     material.colorNode = pigment.mul(rootShade).mul(variation);
     // Sun-facing transmission is strongest at the thin tip. A small shared
     // ambient fill keeps roots and terrain together without bleaching the field.
-    material.emissiveNode = foliageBacklight(pigment, this.uniforms.sheen.clamp(0, 1).add(style.grassBacklight ?? 0.85))
+    material.emissiveNode = foliageBacklight(pigment, this.uniforms.sheen.clamp(0, 1).add(getPresetAppearance(this.config).grassBacklight))
       .mul(smoothstep(0.35, 1, height))
-      .add(pigment.mul(foliageLight.fill).mul(style.grassFill ?? 0.06));
+      .add(pigment.mul(foliageLight.fill).mul(getPresetAppearance(this.config).grassFill));
     material.roughness = 0.94;
     material.alphaToCoverage = true;
   }

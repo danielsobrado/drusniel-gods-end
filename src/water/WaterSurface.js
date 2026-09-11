@@ -398,7 +398,7 @@ export class WaterSurface {
       this.mesh.add(this.planar.target);
       const update = this.planar.reflector.updateBefore.bind(this.planar.reflector);
       this.planar.reflector.updateBefore = (frame) => {
-        if (!this.reflectionInitialized || frame.camera !== options.camera || this.quality === 'performance') return;
+        if (!this.reflectionInitialized || frame.camera !== options.camera || this.quality !== 'ultra') return;
         if (frame.camera.position.x > (this.params.sea?.shoreX ?? Infinity) - 60) return;
         if (!this.lakeReflectionBudget.shouldRender(frame.camera, this.quality, performance.now())) return;
         const hidden = [], shadows = [];
@@ -424,7 +424,7 @@ export class WaterSurface {
         this.mesh.add(this.seaPlanar.target);
         const updateSea = this.seaPlanar.reflector.updateBefore.bind(this.seaPlanar.reflector);
         this.seaPlanar.reflector.updateBefore = frame => {
-          if (!this.reflectionInitialized || frame.camera !== options.camera || this.quality === 'performance'
+          if (!this.reflectionInitialized || frame.camera !== options.camera || this.quality !== 'ultra'
             || frame.camera.position.x < this.params.sea.shoreX - 350) return;
           if (!this.seaReflectionBudget.shouldRender(frame.camera, this.quality, performance.now())) return;
           const hidden = [], shadows = [];
@@ -474,7 +474,7 @@ export class WaterSurface {
     this.quality = name;
     this.lakeReflectionBudget?.reset();
     this.seaReflectionBudget?.reset();
-    if (this.uniforms.rich) this.uniforms.rich.value = name === 'performance' ? 0 : 1;
+    if (this.uniforms.rich) this.uniforms.rich.value = name === 'ultra' ? 1 : 0;
     if (this.uniforms.seaDetail) this.uniforms.seaDetail.value = { performance: 0.35, balanced: 0.65, high: 0.85, ultra: 1 }[name] ?? 0.85;
     if (this.planar) this.planar.reflector.resolutionScale = { performance: 0.25, balanced: 0.4, high: 0.75, ultra: 1 }[name] ?? 0.75;
     if (this.seaPlanar) this.seaPlanar.reflector.resolutionScale = this.planar.reflector.resolutionScale;

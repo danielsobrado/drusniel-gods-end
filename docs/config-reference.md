@@ -18,6 +18,7 @@ This document records the effective configuration contract on current `main`. Re
 9. public/vegetation.yaml
 10. public/foliage.yaml
 11. public/characters.yaml
+12. public/reference-biome.yaml
 ```
 
 Merge rules:
@@ -50,7 +51,7 @@ forceWebGL: false
 <!-- effective-config: ui -->
 ```yaml
 pixelRatio: 1
-initialQuality: ultra
+initialQuality: high
 initialPreset: goldenHour
 ```
 

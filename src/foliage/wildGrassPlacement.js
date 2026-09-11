@@ -1,3 +1,5 @@
+import { resolvePresetConfig } from '../config/resolvePresetConfig.js';
+import { resolvePopulationCap } from './populationCap.js';
 import { createSeededRandom } from '../core/math.js';
 
 export const DEFAULT_WILD_GRASS = Object.freeze({
@@ -51,7 +53,7 @@ export function resolveWildGrassSettings(config = {}, presetName, qualityName) {
     quality: mergeQuality(DEFAULT_WILD_GRASS.quality, configured?.quality),
   };
   if (base.seed == null) base.seed = config.vegetation?.seed ?? DEFAULT_WILD_GRASS.seed;
-  const preset = config.presets?.[presetName]?.foliage?.wildGrass ?? {};
+  const preset = resolvePresetConfig(config, presetName)?.foliage?.wildGrass ?? {};
   const quality = base.quality[qualityName] ?? DEFAULT_WILD_GRASS.quality.high;
   const enabled = preset.enabled ?? base.enabled;
   if (enabled === false) {
@@ -80,7 +82,8 @@ export function resolveWildGrassSettings(config = {}, presetName, qualityName) {
     windBend: preset.windBend ?? base.windBend,
     moistureBias: preset.moistureBias ?? base.moistureBias,
     growthBias: preset.growthBias ?? base.growthBias,
-    castShadow: quality.shadows === true,
+    castShadow: preset.castShadow ?? (quality.shadows === true),
+    maxInstancesTotal: resolvePopulationCap(preset.maxInstancesTotal ?? base.maxInstancesTotal, qualityName),
   };
 }
 

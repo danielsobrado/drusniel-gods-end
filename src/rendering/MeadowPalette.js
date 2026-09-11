@@ -1,4 +1,5 @@
 import { Color } from 'three/webgpu';
+import { getPresetAppearance, sampleReferenceField } from './PresetAppearance.js';
 import { Fn, dot, floor, fract, mix, sin, smoothstep, uniform, vec2, vec3 } from 'three/tsl';
 
 const palettes = new WeakMap();
@@ -30,17 +31,29 @@ const meadowNoise = Fn(([p]) => {
     mix(hash(vec2(0, 1)), hash(vec2(1, 1)), weight.x), weight.y);
 }, 'float');
 
-export function meadowColors(worldXZ, config) {
+export function meadowColors(worldXZ, config, reference = false) {
   const style = config.cinematic.style;
   const palette = getMeadowPalette(config);
+  const appearance = getPresetAppearance(config);
+  if (reference) {
+    const field = sampleReferenceField(worldXZ, config);
+    const base = mix(palette.base, appearance.dryRoot, field.r);
+    const tip = mix(palette.tip, appearance.dryTip, field.r);
+    return { root: mix(base, tip, appearance.groundTipMix).mul(mix(0.9, 1.05, field.g)), tip };
+  }
   const scale = style.meadowPatchScale ?? 0.035;
   const patch = meadowNoise(worldXZ.mul(scale)).mul(0.8)
     .add(meadowNoise(worldXZ.mul(scale * 2.7).add(19.3)).mul(0.2));
   const tint = mix(vec3(0.84, 0.97, 1.03), vec3(1.13, 1.04, 0.77), smoothstep(0.15, 0.85, patch)).toVar();
   return {
-    root: mix(palette.base, palette.tip, style.groundTipMix ?? 0.12).mul(tint),
+    root: mix(palette.base, palette.tip, appearance.groundTipMix).mul(tint),
     tip: palette.tip.mul(tint),
   };
 }
 
-export function meadowRootColor(worldXZ, config) { return meadowColors(worldXZ, config).root; }
+export function meadowRootColor(worldXZ, config) {
+  const appearance = getPresetAppearance(config);
+  const legacy = meadowColors(worldXZ, config, false).root;
+  const reference = meadowColors(worldXZ, config, true).root;
+  return mix(legacy, reference, appearance.enabled);
+}

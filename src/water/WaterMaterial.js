@@ -166,14 +166,18 @@ export function createCinematicWaterMaterial({ terrain, river, params, reflectio
     const probe = cube.sample(direction).rgb;
     const oceanSky = mix(color('#81a8b4'), color('#38658a'), direction.y.smoothstep(0, 0.7))
       .mul(uniforms.sunStrength.mul(0.85).add(0.12));
-    let reflected = mix(probe, oceanSky, sea);
+    const reflected = mix(probe, oceanSky, sea).toVar();
     if (planar) {
       // Only the horizontal lake/mouth share this reflection plane.
       const lakeWeight = level.sub(params.position[1]).abs().smoothstep(0.05, 3).oneMinus().mul(uniforms.rich);
-      reflected = mix(probe, planar.sample(screenUV.flipX().add(distortion)).rgb, lakeWeight);
+      If(uniforms.rich.greaterThan(0.5), () => {
+        reflected.assign(mix(probe, planar.sample(screenUV.flipX().add(distortion)).rgb, lakeWeight));
+      });
     }
-    if (seaPlanar) reflected = mix(reflected, mix(oceanSky,
-      seaPlanar.sample(screenUV.flipX().add(distortion)).rgb, uniforms.rich.mul(0.65)), sea);
+    if (seaPlanar) If(uniforms.rich.greaterThan(0.5), () => {
+      reflected.assign(mix(reflected, mix(oceanSky,
+        seaPlanar.sample(screenUV.flipX().add(distortion)).rgb, 0.65), sea));
+    });
     const spec = dot(reflect(uniforms.sunDirection.negate(), n), view).max(0);
     const glint = pow(spec, 170).mul(1.8).add(pow(spec, 20).mul(0.08)).mul(uniforms.sunStrength).mul(uniforms.sunColor);
     const oceanFoamUv = vec2(positionWorld.x.mul(0.055).add(t.mul(0.025)), positionWorld.z.mul(0.048));

@@ -465,6 +465,20 @@ export class PlayerController {
     this.camera.position.set(x, y + this.cameraControls.cameraHeight, z + this.cameraDistance);
   }
 
+  translateRoot(x, y, z) {
+    const current = this.getPosition();
+    this.camera.position.x += x - current.x;
+    this.camera.position.y += y - current.y;
+    this.camera.position.z += z - current.z;
+    if (this.physics) {
+      this.physics.setPosition(x, y, z);
+      this.physics.getVisualPosition(this.root.position);
+    } else {
+      this.root.position.set(x, y, z);
+    }
+    this.verticalVelocity = 0;
+  }
+
   update(deltaSeconds) {
     if (deltaSeconds <= 0) return;
     if (this.enabled) this.#updateMovement(deltaSeconds);

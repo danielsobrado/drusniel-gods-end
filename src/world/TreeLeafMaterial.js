@@ -1,3 +1,4 @@
+import { getPresetAppearance } from '../rendering/PresetAppearance.js';
 import * as THREE from 'three/webgpu';
 import { foliageBacklight, foliageLight } from '../rendering/CinematicLighting.js';
 import { adventureCanopyColor } from '../rendering/AdventurePalette.js';
@@ -133,7 +134,7 @@ export class TreeLeafMaterialFactory {
       material.colorNode = vec4(leafColor, leafSample.a);
       material.emissiveNode = foliageBacklight(leafColor, 0.5);
       if (this.config.cinematic.style?.enabled) {
-        material.emissiveNode = material.emissiveNode.add(leafColor.mul(foliageLight.fill).mul(this.config.cinematic.style.foliageFill));
+        material.emissiveNode = material.emissiveNode.add(leafColor.mul(foliageLight.fill).mul(getPresetAppearance(this.config).foliageFill));
       }
       material.roughness = 0.82;
       material.alphaToCoverage = true;

@@ -1,6 +1,6 @@
 import { Matrix4 } from 'three';
 
-/** Reuse screen-space reflections only while their captured view is unchanged. */
+/** Ultra follows camera motion; other qualities use cached environment reflections. */
 export class ReflectionBudget {
   constructor() {
     this.worldMatrix = new Matrix4();
@@ -11,7 +11,7 @@ export class ReflectionBudget {
   reset() { this.lastTime = -Infinity; }
 
   shouldRender(camera, quality, now) {
-    if (quality === 'performance') return false;
+    if (quality !== 'ultra') return false;
     camera.updateWorldMatrix(true, false);
     const viewChanged = !camera.matrixWorld.equals(this.worldMatrix)
       || !camera.projectionMatrix.equals(this.projectionMatrix);

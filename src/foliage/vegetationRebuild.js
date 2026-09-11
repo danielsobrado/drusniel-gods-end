@@ -95,6 +95,26 @@ export class VegetationJob {
   }
 }
 
+export async function collectCooperative(iterator, {
+  signal,
+  budgetMs = VEGETATION_CPU_BUDGET_MS,
+  now = () => performance.now(),
+} = {}) {
+  const values = [];
+  let deadline = now() + budgetMs;
+  let step = iterator.next();
+  while (!step.done) {
+    signal?.throwIfAborted();
+    if (step.value !== undefined) values.push(step.value);
+    if (now() >= deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      deadline = now() + budgetMs;
+    }
+    step = iterator.next();
+  }
+  return values;
+}
+
 export function createVegetationJobScheduler({
   budgetMs = VEGETATION_CPU_BUDGET_MS,
   now = () => performance.now(),
