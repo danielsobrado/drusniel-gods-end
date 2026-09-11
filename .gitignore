@@ -13,3 +13,4 @@ baseline.png
 cinematic-*.png
 .cache/
 
+.playwright-mcp/
