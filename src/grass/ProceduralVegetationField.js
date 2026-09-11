@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { assetUrl } from '../assets/assetUrl.js';
 import { logger } from '../utils/logger.js';
 import { clamp01, computeVegetationEcology, encodeVegetationShaderExclusion, fractalNoise, hash2d, vegetationCoverageChance } from './vegetationEcology.js';
-import { coastX } from '../world/coast.js';
 import { sampleCoastField } from '../world/CoastField.js';
 
 const CHANNELS = 5;
@@ -222,10 +221,11 @@ export class ProceduralVegetationField {
         );
         const water = waterMetrics(this.config, worldX, worldZ, height);
         const sea = this.config.water.sea;
-        const coastDistance = sea?.enabled ? coastX(worldZ, sea.shoreX) - worldX : Infinity;
-        if (sea?.enabled) {
+        const coastField = sea?.enabled ? sampleCoastField(worldX, worldZ, 0, sea) : null;
+        const coastDistance = coastField ? -coastField.signedCoastDistance : Infinity;
+        if (coastField) {
           water.distance = Math.min(water.distance, Math.max(0, coastDistance));
-          water.submerged ||= coastDistance < 30 && height < sea.level + 0.15;
+          water.submerged ||= coastField.signedCoastDistance > -30 && height < sea.level + 0.15;
         }
         const river = this.terrainSampler.river?.sample(worldX, worldZ);
         if (river) {
@@ -251,7 +251,7 @@ export class ProceduralVegetationField {
           ecology.density *= alpine * soil;
           ecology.growth *= alpine * soil;
           ecology.understory *= alpine * soil;
-          const duneGrowth = sea?.enabled ? sampleCoastField(worldX, worldZ, 0, sea).vegetationSuitability : 1;
+          const duneGrowth = coastField?.vegetationSuitability ?? 1;
           ecology.density *= duneGrowth; ecology.growth *= duneGrowth; ecology.understory *= duneGrowth;
         }
         const offset = index * CHANNELS;
