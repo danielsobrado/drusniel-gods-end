@@ -1,47 +1,58 @@
 # Coast and beach
 
-The eastern shore is one biome. Daylight shows warm beige sand and turquoise shallows; waves wet the shoreline in dry weather, and sustained rain darkens the same sand and strengthens the same ocean. Terrain layout and navigation remain unchanged. Ships, buildings and player footprints in the references are outside this implementation.
+The eastern shore is driven by one shared analytical field. Daylight, rain and storm presets change the same terrain and water rather than switching to a separate beach biome.
 
-## Shared field
+## Shared CoastField contract
 
-`src/world/CoastField.js` shares curved coast distance, continuous ocean depth and the 13-unit beach-wave phase between water, sand and placement. Positive distance means seaward. The seabed continues analytically outside the finite terrain texture. CPU samples and TSL nodes are compared by `/scripts/gpu/sea-check.html`.
+`src/world/CoastField.js` is the authority for the curved shoreline and beach state. `src/world/coast.js` only re-exports compatibility helpers. CPU and TSL consumers resolve the same `water.sea.coast` configuration and share these outputs:
 
-Sand combines permanent shoreline dampness, recent wave wash and accumulated rain. Wash uses the last crest's age, with a smooth arrival before the next crest: an analytic periodic memory effect, not a persistent wetness map. Rain accumulates with an 18-second time constant and dries with a 100-second time constant. Rain also prolongs wash. Moisture and wave clock survive renderer recovery.
+- signed coast distance, positive toward the sea;
+- analytical shelf depth outside the finite terrain height texture;
+- beach-wave phase and run-up front;
+- instantaneous thin-water coverage and broken foam front;
+- residual wash memory and permanent shoreline moisture;
+- ordinary vegetation, coastal groundcover and beach-scatter suitability.
 
-Sand is dielectric and becomes darker, smoother and less granular when wet. World-space grain, metre-scale mottling and broad color variation break up the surface without repeating square color tiles. Fine grain fades with distance. The existing rain ripple controller supplies rain impacts.
+Terrain shaping, the water shader, ground shading, coastal groundcover and beach debris all use that contract. `/scripts/gpu/sea-check.html` compares CPU and TSL results at curved coast positions, in dry and rainy states, including clocks beyond ten minutes.
 
-## Ocean and surf
+## Swash and wet sand
 
-`water.sea` accepts these optional controls in `public/cinematic-look.yaml`:
+The incoming and retreating waterline uses the same beach phase as the sea. The ground material renders a thin analytical film over inland sand; it is not a second water mesh or a fluid simulation. The sequence is visible water and foam, reflective wet sand, damp sand, then drying sand.
 
-| Control | Default | Meaning |
-| --- | ---: | --- |
-| `offshoreAmplitude` | 1.2 | Offshore vertical envelope in world units |
-| `beachAmplitude` | 0.25 | Small surf envelope |
-| `choppiness` | 4 | Crest shaping, allowed range 0–6 |
-| `transitionStart` | 30 | Start blending toward offshore waves |
-| `transitionEnd` | 180 | Complete the offshore blend |
+`waterCoverage`, `foamFront` and `washMemory` are coupled. The ground film fades at the waterline while the sea uses its existing shallow-depth opacity, avoiding an independent shoreline handoff. Wave wash works in dry weather. Rain raises persistent beach moisture and slows the visual return to dry sand.
 
-Optional `colors.sunny` and `colors.storm` objects each accept `shallow` and `deep` colors. Rain interpolates the palettes. Refraction and depth absorption preserve visible submerged sand instead of replacing it with opaque cyan.
+Fresh scene construction seeds accumulated beach moisture from the initial preset's resolved rain intensity. A recovered session restores its saved moisture and wave clock afterward. Preset and quality changes do not reseed the accumulator. Wetting and drying use frame-rate-independent exponential integration.
 
-Large waves use five irregularly oriented, zero-mean harmonics. Displacement and base normals derive from the same function. Noise-warped detail normals add the supplied Seascape reference's fine surface texture; distance and quality attenuate that detail. Storms increase amplitude up to 1.65 times, sharpen crests and strengthen fine normals. Surf foam travels with the shared phase, breaks up irregularly and persists longer in rain. Shallow displacement is capped below 42% of mean depth and reaches zero at the waterline.
+Sand remains dielectric. The two configured dry colors are mixed with broad variation and finer distance-filtered grain; saturation darkens the result, lowers roughness and flattens fine normals. Foam, film tint, roughness and spatial frequencies are configured under `water.sea.coast.sand`.
 
-The sea is one indexed, coast-following grid: 1-unit spacing across the surf, 2-unit spacing across playable offshore water, then graded spacing toward the horizon. Alongshore spacing is 4 units through the playable region. Shared vertices prevent strip cracks; bounds include maximum storm displacement. Lake and river keep their existing wave and quality paths. See [Water performance](water-performance.md) for reflection refresh policy.
+## Coast geometry and offshore waves
 
-## Vegetation, debris and weather
+The inland lake/river geometry remains on `WaterSurface.mesh`. The sea is 48 child meshes built from a global coast-relative lattice. Adjacent tiles duplicate identical boundary samples, so quality changes do not introduce T-junctions. Tile bounds include the configured maximum storm displacement and ordinary Three.js frustum culling removes off-screen sea tiles from the main view.
 
-The shared suitability field excludes vegetation from the wash and lower beach, then introduces sparse upper-beach patches before inland vegetation. Three deterministic instanced batches add small pebbles, shell-like fragments and washed twigs. They follow terrain height and slope, exclude active wash, and add no collision geometry. Resources are released and rebuilt with the world. Footprints remain deferred to a player-driven trail system.
+Sea geometry is rebuilt only when water quality changes. The shared material, wave clock, refraction and reflection resources survive the replacement. `water.stats` reports total and main-view visible sea tile, vertex and triangle counts independently from reflection capture counts.
 
-Weather remains in existing environment presets: `sunny` now uses neutral daylight, `goldenHour` retains its warm treatment, `rainy` supplies storm lighting and sea state, and `moonlight` retains night lighting. No separate beach biome or new preset-name interface is introduced.
+The geometry-scale ocean uses five zero-mean directional components with wavelengths 56, 38, 28, 20 and 16 world units. The default offshore amplitude is 1.6 and the storm multiplier is 1.65, giving a conservative vertical displacement bound of 2.64. Shallow-water attenuation still caps displacement against analytical depth and brings it to zero at the waterline.
 
-## Review
+Medium and fine sea normals come from a mipmapped slope texture whose alpha channel stores a second slope moment. Filtered mean slope and mean squared slope produce variance used to broaden explicit sun specular as detail becomes unresolved. Fine detail fades sooner than medium detail; the shared geometry wave phase never changes with quality.
 
-Open `/scripts/debug/sea-review.html` for coastal and inland camera positions, weather/quality controls, diagnostics and the reflection benchmark. The GPU check accepts `?renderer=webgl` for WebGL 2; without it the check uses WebGPU. Node tests cover transition continuity, sea-level centering, storm bounds, mesh topology, rain accumulation, independent wash, and debris placement and disposal.
+Offshore whitecaps use displaced crest and steepness signals plus advected breakup. They fade toward the surf transition while shoreline foam comes from `CoastField.foamFront`. Crest transmission is view- and light-dependent rather than a fixed emissive tint.
 
-Screen-space reflection/refraction cannot recover objects absent from their captures. Swimming, underwater rendering and fluid simulation remain outside this change.
+## Live sky and reflections
 
-Refraction captures are owned per water material and render target, with explicit disposal. This prevents HDR/canvas format mismatches when the renderer recovers.
+The procedural `SkySystem` exposes the same gradient and halo node to the sea shader while omitting the sun disk from that sky sample. Water adds sun energy once through its own explicit specular path. The fallback sky colors remain available if no provider is present.
 
-### Windrose reference refinement
+High, Balanced and Performance retain cached reflections. Ultra retains the existing live planar policy. Weather changes invalidate the existing reflection budgets; the ocean work does not add a new render pass.
 
-The daylight coast uses warmer, less pale sand, stronger irregular mottling and a clearer damp margin. Sunny foam crests are narrower and their trailing wash is less persistent, leaving more turquoise water visible between bands. Sea reflections use a deeper blue palette. Clear-weather coastal haze is reduced to compensate for the low-elevation mist multiplier; inland views and storm haze keep their existing treatment.
+## Sparse coastal ecology
+
+`CoastalGroundcover` creates deterministic creeping-leaf instances 55–145 units inland. Active wash, underwater positions and steep slopes are rejected. The maximum patch count is 500 and the visible fraction follows the active quality setting. The system has no collisions and does not cast shadows.
+
+`BeachScatter` keeps deterministic pebbles, shell-like pieces and twigs while taking its bands, density, seed, sizes, colors and slope threshold from `water.sea.coast.scatter`. Both systems explicitly dispose their geometry and materials with the world.
+
+## Validation
+
+Node tests cover CoastField configuration and invariants, phase wrapping, wetting/drying, deterministic ecology, sea bounds, tile topology and quality geometry. The real-render sea harness validates CPU/TSL displacement, normals and CoastField outputs. CI runs that harness in Chromium WebGL 2 through SwiftShader and attempts WebGPU separately when the runner reports hardware/API support.
+
+Use `/scripts/debug/sea-review.html` for integrated coast, transition, offshore, lake and river review. Fixed visual review and hardware GPU measurements remain device-dependent; missing hardware measurements must be reported as a limitation rather than interpreted as zero cost.
+
+See [Coast/offshore configuration](coast-offshore-config.md) and [Reflection performance](water-performance.md).

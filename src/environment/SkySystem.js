@@ -21,7 +21,6 @@ export class SkySystem {
 
     const preset = config.presets[config.ui.initialPreset].sky;
     const skyConfig = config.sky ?? {};
-
     this.uniforms = {
       ground: uniform(new THREE.Color(preset.groundColor)),
       horizon: uniform(new THREE.Color(preset.horizonColor)),
@@ -60,13 +59,11 @@ export class SkySystem {
       this.mesh.updateMatrixWorld(true);
     };
     this.mesh.userData.setPreset = (value) => this.setPreset(value);
+    this.mesh.userData.getWaterColorNode = (direction) => this.getColorNode(direction, false);
     scene.add(this.mesh);
   }
 
-  // Fog and the sky dome use the identical directional color at long range.
-  // Fully obscured background mountains must not reveal a flat fog-colored
-  // polygon outline against an unrelated sky gradient.
-  getColorNode(direction) {
+  getColorNode(direction, includeSunDisk = true) {
     const up = vec3(0, 1, 0);
     const horizonBlend = smoothstep(
       this.uniforms.horizonStart,
@@ -78,17 +75,20 @@ export class SkySystem {
     if (this.cinematic) {
       const elevation = dot(direction, up);
       const highSky = smoothstep(0.02, this.stylized ? 0.4 : 0.7, elevation);
-      const warmBand = smoothstep(0, 0.1, elevation).mul(float(1).sub(smoothstep(0.1, 0.35, elevation))).mul(0.15);
-      skyColor = mix(mix(this.uniforms.fog, this.uniforms.horizon, warmBand), this.uniforms.zenith, highSky);
+      const warmBand = smoothstep(0, 0.1, elevation)
+        .mul(float(1).sub(smoothstep(0.1, 0.35, elevation))).mul(0.15);
+      skyColor = mix(
+        mix(this.uniforms.fog, this.uniforms.horizon, warmBand),
+        this.uniforms.zenith,
+        highSky,
+      );
     }
 
-    const sunDot = max(
-      dot(direction, normalize(this.uniforms.sunDirection)),
-      float(0),
-    );
+    const sunDot = max(dot(direction, normalize(this.uniforms.sunDirection)), float(0));
     skyColor = mix(skyColor, this.uniforms.halo, pow(sunDot, this.uniforms.haloPower));
-    skyColor = mix(skyColor, this.uniforms.disk, pow(sunDot, this.uniforms.diskPower));
-
+    if (includeSunDisk) {
+      skyColor = mix(skyColor, this.uniforms.disk, pow(sunDot, this.uniforms.diskPower));
+    }
     return skyColor;
   }
 
