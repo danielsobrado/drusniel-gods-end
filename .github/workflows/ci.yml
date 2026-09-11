@@ -2,24 +2,25 @@ name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
-    branches: [main]
-
-permissions:
-  contents: read
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
-      - run: npm ci --no-audit --no-fund
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm ci --prefix scripts/browser
+      - run: node scripts/browser/node_modules/playwright/cli.js install --with-deps chromium
       - run: npm run lint
-      - run: npm test
       - run: npm run check:docs
+      - run: npm test
       - run: npm run build
+      - name: WebGL2 sea contract
+        run: node scripts/browser/run-gpu-checks.mjs --renderer=webgl sea-check
+      - name: WebGPU sea contract when supported
+        run: node scripts/browser/run-gpu-checks.mjs --renderer=webgpu --allow-unsupported sea-check

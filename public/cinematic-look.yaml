@@ -167,11 +167,160 @@ water:
     colors:
       sunny: { shallow: '#259eac', deep: '#073c58' }
       storm: { shallow: '#176662', deep: '#032d48' }
-    offshoreAmplitude: 1.2
+    offshoreAmplitude: 1.6
     beachAmplitude: 0.25
     choppiness: 4
     transitionStart: 30
     transitionEnd: 180
+    detailStrength: 1
+    whitecapStrength: 1
+    crestTranslucency: 1
+    detail:
+      textureWorldScale: 32
+      mediumDistance: 780
+      fineDistance: 260
+      mediumScale: 1.73
+      fineScale: 5.7
+      mediumStrength: 0.8
+      fineStrength: 0.15
+      primaryWeight: 0.65
+      secondaryWeight: 0.35
+      primaryScrollX: 0.008
+      primaryScrollZ: 0.003
+      secondaryScrollX: -0.006
+      secondaryScrollZ: 0.005
+      fineScrollX: 0.005
+      fineScrollZ: -0.004
+      stormNormalBoost: 0.35
+      whitecapThreshold: 0.58
+      stormWhitecapThreshold: 0.38
+      whitecapSteepness: 0.16
+      whitecapCrestWeight: 0.82
+      whitecapSteepnessWeight: 0.18
+      whitecapRainBase: 0.55
+      whitecapRainBoost: 0.65
+      foamBreakupLow: 0.34
+      foamBreakupHigh: 0.7
+      foamPersistence: 0.32
+      surfDepthStart: 0.01
+      surfDepthEnd: 0.35
+      surfFadeStart: 2.5
+      surfFadeEnd: 7
+      roughnessVarianceScale: 0.16
+      roughnessBase: 0.055
+      roughnessStorm: 0.09
+      roughnessMin: 0.05
+      roughnessMax: 0.48
+      specularMinExponent: 18
+      specularMaxExponent: 190
+      specularSharpStrength: 1.55
+      specularBroadStrength: 0.12
+      crestStart: 0.28
+      crestEnd: 0.88
+      crestTransmissionStrength: 0.22
+    coast:
+      curve:
+        longFrequency: 0.005
+        longAmplitude: 65
+        shortFrequency: 0.014
+        shortAmplitude: 18
+      terrain:
+        inlandBlendStart: -230
+        beachTop: -90
+        beachHeight: 9
+        shelfKnee: 80
+        shelfKneeDepth: 9
+        shelfEnd: 500
+      wave:
+        wavelength: 13
+        speed: 1.35
+        bendFrequency: 0.085
+        bend: 0.32
+      swash:
+        reach: 12
+        seawardStart: 1.5
+        frontWidth: 1.2
+        foamWidth: 1.6
+        foamCore: 0.18
+        breakupFrequency: 0.13
+        breakupStrength: 0.28
+      moisture:
+        baseReach: 32
+        baseStrength: 0.55
+        washDecay: 4
+        rainWashDecay: 2
+        wettingSeconds: 18
+        dryingSeconds: 100
+      sand:
+        dryDark: '#b39a72'
+        dryLight: '#d6be96'
+        dryRoughness: 0.97
+        wetRoughness: 0.24
+        wetDarkening: 0.55
+        rippleFrequency: 1.4
+        rippleCrossFrequency: 0.52
+        rippleStrength: 0.025
+        grainFrequencyX: 31
+        grainFrequencyZ: 27
+        grainStrength: 0.018
+        grainFadeStart: 8
+        grainFadeEnd: 60
+        mesoFrequencyX: 0.73
+        mesoFrequencyZ: 1.27
+        mesoWetMin: 0.8
+        mesoWetMax: 1.15
+        mesoToneMin: 0.84
+        mesoToneMax: 1.04
+        macroFrequency: 0.037
+        inlandStart: -150
+        inlandEnd: -85
+        baseMoistureStrength: 1
+        washMemoryStrength: 0.55
+        rainMoistureStrength: 0.8
+        coverageWetness: 0.85
+        filmTint: '#8ccad0'
+        filmTintStrength: 0.18
+        filmRoughness: 0.08
+        foamColor: '#edf8fb'
+        foamStrength: 0.92
+        foamRoughness: 0.72
+        normalFrequencyX: 18.7
+        normalFrequencyZ: 21.3
+        normalStrength: 0.025
+        wetNormalFlattening: 0.7
+        filmNormalFlattening: 0.9
+      vegetation:
+        grassStart: 45
+        grassEnd: 140
+        groundcoverStart: 55
+        groundcoverEnd: 145
+        groundcoverEdge: 18
+        maxSlope: 0.35
+        seed: 73121
+        maxPatches: 500
+        minClumps: 1
+        maxClumps: 3
+        sizeMin: 0.22
+        sizeMax: 0.62
+        color: '#667957'
+        qualityPerformance: 0.35
+        qualityBalanced: 0.6
+        qualityHigh: 0.85
+        qualityUltra: 1
+      scatter:
+        seed: 58103
+        attempts: 4500
+        inlandMin: 22
+        inlandMax: 117
+        edge: 18
+        density: 0.3
+        minNormalY: 0.9
+        sizeMin: 0.06
+        sizeMax: 0.19
+        pebbleColor: '#625c4e'
+        shellColor: '#c9bea2'
+        twigColor: '#655341'
+        roughness: 0.94
   river:
     enabled: true
     # World X, Z and full channel width; elevations follow the mountain profile.

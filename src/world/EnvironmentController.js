@@ -7,6 +7,7 @@ const RAIN_ACTIVE_THRESHOLD = 0.001;
 const DEFAULT_TREE_WIND_SPEED_MULTIPLIER = 2;
 const DEFAULT_LEAF_WIND_STRENGTH_MULTIPLIER = 1;
 const ORIGINAL_RAIN_ROUGHNESS_KEY = 'originalRainRoughness';
+const COASTAL_GROUNDCOVER_NAME = 'Coastal groundcover';
 
 function color(value) {
   return new THREE.Color(value);
@@ -112,6 +113,10 @@ export class EnvironmentController {
     this.currentPreset = config.ui.initialPreset;
     this.grassOverrides = {};
     this.current = snapshot(resolvePresetConfig(config, config.ui.initialPreset));
+    const beachMoisture = this.terrain?.material?.userData?.beachMoisture;
+    if (beachMoisture) {
+      beachMoisture.value = THREE.MathUtils.clamp(Number(this.current.rainIntensity) || 0, 0, 1);
+    }
     setPresetAppearance(config, this.currentPreset);
     this.#apply();
   }
@@ -136,6 +141,7 @@ export class EnvironmentController {
     this.quality = name;
     this.wildGrass?.setQuality?.(name);
     this.understory?.setQuality?.(name);
+    this.scene?.getObjectByName?.(COASTAL_GROUNDCOVER_NAME)?.userData?.setQuality?.(name);
     this.#apply();
   }
 

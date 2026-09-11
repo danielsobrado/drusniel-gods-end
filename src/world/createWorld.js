@@ -12,6 +12,7 @@ import { createRendererSession, resolveRendererRequest } from '../rendering/Rend
 import { ResourceScope, captureObjectResources } from '../utils/ResourceScope.js';
 import { expandLandscape } from './ExpandedLandscape.js';
 import { createBeachScatter, disposeBeachScatter } from './BeachScatter.js';
+import { createCoastalGroundcover, disposeCoastalGroundcover } from './CoastalGroundcover.js';
 
 const DEFAULT_SHADOW = {
   mobileBreakpoint: 768,
@@ -98,123 +99,131 @@ export async function createWorld(config, onProgress = () => {}, { signal, rende
   signal?.addEventListener('abort', abort, { once: true });
   scope.defer(() => signal?.removeEventListener('abort', abort));
   try {
-  const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(config.world.fogColor, config.world.fogDensity);
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(config.world.fogColor, config.world.fogDensity);
 
-  const camera = new THREE.PerspectiveCamera(
-    config.camera.fov,
-    window.innerWidth / window.innerHeight,
-    config.camera.near,
-    config.camera.far,
-  );
-  camera.position.fromArray(config.camera.initialPosition ?? [11.7, 3, 11]);
+    const camera = new THREE.PerspectiveCamera(
+      config.camera.fov,
+      window.innerWidth / window.innerHeight,
+      config.camera.near,
+      config.camera.far,
+    );
+    camera.position.fromArray(config.camera.initialPosition ?? [11.7, 3, 11]);
 
-  onProgress('renderer');
-  const rendererSession = await createRendererSession({
-    request: rendererRequest ?? resolveRendererRequest(window.location.search, config.renderer.forceWebGL),
-    options: { antialias: true, powerPreference: 'high-performance', ...rendererOptions },
-    signal,
-  });
-  scope.defer(() => rendererSession.dispose());
-  const { renderer } = rendererSession;
-  renderer.setPixelRatio(getRendererPixelRatio(config));
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = config.renderer.exposure;
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  const lights = createLights(scene, config);
-  scope.defer(() => { lights.sun.shadow.dispose(); scene.remove(lights.sun, lights.sun.target, lights.hemisphere, lights.ambient); });
+    onProgress('renderer');
+    const rendererSession = await createRendererSession({
+      request: rendererRequest ?? resolveRendererRequest(window.location.search, config.renderer.forceWebGL),
+      options: { antialias: true, powerPreference: 'high-performance', ...rendererOptions },
+      signal,
+    });
+    scope.defer(() => rendererSession.dispose());
+    const { renderer } = rendererSession;
+    renderer.setPixelRatio(getRendererPixelRatio(config));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = config.renderer.exposure;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    const lights = createLights(scene, config);
+    scope.defer(() => { lights.sun.shadow.dispose(); scene.remove(lights.sun, lights.sun.target, lights.hemisphere, lights.ambient); });
 
-  onProgress('environment');
-  const environment = await loadEnvironment(scene, config);
-  scope.defer(() => { scene.environment = null; environment?.dispose(); });
+    onProgress('environment');
+    const environment = await loadEnvironment(scene, config);
+    scope.defer(() => { scene.environment = null; environment?.dispose(); });
 
-  onProgress('world');
-  const terrainAsset = await loadTerrain(scene, config);
-  scope.defer(captureObjectResources(terrainAsset.root));
-  const terrainAnimations = new TerrainAnimationSystem(
-    terrainAsset.root,
-    terrainAsset.animations,
-  ).init();
-  scope.defer(() => terrainAnimations.dispose());
+    onProgress('world');
+    const terrainAsset = await loadTerrain(scene, config);
+    scope.defer(captureObjectResources(terrainAsset.root));
+    const terrainAnimations = new TerrainAnimationSystem(
+      terrainAsset.root,
+      terrainAsset.animations,
+    ).init();
+    scope.defer(() => terrainAnimations.dispose());
 
-  let terrainSampler = new TerrainSampler(terrainAsset.root, config.terrain.expansion?.enabled
-    ? { ...config, terrain: { ...config.terrain, heightResolution: 384 } } : config);
-  await terrainSampler.build();
-  const expansion = expandLandscape(terrainAsset.target, terrainSampler, config);
-  if (expansion) {
-    scope.defer(() => expansion.dispose());
-    terrainSampler = new TerrainSampler(terrainAsset.root, config);
+    let terrainSampler = new TerrainSampler(terrainAsset.root, config.terrain.expansion?.enabled
+      ? { ...config, terrain: { ...config.terrain, heightResolution: 384 } } : config);
     await terrainSampler.build();
-    terrainSampler.river = expansion.river;
-    terrainSampler.paths = expansion.paths;
-    const backdrop = terrainAsset.root.getObjectByName('Landscape046');
-    if (backdrop) {
-      const visible = backdrop.visible;
-      backdrop.visible = false;
-      scope.defer(() => { backdrop.visible = visible; });
+    const expansion = expandLandscape(terrainAsset.target, terrainSampler, config);
+    if (expansion) {
+      scope.defer(() => expansion.dispose());
+      terrainSampler = new TerrainSampler(terrainAsset.root, config);
+      await terrainSampler.build();
+      terrainSampler.river = expansion.river;
+      terrainSampler.paths = expansion.paths;
+      const backdrop = terrainAsset.root.getObjectByName('Landscape046');
+      if (backdrop) {
+        const visible = backdrop.visible;
+        backdrop.visible = false;
+        scope.defer(() => { backdrop.visible = visible; });
+      }
     }
-  }
-  scope.defer(() => terrainSampler.texture?.dispose());
-  signal?.throwIfAborted();
+    scope.defer(() => terrainSampler.texture?.dispose());
+    signal?.throwIfAborted();
 
-  let groundMaterial;
-  try {
-    groundMaterial = await createGroundMaterial(config, terrainSampler);
-  } catch (error) {
-    logger.warn('Ground PBR material failed to load; using fallback material.', error);
-    groundMaterial = createFallbackMaterial(config);
-  }
-  scope.defer(() => {
-    for (const texture of new Set(groundMaterial.userData.textures ?? [])) texture?.dispose();
-    groundMaterial.dispose();
-  });
+    let groundMaterial;
+    try {
+      groundMaterial = await createGroundMaterial(config, terrainSampler);
+    } catch (error) {
+      logger.warn('Ground PBR material failed to load; using fallback material.', error);
+      groundMaterial = createFallbackMaterial(config);
+    }
+    scope.defer(() => {
+      for (const texture of new Set(groundMaterial.userData.textures ?? [])) texture?.dispose();
+      groundMaterial.dispose();
+    });
 
-  const materialTargets = applyGroundMaterial(terrainAsset.root, groundMaterial, config);
-  const ground = terrainAsset.root
-    ? (terrainAsset.target ?? materialTargets[0] ?? terrainAsset.root)
-    : createFallbackGround(scene, groundMaterial, config);
-  if (!terrainAsset.root) scope.defer(() => { ground.geometry.dispose(); ground.removeFromParent(); });
+    const materialTargets = applyGroundMaterial(terrainAsset.root, groundMaterial, config);
+    const ground = terrainAsset.root
+      ? (terrainAsset.target ?? materialTargets[0] ?? terrainAsset.root)
+      : createFallbackGround(scene, groundMaterial, config);
+    if (!terrainAsset.root) scope.defer(() => { ground.geometry.dispose(); ground.removeFromParent(); });
 
-  if (config.terrain.expansion?.enabled && config.water.sea?.enabled) {
-    const beachScatter = createBeachScatter(terrainSampler, config.water.sea);
-    scene.add(beachScatter);
-    scope.defer(() => disposeBeachScatter(beachScatter));
-  }
+    if (config.terrain.expansion?.enabled && config.water.sea?.enabled) {
+      const beachScatter = createBeachScatter(terrainSampler, config.water.sea);
+      scene.add(beachScatter);
+      scope.defer(() => disposeBeachScatter(beachScatter));
 
-  let sky = null;
-  let clouds = null;
-  try {
-    sky = new SkySystem(scene, config);
-    scope.defer(() => sky.dispose());
-    clouds = new CloudSystem(scene, config);
-    scope.defer(() => clouds.dispose());
-  } catch (error) {
-    logger.warn('Procedural TSL sky/cloud setup failed; continuing without it.', error);
-    scene.background = new THREE.Color(config.world.skyColor);
-  }
+      const groundcover = createCoastalGroundcover(
+        terrainSampler,
+        config.water.sea,
+        config.ui.initialQuality,
+      );
+      scene.add(groundcover);
+      scope.defer(() => disposeCoastalGroundcover(groundcover));
+    }
 
-  return {
-    scene,
-    camera,
-    renderer,
-    rendererSession,
-    dispose: () => scope.dispose(),
-    ground,
-    environment,
-    terrain: terrainAsset.root,
-    terrainParts: terrainAsset.parts,
-    terrainAnimationClips: terrainAsset.animations,
-    terrainAnimations,
-    terrainTarget: terrainAsset.target ?? ground,
-    terrainSampler,
-    expansion,
-    sky,
-    clouds,
-    ...lights,
-  };
+    let sky = null;
+    let clouds = null;
+    try {
+      sky = new SkySystem(scene, config);
+      scope.defer(() => sky.dispose());
+      clouds = new CloudSystem(scene, config);
+      scope.defer(() => clouds.dispose());
+    } catch (error) {
+      logger.warn('Procedural TSL sky/cloud setup failed; continuing without it.', error);
+      scene.background = new THREE.Color(config.world.skyColor);
+    }
+
+    return {
+      scene,
+      camera,
+      renderer,
+      rendererSession,
+      dispose: () => scope.dispose(),
+      ground,
+      environment,
+      terrain: terrainAsset.root,
+      terrainParts: terrainAsset.parts,
+      terrainAnimationClips: terrainAsset.animations,
+      terrainAnimations,
+      terrainTarget: terrainAsset.target ?? ground,
+      terrainSampler,
+      expansion,
+      sky,
+      clouds,
+      ...lights,
+    };
   } catch (error) {
     scope.dispose();
     throw error;
