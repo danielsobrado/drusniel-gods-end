@@ -274,16 +274,26 @@ export class BiomePropSystem {
         if (!source?.geometry) continue;
         const geometry = source.geometry.clone();
         geometry.setAttribute('clumpOrigin', new THREE.InstancedBufferAttribute(new Float32Array(CAPACITY * 3), 3));
+        const sourceMaterial = source.material;
         const material = createBiomeMeshMaterial({
           ...shared,
-          map: source.material?.map ?? asset.atlas ?? asset.color ?? null,
-          color: source.material?.color,
+          map: sourceMaterial?.map ?? asset.atlas ?? asset.color ?? null,
+          normalMap: sourceMaterial?.normalMap ?? null,
+          roughnessMap: sourceMaterial?.roughnessMap ?? null,
+          metalnessMap: sourceMaterial?.metalnessMap ?? null,
+          normalScale: sourceMaterial?.normalScale,
+          color: sourceMaterial?.color,
+          roughness: sourceMaterial?.roughness,
+          metalness: sourceMaterial?.metalness,
           height,
           windBend,
           windFlutter,
           cutoff: isRock ? 0 : LEAF_CUTOFF,
           coverage: lod === 'near' ? coverage.near : coverage.mid,
           wind: !isRock,
+          tint: isRock ? null : this.tint,
+          backlight: !isRock,
+          side: isRock ? THREE.FrontSide : THREE.DoubleSide,
         });
         this.materials.push(material);
         const mesh = new THREE.InstancedMesh(geometry, material, CAPACITY);
