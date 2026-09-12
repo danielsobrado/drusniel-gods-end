@@ -24,7 +24,7 @@ function setValueAt(root, path, value) {
     target = target?.[path[index]];
     if (!target) return;
   }
-  target[path.at(-1)] = value;
+  target[path[path.length - 1]] = value;
 }
 
 function resolveSettings(config) {
@@ -66,10 +66,12 @@ export class ExplorationSpeedMode {
 
   setConfig(config) {
     if (this.config === config) return;
+    const settings = resolveSettings(config);
+    const baseline = captureBaseline(config);
     this.#restoreCurrentConfig();
     this.config = config;
-    this.settings = resolveSettings(config);
-    this.baseline = captureBaseline(config);
+    this.settings = settings;
+    this.baseline = baseline;
     if (this.active) this.#applyCurrentConfig();
   }
 
@@ -103,7 +105,10 @@ export class ExplorationSpeedMode {
   dispose() {
     this.eventTarget?.removeEventListener?.('keydown', this.handleKeyDown);
     this.#restoreCurrentConfig();
+    this.active = false;
+    this.lastShiftTap = Number.NEGATIVE_INFINITY;
     this.config = null;
+    this.settings = null;
     this.baseline = [];
   }
 
