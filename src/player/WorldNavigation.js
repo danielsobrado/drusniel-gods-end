@@ -71,7 +71,11 @@ export class WorldNavigation {
     return this.freeFly.toggle();
   }
 
-  startTour() {
+  toggleTour() {
+    if (this.tour.active) {
+      this.tour.stop();
+      return false;
+    }
     this.freeFly.stop();
     return this.tour.start();
   }
