@@ -71,7 +71,7 @@ export class WorldNavigation {
     return this.freeFly.toggle();
   }
 
-  toggleTour() {
+  startTour() {
     if (this.tour.active) {
       this.tour.stop();
       return false;
