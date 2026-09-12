@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { logger } from '../utils/logger.js';
 import {
   bakeRockTemplate,
+  canonicalizeRockMaterials,
   classifyRockTemplates,
   collectRockMeshes,
   DEFAULT_PEBBLE_MAX_SIZE,
@@ -19,6 +20,7 @@ const MATERIAL_TEXTURES = Object.freeze([
   ['map', THREE.SRGBColorSpace],
   ['normalMap', THREE.NoColorSpace],
   ['roughnessMap', THREE.NoColorSpace],
+  ['aoMap', THREE.NoColorSpace],
 ]);
 
 function prepareTexture(texture, anisotropy, colorSpace) {
@@ -31,15 +33,25 @@ function prepareTexture(texture, anisotropy, colorSpace) {
   texture.needsUpdate = true;
 }
 
-function prepareSource(source, config) {
-  if (!source) return;
-  source.userData.rainRoughness = config.rainRoughness ?? DEFAULT_RAIN_ROUGHNESS;
-  const materials = Array.isArray(source.material) ? source.material : [source.material];
+function prepareMesh(mesh, config) {
+  mesh.userData.rainRoughness = config.rainRoughness ?? DEFAULT_RAIN_ROUGHNESS;
+  const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
   for (const material of materials.filter(Boolean)) {
     for (const [key, colorSpace] of MATERIAL_TEXTURES) {
       prepareTexture(material[key], config.anisotropy ?? DEFAULT_ANISOTROPY, colorSpace);
     }
   }
+}
+
+function prepareSource(source, config) {
+  if (!source) return;
+  if (source.traverse) {
+    source.traverse((object) => {
+      if (object.isMesh) prepareMesh(object, config);
+    });
+    return;
+  }
+  if (source.isMesh) prepareMesh(source, config);
 }
 
 function createStone(scene, source, record, collisionSystem) {
@@ -77,6 +89,7 @@ export class WorldPropSystem {
     this.collisionSystem = collisionSystem;
     this.instances = [];
     this.ownedGeometries = [];
+    this.ownedMaterials = [];
     this.pebbleSources = [];
     this.stoneSources = [];
   }
@@ -122,9 +135,18 @@ export class WorldPropSystem {
   }
 
   #createStoneSources(propConfig) {
+    const canonicalSourceName = propConfig.rockMaterialSourceName
+      ?? propConfig.stoneSourceName
+      ?? 'Stone';
+    const canonicalSource = this.terrainRoot.getObjectByName(canonicalSourceName);
+    if (canonicalSource) prepareSource(canonicalSource, propConfig);
+
     const rockMeshes = collectRockMeshes(this.terrainRoot);
     if (rockMeshes.length > 0) {
-      harmonizeRockMaterials(rockMeshes);
+      const canonicalMaterial = canonicalSource
+        ? canonicalizeRockMaterials(rockMeshes, canonicalSource)
+        : harmonizeRockMaterials(rockMeshes);
+      if (canonicalSource && canonicalMaterial) this.ownedMaterials.push(canonicalMaterial);
       for (const mesh of rockMeshes) prepareSource(mesh, propConfig);
       hideRockPack(rockMeshes);
       const templates = rockMeshes.map((mesh) => bakeRockTemplate(mesh));
@@ -140,10 +162,9 @@ export class WorldPropSystem {
       return stones.length > 0 ? stones : templates;
     }
 
-    const stoneSource = this.terrainRoot.getObjectByName(propConfig.stoneSourceName ?? 'Stone');
-    if (!stoneSource) return [];
-    prepareSource(stoneSource, propConfig);
-    return [stoneSource];
+    if (!canonicalSource) return [];
+    prepareSource(canonicalSource, propConfig);
+    return [canonicalSource];
   }
 
   dispose() {
@@ -151,6 +172,8 @@ export class WorldPropSystem {
     this.instances.length = 0;
     for (const geometry of this.ownedGeometries) geometry.dispose();
     this.ownedGeometries.length = 0;
+    for (const material of this.ownedMaterials) material.dispose();
+    this.ownedMaterials.length = 0;
     this.pebbleSources = [];
   }
 }
