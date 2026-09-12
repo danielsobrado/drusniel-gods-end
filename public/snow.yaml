@@ -68,28 +68,44 @@ ground:
       recoveryInterval: 0.2
     powder:
       enabled: true
-      capacity: 144
-      particlesPerContact: 8
-      runningMultiplier: 1.75
-      emitDistance: 0.16
+      capacity: 768
+      particlesPerContact: 18
+      runningMultiplier: 1.4
+      emitDistance: 0.12
       minCoverage: 0.25
       contactHeight: 0.6
       normalSampleDistance: 0.5
       spawnHeight: 0.06
-      spread: 0.18
-      lifetimeMin: 0.45
-      lifetimeMax: 0.95
-      sizeMin: 0.12
-      sizeMax: 0.34
-      sizeGrowth: 1.4
-      fadeStart: 0.35
-      horizontalSpeedMin: 0.18
-      horizontalSpeedMax: 0.75
-      verticalSpeedMin: 0.25
-      verticalSpeedMax: 0.8
-      drag: 2.2
-      gravity: 0.28
-      opacity: 0.55
+      spread: 0.12
+      lifetimeMin: 0.55
+      lifetimeMax: 1.15
+      sizeMin: 0.02
+      sizeMax: 0.055
+      sizeGrowth: 1.3
+      fadeStart: 0.2
+      horizontalSpeedMin: 0.35
+      horizontalSpeedMax: 1.2
+      verticalSpeedMin: 0.9
+      verticalSpeedMax: 2.8
+      drag: 5.2
+      gravity: 9.81
+      windSpeed: 2.4
+      terminalFallSpeed: 1.9
+      settleFadeMultiplier: 2.5
+      settleHorizontalRetention: 0.2
+      opacity: 0.72
       color: '#f5fbff'
       textureSize: 64
       seed: 1337
+      ambient:
+        enabled: true
+        particlesPerSecond: 36
+        radius: 16
+        minHeight: 0.08
+        maxHeight: 1.4
+        lifetimeMin: 1.0
+        lifetimeMax: 2.0
+        sizeMin: 0.015
+        sizeMax: 0.04
+        verticalSpeedMin: 0.05
+        verticalSpeedMax: 0.25
