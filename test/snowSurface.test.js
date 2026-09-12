@@ -55,9 +55,75 @@ test('snow deformation rejects footprints below the accumulation band', () => {
   field.dispose();
 });
 
+test('snow deformation preserves tracks across deferred recentering', () => {
+  const field = new SnowDeformationField(snowConfig, terrainAt(175));
+  const origin = { x: 0, y: 176, z: 0 };
+  field.update(1 / 60, origin, [{ position: { x: 0, y: 175.1, z: 0 }, radius: 0.3 }], true);
+  const fresh = field.sampleAt(0, 0).depression;
+  assert.ok(fresh > 0);
+
+  field.update(0, { x: 1, y: 176, z: 0 }, [], false);
+  assert.equal(field.center.x, 0);
+  field.update(0, { x: 9, y: 176, z: 0 }, [], false);
+  assert.ok(field.center.x >= 8 && field.center.x <= 9);
+  assert.equal(field.sampleAt(0, 0).depression, fresh);
+
+  field.update(0, { x: 1000, y: 176, z: 0 }, [], false);
+  assert.equal(field.sampleAt(0, 0).depression, 0);
+  field.dispose();
+});
+
+test('snow normal gradients are cleared when their depression has recovered', () => {
+  const config = structuredClone(snowConfig);
+  config.ground.snow.deformation.depressionStrength = 0.02;
+  const field = new SnowDeformationField(config, terrainAt(175));
+  const player = { x: 0, y: 176, z: 0 };
+  field.update(1 / 60, player, [{ position: { x: 0, y: 175.1, z: 0 }, radius: 0.3 }], true);
+
+  let candidate = -1;
+  for (let offset = 0; offset < field.pixels.length; offset += 4) {
+    if (field.pixels[offset] === 2
+      && (field.pixels[offset + 2] !== 128 || field.pixels[offset + 3] !== 128)) {
+      candidate = offset;
+      break;
+    }
+  }
+  assert.notEqual(candidate, -1);
+
+  field.update(field.config.recoveryInterval, player, [], false);
+  field.update(field.config.recoveryInterval, player, [], false);
+  assert.equal(field.pixels[candidate], 0);
+  assert.equal(field.pixels[candidate + 2], 128);
+  assert.equal(field.pixels[candidate + 3], 128);
+  field.dispose();
+});
+
+test('snow deformation samples outside its local window as empty', () => {
+  const field = new SnowDeformationField(snowConfig, terrainAt(175));
+  field.update(0, { x: 0, y: 176, z: 0 }, [], false);
+  const row = Math.floor(field.config.resolution / 2);
+  const edge = (row * field.config.resolution + field.config.resolution - 1) * 4;
+  field.pixels[edge] = 255;
+  assert.deepEqual(field.sampleAt(field.config.worldSize, 0), {
+    depression: 0,
+    berm: 0,
+    gradientX: 0,
+    gradientZ: 0,
+  });
+  field.dispose();
+});
+
 test('snow validation rejects invalid accumulation and deformation settings', () => {
   const invalid = structuredClone(snowConfig);
   invalid.ground.snow.altitude.full = invalid.ground.snow.altitude.start;
   invalid.ground.snow.deformation.resolution = 16;
   assert.throws(() => validateSnowConfig(invalid), /Snow configuration is invalid/);
+
+  const fractionalResolution = structuredClone(snowConfig);
+  fractionalResolution.ground.snow.deformation.resolution = 512.5;
+  assert.throws(() => validateSnowConfig(fractionalResolution), /resolution must be an integer/);
+
+  const unsafeWindow = structuredClone(snowConfig);
+  unsafeWindow.ground.snow.deformation.recenterDistance = 31.5;
+  assert.throws(() => validateSnowConfig(unsafeWindow), /maximum footprint berm/);
 });
