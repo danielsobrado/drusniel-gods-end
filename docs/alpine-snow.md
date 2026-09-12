@@ -14,7 +14,7 @@ altitude: { start: 92, full: 142 }
 slope: { start: 0.42, full: 0.78 }
 ```
 
-The same accumulation model has a CPU implementation used by the local footprint field, so footprints cannot appear on low grass or bare cliffs while the shader says there is no snow.
+The same accumulation model has a CPU implementation used by the local footprint and powder systems, so interactions cannot appear on low grass or bare cliffs while the shader says there is no snow.
 
 ## Surface detail
 
@@ -41,10 +41,27 @@ bermDecaySeconds: 45
 
 The field keeps its mapping origin stable while the player moves locally, then scrolls in whole texels after the player has moved eight metres from the field centre. This avoids a full 512-square buffer copy for every small movement while keeping stored tracks in the same world positions. Footprint painting is enabled only while the grounded character is moving, and an influence point must also be close enough to the terrain to count as foot contact. Free-fly and the scenic tour do not carve snow.
 
-This first integration deforms snow **visually** through color, roughness and normal response. It intentionally does not displace foot-scale terrain geometry: the expanded landscape terrain is much coarser than a footprint. True centimetre-scale silhouette deformation would require a dedicated near-player snow overlay or clipmap and should be treated as a separate feature rather than distorting the world terrain mesh.
+This integration deforms snow **visually** through color, roughness and normal response. It intentionally does not displace foot-scale terrain geometry: the expanded landscape terrain is much coarser than a footprint. True centimetre-scale silhouette deformation would require a dedicated near-player snow overlay or clipmap and should be treated as a separate feature rather than distorting the world terrain mesh.
+
+## Contact powder
+
+Grounded foot contacts also emit short-lived local powder bursts. The powder system uses the same CPU snow-coverage test as the deformation field, so bare rock and low terrain do not produce snow particles. Walking emits restrained puffs while running scales the burst count. Particles are pooled in one instanced draw call and use a generated soft radial texture; no external particle asset is required.
+
+<!-- effective-config: ground.snow.powder -->
+```yaml
+enabled: true
+capacity: 144
+particlesPerContact: 8
+runningMultiplier: 1.75
+emitDistance: 0.16
+lifetimeMin: 0.45
+lifetimeMax: 0.95
+sizeMin: 0.12
+sizeMax: 0.34
+```
 
 ## Performance
 
-The persistent field is one 512 x 512 RGBA8 texture (1 MiB). Recovery runs at the configured interval rather than sweeping the array every render frame, and texture scrolling is amortized across eight metres of player travel. Rendering adds one local deformation texture sample plus procedural ALU to the ground material; there are no extra snow draw calls or snow shadow passes.
+The persistent field is one 512 x 512 RGBA8 texture (1 MiB). Recovery runs at the configured interval rather than sweeping the array every render frame, and texture scrolling is amortized across eight metres of player travel. Snow surface rendering adds one local deformation texture sample plus procedural ALU to the ground material. Contact powder adds one pooled instanced transparent draw call only when snow powder is enabled; it has no shadow pass and a fixed particle budget.
 
-Visual review should cover Snow Pass and Snow Peak in sunny, golden-hour and rainy presets, plus WebGL 2. Verify that exposed cliffs remain rocky, sastrugi follow one coherent wind direction, glints stay subtle, only contacting feet carve the surface, and old footprints soften rather than popping away.
+Visual review should cover Snow Pass and Snow Peak in sunny, golden-hour and rainy presets, plus WebGL 2. Verify that exposed cliffs remain rocky, sastrugi follow one coherent wind direction, glints stay subtle, only contacting feet carve the surface and kick powder, and old footprints soften rather than popping away.
