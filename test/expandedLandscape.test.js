@@ -105,7 +105,7 @@ test('exploration routes stay on land and connect the forest, ford, summit and l
   }
 });
 
-test('one water geometry contains the lake and river with matching surface attributes', async () => {
+test('root water geometry contains only lake and river surface attributes', async () => {
   const { expansion, config } = await landscape();
   const geometry = createWaterGeometry(config.water, expansion.river);
   try {
@@ -113,7 +113,7 @@ test('one water geometry contains the lake and river with matching surface attri
     for (const name of ['waterKind', 'waterFlow', 'waterLevel', 'riverSurface', 'normal']) assert.equal(geometry.attributes[name].count, count);
     assert.ok(geometry.boundingBox.max.y > 140);
     assert.ok(geometry.attributes.waterKind.array.includes(0) && geometry.attributes.waterKind.array.includes(1));
-    assert.ok(geometry.attributes.waterKind.array.includes(2));
+    assert.equal(geometry.attributes.waterKind.array.includes(2), false);
   } finally { geometry.dispose(); }
 });
 

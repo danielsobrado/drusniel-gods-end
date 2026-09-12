@@ -86,10 +86,11 @@ Before modifying a subsystem, read both `recovered-original-parity.md` and that 
 
 Audit findings and the improvement plan live in [improvements/](improvements/README.md). They are historical working documents, not parity specification, and rank below the six evidence levels above.
 
-Saved implementation plans (proposed work, not claims of current behavior):
+Saved implementation plans and review evidence:
 
 - [Coast fixes](plans/coast-fixes.md) — shared swash and wetness, configurable beach materials, sea tiles, sparse ecology, and validation.
 - [Offshore waves](plans/offshore-waves.md) — Windrose-inspired swells, filtered surface detail, whitecaps, transmission, and live sky reflections.
+- [Coast implementation review](improvements/coast-review-2026-09-12.md) — corrected findings, local rendering checks, performance comparison, and validation limits.
 
 ## Documentation quality contract
 

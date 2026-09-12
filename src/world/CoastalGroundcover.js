@@ -16,16 +16,14 @@ function createLeafGeometry() {
     -0.45, 0.015, 0.45,
     0, 0.025, 1,
     0.45, 0.015, 0.45,
-    0, 0, 0,
   ], 3));
   geometry.setAttribute('normal', new THREE.Float32BufferAttribute([
     0, 1, 0,
     0, 1, 0,
     0, 1, 0,
     0, 1, 0,
-    0, 1, 0,
   ], 3));
-  geometry.setIndex([0, 1, 2, 0, 2, 3, 0, 3, 4]);
+  geometry.setIndex([0, 1, 2, 0, 2, 3]);
   geometry.computeBoundingSphere();
   return geometry;
 }
@@ -71,23 +69,30 @@ export function createCoastalGroundcover(terrain, seaConfig, initialQuality = 'h
 
     const clumps = Math.round(THREE.MathUtils.lerp(params.minClumps, params.maxClumps, random()));
     for (let clump = 0; clump < clumps; clump += 1) {
-      const radius = random() * 0.42;
+      const radius = random() * params.clusterRadius;
       const angle = random() * Math.PI * 2;
       const size = THREE.MathUtils.lerp(params.sizeMin, params.sizeMax, random());
-      object.position.set(x + Math.cos(angle) * radius, y + 0.025, z + Math.sin(angle) * radius);
-      object.quaternion.setFromUnitVectors(up, normal);
+      const leafX = x + Math.cos(angle) * radius;
+      const leafZ = z + Math.sin(angle) * radius;
+      const leafY = terrain.sampleHeight(leafX, leafZ);
+      const leafNormal = sampleNormal(terrain, leafX, leafZ);
+      if (!Number.isFinite(leafY) || leafY <= sea.level + 0.2
+        || !Number.isFinite(leafNormal.y)
+        || Math.hypot(leafNormal.x, leafNormal.z) > params.maxSlope * leafNormal.y) continue;
+      object.position.set(leafX, leafY + params.groundOffset, leafZ);
+      object.quaternion.setFromUnitVectors(up, leafNormal);
       object.rotateY(random() * Math.PI * 2);
       object.scale.set(size * (0.7 + random() * 0.45), size, size * (0.85 + random() * 0.35));
       object.updateMatrix();
       records.push(object.matrix.clone());
     }
-    patchEnds.push(records.length);
+    if (records.length > (patchEnds.at(-1) ?? 0)) patchEnds.push(records.length);
   }
 
   const geometry = createLeafGeometry();
   const material = new THREE.MeshStandardMaterial({
     color: params.color,
-    roughness: 0.9,
+    roughness: params.roughness,
     metalness: 0,
     side: THREE.DoubleSide,
   });

@@ -2,6 +2,10 @@ import { MathUtils } from 'three';
 import { Fn, cos, float, sin } from 'three/tsl';
 
 const TAU = Math.PI * 2;
+// Mean analytical depth, shared by ground and sea so their shallow optical
+// coverage crosses over smoothly without depending on displaced fragments.
+const SEA_COVERAGE_DEPTH_START = 0.015;
+const SEA_COVERAGE_DEPTH_END = 0.15;
 
 export const DEFAULT_COAST = Object.freeze({
   curve: Object.freeze({
@@ -93,6 +97,9 @@ export const DEFAULT_COAST = Object.freeze({
     maxClumps: 3,
     sizeMin: 0.22,
     sizeMax: 0.62,
+    clusterRadius: 0.42,
+    groundOffset: 0.025,
+    roughness: 0.9,
     color: '#667957',
     qualityPerformance: 0.35,
     qualityBalanced: 0.6,
@@ -106,6 +113,9 @@ export const DEFAULT_COAST = Object.freeze({
     inlandMax: 117,
     edge: 18,
     density: 0.3,
+    patchFrequencyX: 0.17,
+    patchFrequencyZ: 0.23,
+    patchWarpFrequency: 0.12,
     minNormalY: 0.9,
     sizeMin: 0.06,
     sizeMax: 0.19,
@@ -158,6 +168,9 @@ export function resolveCoastConfig(sea = {}) {
   if (!(sand.inlandStart < sand.inlandEnd && sand.inlandEnd < 0)) {
     throw new Error('water.sea.coast.sand.inlandStart/inlandEnd must be ordered below zero.');
   }
+  if (!(sand.grainFadeStart < sand.grainFadeEnd)) {
+    throw new Error('water.sea.coast.sand.grainFadeStart must be less than grainFadeEnd.');
+  }
   if (!(vegetation.grassStart < vegetation.grassEnd
     && vegetation.groundcoverStart < vegetation.groundcoverEnd)) {
     throw new Error('water.sea.coast.vegetation bands must have increasing start/end values.');
@@ -169,12 +182,25 @@ export function resolveCoastConfig(sea = {}) {
     throw new Error('water.sea.coast.vegetation.maxClumps must be at least minClumps.');
   }
   assertPositive('water.sea.coast.wave.wavelength', wave.wavelength);
+  assertPositive('water.sea.coast.terrain.shelfKneeDepth', terrain.shelfKneeDepth);
   assertPositive('water.sea.coast.swash.reach', swash.reach);
   assertPositive('water.sea.coast.swash.frontWidth', swash.frontWidth);
   assertPositive('water.sea.coast.swash.foamWidth', swash.foamWidth);
+  assertPositive('water.sea.coast.swash.foamCore', swash.foamCore, true);
+  if (swash.foamCore >= swash.foamWidth) {
+    throw new Error('water.sea.coast.swash.foamCore must be less than foamWidth.');
+  }
+  assertPositive('water.sea.coast.moisture.baseReach', moisture.baseReach);
   assertPositive('water.sea.coast.moisture.wettingSeconds', moisture.wettingSeconds);
   assertPositive('water.sea.coast.moisture.dryingSeconds', moisture.dryingSeconds);
   assertPositive('water.sea.coast.vegetation.maxPatches', vegetation.maxPatches, true);
+  assertPositive('water.sea.coast.vegetation.groundcoverEdge', vegetation.groundcoverEdge);
+  assertPositive('water.sea.coast.scatter.edge', scatter.edge);
+  assertPositive('water.sea.coast.vegetation.clusterRadius', vegetation.clusterRadius, true);
+  assertPositive('water.sea.coast.vegetation.groundOffset', vegetation.groundOffset, true);
+  if (vegetation.roughness < 0 || vegetation.roughness > 1) {
+    throw new Error('water.sea.coast.vegetation.roughness must be between zero and one.');
+  }
 
   const level = sea.level ?? -24;
   const shoreX = sea.shoreX ?? 1000;
@@ -252,21 +278,37 @@ function beachPhase(distance, z, clock, sea) {
 
 function swashState(distance, z, phase, sea, rain) {
   const { swash, moisture } = sea.coast;
-  const age = wrap01((phase - Math.PI / 2) / TAU);
-  const excursion = (1 - Math.cos(age * TAU)) * 0.5;
-  const breakup = Math.sin(z * swash.breakupFrequency + phase * 0.17) * swash.breakupStrength;
-  const front = swash.seawardStart
-    - excursion * (swash.reach + swash.seawardStart)
-    + breakup * swash.frontWidth;
-  const coverage = MathUtils.smoothstep(distance, front - swash.frontWidth, front + swash.frontWidth);
+  const coverageAt = (samplePhase) => {
+    const age = wrap01((samplePhase - Math.PI / 2) / TAU);
+    const excursion = (1 - Math.cos(age * TAU)) * 0.5;
+    const breakup = Math.sin(z * swash.breakupFrequency + samplePhase * 0.17) * swash.breakupStrength;
+    const front = Math.max(-swash.reach, swash.seawardStart
+      - excursion * (swash.reach + swash.seawardStart)
+      + breakup * swash.frontWidth);
+    // The softened edge begins at the configured limit instead of leaking inland
+    // by a front width when breakup places the front at maximum run-up.
+    const coverage = MathUtils.smoothstep(
+      distance,
+      Math.max(-swash.reach, front - swash.frontWidth),
+      front + swash.frontWidth,
+    );
+    return { front, coverage };
+  };
+  const { front, coverage } = coverageAt(phase);
   const frontDistance = Math.abs(distance - front);
-  const foam = (1 - MathUtils.smoothstep(frontDistance, swash.foamCore, swash.foamWidth))
+  const foam = coverage * (1 - MathUtils.smoothstep(frontDistance, swash.foamCore, swash.foamWidth))
     * MathUtils.lerp(1 - swash.breakupStrength, 1,
       MathUtils.smoothstep(Math.sin(z * swash.breakupFrequency * 2.1 + phase) * 0.5 + 0.5, 0.2, 0.8));
-  const sinceMaxRunup = wrap01(age - 0.5);
   const decay = MathUtils.lerp(moisture.washDecay, moisture.rainWashDecay, MathUtils.clamp(rain, 0, 1));
-  const reachMask = 1 - MathUtils.smoothstep(-distance, swash.reach - swash.frontWidth, swash.reach + swash.frontWidth);
-  const memory = reachMask * Math.exp(-sinceMaxRunup * decay);
+  // A finite, exponentially weighted history of actual coverage avoids a
+  // phase-reset seam and cannot wet locations that the front never reaches.
+  let memory = coverage;
+  for (const cyclesAgo of [0.15, 0.3, 0.45, 0.6]) {
+    memory = Math.max(
+      memory,
+      coverageAt(phase - TAU * cyclesAgo).coverage * Math.exp(-cyclesAgo * decay),
+    );
+  }
   return { front, coverage, foam, memory };
 }
 
@@ -298,12 +340,14 @@ export function sampleCoastField(x, z, clock, seaConfig, rain = 0) {
     scatter.inlandMax,
   ));
 
+  const oceanDepth = coastDepth(distance, sea);
   return {
     signedCoastDistance: distance,
-    oceanDepth: coastDepth(distance, sea),
+    oceanDepth,
     beachPhase: phase,
     shoreRunup: swash.front,
     waterCoverage: MathUtils.clamp(swash.coverage, 0, 1),
+    seaCoverage: MathUtils.smoothstep(oceanDepth, SEA_COVERAGE_DEPTH_START, SEA_COVERAGE_DEPTH_END),
     foamFront: MathUtils.clamp(swash.foam, 0, 1),
     washMemory: MathUtils.clamp(swash.memory, 0, 1),
     waveWash: MathUtils.clamp(Math.max(swash.coverage, swash.memory), 0, 1),
@@ -323,37 +367,47 @@ export function createCoastNodes(seaConfig, clock, rain) {
     .add(distance(p).smoothstep(terrain.shelfKnee, terrain.shelfEnd).mul(sea.depth - terrain.shelfKneeDepth)));
   const beachPhaseNode = Fn(([p]) => distance(p).mul(frequency).add(clock.mul(wave.speed))
     .add(sin(p.y.mul(wave.bendFrequency)).mul(wave.bend)));
-  const phaseAge = Fn(([p]) => beachPhaseNode(p).sub(Math.PI / 2).div(TAU).fract());
-  const shoreRunup = Fn(([p]) => {
-    const phase = beachPhaseNode(p);
-    const age = phaseAge(p);
+  const shoreRunupAtPhase = Fn(([p, phase]) => {
+    const age = phase.sub(Math.PI / 2).div(TAU).fract();
     const excursion = float(1).sub(cos(age.mul(TAU))).mul(0.5);
     const breakup = sin(p.y.mul(swash.breakupFrequency).add(phase.mul(0.17)))
       .mul(swash.breakupStrength * swash.frontWidth);
     return float(swash.seawardStart)
       .sub(excursion.mul(swash.reach + swash.seawardStart))
-      .add(breakup);
+      .add(breakup)
+      .max(-swash.reach);
   });
-  const waterCoverage = Fn(([p]) => {
-    const front = shoreRunup(p);
-    return distance(p).smoothstep(front.sub(swash.frontWidth), front.add(swash.frontWidth));
+  const waterCoverageAtPhase = Fn(([p, phase]) => {
+    const front = shoreRunupAtPhase(p, phase);
+    return distance(p).smoothstep(
+      front.sub(swash.frontWidth).max(-swash.reach),
+      front.add(swash.frontWidth),
+    );
   });
+  const shoreRunup = Fn(([p]) => shoreRunupAtPhase(p, beachPhaseNode(p)));
+  const waterCoverage = Fn(([p]) => waterCoverageAtPhase(p, beachPhaseNode(p)));
+  const seaCoverage = Fn(([p]) => depth(p)
+    .smoothstep(SEA_COVERAGE_DEPTH_START, SEA_COVERAGE_DEPTH_END));
   const foamFront = Fn(([p]) => {
     const front = shoreRunup(p);
     const phase = beachPhaseNode(p);
     const ring = float(1).sub(distance(p).sub(front).abs().smoothstep(swash.foamCore, swash.foamWidth));
     const breakup = sin(p.y.mul(swash.breakupFrequency * 2.1).add(phase)).mul(0.5).add(0.5)
       .smoothstep(0.2, 0.8);
-    return ring.mul(float(1 - swash.breakupStrength).add(breakup.mul(swash.breakupStrength)));
+    return waterCoverage(p).mul(ring)
+      .mul(float(1 - swash.breakupStrength).add(breakup.mul(swash.breakupStrength)));
   });
   const washMemory = Fn(([p]) => {
-    const sinceMaxRunup = phaseAge(p).sub(0.5).fract();
+    const phase = beachPhaseNode(p);
     const decay = float(moisture.washDecay).add(
-      rain.mul(moisture.rainWashDecay - moisture.washDecay),
+      rain.clamp(0, 1).mul(moisture.rainWashDecay - moisture.washDecay),
     );
-    const reachMask = float(1).sub(distance(p).negate()
-      .smoothstep(swash.reach - swash.frontWidth, swash.reach + swash.frontWidth));
-    return reachMask.mul(sinceMaxRunup.mul(decay).negate().exp());
+    let memory = waterCoverageAtPhase(p, phase).toVar();
+    for (const cyclesAgo of [0.15, 0.3, 0.45, 0.6]) {
+      memory.assign(memory.max(waterCoverageAtPhase(p, phase.sub(TAU * cyclesAgo))
+        .mul(float(-cyclesAgo).mul(decay).exp())));
+    }
+    return memory;
   });
   const waveWash = Fn(([p]) => waterCoverage(p).max(washMemory(p)));
   const baseMoisture = Fn(([p]) => distance(p).smoothstep(-moisture.baseReach, 0).mul(moisture.baseStrength));
@@ -378,6 +432,7 @@ export function createCoastNodes(seaConfig, clock, rain) {
     beachPhase: beachPhaseNode,
     shoreRunup,
     waterCoverage,
+    seaCoverage,
     foamFront,
     washMemory,
     waveWash,

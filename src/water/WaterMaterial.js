@@ -128,6 +128,9 @@ export function createCinematicWaterMaterial({
     .mul(terrain.maxHeight - terrain.minHeight).add(terrain.minHeight);
   const oceanDepth = ocean.depth(positionWorld.xz).add(positionWorld.y.sub(seaParams.level));
   const depth = mix(positionWorld.y.sub(groundY), oceanDepth, sea).max(0);
+  // This is the CoastField-owned mean-depth handoff. GroundMaterial uses its
+  // complement, so swash film and sea opacity meet without a shoreline cut.
+  const seaCoverage = ocean.seaCoverage(positionWorld.xz);
   const material = new THREE.MeshBasicNodeMaterial({
     transparent: true,
     depthWrite: false,
@@ -218,7 +221,8 @@ export function createCinematicWaterMaterial({
     If(body.lessThan(0.5).and(riverHere), () => Discard());
     If(kind.greaterThan(0.5).and(riverHere.not()), () => Discard());
     If(sea.greaterThan(0.5).and(ocean.distance(positionWorld.xz).lessThan(-180)), () => Discard());
-    If(depth.lessThan(0.015), () => Discard());
+    If(sea.greaterThan(0.5).and(seaCoverage.lessThanEqual(0)), () => Discard());
+    If(sea.lessThan(0.5).and(depth.lessThan(0.015)), () => Discard());
 
     const n = normalNode.toVar();
     const falling = surface.z.smoothstep(0.18, 0.65).mul(current);
@@ -280,7 +284,10 @@ export function createCinematicWaterMaterial({
     const sharpSpecular = pow(spec, specularExponent).mul(seaArt.specularSharpStrength);
     const broadSpecular = pow(spec, mix(float(24), float(8), seaRoughness))
       .mul(seaArt.specularBroadStrength);
-    const glint = sharpSpecular.add(broadSpecular)
+    // Keep the established lake/river highlights; only sea water uses the
+    // offshore roughness and art controls.
+    const inlandSpecular = pow(spec, 170).mul(1.8).add(pow(spec, 20).mul(0.08));
+    const glint = mix(inlandSpecular, sharpSpecular.add(broadSpecular), sea)
       .mul(uniforms.sunStrength).mul(uniforms.sunColor);
 
     const foamNoise = texture(detail, mix(
@@ -355,7 +362,7 @@ export function createCinematicWaterMaterial({
     );
   })();
 
-  material.opacityNode = smoothstep(0.015, 0.15, depth)
+  material.opacityNode = mix(smoothstep(0.015, 0.15, depth), seaCoverage, sea)
     .mul(mix(float(1), bank.y.negate().smoothstep(0, 0.45), current));
   return {
     material,

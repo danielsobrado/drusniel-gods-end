@@ -17,7 +17,8 @@ export function createBeachScatter(terrain, seaConfig) {
     const x = coastX(z, sea) - inland;
     if (x < terrain.bounds.min.x + 2 || x > terrain.bounds.max.x - 2) continue;
     const field = sampleCoastField(x, z, 0, sea);
-    const patch = Math.sin(x * 0.17 + Math.sin(z * 0.12)) * Math.sin(z * 0.23) * 0.5 + 0.5;
+    const patch = Math.sin(x * params.patchFrequencyX + Math.sin(z * params.patchWarpFrequency))
+      * Math.sin(z * params.patchFrequencyZ) * 0.5 + 0.5;
     if (random() > field.scatterSuitability * patch * params.density) continue;
     if (field.waterCoverage > 0.001) continue;
     const y = terrain.sampleHeight(x, z);

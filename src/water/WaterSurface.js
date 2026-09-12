@@ -303,7 +303,9 @@ export class WaterSurface {
       this.rippleIndex = (this.rippleIndex + 1) % this.uniforms.footsteps.array.length;
       this.lastRipple.copy(position);
     }
-    this.#updateVisibleSeaStats(this.camera);
+    // Inland-only and minimal recovery surfaces do not allocate sea tiles.
+    // Tiled sea surfaces report their main-view visibility every frame.
+    if (this.seaTiles?.length) this.#updateVisibleSeaStats(this.camera);
 
     if (this.reflectionInitialized && (this.enhanced || !this.cinematic || this.quality === 'performance')) return;
     this.reflectionElapsed += delta;

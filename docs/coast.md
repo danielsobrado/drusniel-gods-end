@@ -19,7 +19,9 @@ Terrain shaping, the water shader, ground shading, coastal groundcover and beach
 
 The incoming and retreating waterline uses the same beach phase as the sea. The ground material renders a thin analytical film over inland sand; it is not a second water mesh or a fluid simulation. The sequence is visible water and foam, reflective wet sand, damp sand, then drying sand.
 
-`waterCoverage`, `foamFront` and `washMemory` are coupled. The ground film fades at the waterline while the sea uses its existing shallow-depth opacity, avoiding an independent shoreline handoff. Wave wash works in dry weather. Rain raises persistent beach moisture and slows the visual return to dry sand.
+`waterCoverage`, `foamFront` and `washMemory` are coupled. Coverage and residual wash stay within the configured inland reach. Memory is a decaying history of actual coverage, avoiding wet strips that were never washed and abrupt resets at maximum run-up. Wave wash works in dry weather. Rain raises persistent beach moisture and slows the visual return to dry sand.
+
+Both materials use `seaCoverage`, a smooth ramp over 0.015–0.15 units of mean analytical depth. Sea opacity follows this ramp and the ground film/foam use its complement. Optical depth still includes displaced wave height; the shared handoff avoids separate distance and depth cutoffs.
 
 Fresh scene construction seeds accumulated beach moisture from the initial preset's resolved rain intensity. A recovered session restores its saved moisture and wave clock afterward. Preset and quality changes do not reseed the accumulator. Wetting and drying use frame-rate-independent exponential integration.
 
@@ -51,7 +53,7 @@ High, Balanced and Performance retain cached reflections. Ultra retains the exis
 
 ## Validation
 
-Node tests cover CoastField configuration and invariants, phase wrapping, wetting/drying, deterministic ecology, sea bounds, tile topology and quality geometry. The real-render sea harness validates CPU/TSL displacement, normals and CoastField outputs. CI runs that harness in Chromium WebGL 2 through SwiftShader and attempts WebGPU separately when the runner reports hardware/API support.
+Node tests cover CoastField configuration and invariants, phase wrapping, wetting/drying, deterministic ecology, sea bounds, tile topology and quality geometry. The real-render sea harness validates CPU/TSL displacement, normals and CoastField outputs, then renders the production water and ground fragment graphs. It also verifies that offshore specular controls do not change lake rendering. CI runs that harness in Chromium WebGL 2 through SwiftShader and attempts WebGPU separately when the runner reports hardware/API support from the application's secure origin. A renderer fallback after a successful adapter probe is a failure, not an unsupported skip.
 
 Use `/scripts/debug/sea-review.html` for integrated coast, transition, offshore, lake and river review. Fixed visual review and hardware GPU measurements remain device-dependent; missing hardware measurements must be reported as a limitation rather than interpreted as zero cost.
 

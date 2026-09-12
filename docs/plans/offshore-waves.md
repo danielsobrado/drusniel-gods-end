@@ -1,6 +1,6 @@
 # Offshore waves: Windrose-inspired swells and surface detail
 
-Status: **planned; this document does not report implementation or validation of the proposed changes.**
+Status: **core implementation complete; review corrections and validation results are recorded in the [2026-09-12 implementation review](../improvements/coast-review-2026-09-12.md).** The checklist below is the saved acceptance specification; consult the review for measured results and remaining delivery limitations.
 
 Saved: 2026-09-11. Reviewed baseline: `c4911c72dd111dc3874f843d1ef7dbae580f3930`.
 

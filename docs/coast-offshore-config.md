@@ -27,8 +27,8 @@ The coast and enhanced sea are configured below `water.sea` in `public/cinematic
 - `swash`: run-up reach, front/foam widths and breakup;
 - `moisture`: permanent shoreline reach, wash decay and rain wet/dry time constants;
 - `sand`: dry colors, roughness, film/foam response and multi-scale detail;
-- `vegetation`: ordinary vegetation cutoff plus coastal groundcover band, seed, sizes, slope limit and quality fractions;
-- `scatter`: deterministic beach-debris seed, band, density, sizes, colors and slope threshold.
+- `vegetation`: ordinary vegetation cutoff plus coastal groundcover band, seed, sizes, slope limit and quality fractions. `clusterRadius` (0.42), `groundOffset` (0.025), and `roughness` (0.9) tune the creeping patches; every clump samples its own ground height and slope;
+- `scatter`: deterministic beach-debris seed, band, density, sizes, colors and slope threshold. `patchFrequencyX` (0.17), `patchFrequencyZ` (0.23), and `patchWarpFrequency` (0.12) control broad placement irregularity.
 
 The default swash reaches 12 world units inland. Wetting and drying time constants remain 18 and 100 seconds. The default dry sand colors remain `#b39a72` and `#d6be96`; wetness modifies that dry mixture rather than treating those colors as a wet/dry pair.
 

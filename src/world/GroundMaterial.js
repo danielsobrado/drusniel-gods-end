@@ -237,7 +237,9 @@ export async function createGroundMaterial(config, terrainSampler = null) {
     if (style?.enabled) material.emissiveNode = earth.mul(foliageLight.fill).mul(appearance.grassFill);
     material.roughnessNode = turfRoughness(soilPaint, roughnessSample, wet, turf.x);
 
-    if (terrainSampler?.river || config.terrain.expansion?.enabled) {
+    // A configured coast is its own terrain feature; it must not depend on a
+    // river sampler or on expanded-landscape mode to render its swash layer.
+    if (terrainSampler?.river || config.terrain.expansion?.enabled || config.water.sea?.enabled) {
       const highland = positionWorld.y.smoothstep(48, 100);
       const cliff = normalWorld.y.abs().smoothstep(0.55, 0.88).oneMinus();
       const rockyArea = world.sub(vec2(390, -220)).div(vec2(170, 160)).length().smoothstep(0.3, 1.1).oneMinus();
@@ -300,6 +302,9 @@ export async function createGroundMaterial(config, terrainSampler = null) {
           .add(sin(world.y.mul(sandParams.mesoFrequencyX * 1.25))))
           .mul(sin(world.y.mul(sandParams.mesoFrequencyZ))).mul(0.5).add(0.5);
         const coverage = coast.waterCoverage(world);
+        // Pair this complement with WaterMaterial's seaCoverage so the ground
+        // film fades out across the same mean-depth ramp as sea opacity.
+        const groundHandoff = coast.seaCoverage(world).oneMinus();
         const memory = coast.washMemory(world);
         const wetSand = coast.baseMoisture(world).mul(sandParams.baseMoistureStrength).mul(mix(sandParams.mesoWetMin, sandParams.mesoWetMax, meso))
           .add(memory.mul(sandParams.washMemoryStrength))
@@ -309,9 +314,8 @@ export async function createGroundMaterial(config, terrainSampler = null) {
         const drySand = mix(color(sandParams.dryDark), color(sandParams.dryLight), sandMacro)
           .mul(sandRipples).mul(sandGrains).mul(mix(sandParams.mesoToneMin, sandParams.mesoToneMax, meso));
         const saturatedSand = drySand.mul(wetSand.mul(sandParams.wetDarkening).oneMinus());
-        const landMask = coast.distance(world).smoothstep(-0.3, 0.15).oneMinus();
-        const film = coverage.mul(landMask);
-        const foam = coast.foamFront(world).mul(landMask).mul(sandParams.foamStrength);
+        const film = coverage.mul(groundHandoff);
+        const foam = coast.foamFront(world).mul(groundHandoff).mul(sandParams.foamStrength);
         const filmColor = mix(saturatedSand, color(sandParams.filmTint), film.mul(sandParams.filmTintStrength));
         const beachColor = mix(filmColor, color(sandParams.foamColor), foam.clamp(0, 1));
         material.colorNode = mix(material.colorNode, beachColor, coastal);

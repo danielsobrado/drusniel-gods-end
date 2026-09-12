@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import * as THREE from 'three';
 import { coastX, coastalHeight } from '../src/world/coast.js';
 import {
   resolveSeaWaves,
@@ -7,6 +8,7 @@ import {
   seaDepth,
   seaDisplacementBound,
   seaEnvelope,
+  sampleSeaNormal,
   sampleSeaSurface,
 } from '../src/water/seaWaves.js';
 import {
@@ -16,7 +18,11 @@ import {
   seaTileStats,
 } from '../src/water/seaGeometry.js';
 import { createWaterGeometry } from '../src/water/waterGeometry.js';
-import { createSeaDetailTexture } from '../src/water/seaDetail.js';
+import {
+  createSeaDetailTexture,
+  SEA_DETAIL_MOMENT_SCALE,
+  SEA_DETAIL_SLOPE_RANGE,
+} from '../src/water/seaDetail.js';
 
 const sea = { enabled: true, level: -24, shoreX: 1000, depth: 95 };
 
@@ -64,14 +70,18 @@ test('choppy detail is deterministic, seam-safe and stores an unclipped second s
   try {
     assert.deepEqual(a.image.data, b.image.data);
     const { data, width: size } = a.image;
-    let meanX = 0, meanZ = 0, interior = 0, seam = 0, variation = 0;
+    let meanX = 0, meanZ = 0, interior = 0, seam = 0, variation = 0, squaredSlope = 0, secondMoment = 0;
     let minSlope = 255, maxSlope = 0, minMoment = 255, maxMoment = 0;
     const moments = new Set();
     for (let y = 0; y < size; y += 1) for (let x = 0; x < size; x += 1) {
       const i = (y * size + x) * 4;
       meanX += data[i];
       meanZ += data[i + 1];
-      variation += Math.abs(data[i] - 128);
+      const dx = (data[i] / 255 * 2 - 1) * SEA_DETAIL_SLOPE_RANGE;
+      const dz = (data[i + 1] / 255 * 2 - 1) * SEA_DETAIL_SLOPE_RANGE;
+      variation += (Math.abs(dx) + Math.abs(dz)) * 0.5;
+      squaredSlope += dx * dx + dz * dz;
+      secondMoment += data[i + 3] / 255 * SEA_DETAIL_MOMENT_SCALE;
       minSlope = Math.min(minSlope, data[i], data[i + 1]);
       maxSlope = Math.max(maxSlope, data[i], data[i + 1]);
       minMoment = Math.min(minMoment, data[i + 3]);
@@ -82,7 +92,9 @@ test('choppy detail is deterministic, seam-safe and stores an unclipped second s
     }
     assert.ok(Math.abs(meanX / (size * size) - 127.5) < 2);
     assert.ok(Math.abs(meanZ / (size * size) - 127.5) < 2);
-    assert.ok(variation / (size * size) > 10);
+    assert.ok(variation / (size * size) > 0.2, 'decoded slopes retain visible directional variation');
+    assert.ok(Math.abs(secondMoment - squaredSlope) / (size * size) < 0.02,
+      'alpha stores the same unfiltered squared-slope moment as RG');
     assert.ok(seam / size < interior / (size * (size - 1)) * 2);
     assert.ok(minSlope > 0 && maxSlope < 255, 'configured slope range does not clip source slopes');
     assert.ok(minMoment >= 0 && maxMoment < 255 && moments.size > 8, 'alpha encodes filtered second moment');
@@ -135,6 +147,20 @@ test('waves stay centered and bounded while beach crests travel shoreward', () =
   const before = sampleSeaSurface(x, z, 2, sea) / seaEnvelope(24, sea).amplitude;
   const after = sampleSeaSurface(x - travel, z, 2 + dt, sea) / seaEnvelope(24 - travel, sea).amplitude;
   assert.ok(Math.abs(before - after) < 1e-7);
+});
+
+test('CPU sea normals use the same forward height differences as the TSL wave normal', () => {
+  const step = 0.25;
+  for (const [distance, z, time, rain] of [[24, 0, 2.4, 0], [80, 190, 8.2, 0.4], [180, -315, 16.7, 1]]) {
+    const x = coastX(z, sea) + distance;
+    const height = sampleSeaSurface(x, z, time, sea, rain);
+    const dx = (sampleSeaSurface(x + step, z, time, sea, rain) - height) / step;
+    const dz = (sampleSeaSurface(x, z + step, time, sea, rain) - height) / step;
+    const expected = new THREE.Vector3(-dx, 1, -dz).normalize();
+    const actual = sampleSeaNormal(x, z, time, sea, rain);
+    assert.ok(actual.distanceTo(expected) < 1e-12);
+    assert.ok(Number.isFinite(actual.x) && Number.isFinite(actual.y) && Number.isFinite(actual.z));
+  }
 });
 
 test('sea tiles are 48 crack-safe root-local meshes with quality-scaled geometry and storm bounds', () => {

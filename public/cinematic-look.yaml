@@ -302,6 +302,9 @@ water:
         maxClumps: 3
         sizeMin: 0.22
         sizeMax: 0.62
+        clusterRadius: 0.42
+        groundOffset: 0.025
+        roughness: 0.9
         color: '#667957'
         qualityPerformance: 0.35
         qualityBalanced: 0.6
@@ -314,6 +317,9 @@ water:
         inlandMax: 117
         edge: 18
         density: 0.3
+        patchFrequencyX: 0.17
+        patchFrequencyZ: 0.23
+        patchWarpFrequency: 0.12
         minNormalY: 0.9
         sizeMin: 0.06
         sizeMax: 0.19

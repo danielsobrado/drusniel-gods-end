@@ -50,6 +50,13 @@ test('coast config resolves legacy settings once and rejects invalid art bands',
   assert.equal(resolved.coast.sand.dryLight, '#d6be96');
   assert.equal(resolved.coast.sand.dryRoughness, 0.97);
   assert.equal(resolved.coast.sand.wetRoughness, 0.24);
+  for (const coast of [
+    { swash: { foamCore: 1.6, foamWidth: 1.6 } },
+    { moisture: { baseReach: 0 } },
+    { vegetation: { groundcoverEdge: 0 } },
+    { scatter: { edge: 0 } },
+  ]) assert.throws(() => resolveCoastConfig({ ...sea, coast }), /water\.sea\.coast/,
+    'zero-width smoothstep bands must not reach the GPU');
   assert.throws(
     () => resolveCoastConfig({ ...sea, coast: { swash: { reach: Number.NaN } } }),
     /water\.sea\.coast\.swash\.reach/,
@@ -61,6 +68,18 @@ test('coast config resolves legacy settings once and rejects invalid art bands',
   assert.throws(
     () => resolveCoastConfig({ ...sea, coast: { terrain: { shelfKnee: 600, shelfEnd: 500 } } }),
     /water\.sea\.coast\.terrain bands/,
+  );
+  assert.throws(
+    () => resolveCoastConfig({ ...sea, coast: { terrain: { shelfKneeDepth: 0 } } }),
+    /water\.sea\.coast\.terrain\.shelfKneeDepth/,
+  );
+  assert.throws(
+    () => resolveCoastConfig({ ...sea, coast: { swash: { foamCore: 2, foamWidth: 1 } } }),
+    /water\.sea\.coast\.swash\.foamCore.*foamWidth/,
+  );
+  assert.throws(
+    () => resolveCoastConfig({ ...sea, coast: { sand: { grainFadeStart: 60, grainFadeEnd: 8 } } }),
+    /water\.sea\.coast\.sand\.grainFadeStart.*grainFadeEnd/,
   );
 });
 
@@ -80,6 +99,7 @@ test('coast field follows curved terrain and keeps placement fields bounded', ()
     for (const key of [
       'baseMoisture',
       'waterCoverage',
+      'seaCoverage',
       'foamFront',
       'washMemory',
       'waveWash',
@@ -112,6 +132,47 @@ test('swash visibly reaches the beach, leaves wet memory, and wraps continuously
   for (const key of ['shoreRunup', 'waterCoverage', 'foamFront', 'washMemory']) {
     assert.ok(Math.abs(before[key] - after[key]) < 0.001, `${key} wraps continuously`);
   }
+});
+
+test('swash coverage never crosses the configured inland reach', () => {
+  const configured = {
+    ...sea,
+    coast: { swash: { reach: 12, frontWidth: 1.2, breakupStrength: 0.28 } },
+  };
+  const z = 0;
+  for (let i = 0; i <= 240; i += 1) {
+    const clock = i / 240 * (Math.PI * 2 / 1.35);
+    const beyondReach = sampleCoastField(coastX(z, configured) - 12.001, z, clock, configured);
+    assert.equal(beyondReach.waterCoverage, 0, 'front softness and breakup stay within reach');
+  }
+});
+
+test('wash memory only follows covered water and remains continuous through max run-up', () => {
+  const z = 0;
+  for (let i = 0; i <= 240; i += 1) {
+    const clock = i / 240 * (Math.PI * 2 / 1.35);
+    const beyondReach = sampleCoastField(coastX(z, sea) - 12.001, z, clock, sea);
+    assert.equal(beyondReach.washMemory, 0, 'dry ground outside maximum run-up has no wake');
+  }
+
+  const distance = -11.8;
+  const maxRunup = (Math.PI / 2 + Math.PI - distance * Math.PI * 2 / 13) / 1.35;
+  const before = sampleCoastField(coastX(z, sea) + distance, z, maxRunup - 1e-6, sea);
+  const after = sampleCoastField(coastX(z, sea) + distance, z, maxRunup + 1e-6, sea);
+  const effectiveWetness = (field) => Math.min(1, field.waterCoverage * 0.85 + field.washMemory * 0.55);
+  assert.ok(Math.abs(effectiveWetness(before) - effectiveWetness(after)) < 0.001,
+    'the final sand wetness has no max-run-up reset seam');
+});
+
+test('sea handoff coverage is a shared mean-depth ramp with a ground complement', () => {
+  const shore = sampleCoastField(coastX(0, sea), 0, 0, sea);
+  const transition = sampleCoastField(coastX(0, sea) + 4, 0, 0, sea);
+  const offshore = sampleCoastField(coastX(0, sea) + 8, 0, 0, sea);
+  assert.equal(shore.seaCoverage, 0);
+  assert.ok(transition.seaCoverage > 0 && transition.seaCoverage < 1);
+  assert.ok(Math.abs((1 - transition.seaCoverage) + transition.seaCoverage - 1) < 1e-12);
+  assert.ok(offshore.seaCoverage > 0 && offshore.seaCoverage <= 1);
+  assert.equal(sampleCoastField(coastX(0, sea) + 80, 0, 0, sea).seaCoverage, 1);
 });
 
 test('rain moisture seeds established weather and integrates independently of frame rate', () => {

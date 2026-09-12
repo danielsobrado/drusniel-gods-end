@@ -1,4 +1,4 @@
-import { MathUtils } from 'three';
+import { MathUtils, Vector3 } from 'three';
 import { coastDepth, resolveCoastConfig, sampleCoastField } from '../world/CoastField.js';
 
 export const SEA_WAVE_DEFAULTS = Object.freeze({
@@ -166,4 +166,13 @@ export function sampleSeaSurface(x, z, time, sea, rain = 0) {
   ), 0);
   const beach = seaWaveShape(beachPhase, 0.45 + storm * 0.2);
   return MathUtils.lerp(beach, swell, envelope.offshore) * envelope.amplitude;
+}
+
+// Keep this forward difference aligned with createSeaNodes.normal. Sampling
+// the complete height function also retains coast-envelope derivatives.
+export function sampleSeaNormal(x, z, time, sea, rain = 0, step = 0.25) {
+  const height = sampleSeaSurface(x, z, time, sea, rain);
+  const dx = (sampleSeaSurface(x + step, z, time, sea, rain) - height) / step;
+  const dz = (sampleSeaSurface(x, z + step, time, sea, rain) - height) / step;
+  return new Vector3(-dx, 1, -dz).normalize();
 }

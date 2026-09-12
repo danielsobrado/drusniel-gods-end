@@ -5,6 +5,7 @@ import { sampleSeaSurface } from '../../src/water/seaWaves.js';
 import { coastX } from '../../src/world/coast.js';
 import { createCoastNodes, sampleCoastField } from '../../src/world/CoastField.js';
 import { createCinematicWaterMaterial } from '../../src/water/WaterMaterial.js';
+import { checkCoastMaterials } from './coast-material-check.js';
 
 const TAU = Math.PI * 2;
 const TOLERANCE = 0.004;
@@ -82,7 +83,7 @@ async function checkFiniteWaterNormals(renderer) {
 async function check() {
   const sea = { enabled: true, shoreX: 1000, level: -24, depth: 95 };
   const points = [-1200, -500, 0, 500, 1200].flatMap((z) =>
-    [-80, -20, -8, 0, 8, 30, 80, 180, 500, 2500].map((distance) => [coastX(z, sea) + distance, z]));
+    [-80, -20, -8, 0, 2, 4, 6, 8, 30, 80, 180, 500, 2500].map((distance) => [coastX(z, sea) + distance, z]));
   const renderer = new THREE.WebGPURenderer({
     forceWebGL: new URLSearchParams(window.location.search).get('renderer') === 'webgl',
   });
@@ -168,13 +169,13 @@ async function check() {
           coast.waterCoverage(point),
           coast.foamFront(point),
           coast.washMemory(point),
-          coast.waveWash(point),
+          coast.seaCoverage(point),
         ),
         expected: (field) => [
           field.waterCoverage,
           field.foamFront,
           field.washMemory,
-          field.waveWash,
+          field.seaCoverage,
         ],
       },
       {
@@ -212,15 +213,17 @@ async function check() {
       }
     }
     const finiteNormals = await checkFiniteWaterNormals(renderer);
+    const materialFrames = await checkCoastMaterials(renderer);
     return {
       passed: true,
       failures: [],
-      checks: ['sea-wave-parity', 'coast-field-parity', 'finite-water-normals'],
+      checks: ['sea-wave-parity', 'coast-field-parity', 'finite-water-normals', 'coast-production-materials'],
       backend: renderer.backend.isWebGPUBackend ? 'webgpu' : 'webgl2',
       comparisons,
       coastComparisons,
       maxError,
       finiteNormals,
+      materialFrames,
     };
   } finally {
     geometry.dispose();

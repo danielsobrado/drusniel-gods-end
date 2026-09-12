@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import process from 'node:process';
 import { chromium } from 'playwright';
+import { probeWebGPU } from './gpu-support.mjs';
 
 const DEFAULT_PORT = 4173;
 const DEFAULT_TIMEOUT_MS = 120_000;
@@ -100,10 +101,7 @@ async function runCheck(browser, baseUrl, check, options) {
   page.on('pageerror', (error) => errors.push(`pageerror: ${error.message}`));
   try {
     if (options.renderer === 'webgpu') {
-      const support = await page.evaluate(async () => ({
-        api: Boolean(navigator.gpu),
-        adapter: Boolean(await navigator.gpu?.requestAdapter()),
-      }));
+      const support = await probeWebGPU(page, baseUrl, options.timeoutMs);
       if ((!support.api || !support.adapter) && options.allowUnsupported) {
         const reason = support.api ? 'no WebGPU adapter is available' : 'navigator.gpu is unavailable';
         return { check, status: 'unsupported', reason };
@@ -128,9 +126,6 @@ async function runCheck(browser, baseUrl, check, options) {
     if (!result?.passed) throw new Error(result?.error ?? result?.failures?.join('\n') ?? 'GPU check failed');
     const expectedBackend = options.renderer === 'webgl' ? 'webgl2' : 'webgpu';
     if (result.backend !== expectedBackend) {
-      if (options.renderer === 'webgpu' && options.allowUnsupported && result.backend === 'webgl2') {
-        return { check, status: 'unsupported', reason: 'WebGPU renderer fell back to WebGL2', result };
-      }
       throw new Error(`Expected ${expectedBackend}, got ${result.backend ?? 'unknown backend'}`);
     }
     return { check, status: 'passed', result };

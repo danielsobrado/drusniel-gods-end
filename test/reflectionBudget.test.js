@@ -86,6 +86,7 @@ test('enhanced fixed probe captures once across player updates and recaptures af
     enhanced: true, reflectionInitialized: false, rippleElapsed: 0, reflectionElapsed: 0,
     quality: 'ultra', cinematic: { reflectionDistance: 120, reflectionInterval: 0.75 },
     params: {}, mesh: new Object3D(), scene: new Scene(),
+    stats: { cubeCaptures: 0 },
     bounds: new Box3(new Vector3(-20, -20, -20), new Vector3(20, 20, 20)), nearest: new Vector3(),
     reflection: { cubeCamera: camera },
     uniforms: { clock: { value: 0 }, sunColor: { value: new Color() }, sunDirection: { value: new Vector3() }, sunStrength: { value: 1 } },
@@ -95,7 +96,9 @@ test('enhanced fixed probe captures once across player updates and recaptures af
   const lighting = { color: new Color(), position: new Vector3(1, 1, 1), directionalIntensity: 3 };
   for (let i = 0; i < 20; i++) { position.x = i; water.update(1, player, lighting); }
   assert.equal(captures, 1);
+  assert.equal(water.stats.cubeCaptures, 1);
   water.reflectionInitialized = false;
   water.update(1, player, lighting);
   assert.equal(captures, 2);
+  assert.equal(water.stats.cubeCaptures, 2);
 });
