@@ -13,6 +13,7 @@ function finiteNumber(value, name) {
 }
 
 function resolveRiverViews(value) {
+  if (value === undefined) return [];
   if (!Array.isArray(value) || value.length < 2) {
     throw new Error('navigation.scenicTour.riverViews must contain at least two views.');
   }
@@ -103,6 +104,9 @@ export class ScenicTour {
   start() {
     if (!this.config) throw new Error('ScenicTour must be configured before it starts.');
     if (this.active) { this.stop(); return false; }
+    if (this.world.expansion?.river && this.config.riverViews.length < 2) {
+      throw new Error('navigation.scenicTour.riverViews must contain at least two views when the river is enabled.');
+    }
     this.saved = {
       position: this.world.camera.position.clone(),
       quaternion: this.world.camera.quaternion.clone(),
