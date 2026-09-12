@@ -55,13 +55,19 @@ test('expanded terrain encloses the lake, adds alpine relief, and uses the rende
   assert.ok(mountainHeight(0, -650) > mountainHeight(0, 0) + 100);
 });
 
-test('river runs downhill from snow country, remains carved, and meets the lake at its exact level', async () => {
-  const { expansion, sampler } = await landscape();
+test('river descends from snow country through the lake and drains into the sea', async () => {
+  const { expansion, sampler, config } = await landscape();
   const river = expansion.river;
-  assert.ok(river.length > 800 && river.samples[0].y > 140);
+  assert.ok(river.length > 1500 && river.samples[0].y > 140);
   for (let i = 1; i < river.samples.length; i++) assert.ok(river.samples[i].y <= river.samples[i - 1].y + 1e-6);
-  assert.equal(river.samples.at(-1).y, -17);
-  for (let i = 10; i < river.samples.length - 20; i += 23) {
+
+  const lakeJoin = river.sample(202, 97);
+  assert.ok(lakeJoin?.edge < 0);
+  assert.ok(Math.abs(lakeJoin.y - config.water.position[1]) < 0.05);
+  assert.equal(river.samples.at(-1).y, config.water.sea.level);
+  assert.ok(river.samples.at(-1).outletProgress > 0.99);
+
+  for (let i = 10; i < river.samples.length - 20; i += 31) {
     const p = river.samples[i];
     assert.ok(sampler.sampleHeight(p.x, p.z) < p.y + 0.2, `river bed at ${p.x},${p.z}`);
     assert.ok(river.sample(p.x, p.z).edge < 0);
@@ -70,6 +76,11 @@ test('river runs downhill from snow country, remains carved, and meets the lake 
   const ford = river.sample(88, -19);
   assert.ok(ford.edge < 0);
   assert.ok(ford.y - river.carve(88, -19, ford.y + 3) < 0.4);
+
+  const mouth = river.sample(1045, 80);
+  assert.ok(mouth.edge < 0 && mouth.outletProgress > 0.98);
+  assert.ok(Math.abs(mouth.y - config.water.sea.level) < 0.05);
+  assert.ok(sampler.sampleHeight(1045, 80) < config.water.sea.level);
 });
 
 test('corridor subdivision has no unmatched interior edges or inverted triangles', async () => {
@@ -95,13 +106,35 @@ test('corridor subdivision has no unmatched interior edges or inverted triangles
   }
 });
 
-test('exploration routes stay on land and connect the forest, ford, summit and lake', async () => {
+test('exploration routes stay in bounds and configured travel corridors remain walkable', async () => {
   const { expansion, sampler } = await landscape();
   assert.ok(expansion.paths.sample(2, -5) > 0.9);
   assert.ok(expansion.paths.sample(88, -19) > 0.9);
   for (const route of expansion.paths.routes) for (const [x, z] of route.points) {
     assert.ok(sampler.contains(x, z, 25));
     if (route.name === 'Lakeside circuit') assert.ok(sampler.sampleHeight(x, z) > -16, `submerged path ${x},${z}`);
+  }
+
+  for (const route of expansion.paths.routes.filter(candidate => candidate.walkable)) {
+    const curve = new THREE.CatmullRomCurve3(
+      route.points.map(([x, z]) => new THREE.Vector3(x, 0, z)),
+      false,
+      'centripetal',
+    );
+    const samples = curve.getSpacedPoints(Math.ceil(curve.getLength() / 8));
+    let previous = null;
+    for (const point of samples) {
+      const y = sampler.sampleHeight(point.x, point.z);
+      if (previous) {
+        const river = expansion.river?.sample(point.x, point.z);
+        if (!river || river.edge > river.bankBlend + 2) {
+          const distance = Math.hypot(point.x - previous.x, point.z - previous.z);
+          const grade = Math.abs(y - previous.y) / Math.max(distance, 0.001);
+          assert.ok(grade <= route.maxGrade + 0.09, `${route.name} grade ${grade.toFixed(3)}`);
+        }
+      }
+      previous = { x: point.x, y, z: point.z };
+    }
   }
 });
 
@@ -112,6 +145,7 @@ test('root water geometry contains only lake and river surface attributes', asyn
     const count = geometry.attributes.position.count;
     for (const name of ['waterKind', 'waterFlow', 'waterLevel', 'riverSurface', 'normal']) assert.equal(geometry.attributes[name].count, count);
     assert.ok(geometry.boundingBox.max.y > 140);
+    assert.ok(geometry.boundingBox.min.y < config.water.position[1]);
     assert.ok(geometry.attributes.waterKind.array.includes(0) && geometry.attributes.waterKind.array.includes(1));
     assert.equal(geometry.attributes.waterKind.array.includes(2), false);
   } finally { geometry.dispose(); }
@@ -129,5 +163,5 @@ test('coast has dry beach, shallow water and a deep seabed beyond the separate i
     assert.ok(shallows < sea.level && shallows > sea.level - 8, `shallows at ${z}`);
     assert.ok(deep < sea.level - 85, `deep sea at ${z}`);
   }
-  assert.ok(sampler.sampleHeight(720, 160) > config.water.position[1] + 20, 'dry land separates lake and sea');
+  assert.ok(sampler.sampleHeight(720, 160) > config.water.position[1] + 20, 'dry land separates lake and sea away from the outlet');
 });
