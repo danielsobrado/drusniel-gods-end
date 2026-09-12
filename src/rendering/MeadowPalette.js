@@ -1,6 +1,6 @@
 import { Color } from 'three/webgpu';
 import { getPresetAppearance, sampleReferenceField } from './PresetAppearance.js';
-import { color, dot, floor, fract, mix, sin, smoothstep, uniform, vec2, vec3 } from 'three/tsl';
+import { Fn, color, dot, floor, fract, mix, sin, smoothstep, uniform, vec2, vec3 } from 'three/tsl';
 
 const palettes = new WeakMap();
 
@@ -20,14 +20,14 @@ export function setMeadowPalette(config, grass) {
   palette.tip.value.set(grass.tipColor);
 }
 
-const meadowNoise = (([p]) => {
+const meadowNoise = Fn(([p]) => {
   const cell = floor(p);
   const local = fract(p);
   const weight = local.mul(local).mul(local.mul(-2).add(3));
   const hash = offset => fract(sin(dot(cell.add(offset), vec2(127.1, 311.7))).mul(43758.5453));
   return mix(mix(hash(vec2(0, 0)), hash(vec2(1, 0)), weight.x),
     mix(hash(vec2(0, 1)), hash(vec2(1, 1)), weight.x), weight.y);
-});
+}, 'float');
 
 export function meadowColors(worldXZ, config, reference = false) {
   const style = config.cinematic.style;
