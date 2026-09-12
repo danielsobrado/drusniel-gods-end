@@ -46,6 +46,16 @@ navigation:
     lookSensitivity: 0.0015
     minPitch: -1.553
     maxPitch: 1.553
+  scenicTour:
+    durationSeconds: 30
+    returnDurationSeconds: 1.5
+    lookAheadDistance: 24
+    orientationSharpness: 7
+    terrainClearance: 4
+    targetDrop: 2
+    seaLookBlendStart: 0.88
+    seaFocusXZ: [1500, 65]
+    seaFocusHeightOffset: 2
   locations:
     - { id: start, label: Start, mode: ground, position: [2, -5], yaw: 0 }
     - { id: river, label: River, mode: ground, position: [135, 118], yaw: 0.75 }
