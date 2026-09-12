@@ -5,6 +5,16 @@ export const DEFAULT_STONE_PACK_SCALE = 7;
 export const DEFAULT_PEBBLE_MAX_SIZE = 0.8;
 export const DEFAULT_PEBBLE_PATTERN = /^SM_Rocks_(06|07|10|11)(_|$)/i;
 export const ROCK_PACK_ROOT_NAMES = new Set(['Sketchfab_model', 'Rocks_Stylized']);
+const ROCK_TEXTURE_KEYS = Object.freeze(['map', 'normalMap', 'roughnessMap']);
+
+function materialsOf(object) {
+  if (!object?.material) return [];
+  return Array.isArray(object.material) ? object.material.filter(Boolean) : [object.material];
+}
+
+function textureScore(material) {
+  return ROCK_TEXTURE_KEYS.reduce((score, key) => score + (material?.[key] ? 1 : 0), 0);
+}
 
 export function isRockMesh(object) {
   return Boolean(object?.isMesh && ROCK_MESH_PATTERN.test(object.name ?? ''));
@@ -17,6 +27,32 @@ export function collectRockMeshes(root) {
   });
   meshes.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
   return meshes;
+}
+
+export function harmonizeRockMaterials(meshes) {
+  let reference = null;
+  let bestScore = 0;
+  for (const mesh of meshes ?? []) {
+    for (const material of materialsOf(mesh)) {
+      const score = textureScore(material);
+      if (score > bestScore) {
+        bestScore = score;
+        reference = material;
+      }
+    }
+  }
+  if (!reference || bestScore === 0) return null;
+
+  for (const mesh of meshes ?? []) {
+    if (!mesh.geometry?.attributes?.uv) continue;
+    for (const material of materialsOf(mesh)) {
+      for (const key of ROCK_TEXTURE_KEYS) {
+        if (!material[key] && reference[key]) material[key] = reference[key];
+      }
+      material.needsUpdate = true;
+    }
+  }
+  return reference;
 }
 
 export function hideRockPack(meshes) {
