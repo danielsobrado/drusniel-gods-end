@@ -12,6 +12,23 @@ function finiteNumber(value, name) {
   return number;
 }
 
+function resolveRiverViews(value) {
+  if (!Array.isArray(value) || value.length < 2) {
+    throw new Error('navigation.scenicTour.riverViews must contain at least two views.');
+  }
+  let previousFraction = -1;
+  return value.map((view, index) => {
+    const fraction = finiteNumber(view?.fraction, `navigation.scenicTour.riverViews[${index}].fraction`);
+    const offset = finiteNumber(view?.offset, `navigation.scenicTour.riverViews[${index}].offset`);
+    const lift = positiveNumber(view?.lift, `navigation.scenicTour.riverViews[${index}].lift`);
+    if (fraction < 0 || fraction > 1 || fraction <= previousFraction) {
+      throw new Error('navigation.scenicTour.riverViews fractions must be strictly increasing in [0, 1].');
+    }
+    previousFraction = fraction;
+    return { fraction, offset, lift };
+  });
+}
+
 function resolveTourConfig(config) {
   if (!config) throw new Error('navigation.scenicTour configuration is required.');
   const durationSeconds = positiveNumber(config.durationSeconds, 'navigation.scenicTour.durationSeconds');
@@ -47,6 +64,7 @@ function resolveTourConfig(config) {
       config.seaFocusHeightOffset,
       'navigation.scenicTour.seaFocusHeightOffset',
     ),
+    riverViews: resolveRiverViews(config.riverViews),
   };
 }
 
@@ -97,7 +115,7 @@ export class ScenicTour {
     if (this.world.expansion?.river) {
       const river = this.world.expansion.river;
       const reach = fraction => river.samples[Math.round((river.samples.length - 1) * fraction)];
-      const riverView = (fraction, offset, lift) => {
+      const riverView = ({ fraction, offset, lift }) => {
         const p = reach(fraction);
         const x = p.x - p.dz * offset;
         const z = p.z + p.dx * offset;
@@ -107,17 +125,8 @@ export class ScenicTour {
         cameraStart,
         start.clone().setY(terrain.sampleHeight(start.x, start.z) + 12),
         new THREE.Vector3(-170, terrain.sampleHeight(-170, 35) + 30, 35),
-        riverView(0.12, 55, 55),
-        riverView(0.42, 28, 28),
-        riverView(0.72, -20, 16),
-        riverView(0.9, 18, 12),
-        new THREE.Vector3(135, 5, 118),
+        ...this.config.riverViews.map(riverView),
       ];
-      if (this.water.params.sea?.enabled) points.push(
-        new THREE.Vector3(580, terrain.sampleHeight(580, 170) + 35, 170),
-        new THREE.Vector3(950, terrain.sampleHeight(950, 80) + 20, 80),
-        new THREE.Vector3(1060, 0, 65),
-      );
     } else {
       const grove = (this.trees.trees ?? []).filter(tree => {
         const distance = tree.position.distanceTo(start);
