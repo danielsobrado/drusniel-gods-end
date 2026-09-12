@@ -2,11 +2,11 @@ ground:
   snow:
     enabled: true
     altitude:
-      start: 92
-      full: 142
+      start: 84
+      full: 132
     slope:
-      start: 0.42
-      full: 0.78
+      start: 0.34
+      full: 0.84
     wind:
       angleDegrees: 35
       driftFrequency: 0.018
@@ -14,39 +14,43 @@ ground:
       exposureFrequency: 0.011
       exposureCrossFrequency: 0.017
       warp: 1.8
-      driftHeight: 14
-      scourStrength: 9
+      driftHeight: 18
+      scourStrength: 11
     sastrugi:
       frequency: 0.42
       crossFrequency: 0.19
       warp: 1.8
-      amplitude: 0.13
+      amplitude: 0.21
       secondaryFrequency: 0.9
-      secondaryAmplitude: 0.045
+      secondaryAmplitude: 0.065
     ripples:
       frequency: 1.9
       crossFrequency: 0.73
-      amplitude: 0.035
+      amplitude: 0.05
     grain:
       frequencyX: 13.7
       frequencyZ: 17.3
-      amplitude: 0.018
-      fadeStart: 12
-      fadeEnd: 100
+      amplitude: 0.024
+      fadeStart: 14
+      fadeEnd: 110
     colors:
-      shadow: '#a9c4d3'
-      base: '#e1ecec'
-      sun: '#f7fbf7'
-      driftVariation: 0.08
+      shadow: '#91afc1'
+      base: '#d9e5e8'
+      sun: '#f4f8f7'
+      driftVariation: 0.11
+    surfaceTone:
+      sastrugiContrast: 0.07
+      rippleContrast: 0.025
+      exposureContrast: 0.04
     roughness:
-      base: 0.82
-      compressed: 0.52
-      berm: 0.86
+      base: 0.78
+      compressed: 0.48
+      berm: 0.84
     lighting:
-      sssStrength: 0.09
+      sssStrength: 0.1
       backscatterPower: 4
-      glintStrength: 0.16
-      glintPower: 90
+      glintStrength: 0.18
+      glintPower: 82
       sparkleFrequency: 11
     deformation:
       enabled: true
@@ -60,17 +64,17 @@ ground:
       recenterDistance: 8
       depressionStrength: 0.95
       bermStrength: 0.55
-      normalStrength: 0.18
-      darkenStrength: 0.16
+      normalStrength: 0.2
+      darkenStrength: 0.18
       bermLighten: 0.1
       decaySeconds: 90
       bermDecaySeconds: 45
       recoveryInterval: 0.2
     powder:
       enabled: true
-      capacity: 768
+      capacity: 1400
       particlesPerContact: 18
-      runningMultiplier: 1.4
+      runningMultiplier: 1.5
       emitDistance: 0.12
       minCoverage: 0.25
       contactHeight: 0.6
@@ -79,8 +83,8 @@ ground:
       spread: 0.12
       lifetimeMin: 0.55
       lifetimeMax: 1.15
-      sizeMin: 0.02
-      sizeMax: 0.055
+      sizeMin: 0.018
+      sizeMax: 0.05
       sizeGrowth: 1.3
       fadeStart: 0.2
       horizontalSpeedMin: 0.35
@@ -89,23 +93,23 @@ ground:
       verticalSpeedMax: 2.8
       drag: 5.2
       gravity: 9.81
-      windSpeed: 2.4
+      windSpeed: 3.2
       terminalFallSpeed: 1.9
       settleFadeMultiplier: 2.5
       settleHorizontalRetention: 0.2
-      opacity: 0.72
-      color: '#f5fbff'
+      opacity: 0.66
+      color: '#dcebf4'
       textureSize: 64
       seed: 1337
       ambient:
         enabled: true
-        particlesPerSecond: 36
-        radius: 16
-        minHeight: 0.08
-        maxHeight: 1.4
-        lifetimeMin: 1.0
-        lifetimeMax: 2.0
-        sizeMin: 0.015
-        sizeMax: 0.04
-        verticalSpeedMin: 0.05
-        verticalSpeedMax: 0.25
+        particlesPerSecond: 72
+        radius: 20
+        minHeight: 0.05
+        maxHeight: 0.85
+        lifetimeMin: 1.15
+        lifetimeMax: 2.4
+        sizeMin: 0.02
+        sizeMax: 0.065
+        verticalSpeedMin: 0.03
+        verticalSpeedMax: 0.18
