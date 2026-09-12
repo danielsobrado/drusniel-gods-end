@@ -42,6 +42,7 @@
 .cinematic-hud.interface-hidden { visibility: hidden; }
 .cinematic-hud.tour-active .control-hints, .cinematic-hud.tour-active .metrics { opacity: 0; }
 @media (max-width: 767px) {
+  .cinematic-loading .loading-logo { font-size: clamp(22px, 5.5vw, 36px); letter-spacing: .1em; }
   .cinematic-hud .scene-heading { top: 22px; left: 22px; }
   .scene-heading h1 { font-size: 23px; }
   .scene-eyebrow { font-size: 7px; }
