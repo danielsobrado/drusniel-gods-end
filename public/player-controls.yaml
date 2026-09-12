@@ -47,18 +47,30 @@ navigation:
     minPitch: -1.553
     maxPitch: 1.553
   scenicTour:
-    durationSeconds: 30
+    durationSeconds: 42
     returnDurationSeconds: 1.5
     lookAheadDistance: 24
     orientationSharpness: 7
     terrainClearance: 4
     targetDrop: 2
-    seaLookBlendStart: 0.88
+    seaLookBlendStart: 0.9
     seaFocusXZ: [1500, 65]
     seaFocusHeightOffset: 2
+    riverViews:
+      - { fraction: 0.02, offset: 42, lift: 52 }
+      - { fraction: 0.14, offset: 46, lift: 44 }
+      - { fraction: 0.32, offset: 30, lift: 30 }
+      - { fraction: 0.5, offset: -22, lift: 20 }
+      - { fraction: 0.66, offset: 24, lift: 18 }
+      - { fraction: 0.82, offset: -18, lift: 15 }
+      - { fraction: 0.96, offset: 20, lift: 12 }
   locations:
     - { id: start, label: Start, mode: ground, position: [2, -5], yaw: 0 }
-    - { id: river, label: River, mode: ground, position: [135, 118], yaw: 0.75 }
-    - { id: beach, label: Beach, mode: ground, position: [950, 80], yaw: 1.5708 }
+    - { id: river, label: River, mode: ground, position: [88, -19], yaw: 0.75 }
+    - { id: lake, label: Lake, mode: ground, position: [480, 378], yaw: -1.2 }
+    - { id: beachNorth, label: Beach North, mode: ground, position: [990, 320], yaw: 1.5708 }
+    - { id: beachSouth, label: Beach South, mode: ground, position: [900, -180], yaw: 1.5708 }
+    - { id: snowPass, label: Snow Pass, mode: ground, position: [-125, -590], yaw: -0.5 }
+    - { id: snowPeak, label: Snow Peak, mode: ground, position: [-15, -710], yaw: 0.4 }
     - { id: offshore, label: Offshore, mode: fly, position: [1180, -12, 65], target: [1020, -24, 65] }
     - { id: deepSea, label: Deep Sea, mode: fly, position: [1500, -4, 65], target: [1120, -24, 65] }
