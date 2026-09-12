@@ -66,6 +66,7 @@ public/
       props/
       colliders/
       fauna/
+      coastal-jungle/   <- staged biome pack; not loaded by current runtime, see section 35
     Drusniel_Dark_Elf.glb
     blend2.jpg
     grass.jpg
@@ -675,3 +676,26 @@ Another AI recreating the project should not stop at "the files load". Verify:
 When replacing an asset, update **either** the asset to satisfy this contract **or** the YAML/code/docs to intentionally define a new contract.
 
 Do not silently rename GLB nodes or alter mask conventions and then tune unrelated systems to compensate. That makes reproduction brittle and hides the real mismatch.
+
+---
+
+# Coastal Jungle Pack (staged, not runtime)
+
+## 35. Coastal jungle biome pack
+
+A self-contained vegetation pack lives at:
+
+```text
+public/Assets/terrain/coastal-jungle/
+```
+
+YAML/config paths omit `public/`:
+
+```text
+Assets/terrain/coastal-jungle/manifest.json
+Assets/terrain/coastal-jungle/scenes/coastal_jungle_reference.glb
+```
+
+Composition data is in `public/coastal-jungle.yaml`. That file is **not** in `CONFIG_FILES` and is not merged into the running config.
+
+This pack is staging only. Current runtime must not load it, scatter it, or bake it into the existing terrain GLB. Forest-kit GLBs are primary; `objects/tropical-kit/` is supplementary unique older plants. Forest vines use a top attachment pivot; other forest plants use ground origins; units are meters. Provenance, licenses, and per-file roles are recorded in `Assets/terrain/coastal-jungle/manifest.json`.

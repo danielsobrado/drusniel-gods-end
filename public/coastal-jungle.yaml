@@ -1,0 +1,340 @@
+# Coastal jungle reference composition.
+# Copied from Codex-and-Blender/config/forest_workflow.yaml.
+# Not listed in CONFIG_FILES and is not loaded by the current runtime.
+# Target counts are authored reference densities, not Grass Test placement settings.
+
+cameras:
+- name: HeroCamera
+  role: hero
+  primary: true
+  required: true
+  location:
+  - 0
+  - -12
+  - 2.5
+  target:
+  - 0
+  - 4
+  - 4.4
+  focal_length_mm: 26
+- name: FrontReviewCamera
+  role: front
+  primary: false
+  required: true
+  location:
+  - -1
+  - -8
+  - 2.2
+  target:
+  - 3
+  - 5
+  - 4
+  focal_length_mm: 25
+- name: SideReviewCamera
+  role: side
+  primary: false
+  required: true
+  location:
+  - 2
+  - -5
+  - 2.3
+  target:
+  - -3
+  - 8
+  - 4.2
+  focal_length_mm: 25
+forest:
+  seed: 941
+  extent: 22
+  path_width: 0.38
+  soil_color:
+  - 0.1
+  - 0.085
+  - 0.035
+  hero_palms:
+  - - -7
+    - 1
+    - 10
+  - - 9
+    - 4
+    - 11
+  - - 5
+    - 13
+    - 12
+  - - -1
+    - 17
+    - 9
+  plants:
+    grass:
+      count: 8400
+      variants: 3
+      blades: 22
+      length:
+      - 0.2
+      - 0.4
+      width:
+      - 0.06
+      - 0.1
+      scale:
+      - 0.7
+      - 1.3
+    groundcover:
+      count: 3400
+      variants: 2
+      leaves: 10
+      scale:
+      - 0.7
+      - 1.5
+    fern:
+      count: 260
+      variants: 2
+      leaves: 9
+      scale:
+      - 0.7
+      - 1.2
+    broadleaf:
+      count: 230
+      variants: 3
+      leaves: 9
+      length:
+      - 0.8
+      - 1.35
+      width:
+      - 0.45
+      - 0.75
+      petiole_height:
+      - 0.65
+      - 1.15
+      scale:
+      - 0.65
+      - 1.2
+      leaf_rows_by_variant:
+      - 1
+      - 0
+      - 1
+      rise:
+      - 0.45
+      - 1.15
+    palm:
+      count: 18
+      variants: 2
+      height: 10
+      fronds: 12
+      scale:
+      - 0.85
+      - 1.4
+    tree:
+      count: 78
+      variants: 3
+      height: 11
+      radius: 0.3
+      crown_radius: 4.2
+      branches: 10
+      twigs: 4
+      scale:
+      - 0.7
+      - 1.2
+      sprays: 9
+      spray_radius: 0.72
+      spray_size:
+      - 1.35
+      - 1.9
+      spacing: 3.4
+      hanging_vines: 6
+      vine_length:
+      - 2.3
+      - 5.2
+    shrub:
+      count: 190
+      variants: 2
+      height: 1.3
+      branches: 9
+      scale:
+      - 0.6
+      - 1.3
+      sprays: 6
+      spray_size:
+      - 0.65
+      - 1
+    vine:
+      count: 85
+      variants: 2
+      strands: 5
+      length:
+      - 3.5
+      - 6.5
+      scale:
+      - 0.85
+      - 1.1
+    climber:
+      count: 65
+      variants: 2
+      height: 5
+      leaves: 28
+      scale:
+      - 0.9
+      - 1.1
+    background_tree:
+      count: 100
+      variants: 1
+      height: 12
+      radius: 0.23
+      crown_radius: 4.1
+      branches: 7
+      twigs: 3
+      scale:
+      - 0.72
+      - 1.25
+      x_range:
+      - -40
+      - 40
+      y_range:
+      - 23
+      - 50
+      sprays: 6
+      spray_radius: 0.7
+      spray_size:
+      - 1.4
+      - 2
+      spacing: 3.5
+      hanging_vines: 3
+      vine_length:
+      - 2
+      - 4
+    split_leaf:
+      count: 80
+      variants: 2
+      leaves: 7
+      scale:
+      - 0.7
+      - 1.4
+  surface_textures:
+    grass: jungle_grass_reference_atlas
+    ground: jungle_ground_basecolor
+    path: jungle_path_basecolor_edge
+    tile_meters: 2
+    path_step: 0.25
+    path_half_width: 1.6
+  hero_plants:
+  - kind: broadleaf
+    location:
+    - -3
+    - -7
+    scale: 1.25
+  - kind: broadleaf
+    location:
+    - 3.8
+    - -6
+    scale: 1.25
+  - kind: broadleaf
+    location:
+    - 4
+    - -1
+    scale: 1.5
+  - kind: fern
+    location:
+    - -2
+    - -5
+    scale: 1.3
+  - kind: shrub
+    location:
+    - 5
+    - -4
+    scale: 1.4
+  - kind: tree
+    location:
+    - -6
+    - 3
+    scale: 0.93
+  - kind: tree
+    location:
+    - 7
+    - 5
+    scale: 1.05
+  - kind: climber
+    location:
+    - 7
+    - 5
+    scale: 1.05
+  - kind: climber
+    location:
+    - -6
+    - 3
+    scale: 0.93
+  - kind: split_leaf
+    location:
+    - 3
+    - -5.3
+    scale: 1.3
+  - kind: split_leaf
+    location:
+    - -3.5
+    - -2
+    scale: 1.1
+  clearing:
+    center:
+    - 0
+    - -6
+    radius: 2
+  stem_color:
+  - 0.065
+  - 0.13
+  - 0.027
+  canopy_atlas:
+    seed: 127
+    resolution: 1024
+    arms: 9
+    leaves_per_arm: 14
+    leaf_length:
+    - 0.26
+    - 0.4
+    leaf_width:
+    - 0.23
+    - 0.34
+    leaf_cells:
+    - 0
+    - 1
+    - 3
+    - 4
+    - 5
+    - 7
+    - 8
+    - 10
+    - 13
+    - 14
+    tints:
+    - - 0.65
+      - 0.83
+      - 0.55
+    - - 0.5
+      - 0.69
+      - 0.4
+    - - 0.82
+      - 0.93
+      - 0.65
+    twig_color:
+    - 0.1
+    - 0.075
+    - 0.027
+  bark_tint:
+  - 0.5
+  - 0.54
+  - 0.37
+  canopy_opening:
+    half_width: 2
+    end_y: 21
+  distant_understory:
+    count: 460
+    terrain_x:
+    - -50
+    - 50
+    terrain_end_y: 66
+    x_range:
+    - -44
+    - 44
+    y_range:
+    - 20
+    - 60
+    scale:
+    - 1.6
+    - 3.4
