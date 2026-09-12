@@ -32,6 +32,7 @@ import { getPresetAppearance, sampleReferenceField } from '../rendering/PresetAp
 import { groundGrassTexture, groundRoughness as turfRoughness, groundTurf } from '../rendering/GroundTurf.js';
 import { riverField } from '../water/riverNodes.js';
 import { advanceBeachMoisture, createCoastNodes, resolveCoastConfig } from './CoastField.js';
+import { createSnowSurfaceNodes } from './SnowSurface.js';
 
 const ORIGINAL_ANISOTROPY = 16;
 const ORIGINAL_GRASS_UV_SCALE = 150;
@@ -135,7 +136,7 @@ function createRainController(material, baseNormal, config, soil) {
   };
 }
 
-export async function createGroundMaterial(config, terrainSampler = null) {
+export async function createGroundMaterial(config, terrainSampler = null, snowDeformation = null) {
   const loader = new THREE.TextureLoader();
   const groundAssets = config.assets?.ground ?? {};
   const paths = {
@@ -204,6 +205,7 @@ export async function createGroundMaterial(config, terrainSampler = null) {
 
   const wetness = uniform(0);
   const coastClock = uniform(0), coastRain = uniform(0), beachMoisture = uniform(0);
+  let snowLighting = null;
   if (config.cinematic?.enabled) {
     const world = positionWorld.xz;
     const macro = sin(world.x.mul(0.037).add(sin(world.y.mul(0.053))))
@@ -237,8 +239,6 @@ export async function createGroundMaterial(config, terrainSampler = null) {
     if (style?.enabled) material.emissiveNode = earth.mul(foliageLight.fill).mul(appearance.grassFill);
     material.roughnessNode = turfRoughness(soilPaint, roughnessSample, wet, turf.x);
 
-    // A configured coast is its own terrain feature; it must not depend on a
-    // river sampler or on expanded-landscape mode to render its swash layer.
     if (terrainSampler?.river || config.terrain.expansion?.enabled || config.water.sea?.enabled) {
       const highland = positionWorld.y.smoothstep(48, 100);
       const cliff = normalWorld.y.abs().smoothstep(0.55, 0.88).oneMinus();
@@ -270,14 +270,20 @@ export async function createGroundMaterial(config, terrainSampler = null) {
         .mul(rockGrains).mul(strata).mul(wet.mul(0.28).oneMinus());
       material.colorNode = mix(material.colorNode, rock, rockBlend);
       material.roughnessNode = mix(material.roughnessNode, mix(0.94, 0.38, wet), rockBlend);
-      const snow = positionWorld.y.add(macro.mul(12)).smoothstep(112, 153)
-        .mul(normalWorld.y.abs().smoothstep(0.45, 0.8));
-      material.colorNode = mix(
-        material.colorNode,
-        mix(color('#b4cbd3'), color('#ecf2ec'), normalWorld.y.max(0)),
-        snow,
-      );
-      material.roughnessNode = mix(material.roughnessNode, float(0.9), snow);
+
+      const terrainEmissive = (material.emissiveNode ?? vec3(0)).mul(rockBlend.oneMinus());
+      if (config.ground.snow?.enabled) {
+        const snow = createSnowSurfaceNodes(config, snowDeformation);
+        snowLighting = snow.lighting;
+        material.colorNode = mix(material.colorNode, snow.color, snow.mask);
+        material.roughnessNode = mix(material.roughnessNode, snow.roughness, snow.mask);
+        material.metalnessNode = mix(material.metalnessNode, float(0), snow.mask);
+        baseNormal = normalize(mix(baseNormal, snow.normal, snow.mask));
+        material.normalNode = baseNormal;
+        material.emissiveNode = terrainEmissive.mul(snow.mask.oneMinus()).add(snow.emissive);
+      } else {
+        material.emissiveNode = terrainEmissive;
+      }
 
       const sea = config.water.sea;
       const resolvedSea = sea?.enabled ? resolveCoastConfig(sea) : null;
@@ -302,8 +308,6 @@ export async function createGroundMaterial(config, terrainSampler = null) {
           .add(sin(world.y.mul(sandParams.mesoFrequencyX * 1.25))))
           .mul(sin(world.y.mul(sandParams.mesoFrequencyZ))).mul(0.5).add(0.5);
         const coverage = coast.waterCoverage(world);
-        // Pair this complement with WaterMaterial's seaCoverage so the ground
-        // film fades out across the same mean-depth ramp as sea opacity.
         const groundHandoff = coast.seaCoverage(world).oneMinus();
         const memory = coast.washMemory(world);
         const wetSand = coast.baseMoisture(world).mul(sandParams.baseMoistureStrength).mul(mix(sandParams.mesoWetMin, sandParams.mesoWetMax, meso))
@@ -343,9 +347,7 @@ export async function createGroundMaterial(config, terrainSampler = null) {
         baseNormal = normalize(mix(baseNormal, sandNormal, coastal));
         material.normalNode = baseNormal;
       }
-      if (material.emissiveNode) {
-        material.emissiveNode = material.emissiveNode.mul(rockBlend.oneMinus()).mul(coastal.oneMinus());
-      }
+      material.emissiveNode = (material.emissiveNode ?? vec3(0)).mul(coastal.oneMinus());
 
       const inlandY = river.y.lessThan(0).select(river.x, float(config.water.position[1]));
       const surfaceY = coastal.greaterThan(0.5).select(float(resolvedSea?.level ?? -24), inlandY);
@@ -373,6 +375,7 @@ export async function createGroundMaterial(config, terrainSampler = null) {
       );
     },
     beachMoisture,
+    setSnowLighting: (direction, tint, intensity) => snowLighting?.set(direction, tint, intensity),
     setRainIntensity: (value) => {
       coastRain.value = THREE.MathUtils.clamp(value, 0, 1);
       wetness.value = value * (config.ground.wetness ?? 0.7);
