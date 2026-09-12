@@ -44,6 +44,7 @@ function hash01(value) {
 function resolveTreeAppearance(index, position, config) {
   const appearance = config.trees.appearance ?? {};
   const seed = (index + 1) * 12.9898 + position.x * 0.031 + position.z * 0.047;
+  const retention = THREE.MathUtils.clamp(Number(appearance.retention) || 1, 0, 1);
   const scaleVariation = Math.max(0, Number(appearance.scaleVariation) || 0);
   const brightnessVariation = Math.max(0, Number(appearance.brightnessVariation) || 0);
   const greenVariation = Math.max(0, Number(appearance.greenVariation) || 0);
@@ -55,7 +56,7 @@ function resolveTreeAppearance(index, position, config) {
     brightness * (1 + greenShift),
     brightness * (1 - greenShift * 0.45),
   );
-  return { scale, tint };
+  return { retained: hash01(seed + 83.19) <= retention, scale, tint };
 }
 
 function prepareTreeClone(root, source, leafMaterialFactory, tint) {
@@ -278,6 +279,7 @@ export class TreeSystem {
 
   #createTree({ index, typeIndex, source, position, rotation, scale, zone }) {
     const appearance = resolveTreeAppearance(index, position, this.config);
+    if (!appearance.retained) return;
     const resolvedScale = scale * appearance.scale;
     const high = clone(source.high);
     high.name = `TreeHigh_${index}`;
