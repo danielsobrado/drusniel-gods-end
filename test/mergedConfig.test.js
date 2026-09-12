@@ -28,6 +28,7 @@ test('effective config uses the runtime YAML file order', async () => {
     'character-visual.yaml',
     'cinematic-wind.yaml',
     'cinematic-look.yaml',
+    'snow.yaml',
     'painter-cursor.yaml',
     'vegetation.yaml',
     'foliage.yaml',
@@ -101,4 +102,13 @@ test('exploration config exposes snow, beach, lake and sea travel without breaki
   assert.ok(routes.some(route => route.name === 'Snow climb' && route.walkable));
   assert.ok(routes.some(route => route.name === 'Meadow north beach road' && route.walkable));
   assert.ok(routes.some(route => route.name === 'Foothill south beach trail' && route.walkable));
+});
+
+test('alpine snow config is loaded after the cinematic terrain defaults', async () => {
+  const config = await loadMergedConfig();
+  assert.equal(config.ground.snow.enabled, true);
+  assert.deepEqual(config.ground.snow.altitude, { start: 92, full: 142 });
+  assert.equal(config.ground.snow.deformation.resolution, 512);
+  assert.equal(config.ground.snow.deformation.worldSize, 64);
+  assert.equal(config.ground.snow.deformation.maxRadius, 0.42);
 });
