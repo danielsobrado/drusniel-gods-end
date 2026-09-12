@@ -31,6 +31,23 @@ function bestTexturedMaterial(meshes) {
   return reference;
 }
 
+function applySharedMaterial(root, material) {
+  if (!root) return;
+  const apply = (mesh) => {
+    const materialCount = Array.isArray(mesh.material) ? mesh.material.length : 1;
+    mesh.material = materialCount > 1
+      ? Array.from({ length: materialCount }, () => material)
+      : material;
+  };
+  if (root.isMesh) {
+    apply(root);
+    return;
+  }
+  root.traverse?.((object) => {
+    if (object.isMesh) apply(object);
+  });
+}
+
 export function firstMeshMaterial(root) {
   if (!root) return null;
   if (root.isMesh) return materialsOf(root)[0] ?? null;
@@ -79,16 +96,12 @@ export function canonicalizeRockMaterials(meshes, source) {
   if (!material.normalMap && detailReference?.normalMap) material.normalMap = detailReference.normalMap;
   if (!material.roughnessMap && detailReference?.roughnessMap) material.roughnessMap = detailReference.roughnessMap;
   if (!material.aoMap && detailReference?.aoMap) material.aoMap = detailReference.aoMap;
-  material.metalness = Math.min(Number(material.metalness) || 0, 0.08);
+  material.metalness = Math.max(0, Math.min(Number(material.metalness) || 0, 0.08));
   material.roughness = Math.max(Number(material.roughness) || 0.8, 0.72);
   material.needsUpdate = true;
 
-  for (const mesh of meshes ?? []) {
-    const materialCount = Array.isArray(mesh.material) ? mesh.material.length : 1;
-    mesh.material = materialCount > 1
-      ? Array.from({ length: materialCount }, () => material)
-      : material;
-  }
+  applySharedMaterial(source, material);
+  for (const mesh of meshes ?? []) applySharedMaterial(mesh, material);
   return material;
 }
 
