@@ -141,16 +141,23 @@ export function createSnowSurfaceNodes(config, deformationField = null) {
   const slope = smoothstep(snow.slope.start, snow.slope.full, normalWorld.y.abs());
   const mask = altitude.mul(slope).clamp(0, 1).toVar();
 
+  const breakup = sin(world.x.mul(0.017).add(sin(world.y.mul(0.011)).mul(1.6)))
+    .mul(sin(world.y.mul(0.014).sub(sin(world.x.mul(0.023)).mul(1.2))))
+    .mul(0.5).add(0.5);
+  const phaseJitter = sin(world.x.mul(0.013).add(world.y.mul(0.007))).mul(2.6)
+    .add(sin(world.x.mul(0.005).sub(world.y.mul(0.019))).mul(1.4));
+
   const sastrugiMacro = sin(along.mul(snow.sastrugi.macroFrequency)
     .add(sin(across.mul(snow.sastrugi.macroCrossFrequency)).mul(1.7)));
   const sastrugiAmplitude = mix(
     1 - snow.sastrugi.amplitudeVariation,
     1 + snow.sastrugi.amplitudeVariation,
     sastrugiMacro.mul(0.5).add(0.5),
-  );
+  ).mul(mix(0.28, 1, breakup));
   const sastrugiPhase = along.mul(snow.sastrugi.frequency)
     .add(sin(across.mul(snow.sastrugi.crossFrequency)).mul(snow.sastrugi.warp))
-    .add(sastrugiMacro.mul(snow.sastrugi.macroWarp));
+    .add(sastrugiMacro.mul(snow.sastrugi.macroWarp))
+    .add(phaseJitter);
   const sastrugiDerivative = shiftedCos(sastrugiPhase)
     .mul(snow.sastrugi.frequency * snow.sastrugi.amplitude)
     .mul(sastrugiAmplitude);
@@ -160,7 +167,8 @@ export function createSnowSurfaceNodes(config, deformationField = null) {
     .mul(sastrugiAmplitude);
   const secondaryPhase = along.mul(snow.sastrugi.secondaryFrequency)
     .add(sin(across.mul(snow.sastrugi.crossFrequency * 1.7)).mul(snow.sastrugi.warp * 0.45))
-    .sub(sastrugiMacro.mul(snow.sastrugi.macroWarp * 0.37));
+    .sub(sastrugiMacro.mul(snow.sastrugi.macroWarp * 0.37))
+    .sub(phaseJitter.mul(0.63));
   const secondaryDerivative = shiftedCos(secondaryPhase)
     .mul(snow.sastrugi.secondaryFrequency * snow.sastrugi.secondaryAmplitude)
     .mul(sastrugiAmplitude);
@@ -169,11 +177,15 @@ export function createSnowSurfaceNodes(config, deformationField = null) {
     .sub(sin(across.mul(snow.ripples.macroFrequency * 0.71)).mul(1.3)));
   const ripplePhase = along.mul(snow.ripples.frequency)
     .add(sin(across.mul(snow.ripples.crossFrequency)).mul(0.75))
-    .add(rippleMacro.mul(snow.ripples.macroWarp));
-  const rippleAlong = shiftedCos(ripplePhase).mul(snow.ripples.frequency * snow.ripples.amplitude);
+    .add(rippleMacro.mul(snow.ripples.macroWarp))
+    .add(phaseJitter.mul(0.31));
+  const rippleAlong = shiftedCos(ripplePhase)
+    .mul(snow.ripples.frequency * snow.ripples.amplitude)
+    .mul(mix(0.4, 1, breakup));
   const rippleAcross = shiftedCos(ripplePhase)
     .mul(shiftedCos(across.mul(snow.ripples.crossFrequency)))
-    .mul(snow.ripples.crossFrequency * 0.75 * snow.ripples.amplitude);
+    .mul(snow.ripples.crossFrequency * 0.75 * snow.ripples.amplitude)
+    .mul(mix(0.4, 1, breakup));
 
   const grainFade = cameraPosition.distance(positionWorld)
     .smoothstep(snow.grain.fadeStart, snow.grain.fadeEnd).oneMinus();
@@ -212,15 +224,20 @@ export function createSnowSurfaceNodes(config, deformationField = null) {
     1 + Number(snow.colors.driftVariation),
     drift,
   );
+  const sastrugiPattern = sin(sastrugiPhase).mul(0.55)
+    .add(sin(secondaryPhase.mul(0.73).add(breakup.mul(3.1))).mul(0.3))
+    .add(sastrugiMacro.mul(0.15)).mul(0.5).add(0.5).clamp(0, 1);
+  const ripplePattern = sin(ripplePhase).mul(0.65)
+    .add(rippleMacro.mul(0.35)).mul(0.5).add(0.5).clamp(0, 1);
   const sastrugiTone = mix(
     1 - snow.surfaceTone.sastrugiContrast,
     1 + snow.surfaceTone.sastrugiContrast,
-    sin(sastrugiPhase).mul(0.5).add(0.5),
+    sastrugiPattern,
   );
   const rippleTone = mix(
     1 - snow.surfaceTone.rippleContrast,
     1 + snow.surfaceTone.rippleContrast,
-    sin(ripplePhase).mul(0.5).add(0.5),
+    ripplePattern,
   );
   const exposureTone = mix(
     1 - snow.surfaceTone.exposureContrast,
