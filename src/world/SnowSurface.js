@@ -1,4 +1,3 @@
-import * as THREE from 'three/webgpu';
 import {
   cameraPosition,
   cameraViewMatrix,
@@ -18,9 +17,9 @@ import {
   vec3,
   vec4,
 } from 'three/tsl';
+import { foliageLight } from '../rendering/CinematicLighting.js';
 
 const HALF_PI = Math.PI * 0.5;
-const EPSILON = 0.0001;
 
 function positiveNumber(value, name) {
   const number = Number(value);
@@ -175,11 +174,8 @@ export function createSnowSurfaceNodes(config, deformationField = null) {
     .mul(depression.mul(Number(snow.deformation.darkenStrength)).oneMinus());
   const snowColor = mix(baseColor, color(snow.colors.sun), berm.mul(Number(snow.deformation.bermLighten)).clamp(0, 1));
 
-  const sunDirection = uniform(new THREE.Vector3(0.35, 0.82, -0.45).normalize());
-  const sunColor = uniform(new THREE.Color('#ffffff'));
-  const sunStrength = uniform(1);
   const viewDirection = normalize(cameraPosition.sub(positionWorld));
-  const halfVector = normalize(viewDirection.add(sunDirection));
+  const halfVector = normalize(viewDirection.add(foliageLight.direction));
   const sparkle = sin(world.x.mul(Number(snow.lighting.sparkleFrequency))
     .add(sin(world.y.mul(Number(snow.lighting.sparkleFrequency) * 1.37))))
     .mul(sin(world.y.mul(Number(snow.lighting.sparkleFrequency) * 0.83))).mul(0.5).add(0.5);
@@ -187,13 +183,15 @@ export function createSnowSurfaceNodes(config, deformationField = null) {
     .pow(Number(snow.lighting.glintPower))
     .mul(sparkle.pow(6))
     .mul(Number(snow.lighting.glintStrength))
-    .mul(sunStrength)
+    .mul(foliageLight.strength)
     .mul(mask);
-  const backscatter = dot(viewDirection, sunDirection.negate()).max(0)
+  const backscatter = dot(viewDirection, foliageLight.direction.negate()).max(0)
     .pow(Number(snow.lighting.backscatterPower))
     .mul(Number(snow.lighting.sssStrength))
+    .mul(foliageLight.strength)
     .mul(mask);
-  const emissive = sunColor.mul(glint).add(color(snow.colors.shadow).mul(backscatter));
+  const emissive = foliageLight.color.mul(glint)
+    .add(color(snow.colors.shadow).mul(backscatter).mul(foliageLight.color));
 
   const compressed = depression.max(berm.mul(0.2)).clamp(0, 1);
   const roughness = mix(
@@ -211,16 +209,5 @@ export function createSnowSurfaceNodes(config, deformationField = null) {
     emissive,
     depression,
     berm,
-    lighting: {
-      direction: sunDirection,
-      color: sunColor,
-      strength: sunStrength,
-      set(direction, tint, intensity) {
-        if (direction?.isVector3) sunDirection.value.copy(direction).normalize();
-        if (tint?.isColor) sunColor.value.copy(tint);
-        sunStrength.value = Math.max(0, Number(intensity) || 0);
-      },
-    },
-    epsilon: EPSILON,
   };
 }
