@@ -4,7 +4,7 @@ export class Hud {
     this.root.className = 'hud';
     this.root.innerHTML = `
       <section class="brand-card">
-        <strong>DRUSNIEL WILDS</strong>
+        <strong>DRUSNIEL: GODS’ END</strong>
         <span>Procedural environment</span>
       </section>
       <section class="control-card">
