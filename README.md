@@ -71,13 +71,17 @@ Gameplay:
 
 ```text
 WASD        move
-Shift       sprint
-Shift x2    toggle 10x exploration movement
+Shift       sprint / fly fast
+Shift x2    toggle 10x character exploration movement
+F           toggle free-fly mode
+Space       fly up
+Ctrl        fly down
+Esc         exit free-fly / scenic tour
 click       pointer lock / browser-audio unlock
 mouse       look while pointer locked
 ```
 
-Double-tap either Shift key again to return to normal movement speed. The timing window and speed multiplier are configured under `player.motion.explorationBoost` in `public/player-controls.yaml`.
+Double-tap either Shift key again to return to normal character movement speed. Free-fly keeps the character parked and hidden while the camera moves independently; leaving free-fly returns to the saved character view. Scene settings include teleport destinations for Start, River, Beach, Offshore, and Deep Sea. Offshore and Deep Sea automatically enter free-fly mode. Movement, free-fly, and teleport settings are configured in `public/player-controls.yaml`.
 
 Mobile uses the on-screen movement/look controls.
 

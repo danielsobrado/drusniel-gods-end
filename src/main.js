@@ -38,6 +38,7 @@ async function bootstrap() {
     if (disposed) return;
     explorationSpeedMode = new ExplorationSpeedMode({
       eventTarget: window,
+      isEnabled: () => !demo?.navigation?.freeFly.active,
       onChange: ({ active, multiplier }) => {
         root.dataset.explorationSpeed = active ? String(multiplier) : '1';
         console.info(`[Exploration] ${active ? `${multiplier}x movement enabled` : 'normal movement restored'}`);

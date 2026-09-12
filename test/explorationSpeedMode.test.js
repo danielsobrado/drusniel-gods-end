@@ -92,6 +92,32 @@ test('key repeat and slow shift taps do not toggle exploration movement', () => 
   mode.dispose();
 });
 
+test('disabled exploration input leaves Shift available to another movement mode', () => {
+  let time = 0;
+  let enabled = false;
+  const config = configFixture();
+  const mode = new ExplorationSpeedMode({
+    eventTarget: null,
+    now: () => time,
+    isEnabled: () => enabled,
+  });
+  mode.setConfig(config);
+
+  mode.handleKeyDown({ code: 'ShiftLeft', repeat: false });
+  time += 100;
+  mode.handleKeyDown({ code: 'ShiftLeft', repeat: false });
+  assert.equal(mode.active, false);
+  assertNormal(config);
+
+  enabled = true;
+  mode.handleKeyDown({ code: 'ShiftLeft', repeat: false });
+  time += 100;
+  mode.handleKeyDown({ code: 'ShiftLeft', repeat: false });
+  assert.equal(mode.active, true);
+  assertBoosted(config);
+  mode.dispose();
+});
+
 test('renderer recovery captures baseline speeds and reapplies one boost to the replacement config', () => {
   const config = configFixture();
   const mode = new ExplorationSpeedMode({ eventTarget: null, now: () => 0 });

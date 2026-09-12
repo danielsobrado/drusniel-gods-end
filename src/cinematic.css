@@ -37,6 +37,8 @@
 .cinematic-hud .control-hints { margin-top: 20px; gap: 22px; }
 .cinematic-hud .control-hints strong { font-size: 9px; color: #e6dcc5; }
 .cinematic-hud .control-hints span { font-size: 9px; color: #e5e1d2a3; }
+.cinematic-hud .fly-only-hint { display: none; }
+.cinematic-hud.free-fly-active .fly-only-hint { display: flex; }
 .cinematic-hud.interface-hidden { visibility: hidden; }
 .cinematic-hud.tour-active .control-hints, .cinematic-hud.tour-active .metrics { opacity: 0; }
 @media (max-width: 767px) {
