@@ -19,6 +19,7 @@ export const CONFIG_FILES = [
   'foliage.yaml',
   'characters.yaml',
   'reference-biome.yaml',
+  'visual-refinement.yaml',
 ];
 
 function isRecord(value) {

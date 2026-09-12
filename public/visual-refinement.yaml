@@ -1,0 +1,125 @@
+# Final visual tuning layered after the recovered and biome-specific settings.
+cinematic:
+  style:
+    grassRootBrightness: 0.72
+    grassGradientPower: 2.35
+    grassFill: 0.025
+    grassBacklight: 0.58
+    meadowPatchScale: 0.025
+    meadowTintCool: [0.88, 0.96, 0.9]
+    meadowTintWarm: [1.04, 1.0, 0.84]
+    meadowDryPatchScale: 0.011
+    meadowDryPatchStart: 0.56
+    meadowDryPatchEnd: 0.84
+    meadowDryStrength: 0.22
+    meadowDryTint: '#777455'
+    groundTipMix: 0.08
+    bladeWidthScale: 1.15
+    bladeHeightScaleMin: 0.72
+    bladeHeightScaleMax: 1.3
+    bladeCurve: 0.07
+    foliageFill: 0.17
+    dryRoot: '#4d5a2b'
+    dryTip: '#8e9550'
+    canopyShadow: '#23533b'
+    canopyLight: '#779b58'
+    canopyTint: 0.78
+  post:
+    aoStrength: 0.32
+    aoRadius: 1.1
+    saturation: 0.98
+
+quality:
+  balanced:
+    blade:
+      lod:
+        high: { density: 3.1 }
+        medium: { density: 1.8 }
+  high:
+    blade:
+      lod:
+        high: { density: 3.4 }
+        medium: { density: 2.3 }
+    billboard:
+      lod:
+        high: { density: 3.1 }
+        medium: { density: 1.8 }
+  ultra:
+    blade:
+      lod:
+        high: { density: 4.3 }
+        medium: { density: 2.7 }
+    billboard:
+      lod:
+        high: { density: 4 }
+        medium: { density: 2 }
+
+vegetation:
+  growthThreshold: 0.18
+  trees:
+    grassShadePenalty: 0.46
+  density:
+    base: 0.68
+    moistureBoost: 0.23
+    macroVariation: 0.5
+    detailVariation: 0.18
+    highlandPenalty: 0.14
+  height:
+    base: 0.14
+    macroWeight: 0.52
+    moistureWeight: 0.38
+    minGrowth: 0.38
+    maxGrowth: 1
+
+foliage:
+  wildGrass:
+    candidatesPerCell: 9
+    count: 1500
+    minDensity: 0.16
+    minGrowth: 0.2
+    minScale: 0.7
+    maxScale: 1.32
+    stretch: 0.11
+    quality:
+      performance: { density: 0.26, radius: 0.48, shadows: false }
+      balanced: { density: 0.45, radius: 0.7, shadows: false }
+      high: { density: 0.7, radius: 0.9, shadows: true }
+      ultra: { density: 0.88, radius: 1, shadows: true }
+
+trees:
+  appearance:
+    retention: 0.92
+    scaleVariation: 0.08
+    brightnessVariation: 0.1
+    greenVariation: 0.06
+  billboard:
+    fill: 0.07
+    fillColor: '#737363'
+
+water:
+  sea:
+    detail:
+      nearshoreLongFrequency: 0.021
+      nearshoreCrossFrequency: 0.047
+      nearshoreWarp: 0.34
+      nearshoreSpacingFrequency: 0.009
+      nearshoreSpacingVariation: 0.13
+    coast:
+      sand:
+        inlandStart: -180
+        inlandEnd: -78
+      vegetation:
+        grassStart: 62
+        grassEnd: 165
+        groundcoverStart: 68
+        groundcoverEnd: 168
+        groundcoverEdge: 24
+        maxPatches: 620
+        color: '#5f7254'
+      scatter:
+        attempts: 6500
+        density: 0.42
+        inlandMin: 18
+        inlandMax: 132
+        sizeMin: 0.07
+        sizeMax: 0.27
