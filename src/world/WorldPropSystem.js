@@ -6,6 +6,7 @@ import {
   collectRockMeshes,
   DEFAULT_PEBBLE_MAX_SIZE,
   DEFAULT_STONE_PACK_SCALE,
+  harmonizeRockMaterials,
   hideRockPack,
   scaleRockTemplate,
 } from './rockPack.js';
@@ -14,14 +15,15 @@ const DEFAULT_ANISOTROPY = 16;
 const DEFAULT_RAIN_ROUGHNESS = 0.1;
 const LANTERN_COLLIDER_Y_OFFSET = 2.5;
 const LANTERN_COLLIDER_SIZE = new THREE.Vector3(1.8, 5, 1.8);
+const MATERIAL_TEXTURES = Object.freeze([
+  ['map', THREE.SRGBColorSpace],
+  ['normalMap', THREE.NoColorSpace],
+  ['roughnessMap', THREE.NoColorSpace],
+]);
 
-function textureFromSource(source) {
-  const material = Array.isArray(source?.material) ? source.material[0] : source?.material;
-  return material?.map ?? null;
-}
-
-function prepareTexture(texture, anisotropy) {
+function prepareTexture(texture, anisotropy, colorSpace) {
   if (!texture) return;
+  texture.colorSpace = colorSpace;
   texture.generateMipmaps = true;
   texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.magFilter = THREE.LinearFilter;
@@ -32,7 +34,12 @@ function prepareTexture(texture, anisotropy) {
 function prepareSource(source, config) {
   if (!source) return;
   source.userData.rainRoughness = config.rainRoughness ?? DEFAULT_RAIN_ROUGHNESS;
-  prepareTexture(textureFromSource(source), config.anisotropy ?? DEFAULT_ANISOTROPY);
+  const materials = Array.isArray(source.material) ? source.material : [source.material];
+  for (const material of materials.filter(Boolean)) {
+    for (const [key, colorSpace] of MATERIAL_TEXTURES) {
+      prepareTexture(material[key], config.anisotropy ?? DEFAULT_ANISOTROPY, colorSpace);
+    }
+  }
 }
 
 function createStone(scene, source, record, collisionSystem) {
@@ -117,6 +124,7 @@ export class WorldPropSystem {
   #createStoneSources(propConfig) {
     const rockMeshes = collectRockMeshes(this.terrainRoot);
     if (rockMeshes.length > 0) {
+      harmonizeRockMaterials(rockMeshes);
       for (const mesh of rockMeshes) prepareSource(mesh, propConfig);
       hideRockPack(rockMeshes);
       const templates = rockMeshes.map((mesh) => bakeRockTemplate(mesh));
