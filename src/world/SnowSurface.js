@@ -97,6 +97,11 @@ export function resolveSnowConfig(config) {
       fadeEnd: grainFadeEnd,
     },
     colors: config.colors,
+    surfaceTone: {
+      sastrugiContrast: finiteNumber(config.surfaceTone.sastrugiContrast, 'ground.snow.surfaceTone.sastrugiContrast'),
+      rippleContrast: finiteNumber(config.surfaceTone.rippleContrast, 'ground.snow.surfaceTone.rippleContrast'),
+      exposureContrast: finiteNumber(config.surfaceTone.exposureContrast, 'ground.snow.surfaceTone.exposureContrast'),
+    },
     roughness: config.roughness,
     lighting: config.lighting,
     deformation: deformationAppearance(config.deformation),
@@ -185,9 +190,27 @@ export function createSnowSurfaceNodes(config, deformationField = null) {
     1 + Number(snow.colors.driftVariation),
     drift,
   );
+  const sastrugiTone = mix(
+    1 - snow.surfaceTone.sastrugiContrast,
+    1 + snow.surfaceTone.sastrugiContrast,
+    sin(sastrugiPhase).mul(0.5).add(0.5),
+  );
+  const rippleTone = mix(
+    1 - snow.surfaceTone.rippleContrast,
+    1 + snow.surfaceTone.rippleContrast,
+    sin(ripplePhase).mul(0.5).add(0.5),
+  );
+  const exposureTone = mix(
+    1 - snow.surfaceTone.exposureContrast,
+    1 + snow.surfaceTone.exposureContrast,
+    exposure,
+  );
   const upward = normalWorld.y.max(0).smoothstep(0.35, 0.95);
   const baseColor = mix(color(snow.colors.shadow), color(snow.colors.base), upward)
     .mul(driftTone)
+    .mul(sastrugiTone)
+    .mul(rippleTone)
+    .mul(exposureTone)
     .mul(depression.mul(snow.deformation.darkenStrength).oneMinus());
   const snowColor = mix(baseColor, color(snow.colors.sun), berm.mul(snow.deformation.bermLighten).clamp(0, 1));
 
