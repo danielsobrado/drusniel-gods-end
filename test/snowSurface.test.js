@@ -127,7 +127,7 @@ test('snow powder config resolves contact and ambient particle budgets', () => {
 });
 
 test('snow powder velocity converges toward prevailing wind and terminal fall', () => {
-  const wind = snowWindVector(90, 2.4);
+  const wind = snowWindVector(0, 2.4);
   const velocity = new Float32Array([0, 2, 0]);
   const physics = {
     windX: wind.x,
