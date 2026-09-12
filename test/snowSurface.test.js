@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import yaml from 'js-yaml';
-import { SnowDeformationField, sampleSnowCoverageCpu } from '../src/world/SnowDeformationField.js';
-import { resolveSnowPowderConfig } from '../src/world/SnowPowderSystem.js';
+import { resolveSnowPowderConfig } from '../src/config/resolveSnowPowderConfig.js';
 import { validateSnowConfig } from '../src/config/validateSnowConfig.js';
+import { SnowDeformationField, sampleSnowCoverageCpu } from '../src/world/SnowDeformationField.js';
 
 const snowConfig = yaml.load(fs.readFileSync(new URL('../public/snow.yaml', import.meta.url), 'utf8'));
 validateSnowConfig(snowConfig);
