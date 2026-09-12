@@ -21,6 +21,8 @@ camera:
     followSharpness: 8
     zoomSharpness: 12
     terrainClearance: 0.4
+    terrainOcclusionSamples: 18
+    terrainOcclusionPadding: 0.35
     pointerLockOnClick: true
 player:
   modelScale: 1
