@@ -36,3 +36,6 @@ player:
     runAnimationRate: 1
     minAnimationRate: 0.72
     maxAnimationRate: 1.18
+    explorationBoost:
+      doubleTapWindowMs: 350
+      speedMultiplier: 10

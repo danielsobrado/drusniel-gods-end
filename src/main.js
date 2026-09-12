@@ -3,6 +3,7 @@ import './loading.css';
 import './cinematic.css';
 import { GrassDemo } from './app/GrassDemo.js';
 import { loadConfig } from './config/loadConfig.js';
+import { ExplorationSpeedMode } from './player/ExplorationSpeedMode.js';
 import { RendererRecovery } from './rendering/RendererRecovery.js';
 import { resolveRendererRequest } from './rendering/RendererSession.js';
 
@@ -10,6 +11,7 @@ async function bootstrap() {
   const root = document.querySelector('#app');
   let demo;
   let disposed = false;
+  let explorationSpeedMode;
   let recovery;
   let unsubscribeLoss;
   const release = () => { unsubscribeLoss?.(); unsubscribeLoss = null; demo?.dispose(); };
@@ -24,6 +26,7 @@ async function bootstrap() {
   const pagehide = (event) => {
     if (event.persisted) return;
     disposed = true;
+    explorationSpeedMode?.dispose();
     recovery?.dispose();
     release();
     window.removeEventListener('pagehide', pagehide);
@@ -33,10 +36,19 @@ async function bootstrap() {
   try {
     const config = await loadConfig();
     if (disposed) return;
+    explorationSpeedMode = new ExplorationSpeedMode({
+      eventTarget: window,
+      onChange: ({ active, multiplier }) => {
+        root.dataset.explorationSpeed = active ? String(multiplier) : '1';
+        console.info(`[Exploration] ${active ? `${multiplier}x movement enabled` : 'normal movement restored'}`);
+      },
+    });
     const requested = resolveRendererRequest(window.location.search, config.renderer.forceWebGL);
     const start = async (backend, state) => {
       if (disposed) return;
-      demo = new GrassDemo(root, state?.config ?? structuredClone(config));
+      const runtimeConfig = state?.config ?? structuredClone(config);
+      explorationSpeedMode.setConfig(runtimeConfig);
+      demo = new GrassDemo(root, runtimeConfig);
       const candidate = demo;
       demo.rendererRequest = backend;
       demo.resumeState = state;
@@ -68,10 +80,11 @@ async function bootstrap() {
         throw error;
       }
     };
-    recovery = new RendererRecovery({ capture: () => demo.captureSessionState(), release,
+    recovery = new RendererRecovery({ capture: () => explorationSpeedMode.captureSessionState(demo), release,
       restart: start, onFailure: showFailure });
     await start(requested);
   } catch (error) {
+    explorationSpeedMode?.dispose();
     release();
     window.removeEventListener('pagehide', pagehide);
     if (disposed) return;

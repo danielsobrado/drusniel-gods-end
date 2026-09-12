@@ -72,9 +72,12 @@ Gameplay:
 ```text
 WASD        move
 Shift       sprint
+Shift x2    toggle 10x exploration movement
 click       pointer lock / browser-audio unlock
 mouse       look while pointer locked
 ```
+
+Double-tap either Shift key again to return to normal movement speed. The timing window and speed multiplier are configured under `player.motion.explorationBoost` in `public/player-controls.yaml`.
 
 Mobile uses the on-screen movement/look controls.
 
