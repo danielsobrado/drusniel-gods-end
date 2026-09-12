@@ -23,10 +23,10 @@ test('snow coverage accumulates on high upward terrain and clears in lowlands an
   assert.equal(cliff, 0);
 });
 
-test('snow deformation paints only eligible snow and decays over time', () => {
+test('snow deformation paints contacted snow and decays over time', () => {
   const field = new SnowDeformationField(snowConfig, terrainAt(175));
   const player = { x: 0, y: 176, z: 0 };
-  const foot = { position: player, radius: 0.45 };
+  const foot = { position: { x: 0, y: 175.1, z: 0 }, radius: 0.45 };
   field.update(1 / 60, player, [foot], true);
   const fresh = field.sampleAt(0, 0);
   assert.ok(fresh.depression > 0.2);
@@ -38,10 +38,19 @@ test('snow deformation paints only eligible snow and decays over time', () => {
   field.dispose();
 });
 
+test('snow deformation does not paint a swinging foot above the surface', () => {
+  const field = new SnowDeformationField(snowConfig, terrainAt(175));
+  const player = { x: 0, y: 176, z: 0 };
+  const raisedFoot = { position: { x: 0, y: 177, z: 0 }, radius: 0.3 };
+  field.update(1 / 60, player, [raisedFoot], true);
+  assert.equal(field.sampleAt(0, 0).depression, 0);
+  field.dispose();
+});
+
 test('snow deformation rejects footprints below the accumulation band', () => {
   const field = new SnowDeformationField(snowConfig, terrainAt(20));
   const player = { x: 0, y: 21, z: 0 };
-  field.update(1 / 60, player, [{ position: player, radius: 0.45 }], true);
+  field.update(1 / 60, player, [{ position: { x: 0, y: 20.1, z: 0 }, radius: 0.3 }], true);
   assert.equal(field.sampleAt(0, 0).depression, 0);
   field.dispose();
 });
