@@ -20,6 +20,7 @@ test('meadow refinement reduces carpet density and preserves broad height variat
 
 test('tree LOD appearance has restrained deterministic variation tuning', () => {
   const appearance = refinement.trees.appearance;
+  assert.ok(appearance.retention > 0.85 && appearance.retention <= 1);
   assert.ok(appearance.scaleVariation > 0 && appearance.scaleVariation <= 0.15);
   assert.ok(appearance.brightnessVariation > 0 && appearance.brightnessVariation <= 0.15);
   assert.ok(appearance.greenVariation > 0 && appearance.greenVariation <= 0.1);
