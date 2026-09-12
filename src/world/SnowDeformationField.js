@@ -62,9 +62,7 @@ export class SnowDeformationField {
     this.config = resolveSnowDeformationConfig(config.ground.snow.deformation);
     this.rootConfig = config;
     this.terrainSampler = terrainSampler;
-    this.center = new THREE.Vector2();
-    this.lastCenter = new THREE.Vector2(Number.NaN, Number.NaN);
-    this.nextCenter = new THREE.Vector2();
+    this.center = new THREE.Vector2(Number.NaN, Number.NaN);
     this.recoveryElapsed = 0;
     this.peak = 0;
     const length = this.config.resolution * this.config.resolution * CHANNELS;
@@ -90,14 +88,7 @@ export class SnowDeformationField {
 
   update(deltaSeconds, playerPosition, influencePoints = [], moving = true) {
     if (!this.config.enabled || !playerPosition) return;
-    const next = this.nextCenter.set(playerPosition.x, playerPosition.z);
-    if (!Number.isFinite(this.lastCenter.x)) {
-      this.lastCenter.copy(next);
-      this.center.copy(next);
-    }
-    this.#scroll(next.x - this.lastCenter.x, next.y - this.lastCenter.y);
-    this.lastCenter.copy(next);
-    this.center.copy(next);
+    this.#recenter(playerPosition.x, playerPosition.z);
 
     let changed = this.#recover(deltaSeconds);
     if (moving) {
@@ -107,6 +98,25 @@ export class SnowDeformationField {
       for (const point of points) changed = this.#paintPoint(point) || changed;
     }
     if (changed) this.texture.needsUpdate = true;
+  }
+
+  #recenter(x, z) {
+    if (!Number.isFinite(this.center.x) || this.peak === 0) {
+      this.center.set(x, z);
+      return;
+    }
+    const pixelsPerUnit = this.config.resolution / this.config.worldSize;
+    const shiftX = Math.trunc((x - this.center.x) * pixelsPerUnit);
+    const shiftY = Math.trunc((z - this.center.y) * pixelsPerUnit);
+    if (shiftX === 0 && shiftY === 0) return;
+    if (Math.abs(shiftX) >= this.config.resolution || Math.abs(shiftY) >= this.config.resolution) {
+      this.clear();
+      this.center.set(x, z);
+      return;
+    }
+    this.#scrollPixels(shiftX, shiftY);
+    this.center.x += shiftX / pixelsPerUnit;
+    this.center.y += shiftY / pixelsPerUnit;
   }
 
   #paintPoint(point) {
@@ -122,7 +132,12 @@ export class SnowDeformationField {
     const coverage = sampleSnowCoverageCpu(x, terrainHeight, z, normalY, this.rootConfig);
     if (coverage < this.config.paintMinCoverage) return false;
 
-    const radius = Math.max(MIN_RADIUS, Number(point.radius) * this.config.footRadiusScale);
+    const sourceRadius = Number(point.radius);
+    const fallbackRadius = this.config.worldSize / this.config.resolution * 2;
+    const radius = Math.max(
+      MIN_RADIUS,
+      (Number.isFinite(sourceRadius) && sourceRadius > 0 ? sourceRadius : fallbackRadius) * this.config.footRadiusScale,
+    );
     const centerX = ((x - this.center.x) / this.config.worldSize + 0.5) * this.config.resolution;
     const centerY = ((z - this.center.y) / this.config.worldSize + 0.5) * this.config.resolution;
     const pixelRadius = Math.max(1, radius * this.config.resolution / this.config.worldSize);
@@ -193,17 +208,7 @@ export class SnowDeformationField {
     return true;
   }
 
-  #scroll(deltaX, deltaZ) {
-    if (this.peak === 0) return;
-    const pixelsPerUnit = this.config.resolution / this.config.worldSize;
-    const shiftX = Math.trunc(deltaX * pixelsPerUnit);
-    const shiftY = Math.trunc(deltaZ * pixelsPerUnit);
-    if (shiftX === 0 && shiftY === 0) return;
-    if (Math.abs(shiftX) >= this.config.resolution || Math.abs(shiftY) >= this.config.resolution) {
-      this.clear();
-      return;
-    }
-
+  #scrollPixels(shiftX, shiftY) {
     this.#clear(this.scrollPixels);
     for (let y = 0; y < this.config.resolution; y += 1) {
       const sourceY = y + shiftY;
@@ -239,6 +244,7 @@ export class SnowDeformationField {
   }
 
   sampleAt(x, z) {
+    if (!Number.isFinite(this.center.x)) return { depression: 0, berm: 0, gradientX: 0, gradientZ: 0 };
     const u = THREE.MathUtils.clamp((x - this.center.x) / this.config.worldSize + 0.5, 0, 1);
     const v = THREE.MathUtils.clamp((z - this.center.y) / this.config.worldSize + 0.5, 0, 1);
     const px = Math.min(this.config.resolution - 1, Math.floor(u * this.config.resolution));
