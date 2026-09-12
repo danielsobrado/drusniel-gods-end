@@ -48,6 +48,16 @@ function sourceRecord(matrix, kind) {
   return { kind, position, rotation, scale };
 }
 
+function appendObjectBounds(points, object) {
+  if (!object?.isMesh) return;
+  object.updateWorldMatrix(true, false);
+  const bounds = new THREE.Box3().setFromObject(object);
+  if (bounds.isEmpty()) return;
+  for (const x of [bounds.min.x, bounds.max.x]) {
+    for (const z of [bounds.min.z, bounds.max.z]) points.push(new THREE.Vector3(x, 0, z));
+  }
+}
+
 export class CoastalJungleSystem {
   constructor({ scene, config, terrain, expansion = null, collisions = null } = {}) {
     this.scene = scene;
@@ -293,6 +303,7 @@ export class CoastalJungleSystem {
       }
     });
 
+    appendObjectBounds(points, floor);
     return { batches, singles, points, floor, path, sourceInstances };
   }
 

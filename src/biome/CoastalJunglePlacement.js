@@ -1,4 +1,9 @@
 import { coastX } from '../world/CoastField.js';
+export {
+  coastalJungleRegionCenter,
+  coastalJungleRegionRadius,
+  coastalJungleRegionWeight,
+} from '../world/CoastalJungleRegion.js';
 
 const KIND_ORDER = [
   'background_tree',
@@ -15,7 +20,6 @@ const KIND_ORDER = [
 ];
 
 const MIN_SPAN = 0.001;
-const REGION_RADIUS_SAMPLES = 8;
 
 function clamp01(value) {
   return Math.max(0, Math.min(1, value));
@@ -27,16 +31,6 @@ function normalize(value, min, max) {
 
 function normalizedName(value) {
   return String(value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '_');
-}
-
-function finiteRegion(region) {
-  if (!region) return null;
-  const values = ['zStart', 'zEnd', 'inlandStart', 'inlandEnd']
-    .map((key) => Number(region[key]));
-  if (!values.every(Number.isFinite)) return null;
-  const [zStart, zEnd, inlandStart, inlandEnd] = values;
-  if (Math.abs(zEnd - zStart) < MIN_SPAN || Math.abs(inlandEnd - inlandStart) < MIN_SPAN) return null;
-  return { zStart, zEnd, inlandStart, inlandEnd };
 }
 
 export function classifyCoastalJungleName(value) {
@@ -85,31 +79,6 @@ export function mapCoastalJungleHorizontal(source, bounds, region, sea) {
     + (Number(region.inlandEnd) - Number(region.inlandStart)) * across;
   if (!Number.isFinite(z) || !Number.isFinite(inland)) return null;
   return { x: coastX(z, sea) - inland, z, inland };
-}
-
-export function coastalJungleRegionCenter(region, sea) {
-  const resolved = finiteRegion(region);
-  if (!resolved || !sea) return null;
-  const z = (resolved.zStart + resolved.zEnd) * 0.5;
-  const inland = (resolved.inlandStart + resolved.inlandEnd) * 0.5;
-  return { x: coastX(z, sea) - inland, z };
-}
-
-export function coastalJungleRegionRadius(region, sea) {
-  const resolved = finiteRegion(region);
-  const center = coastalJungleRegionCenter(region, sea);
-  if (!resolved || !center) return 0;
-  const inlandValues = [resolved.inlandStart, resolved.inlandEnd];
-  let radius = 0;
-  for (let index = 0; index <= REGION_RADIUS_SAMPLES; index += 1) {
-    const t = index / REGION_RADIUS_SAMPLES;
-    const z = resolved.zStart + (resolved.zEnd - resolved.zStart) * t;
-    for (const inland of inlandValues) {
-      const x = coastX(z, sea) - inland;
-      radius = Math.max(radius, Math.hypot(x - center.x, z - center.z));
-    }
-  }
-  return radius;
 }
 
 export function sampleCoastalJungleSlope(terrain, x, z, distance = 2) {

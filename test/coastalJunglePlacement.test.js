@@ -6,6 +6,7 @@ import {
   classifyCoastalJungleName,
   coastalJungleRegionCenter,
   coastalJungleRegionRadius,
+  coastalJungleRegionWeight,
   createCoastalJungleSourceBounds,
   evaluateCoastalJunglePlacement,
   mapCoastalJungleHorizontal,
@@ -61,6 +62,15 @@ test('coastal jungle region center and radius cover the curved target strip', ()
       assert.ok(Math.hypot(x - center.x, z - center.z) <= radius + 1e-9);
     }
   }
+});
+
+test('coastal jungle region weight fades generic ecology at biome edges', () => {
+  const region = { zStart: 250, zEnd: 430, inlandStart: 140, inlandEnd: 270 };
+  const z = 340;
+  assert.equal(coastalJungleRegionWeight(coastX(z, 1000) - 205, z, region, 1000, 18), 1);
+  assert.equal(coastalJungleRegionWeight(coastX(z, 1000) - 100, z, region, 1000, 18), 0);
+  const edge = coastalJungleRegionWeight(coastX(z, 1000) - 145, z, region, 1000, 18);
+  assert.ok(edge > 0 && edge < 1);
 });
 
 test('coastal jungle rejects existing routes and excessive terrain slope', () => {

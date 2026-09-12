@@ -3,6 +3,7 @@ import { assetUrl } from '../assets/assetUrl.js';
 import { logger } from '../utils/logger.js';
 import { clamp01, computeVegetationEcology, encodeVegetationShaderExclusion, fractalNoise, hash2d, vegetationCoverageChance } from './vegetationEcology.js';
 import { sampleCoastField } from '../world/CoastField.js';
+import { coastalJungleRegionWeight } from '../world/CoastalJungleRegion.js';
 
 const CHANNELS = 5;
 const DENSITY = 0;
@@ -158,6 +159,19 @@ function waterMetrics(config, x, z, height) {
   };
 }
 
+function applyCoastalJungleEcology(ecology, config, sea, x, z) {
+  const profile = config.biomes?.coastalJungle;
+  if (!profile?.enabled || !sea?.enabled) return;
+  const settings = profile.ecology ?? {};
+  const weight = coastalJungleRegionWeight(x, z, profile.region, sea, settings.edgeFade ?? 18);
+  if (weight <= 0) return;
+  const baseScale = clamp01(settings.baseVegetationScale ?? 0.18);
+  const scale = 1 - weight * (1 - baseScale);
+  ecology.density *= scale;
+  ecology.growth *= scale;
+  ecology.understory *= scale;
+}
+
 export class ProceduralVegetationField {
   constructor(config, terrainSampler, trees = []) {
     this.config = config;
@@ -254,6 +268,7 @@ export class ProceduralVegetationField {
           const duneGrowth = coastField?.vegetationSuitability ?? 1;
           ecology.density *= duneGrowth; ecology.growth *= duneGrowth; ecology.understory *= duneGrowth;
         }
+        applyCoastalJungleEcology(ecology, this.config, sea, worldX, worldZ);
         const offset = index * CHANNELS;
         this.data[offset + DENSITY] = ecology.density;
         this.data[offset + GROWTH] = ecology.growth;

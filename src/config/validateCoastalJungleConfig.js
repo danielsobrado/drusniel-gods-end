@@ -13,10 +13,10 @@ function positive(problems, path, value, allowZero = false) {
   }
 }
 
-function unitInterval(problems, path, value) {
+function unitInterval(problems, path, value, includeOne = true) {
   const number = finiteNumber(value);
-  if (number === null || number < 0 || number > 1) {
-    problems.push(`${path} must be a finite number in [0, 1]`);
+  if (number === null || number < 0 || (includeOne ? number > 1 : number >= 1)) {
+    problems.push(`${path} must be a finite number in [0, ${includeOne ? '1]' : '1)'}`);
   }
 }
 
@@ -51,12 +51,15 @@ export function validateCoastalJungleConfig(config) {
   }
 
   positive(problems, 'biomes.coastalJungle.anisotropy', profile.anisotropy);
+  positive(problems, 'biomes.coastalJungle.ecology.edgeFade', profile.ecology?.edgeFade, true);
+  unitInterval(problems, 'biomes.coastalJungle.ecology.baseVegetationScale', profile.ecology?.baseVegetationScale);
+  unitInterval(problems, 'biomes.coastalJungle.render.lodHysteresis', profile.render?.lodHysteresis);
 
   const placement = profile.placement ?? {};
   positive(problems, 'biomes.coastalJungle.placement.slopeSampleDistance', placement.slopeSampleDistance);
   positive(problems, 'biomes.coastalJungle.placement.maxSlope', placement.maxSlope);
   unitInterval(problems, 'biomes.coastalJungle.placement.routeMaskMax', placement.routeMaskMax);
-  unitInterval(problems, 'biomes.coastalJungle.placement.routeFloorRevealStart', placement.routeFloorRevealStart);
+  unitInterval(problems, 'biomes.coastalJungle.placement.routeFloorRevealStart', placement.routeFloorRevealStart, false);
   positive(problems, 'biomes.coastalJungle.placement.routeFloorRevealDepth', placement.routeFloorRevealDepth, true);
   positive(problems, 'biomes.coastalJungle.placement.riverClearance', placement.riverClearance, true);
   positive(problems, 'biomes.coastalJungle.placement.boundsPadding', placement.boundsPadding, true);

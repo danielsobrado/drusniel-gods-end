@@ -10,6 +10,8 @@ function validConfig() {
         asset: 'Assets/terrain/coastal-jungle/scenes/coastal_jungle_reference.glb',
         anisotropy: 8,
         region: { zStart: 250, zEnd: 430, inlandStart: 140, inlandEnd: 270 },
+        ecology: { edgeFade: 18, baseVegetationScale: 0.18, suppressWorldTrees: true },
+        render: { lodHysteresis: 0.06 },
         placement: {
           slopeSampleDistance: 2,
           maxSlope: 0.75,
@@ -48,4 +50,12 @@ test('coastal jungle validator rejects invalid quality density and distance', ()
   config.biomes.coastalJungle.quality.high.density.grass = 1.2;
   assert.throws(() => validateCoastalJungleConfig(config), /high\.maxDistance/);
   assert.throws(() => validateCoastalJungleConfig(config), /high\.density\.grass/);
+});
+
+test('coastal jungle validator rejects degenerate route reveal and ecology settings', () => {
+  const config = validConfig();
+  config.biomes.coastalJungle.placement.routeFloorRevealStart = 1;
+  config.biomes.coastalJungle.ecology.baseVegetationScale = -0.1;
+  assert.throws(() => validateCoastalJungleConfig(config), /routeFloorRevealStart/);
+  assert.throws(() => validateCoastalJungleConfig(config), /baseVegetationScale/);
 });
