@@ -90,14 +90,19 @@ export class FreeFlyController {
   handleKeyDown(event) {
     if (isFormControl(event?.target)) return;
     if (event?.code === TOGGLE_KEY && !event.repeat) {
+      event.preventDefault?.();
       this.toggle();
       return;
     }
     if (event?.code === EXIT_KEY && this.active) {
+      event.preventDefault?.();
       this.stop();
       return;
     }
-    if (this.active && MOVEMENT_KEYS.has(event?.code)) this.keys.add(event.code);
+    if (this.active && MOVEMENT_KEYS.has(event?.code)) {
+      event.preventDefault?.();
+      this.keys.add(event.code);
+    }
   }
 
   handleKeyUp(event) {
