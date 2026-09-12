@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import yaml from 'js-yaml';
 import { SnowDeformationField, sampleSnowCoverageCpu } from '../src/world/SnowDeformationField.js';
+import { resolveSnowPowderConfig } from '../src/world/SnowPowderSystem.js';
 import { validateSnowConfig } from '../src/config/validateSnowConfig.js';
 
 const snowConfig = yaml.load(fs.readFileSync(new URL('../public/snow.yaml', import.meta.url), 'utf8'));
@@ -113,7 +114,16 @@ test('snow deformation samples outside its local window as empty', () => {
   field.dispose();
 });
 
-test('snow validation rejects invalid accumulation and deformation settings', () => {
+test('snow powder config resolves the configured local particle budget', () => {
+  const powder = resolveSnowPowderConfig(snowConfig.ground.snow.powder);
+  assert.equal(powder.enabled, true);
+  assert.equal(powder.capacity, 144);
+  assert.equal(powder.particlesPerContact, 8);
+  assert.ok(powder.lifetime.max >= powder.lifetime.min);
+  assert.ok(powder.size.max >= powder.size.min);
+});
+
+test('snow validation rejects invalid accumulation, deformation and powder settings', () => {
   const invalid = structuredClone(snowConfig);
   invalid.ground.snow.altitude.full = invalid.ground.snow.altitude.start;
   invalid.ground.snow.deformation.resolution = 16;
@@ -126,4 +136,13 @@ test('snow validation rejects invalid accumulation and deformation settings', ()
   const unsafeWindow = structuredClone(snowConfig);
   unsafeWindow.ground.snow.deformation.recenterDistance = 31.5;
   assert.throws(() => validateSnowConfig(unsafeWindow), /maximum footprint berm/);
+
+  const invalidPowderRange = structuredClone(snowConfig);
+  invalidPowderRange.ground.snow.powder.sizeMin = 0.5;
+  invalidPowderRange.ground.snow.powder.sizeMax = 0.2;
+  assert.throws(() => validateSnowConfig(invalidPowderRange), /sizeMax must be greater/);
+
+  const invalidPowderBudget = structuredClone(snowConfig);
+  invalidPowderBudget.ground.snow.powder.capacity = 144.5;
+  assert.throws(() => validateSnowConfig(invalidPowderBudget), /capacity must be an integer/);
 });
