@@ -119,7 +119,7 @@ export class TreeLeafMaterialFactory {
     })();
   }
 
-  create(sourceMaterial) {
+  create(sourceMaterial, tint = null) {
     const source = Array.isArray(sourceMaterial) ? sourceMaterial[0] : sourceMaterial;
     const material = new THREE.MeshStandardNodeMaterial();
     material.map = source?.map ?? null;
@@ -130,11 +130,16 @@ export class TreeLeafMaterialFactory {
     material.positionNode = this.positionNode;
     if (this.config.cinematic?.enabled && material.map) {
       const leafSample = texture(material.map, uv());
-      const leafColor = adventureCanopyColor(leafSample.rgb, this.config);
+      const canopy = adventureCanopyColor(leafSample.rgb, this.config);
+      const leafColor = tint
+        ? canopy.mul(vec3(tint.r, tint.g, tint.b))
+        : canopy;
       material.colorNode = vec4(leafColor, leafSample.a);
       material.emissiveNode = foliageBacklight(leafColor, 0.5);
       if (this.config.cinematic.style?.enabled) {
-        material.emissiveNode = material.emissiveNode.add(leafColor.mul(foliageLight.fill).mul(getPresetAppearance(this.config).foliageFill));
+        material.emissiveNode = material.emissiveNode.add(
+          leafColor.mul(foliageLight.fill).mul(getPresetAppearance(this.config).foliageFill),
+        );
       }
       material.roughness = 0.82;
       material.alphaToCoverage = true;
