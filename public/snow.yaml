@@ -54,6 +54,8 @@ ground:
       worldSize: 64
       paintMinCoverage: 0.35
       footRadiusScale: 1.3
+      minRadius: 0.16
+      maxRadius: 0.42
       depressionStrength: 0.95
       bermStrength: 0.55
       normalStrength: 0.18
