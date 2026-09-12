@@ -33,16 +33,18 @@ resolution: 512
 worldSize: 64
 minRadius: 0.16
 maxRadius: 0.42
+contactHeight: 0.75
+recenterDistance: 8
 decaySeconds: 90
 bermDecaySeconds: 45
 ```
 
-The field scrolls in whole texels while preserving sub-texel camera/player motion in the mapping origin, so walking does not smear old tracks. Footprint painting is enabled only while the grounded character is moving. Free-fly and the scenic tour do not carve snow.
+The field keeps its mapping origin stable while the player moves locally, then scrolls in whole texels after the player has moved eight metres from the field centre. This avoids a full 512-square buffer copy for every small movement while keeping stored tracks in the same world positions. Footprint painting is enabled only while the grounded character is moving, and an influence point must also be close enough to the terrain to count as foot contact. Free-fly and the scenic tour do not carve snow.
 
 This first integration deforms snow **visually** through color, roughness and normal response. It intentionally does not displace foot-scale terrain geometry: the expanded landscape terrain is much coarser than a footprint. True centimetre-scale silhouette deformation would require a dedicated near-player snow overlay or clipmap and should be treated as a separate feature rather than distorting the world terrain mesh.
 
 ## Performance
 
-The persistent field is one 512 x 512 RGBA8 texture (1 MiB). Recovery runs at the configured interval rather than sweeping the array every render frame. Rendering adds one local deformation texture sample plus procedural ALU to the ground material; there are no extra snow draw calls or snow shadow passes.
+The persistent field is one 512 x 512 RGBA8 texture (1 MiB). Recovery runs at the configured interval rather than sweeping the array every render frame, and texture scrolling is amortized across eight metres of player travel. Rendering adds one local deformation texture sample plus procedural ALU to the ground material; there are no extra snow draw calls or snow shadow passes.
 
-Visual review should cover Snow Pass and Snow Peak in sunny, golden-hour and rainy presets, plus WebGL 2. Verify that exposed cliffs remain rocky, sastrugi follow one coherent wind direction, glints stay subtle, footprints appear only in snow, and old footprints soften rather than popping away.
+Visual review should cover Snow Pass and Snow Peak in sunny, golden-hour and rainy presets, plus WebGL 2. Verify that exposed cliffs remain rocky, sastrugi follow one coherent wind direction, glints stay subtle, only contacting feet carve the surface, and old footprints soften rather than popping away.
