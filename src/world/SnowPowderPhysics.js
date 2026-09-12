@@ -4,8 +4,8 @@ export function snowWindVector(angleDegrees, speed) {
   const angle = Number(angleDegrees) * Math.PI / 180;
   const magnitude = Number(speed);
   return {
-    x: Math.sin(angle) * magnitude,
-    z: Math.cos(angle) * magnitude,
+    x: Math.cos(angle) * magnitude,
+    z: Math.sin(angle) * magnitude,
   };
 }
 
