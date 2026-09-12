@@ -32,6 +32,7 @@ import { getPresetAppearance, sampleReferenceField } from '../rendering/PresetAp
 import { groundGrassTexture, groundRoughness as turfRoughness, groundTurf } from '../rendering/GroundTurf.js';
 import { riverField } from '../water/riverNodes.js';
 import { advanceBeachMoisture, createCoastNodes, resolveCoastConfig } from './CoastField.js';
+import { createRockSurfaceNodes } from './RockSurface.js';
 import { createSnowSurfaceNodes } from './SnowSurface.js';
 
 const ORIGINAL_ANISOTROPY = 16;
@@ -240,38 +241,27 @@ export async function createGroundMaterial(config, terrainSampler = null, snowDe
     material.roughnessNode = turfRoughness(soilPaint, roughnessSample, wet, turf.x);
 
     if (terrainSampler?.river || config.terrain.expansion?.enabled || config.water.sea?.enabled) {
-      const highland = positionWorld.y.smoothstep(48, 100);
-      const cliff = normalWorld.y.abs().smoothstep(0.55, 0.88).oneMinus();
-      const rockyArea = world.sub(vec2(390, -220)).div(vec2(170, 160)).length().smoothstep(0.3, 1.1).oneMinus();
       const lakeInside = positionWorld.x.sub(config.water.position[0]).abs().lessThan(config.water.size / 2)
         .and(positionWorld.z.sub(config.water.position[2]).abs().lessThan(config.water.size / 2));
       const lakeBed = lakeInside.select(
         float(config.water.position[1]).sub(positionWorld.y).smoothstep(-0.8, 0.4),
         float(0),
       );
-      const rockBlend = highland.mul(0.85)
-        .max(cliff.mul(positionWorld.y.smoothstep(25, 55)))
-        .max(riverBank)
-        .max(rockyArea.mul(0.95))
-        .max(lakeBed);
-      const rockGrains = sin(world.x.mul(8.3).add(sin(world.y.mul(5.7))))
-        .mul(sin(world.y.mul(11.1))).mul(0.1).add(0.9);
-      const strata = sin(positionWorld.y.mul(0.55).add(macro.mul(3))).mul(0.08).add(0.92);
-      const weights = normalWorld.abs().pow(4);
-      const stoneTexture = texture(groundColor, positionWorld.yz.mul(0.18)).rgb.mul(weights.x)
-        .add(texture(groundColor, positionWorld.xz.mul(0.18)).rgb.mul(weights.y))
-        .add(texture(groundColor, positionWorld.xy.mul(0.18)).rgb.mul(weights.z))
-        .div(weights.x.add(weights.y).add(weights.z).max(0.001));
-      const rock = mix(
-        mix(color('#636e68'), color('#afa38d'), macro),
-        color('#969480'),
-        lakeBed.mul(0.55),
-      ).mul(stoneTexture.mul(0.6).add(0.65))
-        .mul(rockGrains).mul(strata).mul(wet.mul(0.28).oneMinus());
-      material.colorNode = mix(material.colorNode, rock, rockBlend);
-      material.roughnessNode = mix(material.roughnessNode, mix(0.94, 0.38, wet), rockBlend);
+      const rockSurface = createRockSurfaceNodes({
+        config,
+        colorTexture: groundColor,
+        roughnessTexture: groundRoughness,
+        macro,
+        wet,
+        riverBank,
+        lakeBed,
+      });
+      material.colorNode = mix(material.colorNode, rockSurface.color, rockSurface.mask);
+      material.roughnessNode = mix(material.roughnessNode, rockSurface.roughness, rockSurface.mask);
+      baseNormal = normalize(mix(baseNormal, rockSurface.normal, rockSurface.mask));
+      material.normalNode = baseNormal;
 
-      const terrainEmissive = (material.emissiveNode ?? vec3(0)).mul(rockBlend.oneMinus());
+      const terrainEmissive = (material.emissiveNode ?? vec3(0)).mul(rockSurface.mask.oneMinus());
       if (config.ground.snow?.enabled) {
         const snow = createSnowSurfaceNodes(config, snowDeformation);
         snowLighting = snow.lighting;
