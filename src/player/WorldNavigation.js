@@ -92,7 +92,7 @@ export class WorldNavigation {
     this.world.snowDeformation?.update(
       deltaSeconds,
       this.player.getPosition(),
-      this.player.getInfluencePoints(),
+      walking ? this.player.getInfluencePoints() : [],
       walking,
     );
   }

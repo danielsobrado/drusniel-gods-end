@@ -42,9 +42,25 @@ function interval(value, name) {
   return { start, full };
 }
 
+function deformationAppearance(config) {
+  if (config?.enabled === false) {
+    return { normalStrength: 0, darkenStrength: 0, bermLighten: 0 };
+  }
+  return {
+    normalStrength: finiteNumber(config?.normalStrength, 'ground.snow.deformation.normalStrength'),
+    darkenStrength: finiteNumber(config?.darkenStrength, 'ground.snow.deformation.darkenStrength'),
+    bermLighten: finiteNumber(config?.bermLighten, 'ground.snow.deformation.bermLighten'),
+  };
+}
+
 export function resolveSnowConfig(config) {
   if (!config) throw new Error('ground.snow configuration is required.');
   const angle = finiteNumber(config.wind.angleDegrees, 'ground.snow.wind.angleDegrees') * Math.PI / 180;
+  const grainFadeStart = finiteNumber(config.grain.fadeStart, 'ground.snow.grain.fadeStart');
+  const grainFadeEnd = finiteNumber(config.grain.fadeEnd, 'ground.snow.grain.fadeEnd');
+  if (!(grainFadeEnd > grainFadeStart)) {
+    throw new Error('ground.snow.grain.fadeEnd must be greater than ground.snow.grain.fadeStart.');
+  }
   return {
     enabled: config.enabled !== false,
     altitude: interval(config.altitude, 'ground.snow.altitude'),
@@ -77,13 +93,13 @@ export function resolveSnowConfig(config) {
       frequencyX: positiveNumber(config.grain.frequencyX, 'ground.snow.grain.frequencyX'),
       frequencyZ: positiveNumber(config.grain.frequencyZ, 'ground.snow.grain.frequencyZ'),
       amplitude: finiteNumber(config.grain.amplitude, 'ground.snow.grain.amplitude'),
-      fadeStart: finiteNumber(config.grain.fadeStart, 'ground.snow.grain.fadeStart'),
-      fadeEnd: finiteNumber(config.grain.fadeEnd, 'ground.snow.grain.fadeEnd'),
+      fadeStart: grainFadeStart,
+      fadeEnd: grainFadeEnd,
     },
     colors: config.colors,
     roughness: config.roughness,
     lighting: config.lighting,
-    deformation: config.deformation,
+    deformation: deformationAppearance(config.deformation),
   };
 }
 
@@ -153,7 +169,7 @@ export function createSnowSurfaceNodes(config, deformationField = null) {
   const depression = deform.x.mul(deformInside).mul(mask).toVar();
   const berm = deform.y.mul(deformInside).mul(mask).toVar();
   const deformGradient = vec2(deform.z.sub(DEFORMATION_NEUTRAL), deform.w.sub(DEFORMATION_NEUTRAL))
-    .mul(2).mul(deformInside).mul(Number(snow.deformation.normalStrength));
+    .mul(2).mul(deformInside).mul(snow.deformation.normalStrength);
 
   const alongGradient = sastrugiDerivative.add(secondaryDerivative).add(rippleAlong);
   const acrossGradient = sastrugiCrossDerivative.add(rippleAcross);
@@ -172,8 +188,8 @@ export function createSnowSurfaceNodes(config, deformationField = null) {
   const upward = normalWorld.y.max(0).smoothstep(0.35, 0.95);
   const baseColor = mix(color(snow.colors.shadow), color(snow.colors.base), upward)
     .mul(driftTone)
-    .mul(depression.mul(Number(snow.deformation.darkenStrength)).oneMinus());
-  const snowColor = mix(baseColor, color(snow.colors.sun), berm.mul(Number(snow.deformation.bermLighten)).clamp(0, 1));
+    .mul(depression.mul(snow.deformation.darkenStrength).oneMinus());
+  const snowColor = mix(baseColor, color(snow.colors.sun), berm.mul(snow.deformation.bermLighten).clamp(0, 1));
 
   const viewDirection = normalize(cameraPosition.sub(positionWorld));
   const halfVector = normalize(viewDirection.add(foliageLight.direction));
