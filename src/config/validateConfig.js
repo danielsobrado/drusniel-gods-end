@@ -36,6 +36,8 @@ const REQUIRED_OBJECTS = [
   ['sun', 'createWorld'],
   ['hemisphere', 'createWorld'],
   ['ambient', 'createWorld'],
+  ['trees', 'TreeSystem'],
+  ['trees.billboard', 'TreeSystem'],
   ['navigation', 'WorldNavigation'],
   ['navigation.freeFly', 'FreeFlyController'],
   ['navigation.scenicTour', 'ScenicTour'],
@@ -48,6 +50,37 @@ function resolve(config, path) {
     current = current[segment];
   }
   return current;
+}
+
+function validateTrees(config, problems) {
+  const trees = config.trees;
+  for (const name of ['highDistance', 'billboardDistance', 'transitionDuration', 'lodUpdateInterval']) {
+    const value = Number(trees?.[name]);
+    if (!(value > 0) || !Number.isFinite(value)) {
+      problems.push(`trees.${name} must be a positive finite number`);
+    }
+  }
+  for (const name of ['highHysteresis', 'billboardHysteresis']) {
+    const value = Number(trees?.[name]);
+    if (!(value >= 0) || !Number.isFinite(value)) {
+      problems.push(`trees.${name} must be a non-negative finite number`);
+    }
+  }
+  const highDistance = Number(trees?.highDistance);
+  const billboardDistance = Number(trees?.billboardDistance);
+  if (Number.isFinite(highDistance) && Number.isFinite(billboardDistance)
+    && billboardDistance <= highDistance) {
+    problems.push('trees.billboardDistance must be greater than trees.highDistance');
+  }
+
+  const alphaTest = Number(trees?.billboard?.alphaTest);
+  if (!Number.isFinite(alphaTest) || alphaTest < 0 || alphaTest > 1) {
+    problems.push('trees.billboard.alphaTest must be a finite number in [0, 1]');
+  }
+  const anisotropy = Number(trees?.billboard?.anisotropy);
+  if (!(anisotropy >= 1) || !Number.isFinite(anisotropy)) {
+    problems.push('trees.billboard.anisotropy must be a finite number greater than or equal to one');
+  }
 }
 
 function validateNavigation(config, problems) {
@@ -171,6 +204,7 @@ export function validateConfig(config) {
     }
   }
 
+  validateTrees(config, problems);
   validateNavigation(config, problems);
 
   if (problems.length > 0) {
