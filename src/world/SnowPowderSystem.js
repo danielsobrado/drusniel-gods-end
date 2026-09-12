@@ -1,69 +1,10 @@
 import * as THREE from 'three/webgpu';
+import { resolveSnowPowderConfig } from '../config/resolveSnowPowderConfig.js';
 import { sampleSnowCoverageCpu } from './SnowDeformationField.js';
 
 const UINT32_MAX_PLUS_ONE = 4294967296;
 const LCG_MULTIPLIER = 1664525;
 const LCG_INCREMENT = 1013904223;
-
-function finiteNumber(value, name, { min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY } = {}) {
-  const number = Number(value);
-  if (!Number.isFinite(number) || number < min || number > max) {
-    throw new Error(`${name} must be a finite number in [${min}, ${max}].`);
-  }
-  return number;
-}
-
-function positiveNumber(value, name) {
-  const number = Number(value);
-  if (!(number > 0) || !Number.isFinite(number)) throw new Error(`${name} must be a positive finite number.`);
-  return number;
-}
-
-function positiveInteger(value, name) {
-  const number = positiveNumber(value, name);
-  if (!Number.isInteger(number)) throw new Error(`${name} must be a positive integer.`);
-  return number;
-}
-
-function orderedRange(config, minKey, maxKey, prefix, minimum = 0) {
-  const min = finiteNumber(config[minKey], `${prefix}.${minKey}`, { min: minimum });
-  const max = finiteNumber(config[maxKey], `${prefix}.${maxKey}`, { min: minimum });
-  if (max < min) throw new Error(`${prefix}.${maxKey} must be greater than or equal to ${prefix}.${minKey}.`);
-  return { min, max };
-}
-
-export function resolveSnowPowderConfig(config) {
-  if (!config) throw new Error('ground.snow.powder configuration is required.');
-  const prefix = 'ground.snow.powder';
-  const lifetime = orderedRange(config, 'lifetimeMin', 'lifetimeMax', prefix);
-  const size = orderedRange(config, 'sizeMin', 'sizeMax', prefix);
-  const horizontalSpeed = orderedRange(config, 'horizontalSpeedMin', 'horizontalSpeedMax', prefix);
-  const verticalSpeed = orderedRange(config, 'verticalSpeedMin', 'verticalSpeedMax', prefix);
-  return {
-    enabled: config.enabled !== false,
-    capacity: positiveInteger(config.capacity, `${prefix}.capacity`),
-    particlesPerContact: positiveInteger(config.particlesPerContact, `${prefix}.particlesPerContact`),
-    runningMultiplier: positiveNumber(config.runningMultiplier, `${prefix}.runningMultiplier`),
-    emitDistance: positiveNumber(config.emitDistance, `${prefix}.emitDistance`),
-    minCoverage: finiteNumber(config.minCoverage, `${prefix}.minCoverage`, { min: 0, max: 1 }),
-    contactHeight: positiveNumber(config.contactHeight, `${prefix}.contactHeight`),
-    normalSampleDistance: positiveNumber(config.normalSampleDistance, `${prefix}.normalSampleDistance`),
-    spawnHeight: finiteNumber(config.spawnHeight, `${prefix}.spawnHeight`, { min: 0 }),
-    spread: finiteNumber(config.spread, `${prefix}.spread`, { min: 0 }),
-    lifetime,
-    size,
-    sizeGrowth: finiteNumber(config.sizeGrowth, `${prefix}.sizeGrowth`, { min: 0 }),
-    fadeStart: finiteNumber(config.fadeStart, `${prefix}.fadeStart`, { min: 0, max: 1 }),
-    horizontalSpeed,
-    verticalSpeed,
-    drag: finiteNumber(config.drag, `${prefix}.drag`, { min: 0 }),
-    gravity: finiteNumber(config.gravity, `${prefix}.gravity`, { min: 0 }),
-    opacity: finiteNumber(config.opacity, `${prefix}.opacity`, { min: 0, max: 1 }),
-    color: String(config.color ?? '#ffffff'),
-    textureSize: positiveInteger(config.textureSize, `${prefix}.textureSize`),
-    seed: Number(config.seed) >>> 0,
-  };
-}
 
 function createPowderTexture(size) {
   const canvas = document.createElement('canvas');
