@@ -1,0 +1,10 @@
+trees:
+  highDistance: 170
+  billboardDistance: 4000
+  highHysteresis: 8
+  billboardHysteresis: 200
+  transitionDuration: 1
+  lodUpdateInterval: 0.1
+  billboard:
+    alphaTest: 0.4
+    anisotropy: 4
