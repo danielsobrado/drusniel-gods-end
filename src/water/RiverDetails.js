@@ -4,6 +4,10 @@ import { createSeededRandom } from '../core/math.js';
 import { riverField } from './riverNodes.js';
 import { coastX, coastXNode } from '../world/coast.js';
 
+function isLakeCrossing(sample, river) {
+  return sample.outletProgress <= 0 && sample.y <= river.lakeLevel + 0.05;
+}
+
 /** Bank stones share the shipped rock pack, with a local wet rock response. */
 export class RiverDetails {
   constructor(scene, river, terrain, sources = [], collisions) {
@@ -40,6 +44,7 @@ export class RiverDetails {
     const dummy = new THREE.Object3D();
     for (let i = 8; i < river.samples.length - 18; i += 2) {
       const p = river.samples[i];
+      if (isLakeCrossing(p, river)) continue;
       for (const side of [-1, 1]) {
         if (random() < 0.18) continue;
         const across = side * (p.width * 0.5 - 0.4 + random() ** 2 * 3.8);
@@ -59,6 +64,7 @@ export class RiverDetails {
     // Partly submerged stones break up the current, with open gaps for the ford.
     for (let i = 15; i < river.samples.length - 30; i += 13) {
       const p = river.samples[i];
+      if (isLakeCrossing(p, river)) continue;
       if ((p.slope ?? 0) > 0.45) continue;
       if (Math.hypot(p.x - 88, p.z + 19) < 12) continue;
       const across = (random() - 0.5) * p.width * 0.7;
