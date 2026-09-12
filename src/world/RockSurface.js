@@ -112,7 +112,7 @@ export function createRockSurfaceNodes({ config, colorTexture, roughnessTexture,
 
   const weights = normalWorld.abs().pow(rock.triplanarSharpness);
   const stoneTexture = triplanar(colorTexture, rock.triplanarScale, weights).rgb;
-  const roughnessTexture = triplanar(roughnessTexture, rock.triplanarScale, weights).r;
+  const roughnessSample = triplanar(roughnessTexture, rock.triplanarScale, weights).r;
   const grains = sin(world.x.mul(rock.grainFrequencyX)
     .add(sin(world.y.mul(rock.grainWarpFrequency))))
     .mul(sin(world.y.mul(rock.grainFrequencyZ)))
@@ -139,7 +139,7 @@ export function createRockSurfaceNodes({ config, colorTexture, roughnessTexture,
   const surfaceNormal = normalize(
     cameraViewMatrix.mul(vec4(normalize(normalWorld.add(normalDetail)), 0)).xyz,
   );
-  const sampledRoughness = mix(rock.dryRoughness, roughnessTexture, rock.roughnessTextureStrength);
+  const sampledRoughness = mix(rock.dryRoughness, roughnessSample, rock.roughnessTextureStrength);
   const surfaceRoughness = mix(sampledRoughness, rock.wetRoughness, wet);
 
   return { mask, color: surfaceColor, normal: surfaceNormal, roughness: surfaceRoughness };
