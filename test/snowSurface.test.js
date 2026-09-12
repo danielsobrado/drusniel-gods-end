@@ -5,6 +5,7 @@ import yaml from 'js-yaml';
 import { resolveSnowPowderConfig } from '../src/config/resolveSnowPowderConfig.js';
 import { validateSnowConfig } from '../src/config/validateSnowConfig.js';
 import { SnowDeformationField, sampleSnowCoverageCpu } from '../src/world/SnowDeformationField.js';
+import { advanceSnowPowderVelocity, snowWindVector } from '../src/world/SnowPowderPhysics.js';
 
 const snowConfig = yaml.load(fs.readFileSync(new URL('../public/snow.yaml', import.meta.url), 'utf8'));
 validateSnowConfig(snowConfig);
@@ -114,13 +115,37 @@ test('snow deformation samples outside its local window as empty', () => {
   field.dispose();
 });
 
-test('snow powder config resolves the configured local particle budget', () => {
+test('snow powder config resolves contact and ambient particle budgets', () => {
   const powder = resolveSnowPowderConfig(snowConfig.ground.snow.powder);
   assert.equal(powder.enabled, true);
-  assert.equal(powder.capacity, 144);
-  assert.equal(powder.particlesPerContact, 8);
+  assert.equal(powder.capacity, 768);
+  assert.equal(powder.particlesPerContact, 18);
+  assert.equal(powder.ambient.enabled, true);
+  assert.equal(powder.ambient.particlesPerSecond, 36);
   assert.ok(powder.lifetime.max >= powder.lifetime.min);
   assert.ok(powder.size.max >= powder.size.min);
+});
+
+test('snow powder velocity converges toward prevailing wind and terminal fall', () => {
+  const wind = snowWindVector(90, 2.4);
+  const velocity = new Float32Array([0, 2, 0]);
+  const physics = {
+    windX: wind.x,
+    windZ: wind.z,
+    drag: 5.2,
+    gravity: 9.81,
+    terminalFallSpeed: 1.9,
+  };
+  advanceSnowPowderVelocity(velocity, 0, 1 / 30, physics);
+  assert.ok(velocity[0] > 0);
+  assert.ok(Math.abs(velocity[2]) < 0.001);
+  assert.ok(velocity[1] < 2);
+
+  for (let index = 0; index < 180; index += 1) {
+    advanceSnowPowderVelocity(velocity, 0, 1 / 60, physics);
+  }
+  assert.ok(Math.abs(velocity[0] - 2.4) < 0.02);
+  assert.ok(Math.abs(velocity[1] + 1.9) < 0.02);
 });
 
 test('snow validation rejects invalid accumulation, deformation and powder settings', () => {
@@ -143,6 +168,11 @@ test('snow validation rejects invalid accumulation, deformation and powder setti
   assert.throws(() => validateSnowConfig(invalidPowderRange), /sizeMax must be greater/);
 
   const invalidPowderBudget = structuredClone(snowConfig);
-  invalidPowderBudget.ground.snow.powder.capacity = 144.5;
+  invalidPowderBudget.ground.snow.powder.capacity = 768.5;
   assert.throws(() => validateSnowConfig(invalidPowderBudget), /capacity must be an integer/);
+
+  const invalidAmbientRange = structuredClone(snowConfig);
+  invalidAmbientRange.ground.snow.powder.ambient.minHeight = 2;
+  invalidAmbientRange.ground.snow.powder.ambient.maxHeight = 1;
+  assert.throws(() => validateSnowConfig(invalidAmbientRange), /maxHeight must be greater/);
 });
