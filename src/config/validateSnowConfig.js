@@ -142,17 +142,17 @@ export function validateSnowConfig(config) {
 
   const powder = snow.powder;
   if (powder && object(powder, 'ground.snow.powder', problems) && powder.enabled !== false) {
-    integer(powder.capacity, 'ground.snow.powder.capacity', problems, { min: 1, max: 1024 });
+    integer(powder.capacity, 'ground.snow.powder.capacity', problems, { min: 1, max: 4096 });
     integer(powder.particlesPerContact, 'ground.snow.powder.particlesPerContact', problems, { min: 1, max: 64 });
     integer(powder.textureSize, 'ground.snow.powder.textureSize', problems, { min: 16, max: 256 });
     integer(powder.seed, 'ground.snow.powder.seed', problems, { min: 0, max: 4294967295 });
-    for (const name of ['runningMultiplier', 'emitDistance', 'contactHeight', 'normalSampleDistance']) {
+    for (const name of ['runningMultiplier', 'emitDistance', 'contactHeight', 'normalSampleDistance', 'settleFadeMultiplier']) {
       number(powder[name], `ground.snow.powder.${name}`, problems, { min: 0, exclusiveMin: true });
     }
-    for (const name of ['minCoverage', 'fadeStart', 'opacity']) {
+    for (const name of ['minCoverage', 'fadeStart', 'opacity', 'settleHorizontalRetention']) {
       number(powder[name], `ground.snow.powder.${name}`, problems, { min: 0, max: 1 });
     }
-    for (const name of ['spawnHeight', 'spread', 'sizeGrowth', 'drag', 'gravity']) {
+    for (const name of ['spawnHeight', 'spread', 'sizeGrowth', 'drag', 'gravity', 'windSpeed', 'terminalFallSpeed']) {
       number(powder[name], `ground.snow.powder.${name}`, problems, { min: 0 });
     }
     orderedRange(powder, 'lifetimeMin', 'lifetimeMax', 'ground.snow.powder', problems, { min: 0, exclusiveMin: true });
@@ -161,6 +161,16 @@ export function validateSnowConfig(config) {
     orderedRange(powder, 'verticalSpeedMin', 'verticalSpeedMax', 'ground.snow.powder', problems, { min: 0 });
     if (typeof powder.color !== 'string' || powder.color.length === 0) {
       problems.push('ground.snow.powder.color must be a color string');
+    }
+    const ambient = powder.ambient;
+    if (ambient && object(ambient, 'ground.snow.powder.ambient', problems) && ambient.enabled !== false) {
+      for (const name of ['particlesPerSecond', 'radius']) {
+        number(ambient[name], `ground.snow.powder.ambient.${name}`, problems, { min: 0, exclusiveMin: true });
+      }
+      orderedRange(ambient, 'minHeight', 'maxHeight', 'ground.snow.powder.ambient', problems, { min: 0 });
+      orderedRange(ambient, 'lifetimeMin', 'lifetimeMax', 'ground.snow.powder.ambient', problems, { min: 0, exclusiveMin: true });
+      orderedRange(ambient, 'sizeMin', 'sizeMax', 'ground.snow.powder.ambient', problems, { min: 0, exclusiveMin: true });
+      orderedRange(ambient, 'verticalSpeedMin', 'verticalSpeedMax', 'ground.snow.powder.ambient', problems, { min: 0 });
     }
   }
 
