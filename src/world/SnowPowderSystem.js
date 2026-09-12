@@ -1,10 +1,14 @@
 import * as THREE from 'three/webgpu';
 import { resolveSnowPowderConfig } from '../config/resolveSnowPowderConfig.js';
 import { sampleSnowCoverageCpu } from './SnowDeformationField.js';
+import { advanceSnowPowderVelocity, snowWindVector } from './SnowPowderPhysics.js';
 
 const UINT32_MAX_PLUS_ONE = 4294967296;
 const LCG_MULTIPLIER = 1664525;
 const LCG_INCREMENT = 1013904223;
+const AMBIENT_MAX_EMISSIONS_PER_FRAME = 8;
+const AMBIENT_HORIZONTAL_JITTER = 0.35;
+const AMBIENT_INITIAL_WIND_FACTOR = 0.25;
 
 function createPowderTexture(size) {
   const canvas = document.createElement('canvas');
@@ -46,6 +50,16 @@ export class SnowPowderSystem {
     this.cursor = 0;
     this.activeCount = 0;
     this.lastContacts = [];
+    this.ambientAccumulator = 0;
+    const wind = snowWindVector(config.ground.snow.wind.angleDegrees, this.config.windSpeed);
+    this.physics = {
+      windX: wind.x,
+      windZ: wind.z,
+      drag: this.config.drag,
+      gravity: this.config.gravity,
+      terminalFallSpeed: this.config.terminalFallSpeed,
+    };
+
     const capacity = this.config.capacity;
     this.positions = new Float32Array(capacity * 3);
     this.velocities = new Float32Array(capacity * 3);
@@ -78,13 +92,49 @@ export class SnowPowderSystem {
     scene.add(this.mesh);
   }
 
-  update(deltaSeconds, playerPosition, influencePoints = [], moving = false, running = false) {
+  update(deltaSeconds, focusPosition, influencePoints = [], moving = false, running = false) {
     if (!this.config.enabled) return;
     const delta = Math.min(Math.max(Number(deltaSeconds) || 0, 0), 0.1);
     this.#advance(delta);
-    if (moving && playerPosition) this.#emitFromContacts(influencePoints, running);
+    if (this.config.ambient.enabled && focusPosition) this.#emitAmbient(delta, focusPosition);
+    if (moving) this.#emitFromContacts(influencePoints, running);
     else this.lastContacts.length = 0;
     this.#syncInstances();
+  }
+
+  #emitAmbient(delta, focusPosition) {
+    this.ambientAccumulator += delta * this.config.ambient.particlesPerSecond;
+    const count = Math.min(Math.floor(this.ambientAccumulator), AMBIENT_MAX_EMISSIONS_PER_FRAME);
+    this.ambientAccumulator -= count;
+    for (let index = 0; index < count; index += 1) this.#spawnAmbient(focusPosition);
+  }
+
+  #spawnAmbient(focusPosition) {
+    const angle = this.#random() * Math.PI * 2;
+    const radius = Math.sqrt(this.#random()) * this.config.ambient.radius;
+    const x = Number(focusPosition.x) + Math.cos(angle) * radius;
+    const z = Number(focusPosition.z) + Math.sin(angle) * radius;
+    const surface = this.#sampleSnowSurface(x, z);
+    if (!surface || surface.coverage < this.config.minCoverage) return;
+
+    const position = {
+      x,
+      y: surface.y + this.#range(this.config.ambient.height.min, this.config.ambient.height.max),
+      z,
+    };
+    const velocity = {
+      x: this.physics.windX * AMBIENT_INITIAL_WIND_FACTOR
+        + this.#range(-AMBIENT_HORIZONTAL_JITTER, AMBIENT_HORIZONTAL_JITTER),
+      y: this.#range(this.config.ambient.verticalSpeed.min, this.config.ambient.verticalSpeed.max),
+      z: this.physics.windZ * AMBIENT_INITIAL_WIND_FACTOR
+        + this.#range(-AMBIENT_HORIZONTAL_JITTER, AMBIENT_HORIZONTAL_JITTER),
+    };
+    this.#spawnParticle(
+      position,
+      velocity,
+      this.#range(this.config.ambient.size.min, this.config.ambient.size.max),
+      this.#range(this.config.ambient.lifetime.min, this.config.ambient.lifetime.max),
+    );
   }
 
   #emitFromContacts(points, running) {
@@ -100,7 +150,7 @@ export class SnowPowderSystem {
       this.lastContacts[index] = { x: contact.x, z: contact.z };
       const multiplier = running ? this.config.runningMultiplier : 1;
       const count = Math.max(1, Math.round(this.config.particlesPerContact * multiplier * contact.coverage));
-      for (let i = 0; i < count; i += 1) this.#spawn(contact);
+      for (let i = 0; i < count; i += 1) this.#spawnContact(contact);
     }
     if (this.lastContacts.length > points.length) this.lastContacts.length = points.length;
   }
@@ -111,49 +161,75 @@ export class SnowPowderSystem {
     const x = Number(position.x);
     const z = Number(position.z);
     if (!Number.isFinite(x) || !Number.isFinite(z)) return null;
-    const terrainHeight = this.terrainSampler.sampleHeight(x, z);
-    if (!Number.isFinite(terrainHeight)) return null;
+    const surface = this.#sampleSnowSurface(x, z);
+    if (!surface || surface.coverage < this.config.minCoverage) return null;
     const radius = Number.isFinite(Number(point.radius)) && Number(point.radius) > 0 ? Number(point.radius) : 0;
     if (Number.isFinite(Number(position.y))) {
       const y = Number(position.y);
-      if (y - radius > terrainHeight + this.config.contactHeight
-        || y + radius < terrainHeight - this.config.contactHeight) return null;
+      if (y - radius > surface.y + this.config.contactHeight
+        || y + radius < surface.y - this.config.contactHeight) return null;
     }
-    const step = this.config.normalSampleDistance;
-    const dx = this.terrainSampler.sampleHeight(x + step, z) - this.terrainSampler.sampleHeight(x - step, z);
-    const dz = this.terrainSampler.sampleHeight(x, z + step) - this.terrainSampler.sampleHeight(x, z - step);
-    const normalY = 1 / Math.sqrt(1 + (dx / (step * 2)) ** 2 + (dz / (step * 2)) ** 2);
-    const coverage = sampleSnowCoverageCpu(x, terrainHeight, z, normalY, this.rootConfig);
-    if (coverage < this.config.minCoverage) return null;
-    return { x, y: terrainHeight + this.config.spawnHeight, z, coverage };
+    return { x, y: surface.y + this.config.spawnHeight, z, coverage: surface.coverage };
   }
 
-  #spawn(contact) {
+  #sampleSnowSurface(x, z) {
+    const terrainHeight = this.terrainSampler.sampleHeight(x, z);
+    if (!Number.isFinite(terrainHeight)) return null;
+    const step = this.config.normalSampleDistance;
+    const xp = this.terrainSampler.sampleHeight(x + step, z);
+    const xm = this.terrainSampler.sampleHeight(x - step, z);
+    const zp = this.terrainSampler.sampleHeight(x, z + step);
+    const zm = this.terrainSampler.sampleHeight(x, z - step);
+    if (![xp, xm, zp, zm].every(Number.isFinite)) return null;
+    const dx = xp - xm;
+    const dz = zp - zm;
+    const normalY = 1 / Math.sqrt(1 + (dx / (step * 2)) ** 2 + (dz / (step * 2)) ** 2);
+    return {
+      y: terrainHeight,
+      coverage: sampleSnowCoverageCpu(x, terrainHeight, z, normalY, this.rootConfig),
+    };
+  }
+
+  #spawnContact(contact) {
+    const angle = this.#random() * Math.PI * 2;
+    const radial = Math.sqrt(this.#random()) * this.config.spread;
+    const speed = this.#range(this.config.horizontalSpeed.min, this.config.horizontalSpeed.max);
+    const velocityAngle = angle + (this.#random() - 0.5) * Math.PI;
+    this.#spawnParticle(
+      {
+        x: contact.x + Math.cos(angle) * radial,
+        y: contact.y + this.#random() * this.config.spawnHeight,
+        z: contact.z + Math.sin(angle) * radial,
+      },
+      {
+        x: Math.cos(velocityAngle) * speed,
+        y: this.#range(this.config.verticalSpeed.min, this.config.verticalSpeed.max),
+        z: Math.sin(velocityAngle) * speed,
+      },
+      this.#range(this.config.size.min, this.config.size.max),
+      this.#range(this.config.lifetime.min, this.config.lifetime.max),
+    );
+  }
+
+  #spawnParticle(position, velocity, size, lifetime) {
     const index = this.cursor;
     this.cursor = (this.cursor + 1) % this.config.capacity;
     if (!this.active[index]) this.activeCount += 1;
     this.active[index] = 1;
     this.ages[index] = 0;
-    this.lifetimes[index] = this.#range(this.config.lifetime.min, this.config.lifetime.max);
-    this.sizes[index] = this.#range(this.config.size.min, this.config.size.max);
-
-    const angle = this.#random() * Math.PI * 2;
-    const radial = Math.sqrt(this.#random()) * this.config.spread;
-    const positionOffset = index * 3;
-    this.positions[positionOffset] = contact.x + Math.cos(angle) * radial;
-    this.positions[positionOffset + 1] = contact.y + this.#random() * this.config.spawnHeight;
-    this.positions[positionOffset + 2] = contact.z + Math.sin(angle) * radial;
-
-    const speed = this.#range(this.config.horizontalSpeed.min, this.config.horizontalSpeed.max);
-    const velocityAngle = angle + (this.#random() - 0.5) * Math.PI;
-    this.velocities[positionOffset] = Math.cos(velocityAngle) * speed;
-    this.velocities[positionOffset + 1] = this.#range(this.config.verticalSpeed.min, this.config.verticalSpeed.max);
-    this.velocities[positionOffset + 2] = Math.sin(velocityAngle) * speed;
+    this.lifetimes[index] = lifetime;
+    this.sizes[index] = size;
+    const offset = index * 3;
+    this.positions[offset] = position.x;
+    this.positions[offset + 1] = position.y;
+    this.positions[offset + 2] = position.z;
+    this.velocities[offset] = velocity.x;
+    this.velocities[offset + 1] = velocity.y;
+    this.velocities[offset + 2] = velocity.z;
   }
 
   #advance(delta) {
     if (delta <= 0 || this.activeCount === 0) return;
-    const drag = Math.exp(-this.config.drag * delta);
     for (let index = 0; index < this.config.capacity; index += 1) {
       if (!this.active[index]) continue;
       this.ages[index] += delta;
@@ -163,12 +239,19 @@ export class SnowPowderSystem {
         continue;
       }
       const offset = index * 3;
-      this.velocities[offset] *= drag;
-      this.velocities[offset + 2] *= drag;
-      this.velocities[offset + 1] -= this.config.gravity * delta;
+      advanceSnowPowderVelocity(this.velocities, offset, delta, this.physics);
       this.positions[offset] += this.velocities[offset] * delta;
       this.positions[offset + 1] += this.velocities[offset + 1] * delta;
       this.positions[offset + 2] += this.velocities[offset + 2] * delta;
+
+      const ground = this.terrainSampler.sampleHeight(this.positions[offset], this.positions[offset + 2]);
+      if (Number.isFinite(ground) && this.positions[offset + 1] < ground) {
+        this.positions[offset + 1] = ground;
+        this.velocities[offset] *= this.config.settleHorizontalRetention;
+        this.velocities[offset + 1] = 0;
+        this.velocities[offset + 2] *= this.config.settleHorizontalRetention;
+        this.ages[index] += delta * this.config.settleFadeMultiplier;
+      }
     }
   }
 
