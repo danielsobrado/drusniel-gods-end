@@ -87,6 +87,14 @@ export class WorldNavigation {
 
   update(deltaSeconds) {
     this.freeFly.update(deltaSeconds);
+    const walking = !this.freeFly.active && !this.tour.active
+      && this.player.enabled && this.player.moving && this.player.grounded;
+    this.world.snowDeformation?.update(
+      deltaSeconds,
+      this.player.getPosition(),
+      this.player.getInfluencePoints(),
+      walking,
+    );
   }
 
   getFocusPosition() {
