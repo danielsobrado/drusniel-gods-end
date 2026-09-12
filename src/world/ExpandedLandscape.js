@@ -4,6 +4,13 @@ import { fractalNoise } from '../grass/vegetationEcology.js';
 import { createSeededRandom } from '../core/math.js';
 import { LandscapePaths, forestWeight } from './LandscapePaths.js';
 import { coastalHeight, sampleCoastField } from './CoastField.js';
+import {
+  alpineDistance,
+  alpineTreeAllowed,
+  resolveAlpineConfig,
+  shapeAlpineHeight,
+} from './AlpineRegion.js';
+import { refineTerrainRegion } from './TerrainRefinement.js';
 
 const smooth = (a, b, x) => THREE.MathUtils.smoothstep(x, a, b);
 
@@ -63,6 +70,7 @@ function refineCorridor(positions, uvs, indices, river) {
 export function expandLandscape(target, original, config) {
   const settings = config.terrain.expansion;
   if (!settings?.enabled || !target?.isMesh) return null;
+  const alpine = resolveAlpineConfig(config);
   const width = settings.width ?? settings.size, depth = settings.depth ?? settings.size;
   const [centerX, centerZ] = settings.center ?? [0, 0];
   const naturalHeight = (x, z) => {
@@ -72,15 +80,19 @@ export function expandLandscape(target, original, config) {
     const old = original.sampleHeight(cx, cz);
     const outer = 14 + fractalNoise(x * 0.007, z * 0.007, 64, 4) * 24;
     const base = THREE.MathUtils.lerp(old, outer, smooth(0, 170, edgeDistance));
-    return coastalHeight(x, z, base + mountainHeight(x, z) * smooth(210, 325, -z), config.water.sea);
+    const mountain = base + mountainHeight(x, z) * smooth(210, 325, -z);
+    const coast = coastalHeight(x, z, mountain, config.water.sea);
+    return shapeAlpineHeight(x, z, coast, alpine);
   };
+  const routes = [...(settings.routes ?? [])];
+  if (alpine?.route) routes.push(alpine.route);
   const paths = new LandscapePaths(
     width,
     depth,
     centerX,
     centerZ,
     config.water.sea?.enabled,
-    settings.routes,
+    routes,
     naturalHeight,
   );
   const baseHeight = (x, z) => paths.conformHeight(x, z, naturalHeight(x, z));
@@ -99,7 +111,19 @@ export function expandLandscape(target, original, config) {
     const a = j * (segmentsX + 1) + i, b = a + 1, c = a + segmentsX + 1, d = c + 1;
     indices.push(a, c, b, b, c, d);
   }
-  const refined = river ? refineCorridor(positions, uvs, indices, river) : indices;
+
+  let refined = indices;
+  if (alpine?.refinePasses > 0) {
+    refined = refineTerrainRegion({
+      positions,
+      uvs,
+      indices: refined,
+      passes: alpine.refinePasses,
+      shouldRefine: (x, z) => alpineDistance(x, z, alpine) <= alpine.refineRadius,
+      sampleHeight: baseHeight,
+    });
+  }
+  if (river) refined = refineCorridor(positions, uvs, refined, river);
   if (river) for (let i = 0; i < positions.length; i += 3) {
     positions[i + 1] = river.carve(positions[i], positions[i + 2], positions[i + 1]);
   }
@@ -115,19 +139,19 @@ export function expandLandscape(target, original, config) {
   const previous = target.geometry;
   target.geometry = geometry;
   river?.createTexture();
-  return { river, paths, original, baseHeight, dispose() { target.geometry = previous; geometry.dispose(); river?.dispose(); paths.dispose(); original.texture?.dispose(); } };
+  return { river, paths, original, baseHeight, alpine, dispose() { target.geometry = previous; geometry.dispose(); river?.dispose(); paths.dispose(); original.texture?.dispose(); } };
 }
 
 export function adaptLandscapeRecords(trees, props, expansion, terrain) {
   if (!expansion) return { trees, props };
-  const { original, river } = expansion;
+  const { original, river, alpine } = expansion;
   const rebase = records => (records ?? []).filter(p => !river || (river.sample(p[0], p[2])?.edge ?? 100) > 5)
     .map(p => {
       const record = [...p];
       record[1] += terrain.sampleHeight(p[0], p[2]) - original.sampleHeight(p[0], p[2]);
       return record;
     });
-  const result = rebase(trees);
+  const result = rebase(trees).filter(p => alpineTreeAllowed(p[0], p[1], p[2], alpine));
   const random = createSeededRandom(29173);
   for (let z = terrain.bounds.min.z + 30; z < terrain.bounds.max.z - 30; z += 28) {
     for (let x = terrain.bounds.min.x + 30; x < terrain.bounds.max.x - 30; x += 28) {
@@ -138,6 +162,7 @@ export function adaptLandscapeRecords(trees, props, expansion, terrain) {
       if (sea?.enabled && sampleCoastField(px, pz, 0, sea).signedCoastDistance > -105) continue;
       const slope = Math.hypot(terrain.sampleHeight(px + 3, pz) - py, terrain.sampleHeight(px, pz + 3) - py) / 3;
       if (py < -15 || py > 100 || slope > 0.65 || random() > 0.55 || (river?.sample(px, pz)?.edge ?? 100) < 9) continue;
+      if (!alpineTreeAllowed(px, py, pz, alpine)) continue;
       result.push([px, py, pz, random() * Math.PI * 2, 0.8 + random() * 0.5, Math.floor(random() * 9)]);
     }
   }
@@ -148,7 +173,9 @@ export function adaptLandscapeRecords(trees, props, expansion, terrain) {
     const key = `${Math.round(px / 12)},${Math.round(pz / 12)}`;
     if (occupied.has(key)) continue;
     occupied.add(key);
-    result.push([px, terrain.sampleHeight(px, pz), pz, random() * Math.PI * 2, 1.05 + random() * 0.65, Math.floor(random() * 9)]);
+    const py = terrain.sampleHeight(px, pz);
+    if (!alpineTreeAllowed(px, py, pz, alpine)) continue;
+    result.push([px, py, pz, random() * Math.PI * 2, 1.05 + random() * 0.65, Math.floor(random() * 9)]);
   }
   return { trees: result, props: { stones: rebase(props.stones), lanterns: rebase(props.lanterns) } };
 }
