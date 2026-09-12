@@ -1,0 +1,64 @@
+ground:
+  snow:
+    enabled: true
+    altitude:
+      start: 92
+      full: 142
+    slope:
+      start: 0.42
+      full: 0.78
+    wind:
+      angleDegrees: 35
+      driftFrequency: 0.018
+      crossFrequency: 0.031
+      exposureFrequency: 0.011
+      exposureCrossFrequency: 0.017
+      warp: 1.8
+      driftHeight: 14
+      scourStrength: 9
+    sastrugi:
+      frequency: 0.42
+      crossFrequency: 0.19
+      warp: 1.8
+      amplitude: 0.13
+      secondaryFrequency: 0.9
+      secondaryAmplitude: 0.045
+    ripples:
+      frequency: 1.9
+      crossFrequency: 0.73
+      amplitude: 0.035
+    grain:
+      frequencyX: 13.7
+      frequencyZ: 17.3
+      amplitude: 0.018
+      fadeStart: 12
+      fadeEnd: 100
+    colors:
+      shadow: '#a9c4d3'
+      base: '#e1ecec'
+      sun: '#f7fbf7'
+      driftVariation: 0.08
+    roughness:
+      base: 0.76
+      compressed: 0.52
+      berm: 0.82
+    lighting:
+      sssStrength: 0.07
+      backscatterPower: 4
+      glintStrength: 0.16
+      glintPower: 90
+      sparkleFrequency: 11
+    deformation:
+      enabled: true
+      resolution: 512
+      worldSize: 64
+      paintMinCoverage: 0.35
+      footRadiusScale: 1.3
+      depressionStrength: 0.95
+      bermStrength: 0.55
+      normalStrength: 0.18
+      darkenStrength: 0.16
+      bermLighten: 0.1
+      decaySeconds: 90
+      bermDecaySeconds: 45
+      recoveryInterval: 0.2
