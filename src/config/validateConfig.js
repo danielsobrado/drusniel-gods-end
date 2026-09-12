@@ -36,6 +36,8 @@ const REQUIRED_OBJECTS = [
   ['sun', 'createWorld'],
   ['hemisphere', 'createWorld'],
   ['ambient', 'createWorld'],
+  ['navigation', 'WorldNavigation'],
+  ['navigation.freeFly', 'FreeFlyController'],
 ];
 
 function resolve(config, path) {
@@ -45,6 +47,50 @@ function resolve(config, path) {
     current = current[segment];
   }
   return current;
+}
+
+function validateNavigation(config, problems) {
+  const freeFly = config.navigation?.freeFly;
+  for (const name of ['moveSpeed', 'fastMultiplier', 'lookSensitivity']) {
+    const value = Number(freeFly?.[name]);
+    if (!(value > 0) || !Number.isFinite(value)) {
+      problems.push(`navigation.freeFly.${name} must be a positive finite number`);
+    }
+  }
+  const minPitch = Number(freeFly?.minPitch);
+  const maxPitch = Number(freeFly?.maxPitch);
+  if (!Number.isFinite(minPitch) || !Number.isFinite(maxPitch) || minPitch >= maxPitch) {
+    problems.push('navigation.freeFly pitch limits must be finite and minPitch must be lower than maxPitch');
+  }
+
+  const locations = config.navigation?.locations;
+  if (!Array.isArray(locations) || locations.length === 0) {
+    problems.push('navigation.locations must contain at least one destination');
+    return;
+  }
+
+  const ids = new Set();
+  for (const location of locations) {
+    if (!location?.id || !location?.label) {
+      problems.push('every navigation location requires id and label');
+      continue;
+    }
+    if (ids.has(location.id)) problems.push(`navigation location id "${location.id}" is duplicated`);
+    ids.add(location.id);
+    if (!['ground', 'fly'].includes(location.mode)) {
+      problems.push(`navigation location "${location.id}" has invalid mode "${location.mode}"`);
+      continue;
+    }
+    const expectedLength = location.mode === 'fly' ? 3 : 2;
+    if (!Array.isArray(location.position) || location.position.length !== expectedLength
+      || location.position.some((value) => !Number.isFinite(Number(value)))) {
+      problems.push(`navigation location "${location.id}" has an invalid position`);
+    }
+    if (location.target && (!Array.isArray(location.target) || location.target.length !== 3
+      || location.target.some((value) => !Number.isFinite(Number(value))))) {
+      problems.push(`navigation location "${location.id}" has an invalid target`);
+    }
+  }
 }
 
 export function validateConfig(config) {
@@ -93,6 +139,8 @@ export function validateConfig(config) {
       problems.push(`quality.${name}.fogMultiplier is missing or not a number`);
     }
   }
+
+  validateNavigation(config, problems);
 
   if (problems.length > 0) {
     throw new Error(
