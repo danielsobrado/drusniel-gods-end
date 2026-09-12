@@ -6,6 +6,7 @@ export const CONFIG_FILES = [
   'ground-material.yaml',
   'player-controls.yaml',
   'visual-parity.yaml',
+  'tree-rendering.yaml',
   'character-visual.yaml',
   'cinematic-wind.yaml',
   'cinematic-look.yaml',

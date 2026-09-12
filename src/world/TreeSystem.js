@@ -1,8 +1,6 @@
-import { getPresetAppearance } from '../rendering/PresetAppearance.js';
 import * as THREE from 'three/webgpu';
-import { attribute, texture, uv, vec3, vec4 } from 'three/tsl';
+import { attribute, texture, uv, vec4 } from 'three/tsl';
 import { adventureCanopyColor } from '../rendering/AdventurePalette.js';
-import { foliageLight } from '../rendering/CinematicLighting.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { createRandom } from '../utils/random.js';
 import { logger } from '../utils/logger.js';
@@ -11,8 +9,6 @@ import { TreeLeafMaterialFactory } from './TreeLeafMaterial.js';
 const LOD_HIGH = 0;
 const LOD_BILLBOARD = 1;
 const LOD_HIDDEN = 2;
-const BILLBOARD_ALPHA_TEST = 0.4;
-const BILLBOARD_ANISOTROPY = 16;
 const MIN_TRANSITION_SECONDS = 0.001;
 const TREE_RAIN_ROUGHNESS = 0.4;
 const DEFAULT_UPDATE_SECONDS = 1 / 60;
@@ -92,26 +88,26 @@ function bakeBillboardGeometry(root, mesh) {
 }
 
 function createBillboardMaterial(sourceMaterial, opacityAttributeName, config) {
-  const material = new THREE.MeshStandardNodeMaterial();
+  const billboardConfig = config.trees.billboard;
+  const material = new THREE.MeshBasicNodeMaterial();
   material.map = sourceMaterial?.map ?? null;
   if (material.map) {
     material.map.minFilter = THREE.LinearMipmapLinearFilter;
     material.map.magFilter = THREE.LinearFilter;
-    material.map.anisotropy = BILLBOARD_ANISOTROPY;
+    material.map.anisotropy = billboardConfig.anisotropy;
   }
   material.color.copy(sourceMaterial?.color ?? new THREE.Color(1, 1, 1));
   material.side = THREE.DoubleSide;
   material.transparent = false;
   material.depthWrite = true;
-  material.alphaTest = BILLBOARD_ALPHA_TEST;
+  material.alphaTest = billboardConfig.alphaTest;
   material.alphaToCoverage = Boolean(config.cinematic?.enabled);
+  material.fog = true;
   material.opacityNode = attribute(opacityAttributeName, 'float');
-  material.normalNode = vec3(0, 1, 0);
   if (config.cinematic?.enabled && config.cinematic.style?.enabled && material.map) {
     const leafSample = texture(material.map, uv());
     const canopy = adventureCanopyColor(leafSample.rgb, config);
     material.colorNode = vec4(canopy, leafSample.a);
-    material.emissiveNode = canopy.mul(foliageLight.fill).mul(getPresetAppearance(config).foliageFill);
   }
   return material;
 }
