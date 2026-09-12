@@ -26,6 +26,10 @@ import { biomeCoverage } from './BiomeLod.js';
 
 export function createBiomeMeshMaterial({
   map,
+  normalMap,
+  roughnessMap,
+  metalnessMap,
+  normalScale,
   color,
   roughness,
   metalness,
@@ -42,13 +46,19 @@ export function createBiomeMeshMaterial({
   coverage = null,
   tint,
   wind = true,
+  backlight = true,
+  side = THREE.DoubleSide,
 }) {
   const material = new THREE.MeshStandardNodeMaterial();
   material.map = map ?? null;
+  material.normalMap = normalMap ?? null;
+  material.roughnessMap = roughnessMap ?? null;
+  material.metalnessMap = metalnessMap ?? null;
+  if (normalScale?.isVector2) material.normalScale.copy(normalScale);
   if (color) material.color.copy(color);
   material.roughness = roughness ?? 0.86;
   material.metalness = metalness ?? 0;
-  material.side = THREE.DoubleSide;
+  material.side = side;
   material.transparent = false;
   material.depthWrite = true;
   material.alphaTestNode = float(cutoff);
@@ -72,7 +82,7 @@ export function createBiomeMeshMaterial({
     const sample = texture(map, uv());
     const pigment = tint ? sample.rgb.mul(tint) : sample.rgb;
     material.colorNode = vec4(pigment, sample.a);
-    if (cinematic) {
+    if (cinematic && backlight) {
       material.emissiveNode = foliageBacklight(
         pigment,
         config?.cinematic?.vegetation?.backlight ?? 0.28,
