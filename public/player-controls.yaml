@@ -47,7 +47,7 @@ navigation:
     minPitch: -1.553
     maxPitch: 1.553
   scenicTour:
-    durationSeconds: 42
+    durationSeconds: 30
     returnDurationSeconds: 1.5
     lookAheadDistance: 24
     orientationSharpness: 7
