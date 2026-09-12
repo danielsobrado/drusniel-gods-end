@@ -16,6 +16,20 @@ export function createSeaNodes(sea, clock, rain) {
     const s = sin(phase).toVar();
     return s.add(s.mul(s).sub(0.5).mul(sharpness)).div(sharpness.mul(0.5).add(1));
   });
+  const nearshorePhase = Fn(([p]) => {
+    const detail = params.detail;
+    const distance = coast.distance(p);
+    const spacing = sin(p.y.mul(detail.nearshoreSpacingFrequency))
+      .mul(detail.nearshoreSpacingVariation);
+    const spatialFrequency = Math.PI * 2 / params.coast.wave.wavelength;
+    const spacingOffset = distance.mul(spatialFrequency).mul(spacing);
+    const cross = sin(p.y.mul(detail.nearshoreLongFrequency)
+      .add(distance.mul(detail.nearshoreCrossFrequency))).mul(detail.nearshoreWarp);
+    const counter = sin(p.y.mul(detail.nearshoreCrossFrequency * 0.73)
+      .sub(distance.mul(detail.nearshoreLongFrequency * 1.37)))
+      .mul(detail.nearshoreWarp * 0.45);
+    return coast.beachPhase(p).add(spacingOffset).add(cross).add(counter);
+  });
   const height = Fn(([p]) => {
     const swell = float(0).toVar();
     for (const wave of SEA_COMPONENTS) {
@@ -27,7 +41,7 @@ export function createSeaNodes(sea, clock, rain) {
       ).mul(wave.weight));
     }
     return mix(
-      shape(coast.beachPhase(p), rain.mul(0.2).add(0.45)),
+      shape(nearshorePhase(p), rain.mul(0.2).add(0.45)),
       swell,
       offshore(p),
     ).mul(amplitude(p));
