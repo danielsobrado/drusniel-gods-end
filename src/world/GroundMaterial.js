@@ -32,6 +32,7 @@ import { getPresetAppearance, sampleReferenceField } from '../rendering/PresetAp
 import { groundGrassTexture, groundRoughness as turfRoughness, groundTurf } from '../rendering/GroundTurf.js';
 import { riverField } from '../water/riverNodes.js';
 import { advanceBeachMoisture, createCoastNodes, resolveCoastConfig } from './CoastField.js';
+import { createGroundTextureSamples } from './GroundTextureBlend.js';
 import { createRockSurfaceNodes } from './RockSurface.js';
 import { createSnowSurfaceNodes } from './SnowSurface.js';
 
@@ -172,9 +173,16 @@ export async function createGroundMaterial(config, terrainSampler = null, snowDe
   const grassSample = config.cinematic?.enabled
     ? groundGrassTexture(grassColor, grassUv, positionWorld.xz).toVar()
     : texture(grassColor, grassUv).rgb;
-  const groundSample = texture(groundColor, groundUv);
-  const normalSample = texture(groundNormal, groundUv);
-  const roughnessSample = texture(groundRoughness, groundUv).r;
+  const groundSamples = createGroundTextureSamples({
+    config,
+    colorTexture: groundColor,
+    normalTexture: groundNormal,
+    roughnessTexture: groundRoughness,
+    primaryUv: groundUv,
+  });
+  const groundSample = groundSamples.color;
+  const normalSample = groundSamples.normal;
+  const roughnessSample = groundSamples.roughness;
   const blendUv = config.terrain.expansion?.enabled
     ? positionWorld.xz.add(480).div(960).clamp(0, 1)
     : meadowStyle && terrainSampler
