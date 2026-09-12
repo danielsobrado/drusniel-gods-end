@@ -24,16 +24,17 @@ export function createWaterGeometry(params, river) {
     const samples = [...river.samples];
     const first = samples[0], last = samples.at(-1);
     samples.unshift({ ...first, x: first.x - first.dx * first.width, z: first.z - first.dz * first.width });
-    const tailDistance = last.outletProgress > 0 ? OUTLET_TAIL_DISTANCE : last.width;
+    const tailDistance = (last.outletProgress ?? 0) > 0 ? OUTLET_TAIL_DISTANCE : last.width;
     samples.push({ ...last, x: last.x + last.dx * tailDistance, z: last.z + last.dz * tailDistance });
     const columns = 16;
     for (let i = 0; i < samples.length; i += 1) {
       const p = samples[i], next = samples[Math.min(i + 1, samples.length - 1)];
       const slope = Math.max(0, (p.y - next.y) / Math.max(1, next.s - p.s));
+      const outletProgress = p.outletProgress ?? 0;
       const inletStrength = THREE.MathUtils.smoothstep(p.y - river.lakeLevel, 0, 2);
       const inletSpeed = (0.9 + Math.min(2.8, slope * 7)) * inletStrength + MIN_RIVER_SPEED;
-      const outletSpeed = OUTLET_BASE_SPEED + Math.min(1.4, slope * 12) + p.outletProgress * OUTLET_SPEED_GAIN;
-      const speed = THREE.MathUtils.lerp(inletSpeed, outletSpeed, p.outletProgress ?? 0);
+      const outletSpeed = OUTLET_BASE_SPEED + Math.min(1.4, slope * 12) + outletProgress * OUTLET_SPEED_GAIN;
+      const speed = THREE.MathUtils.lerp(inletSpeed, outletSpeed, outletProgress);
       for (let j = 0; j <= columns; j += 1) {
         const across = (j / columns * 2 - 1) * (p.width / 2 + 2);
         const relief = THREE.MathUtils.smoothstep(p.slope ?? slope, 0.2, 0.8)
