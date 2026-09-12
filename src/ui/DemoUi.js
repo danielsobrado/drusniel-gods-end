@@ -65,6 +65,10 @@ export class DemoUi {
       value: key,
       label: quality.label,
     }));
+    const locationOptions = this.actions.getTeleportLocations?.() ?? [];
+    const locationControl = locationOptions.length > 0
+      ? choiceControl('location', 'Teleport', locationOptions, locationOptions[0].value)
+      : '';
     const initialPreset = this.config.presets[this.currentPreset];
     const initialGrass = this.actions.getGrassParameters?.(grassFamily(this.currentGrassShape))
       ?? initialPreset.grass[grassFamily(this.currentGrassShape)];
@@ -76,9 +80,10 @@ export class DemoUi {
 
     overlay.innerHTML = `
       <div class="scene-heading"><span class="scene-eyebrow">DRUSNIEL / EXPLORATION</span><h1>THE WILDS</h1><p>A living landscape</p></div>
-      <div class="scene-actions"><button type="button" data-tour>Take a scenic tour <span>30 SEC</span></button><button class="mobile-panel-toggle" type="button" data-panel-toggle aria-expanded="false" aria-controls="scene-settings">Scene settings</button></div>
+      <div class="scene-actions"><button type="button" data-tour>Take a scenic tour <span>30 SEC</span></button><button type="button" data-free-fly>Free fly <span>F</span></button><button class="mobile-panel-toggle" type="button" data-panel-toggle aria-expanded="false" aria-controls="scene-settings">Scene settings</button></div>
       <section class="controls panel" id="scene-settings" data-controls-panel hidden>
         <strong class="controls-title">Shape the atmosphere</strong>
+        ${locationControl}
         ${choiceControl('preset', 'Preset', presetOptions, this.currentPreset)}
         ${choiceControl('grassShape', 'Grass Shape', grassOptions, this.currentGrassShape)}
         ${choiceControl('quality', 'Quality', qualityOptions, this.config.ui.initialQuality)}
@@ -97,8 +102,10 @@ export class DemoUi {
         <div class="reference-brand"><strong data-scene-preset>${initialPreset.label}</strong><span>EXPLORE AT YOUR OWN PACE</span></div>
         <div class="control-hints">
           <div><strong>MOUSE</strong><span>Look around</span></div>
-          <div><strong>WASD</strong><span>Walk</span></div>
-          <div><strong>SHIFT</strong><span>Run</span></div>
+          <div><strong>WASD</strong><span>Move</span></div>
+          <div><strong>SHIFT</strong><span>Run / fly fast</span></div>
+          <div><strong>F</strong><span>Free fly</span></div>
+          <div class="fly-only-hint"><strong>SPACE / CTRL</strong><span>Fly up / down</span></div>
           <div><strong>H</strong><span>Hide interface</span></div>
         </div>
       </section>`;
@@ -126,6 +133,7 @@ export class DemoUi {
       panelToggle.setAttribute('aria-expanded', String(open));
     }, { signal });
     overlay.querySelector('[data-tour]').addEventListener('click', () => this.actions.toggleTour(), { signal });
+    overlay.querySelector('[data-free-fly]').addEventListener('click', () => this.actions.toggleFreeFly(), { signal });
     window.addEventListener('keydown', event => {
       if (event.target.matches?.('input, textarea, select, [contenteditable="true"]')) return;
       if (event.code === 'KeyH') overlay.classList.toggle('interface-hidden');
@@ -203,6 +211,10 @@ export class DemoUi {
     });
     this.#closeChoices(overlay);
 
+    if (name === 'location') {
+      this.actions.teleportToLocation(value);
+      return;
+    }
     if (name === 'preset') {
       this.currentPreset = value;
       this.#syncAfterTransition(overlay, this.actions.setPreset(value));
@@ -254,6 +266,15 @@ export class DemoUi {
       this.tourActive = tour;
       this.element.querySelector('[data-tour]').innerHTML = tour ? 'Return to exploration <span>ESC</span>' : 'Take a scenic tour <span>30 SEC</span>';
       this.element.classList.toggle('tour-active', tour);
+    }
+
+    const freeFly = this.actions.isFreeFlyActive?.() ?? false;
+    if (freeFly !== this.freeFlyActive) {
+      this.freeFlyActive = freeFly;
+      const button = this.element.querySelector('[data-free-fly]');
+      button.innerHTML = freeFly ? 'Return to character <span>F / ESC</span>' : 'Free fly <span>F</span>';
+      button.classList.toggle('active', freeFly);
+      this.element.classList.toggle('free-fly-active', freeFly);
     }
 
     if (!this.config.ui.showStats) return;
