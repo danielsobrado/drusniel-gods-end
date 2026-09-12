@@ -24,6 +24,20 @@ function interval(value, path, problems) {
   }
 }
 
+function integer(value, path, problems, options) {
+  const numeric = number(value, path, problems, options);
+  if (Number.isFinite(numeric) && !Number.isInteger(numeric)) problems.push(`${path} must be an integer`);
+  return numeric;
+}
+
+function orderedRange(config, minKey, maxKey, path, problems, options = {}) {
+  const min = number(config[minKey], `${path}.${minKey}`, problems, options);
+  const max = number(config[maxKey], `${path}.${maxKey}`, problems, options);
+  if (Number.isFinite(min) && Number.isFinite(max) && max < min) {
+    problems.push(`${path}.${maxKey} must be greater than or equal to ${path}.${minKey}`);
+  }
+}
+
 export function validateSnowConfig(config) {
   const snow = config.ground?.snow;
   if (!snow?.enabled) return config;
@@ -99,10 +113,7 @@ export function validateSnowConfig(config) {
 
   const deformation = snow.deformation;
   if (object(deformation, 'ground.snow.deformation', problems) && deformation.enabled !== false) {
-    const resolution = number(deformation.resolution, 'ground.snow.deformation.resolution', problems, { min: 64, max: 2048 });
-    if (Number.isFinite(resolution) && !Number.isInteger(resolution)) {
-      problems.push('ground.snow.deformation.resolution must be an integer');
-    }
+    const resolution = integer(deformation.resolution, 'ground.snow.deformation.resolution', problems, { min: 64, max: 2048 });
     const worldSize = number(deformation.worldSize, 'ground.snow.deformation.worldSize', problems, { min: 1, exclusiveMin: true });
     for (const name of ['paintMinCoverage', 'depressionStrength', 'bermStrength']) {
       number(deformation[name], `ground.snow.deformation.${name}`, problems, { min: 0, max: 1 });
@@ -125,6 +136,31 @@ export function validateSnowConfig(config) {
     }
     for (const name of ['normalStrength', 'darkenStrength', 'bermLighten']) {
       number(deformation[name], `ground.snow.deformation.${name}`, problems, { min: 0 });
+    }
+    void resolution;
+  }
+
+  const powder = snow.powder;
+  if (powder && object(powder, 'ground.snow.powder', problems) && powder.enabled !== false) {
+    integer(powder.capacity, 'ground.snow.powder.capacity', problems, { min: 1, max: 1024 });
+    integer(powder.particlesPerContact, 'ground.snow.powder.particlesPerContact', problems, { min: 1, max: 64 });
+    integer(powder.textureSize, 'ground.snow.powder.textureSize', problems, { min: 16, max: 256 });
+    integer(powder.seed, 'ground.snow.powder.seed', problems, { min: 0, max: 4294967295 });
+    for (const name of ['runningMultiplier', 'emitDistance', 'contactHeight', 'normalSampleDistance']) {
+      number(powder[name], `ground.snow.powder.${name}`, problems, { min: 0, exclusiveMin: true });
+    }
+    for (const name of ['minCoverage', 'fadeStart', 'opacity']) {
+      number(powder[name], `ground.snow.powder.${name}`, problems, { min: 0, max: 1 });
+    }
+    for (const name of ['spawnHeight', 'spread', 'sizeGrowth', 'drag', 'gravity']) {
+      number(powder[name], `ground.snow.powder.${name}`, problems, { min: 0 });
+    }
+    orderedRange(powder, 'lifetimeMin', 'lifetimeMax', 'ground.snow.powder', problems, { min: 0, exclusiveMin: true });
+    orderedRange(powder, 'sizeMin', 'sizeMax', 'ground.snow.powder', problems, { min: 0, exclusiveMin: true });
+    orderedRange(powder, 'horizontalSpeedMin', 'horizontalSpeedMax', 'ground.snow.powder', problems, { min: 0 });
+    orderedRange(powder, 'verticalSpeedMin', 'verticalSpeedMax', 'ground.snow.powder', problems, { min: 0 });
+    if (typeof powder.color !== 'string' || powder.color.length === 0) {
+      problems.push('ground.snow.powder.color must be a color string');
     }
   }
 
