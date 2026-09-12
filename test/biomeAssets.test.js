@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import * as THREE from 'three';
 import { createSyntheticCatalog } from '../src/biome/BiomeAssets.js';
 import {
   ASSET_LIMITS, FAR_VIEWS, MAX_HULL_VERTICES, MAX_MAIN_BATCHES, MAX_SHADOW_BATCHES,
@@ -7,6 +8,7 @@ import {
 } from '../src/biome/BiomeCatalog.js';
 import { reduceConvexPoints } from '../src/biome/convexHull.js';
 import { BiomeLod } from '../src/biome/BiomeLod.js';
+import { harmonizeRockMaterials } from '../src/world/rockPack.js';
 
 test('synthetic catalog stays inside triangle, atlas and hull limits', () => {
   const catalog = createSyntheticCatalog();
@@ -49,6 +51,34 @@ test('complementary LOD bands overlap and rocks keep mid geometry', () => {
   lod.partition(origins, 3, camera, 18, 24, 55, 65, { rocks: true });
   assert.equal(lod.farCount, 0);
   assert.ok(lod.midCount >= 1);
+});
+
+test('rock pack fills missing PBR maps without replacing authored maps', () => {
+  const geometry = new THREE.BoxGeometry(1, 1, 1);
+  const colorMap = new THREE.Texture();
+  const normalMap = new THREE.Texture();
+  const roughnessMap = new THREE.Texture();
+  const preservedMap = new THREE.Texture();
+  const referenceMaterial = new THREE.MeshStandardMaterial({ map: colorMap, normalMap, roughnessMap });
+  const targetMaterial = new THREE.MeshStandardMaterial({ map: preservedMap, color: '#829178' });
+  const reference = new THREE.Mesh(geometry, referenceMaterial);
+  const target = new THREE.Mesh(geometry.clone(), targetMaterial);
+
+  harmonizeRockMaterials([reference, target]);
+
+  assert.equal(targetMaterial.map, preservedMap);
+  assert.equal(targetMaterial.normalMap, normalMap);
+  assert.equal(targetMaterial.roughnessMap, roughnessMap);
+  assert.equal(targetMaterial.color.getHexString(), '829178');
+
+  geometry.dispose();
+  target.geometry.dispose();
+  referenceMaterial.dispose();
+  targetMaterial.dispose();
+  colorMap.dispose();
+  normalMap.dispose();
+  roughnessMap.dispose();
+  preservedMap.dispose();
 });
 
 test('batch budgets stay at 13 main and 3 shadow', () => {
