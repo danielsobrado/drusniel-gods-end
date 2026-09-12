@@ -91,6 +91,9 @@ export class WorldNavigation {
       && this.player.enabled && this.player.moving && this.player.grounded;
     const playerPosition = this.player.getPosition();
     const influencePoints = walking ? this.player.getInfluencePoints() : [];
+    const powderFocus = this.tour.active || this.freeFly.active
+      ? this.world.camera.position
+      : playerPosition;
     this.world.snowDeformation?.update(
       deltaSeconds,
       playerPosition,
@@ -99,7 +102,7 @@ export class WorldNavigation {
     );
     this.world.snowPowder?.update(
       deltaSeconds,
-      playerPosition,
+      powderFocus,
       influencePoints,
       walking,
       this.player.running,
