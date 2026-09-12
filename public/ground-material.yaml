@@ -5,4 +5,46 @@ ground:
   grassTextureScale: 150
   groundTextureScale: 70
   anisotropy: 16
-  metalness: 0.5
+  metalness: 0.04
+  rock:
+    highland:
+      start: 48
+      full: 100
+    cliffSlope:
+      start: 0.55
+      full: 0.88
+    cliffAltitude:
+      start: 22
+      full: 55
+    highlandStrength: 0.85
+    cliffStrength: 1.0
+    riverBankStrength: 1.0
+    lakeBedStrength: 1.0
+    rockyArea:
+      center: [390, -220]
+      radius: [170, 160]
+      inner: 0.3
+      outer: 1.1
+      strength: 0.95
+    triplanarScale: 0.18
+    triplanarSharpness: 4.0
+    textureStrength: 0.62
+    textureBias: 0.62
+    grainFrequencyX: 8.3
+    grainFrequencyZ: 11.1
+    grainWarpFrequency: 5.7
+    grainAmplitude: 0.08
+    strataFrequency: 0.55
+    strataMacroInfluence: 3.0
+    strataAmplitude: 0.06
+    normalFrequency: [1.35, 1.9, 1.6]
+    normalStrength: 0.2
+    dryRoughness: 0.9
+    wetRoughness: 0.38
+    roughnessTextureStrength: 0.32
+    colors:
+      shadow: '#56615d'
+      sun: '#9f9684'
+      lake: '#85897b'
+    lakeColorStrength: 0.55
+    wetDarkening: 0.28
