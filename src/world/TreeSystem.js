@@ -44,7 +44,12 @@ function hash01(value) {
 function resolveTreeAppearance(index, position, config) {
   const appearance = config.trees.appearance ?? {};
   const seed = (index + 1) * 12.9898 + position.x * 0.031 + position.z * 0.047;
-  const retention = THREE.MathUtils.clamp(Number(appearance.retention) || 1, 0, 1);
+  const requestedRetention = Number(appearance.retention);
+  const retention = THREE.MathUtils.clamp(
+    Number.isFinite(requestedRetention) ? requestedRetention : 1,
+    0,
+    1,
+  );
   const scaleVariation = Math.max(0, Number(appearance.scaleVariation) || 0);
   const brightnessVariation = Math.max(0, Number(appearance.brightnessVariation) || 0);
   const greenVariation = Math.max(0, Number(appearance.greenVariation) || 0);
