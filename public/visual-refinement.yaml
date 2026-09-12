@@ -97,14 +97,13 @@ trees:
 
 water:
   sea:
+    detail:
+      nearshoreLongFrequency: 0.021
+      nearshoreCrossFrequency: 0.047
+      nearshoreWarp: 0.34
+      nearshoreSpacingFrequency: 0.009
+      nearshoreSpacingVariation: 0.13
     coast:
-      wave:
-        secondaryBendFrequency: 0.031
-        secondaryBend: 0.24
-        crossFrequency: 0.047
-        crossBend: 0.18
-        spacingFrequency: 0.011
-        spacingVariation: 0.13
       sand:
         inlandStart: -180
         inlandEnd: -78
@@ -121,9 +120,5 @@ water:
         density: 0.42
         inlandMin: 18
         inlandMax: 132
-        pebbleWeight: 0.42
-        shellWeight: 0.25
-        twigWeight: 0.25
-        driftwoodWeight: 0.08
-        driftwoodScaleMin: 4.5
-        driftwoodScaleMax: 8.5
+        sizeMin: 0.07
+        sizeMax: 0.27
