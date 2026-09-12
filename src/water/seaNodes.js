@@ -24,9 +24,10 @@ export function createSeaNodes(sea, clock, rain) {
     const spatialFrequency = Math.PI * 2 / params.coast.wave.wavelength;
     const spacingOffset = distance.mul(spatialFrequency).mul(spacing);
     const cross = sin(p.y.mul(detail.nearshoreLongFrequency)
-      .add(distance.mul(detail.nearshoreCrossFrequency))).mul(detail.nearshoreWarp);
+      .add(sin(p.y.mul(detail.nearshoreCrossFrequency)).mul(1.7)))
+      .mul(detail.nearshoreWarp);
     const counter = sin(p.y.mul(detail.nearshoreCrossFrequency * 0.73)
-      .sub(distance.mul(detail.nearshoreLongFrequency * 1.37)))
+      .add(sin(p.y.mul(detail.nearshoreLongFrequency * 1.37))))
       .mul(detail.nearshoreWarp * 0.45);
     return coast.beachPhase(p).add(spacingOffset).add(cross).add(counter);
   });
