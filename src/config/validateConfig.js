@@ -52,6 +52,11 @@ function resolve(config, path) {
   return current;
 }
 
+function isFinitePair(value) {
+  return Array.isArray(value) && value.length === 2
+    && value.every((item) => Number.isFinite(Number(item)));
+}
+
 function validateTrees(config, problems) {
   const trees = config.trees;
   for (const name of ['highDistance', 'billboardDistance', 'transitionDuration', 'lodUpdateInterval']) {
@@ -80,6 +85,31 @@ function validateTrees(config, problems) {
   const anisotropy = Number(trees?.billboard?.anisotropy);
   if (!(anisotropy >= 1) || !Number.isFinite(anisotropy)) {
     problems.push('trees.billboard.anisotropy must be a finite number greater than or equal to one');
+  }
+}
+
+function validateScenicRiverViews(scenicTour, problems) {
+  const views = scenicTour?.riverViews;
+  if (!Array.isArray(views) || views.length < 2) {
+    problems.push('navigation.scenicTour.riverViews must contain at least two views');
+    return;
+  }
+  let previousFraction = -1;
+  for (let index = 0; index < views.length; index += 1) {
+    const view = views[index];
+    const fraction = Number(view?.fraction);
+    if (!Number.isFinite(fraction) || fraction < 0 || fraction > 1 || fraction <= previousFraction) {
+      problems.push('navigation.scenicTour.riverViews fractions must be strictly increasing in [0, 1]');
+      break;
+    }
+    previousFraction = fraction;
+    if (!Number.isFinite(Number(view?.offset))) {
+      problems.push(`navigation.scenicTour.riverViews[${index}].offset must be finite`);
+    }
+    const lift = Number(view?.lift);
+    if (!(lift > 0) || !Number.isFinite(lift)) {
+      problems.push(`navigation.scenicTour.riverViews[${index}].lift must be a positive finite number`);
+    }
   }
 }
 
@@ -122,10 +152,10 @@ function validateNavigation(config, problems) {
   if (Number.isFinite(seaLookBlendStart) && (seaLookBlendStart < 0 || seaLookBlendStart >= 1)) {
     problems.push('navigation.scenicTour.seaLookBlendStart must be in [0, 1)');
   }
-  if (!Array.isArray(scenicTour?.seaFocusXZ) || scenicTour.seaFocusXZ.length !== 2
-    || scenicTour.seaFocusXZ.some((value) => !Number.isFinite(Number(value)))) {
+  if (!isFinitePair(scenicTour?.seaFocusXZ)) {
     problems.push('navigation.scenicTour.seaFocusXZ must contain two finite numbers');
   }
+  validateScenicRiverViews(scenicTour, problems);
 
   const locations = config.navigation?.locations;
   if (!Array.isArray(locations) || locations.length === 0) {
@@ -153,6 +183,60 @@ function validateNavigation(config, problems) {
     if (location.target && (!Array.isArray(location.target) || location.target.length !== 3
       || location.target.some((value) => !Number.isFinite(Number(value))))) {
       problems.push(`navigation location "${location.id}" has an invalid target`);
+    }
+  }
+}
+
+function validateLandscapeTravel(config, problems) {
+  const expansion = config.terrain?.expansion;
+  if (expansion?.enabled && expansion.routes !== undefined) {
+    if (!Array.isArray(expansion.routes)) {
+      problems.push('terrain.expansion.routes must be an array');
+    } else {
+      for (let index = 0; index < expansion.routes.length; index += 1) {
+        const route = expansion.routes[index];
+        const prefix = `terrain.expansion.routes[${index}]`;
+        if (!route?.name) problems.push(`${prefix}.name is required`);
+        if (!(Number(route?.width) > 0) || !Number.isFinite(Number(route?.width))) {
+          problems.push(`${prefix}.width must be a positive finite number`);
+        }
+        if (!Array.isArray(route?.points) || route.points.length < 2 || !route.points.every(isFinitePair)) {
+          problems.push(`${prefix}.points must contain at least two finite X/Z pairs`);
+        }
+        if (route?.walkable) {
+          const terrainWidth = Number(route.terrainWidth);
+          if (!(terrainWidth > Number(route.width)) || !Number.isFinite(terrainWidth)) {
+            problems.push(`${prefix}.terrainWidth must be greater than its route width`);
+          }
+          const maxGrade = Number(route.maxGrade);
+          if (!(maxGrade > 0) || !Number.isFinite(maxGrade)) {
+            problems.push(`${prefix}.maxGrade must be a positive finite number`);
+          }
+        }
+      }
+    }
+  }
+
+  const river = config.water?.river;
+  if (!river?.enabled || river.outletStartIndex === undefined) return;
+  if (!Array.isArray(river.points) || river.points.length < 3) {
+    problems.push('water.river.points must contain at least three points for an outlet');
+    return;
+  }
+  const outletStartIndex = Number(river.outletStartIndex);
+  if (!Number.isInteger(outletStartIndex) || outletStartIndex <= 0 || outletStartIndex >= river.points.length - 1) {
+    problems.push('water.river.outletStartIndex must reference an interior control point');
+  }
+  const outletLevel = Number(river.outletLevel);
+  if (!Number.isFinite(outletLevel)) problems.push('water.river.outletLevel must be finite');
+  const lakeLevel = Number(config.water?.position?.[1]);
+  if (Number.isFinite(outletLevel) && Number.isFinite(lakeLevel) && outletLevel >= lakeLevel) {
+    problems.push('water.river.outletLevel must be below the lake level');
+  }
+  for (const name of ['outletBankBlend', 'outletDepth', 'mouthDepth']) {
+    const value = Number(river[name]);
+    if (!(value > 0) || !Number.isFinite(value)) {
+      problems.push(`water.river.${name} must be a positive finite number`);
     }
   }
 }
@@ -206,6 +290,7 @@ export function validateConfig(config) {
 
   validateTrees(config, problems);
   validateNavigation(config, problems);
+  validateLandscapeTravel(config, problems);
 
   if (problems.length > 0) {
     throw new Error(
