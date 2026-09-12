@@ -38,10 +38,10 @@ test('nearshore wave refinement bends fronts and varies spacing without changing
   assert.equal(nearshoreWavePhase(1.25, distance, 0, sea), 1.25);
 
   const z = 140;
-  const first = nearshoreWavePhase(1.25, distance, z, sea);
-  const second = nearshoreWavePhase(1.25, distance * 2, z, sea);
-  assert.notEqual(first, 1.25);
   const baseDelta = distance * Math.PI * 2 / sea.coast.wave.wavelength;
+  const first = nearshoreWavePhase(1.25, distance, z, sea);
+  const second = nearshoreWavePhase(1.25 + baseDelta, distance * 2, z, sea);
+  assert.notEqual(first, 1.25);
   assert.ok(Math.abs((second - first) - baseDelta) > 0.01);
 });
 
