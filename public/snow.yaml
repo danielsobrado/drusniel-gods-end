@@ -17,37 +17,37 @@ ground:
       driftHeight: 18
       scourStrength: 11
     sastrugi:
-      frequency: 0.42
-      crossFrequency: 0.19
-      warp: 1.8
-      macroFrequency: 0.028
-      macroCrossFrequency: 0.021
-      macroWarp: 4.2
-      amplitudeVariation: 0.28
-      amplitude: 0.21
-      secondaryFrequency: 0.9
-      secondaryAmplitude: 0.065
+      frequency: 0.33
+      crossFrequency: 0.23
+      warp: 2.35
+      macroFrequency: 0.024
+      macroCrossFrequency: 0.019
+      macroWarp: 5.4
+      amplitudeVariation: 0.58
+      amplitude: 0.085
+      secondaryFrequency: 0.79
+      secondaryAmplitude: 0.026
     ripples:
-      frequency: 1.9
-      crossFrequency: 0.73
-      macroFrequency: 0.057
-      macroWarp: 1.35
-      amplitude: 0.05
+      frequency: 1.55
+      crossFrequency: 0.81
+      macroFrequency: 0.049
+      macroWarp: 1.8
+      amplitude: 0.018
     grain:
       frequencyX: 13.7
       frequencyZ: 17.3
-      amplitude: 0.024
+      amplitude: 0.028
       fadeStart: 14
       fadeEnd: 110
     colors:
       shadow: '#91afc1'
       base: '#d9e5e8'
       sun: '#f4f8f7'
-      driftVariation: 0.11
+      driftVariation: 0.075
     surfaceTone:
-      sastrugiContrast: 0.055
-      rippleContrast: 0.018
-      exposureContrast: 0.04
+      sastrugiContrast: 0.016
+      rippleContrast: 0.005
+      exposureContrast: 0.026
     roughness:
       base: 0.78
       compressed: 0.48
