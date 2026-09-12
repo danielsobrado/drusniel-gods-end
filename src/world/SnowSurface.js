@@ -20,6 +20,7 @@ import {
 import { foliageLight } from '../rendering/CinematicLighting.js';
 
 const HALF_PI = Math.PI * 0.5;
+const DEFORMATION_NEUTRAL = 128 / 255;
 
 function positiveNumber(value, name) {
   const number = Number(value);
@@ -138,7 +139,7 @@ export function createSnowSurfaceNodes(config, deformationField = null) {
   const grainZ = sin(world.y.mul(snow.grain.frequencyZ))
     .mul(snow.grain.amplitude).mul(grainFade);
 
-  let deform = vec4(0, 0, 0.5, 0.5);
+  let deform = vec4(0, 0, DEFORMATION_NEUTRAL, DEFORMATION_NEUTRAL);
   let deformInside = float(0);
   if (deformationField?.config?.enabled) {
     const center = uniform(deformationField.center);
@@ -151,8 +152,8 @@ export function createSnowSurfaceNodes(config, deformationField = null) {
   }
   const depression = deform.x.mul(deformInside).mul(mask).toVar();
   const berm = deform.y.mul(deformInside).mul(mask).toVar();
-  const deformGradient = vec2(deform.z.sub(0.5), deform.w.sub(0.5)).mul(2).mul(deformInside)
-    .mul(Number(snow.deformation.normalStrength));
+  const deformGradient = vec2(deform.z.sub(DEFORMATION_NEUTRAL), deform.w.sub(DEFORMATION_NEUTRAL))
+    .mul(2).mul(deformInside).mul(Number(snow.deformation.normalStrength));
 
   const alongGradient = sastrugiDerivative.add(secondaryDerivative).add(rippleAlong);
   const acrossGradient = sastrugiCrossDerivative.add(rippleAcross);
