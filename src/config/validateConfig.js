@@ -38,6 +38,7 @@ const REQUIRED_OBJECTS = [
   ['ambient', 'createWorld'],
   ['navigation', 'WorldNavigation'],
   ['navigation.freeFly', 'FreeFlyController'],
+  ['navigation.scenicTour', 'ScenicTour'],
 ];
 
 function resolve(config, path) {
@@ -61,6 +62,36 @@ function validateNavigation(config, problems) {
   const maxPitch = Number(freeFly?.maxPitch);
   if (!Number.isFinite(minPitch) || !Number.isFinite(maxPitch) || minPitch >= maxPitch) {
     problems.push('navigation.freeFly pitch limits must be finite and minPitch must be lower than maxPitch');
+  }
+
+  const scenicTour = config.navigation?.scenicTour;
+  for (const name of ['durationSeconds', 'returnDurationSeconds', 'lookAheadDistance', 'orientationSharpness']) {
+    const value = Number(scenicTour?.[name]);
+    if (!(value > 0) || !Number.isFinite(value)) {
+      problems.push(`navigation.scenicTour.${name} must be a positive finite number`);
+    }
+  }
+  const durationSeconds = Number(scenicTour?.durationSeconds);
+  const returnDurationSeconds = Number(scenicTour?.returnDurationSeconds);
+  if (Number.isFinite(durationSeconds) && Number.isFinite(returnDurationSeconds)
+    && returnDurationSeconds >= durationSeconds) {
+    problems.push('navigation.scenicTour.returnDurationSeconds must be lower than durationSeconds');
+  }
+  for (const name of ['terrainClearance', 'targetDrop', 'seaLookBlendStart', 'seaFocusHeightOffset']) {
+    if (!Number.isFinite(Number(scenicTour?.[name]))) {
+      problems.push(`navigation.scenicTour.${name} must be a finite number`);
+    }
+  }
+  if (Number(scenicTour?.terrainClearance) < 0) {
+    problems.push('navigation.scenicTour.terrainClearance must not be negative');
+  }
+  const seaLookBlendStart = Number(scenicTour?.seaLookBlendStart);
+  if (Number.isFinite(seaLookBlendStart) && (seaLookBlendStart < 0 || seaLookBlendStart >= 1)) {
+    problems.push('navigation.scenicTour.seaLookBlendStart must be in [0, 1)');
+  }
+  if (!Array.isArray(scenicTour?.seaFocusXZ) || scenicTour.seaFocusXZ.length !== 2
+    || scenicTour.seaFocusXZ.some((value) => !Number.isFinite(Number(value)))) {
+    problems.push('navigation.scenicTour.seaFocusXZ must contain two finite numbers');
   }
 
   const locations = config.navigation?.locations;

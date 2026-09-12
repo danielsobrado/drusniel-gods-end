@@ -31,6 +31,7 @@ export class WorldNavigation {
     this.world = world;
     this.player = player;
     this.tour = tour;
+    this.tour.configure?.(config.navigation?.scenicTour);
     this.locations = validateLocations(config.navigation?.locations);
     this.locationById = new Map(this.locations.map((location) => [location.id, location]));
     this.freeFly = new FreeFlyController({
