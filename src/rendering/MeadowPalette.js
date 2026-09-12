@@ -1,6 +1,6 @@
 import { Color } from 'three/webgpu';
 import { getPresetAppearance, sampleReferenceField } from './PresetAppearance.js';
-import { Fn, dot, floor, fract, mix, sin, smoothstep, uniform, vec2, vec3 } from 'three/tsl';
+import { color, dot, floor, fract, mix, sin, smoothstep, uniform, vec2, vec3 } from 'three/tsl';
 
 const palettes = new WeakMap();
 
@@ -20,16 +20,14 @@ export function setMeadowPalette(config, grass) {
   palette.tip.value.set(grass.tipColor);
 }
 
-// Smooth, stationary world-space patches. Both surfaces sample the same field;
-// grass samples at its root, so wind and LOD changes cannot move its pigment.
-const meadowNoise = Fn(([p]) => {
+const meadowNoise = (([p]) => {
   const cell = floor(p);
   const local = fract(p);
   const weight = local.mul(local).mul(local.mul(-2).add(3));
   const hash = offset => fract(sin(dot(cell.add(offset), vec2(127.1, 311.7))).mul(43758.5453));
   return mix(mix(hash(vec2(0, 0)), hash(vec2(1, 0)), weight.x),
     mix(hash(vec2(0, 1)), hash(vec2(1, 1)), weight.x), weight.y);
-}, 'float');
+});
 
 export function meadowColors(worldXZ, config, reference = false) {
   const style = config.cinematic.style;
@@ -41,13 +39,31 @@ export function meadowColors(worldXZ, config, reference = false) {
     const tip = mix(palette.tip, appearance.dryTip, field.r);
     return { root: mix(base, tip, appearance.groundTipMix).mul(mix(0.9, 1.05, field.g)), tip };
   }
+
   const scale = style.meadowPatchScale ?? 0.035;
   const patch = meadowNoise(worldXZ.mul(scale)).mul(0.8)
     .add(meadowNoise(worldXZ.mul(scale * 2.7).add(19.3)).mul(0.2));
-  const tint = mix(vec3(0.84, 0.97, 1.03), vec3(1.13, 1.04, 0.77), smoothstep(0.15, 0.85, patch)).toVar();
+  const cool = style.meadowTintCool ?? [0.84, 0.97, 1.03];
+  const warm = style.meadowTintWarm ?? [1.13, 1.04, 0.77];
+  const tint = mix(
+    vec3(Number(cool[0]), Number(cool[1]), Number(cool[2])),
+    vec3(Number(warm[0]), Number(warm[1]), Number(warm[2])),
+    smoothstep(0.15, 0.85, patch),
+  ).toVar();
+
+  const dryPatch = meadowNoise(worldXZ.mul(style.meadowDryPatchScale ?? 0.011).add(53.7));
+  const dryAmount = smoothstep(
+    style.meadowDryPatchStart ?? 0.56,
+    style.meadowDryPatchEnd ?? 0.84,
+    dryPatch,
+  ).mul(style.meadowDryStrength ?? 0);
+  const dryColor = color(style.meadowDryTint ?? '#777455');
+  const root = mix(palette.base, palette.tip, appearance.groundTipMix).mul(tint);
+  const tip = palette.tip.mul(tint);
+
   return {
-    root: mix(palette.base, palette.tip, appearance.groundTipMix).mul(tint),
-    tip: palette.tip.mul(tint),
+    root: mix(root, dryColor, dryAmount),
+    tip: mix(tip, dryColor.mul(1.06), dryAmount.mul(0.45)),
   };
 }
 
