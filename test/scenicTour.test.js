@@ -13,6 +13,10 @@ const TOUR_CONFIG = Object.freeze({
   seaLookBlendStart: 0.88,
   seaFocusXZ: [1500, 65],
   seaFocusHeightOffset: 2,
+  riverViews: [
+    { fraction: 0.05, offset: 20, lift: 25 },
+    { fraction: 0.95, offset: -15, lift: 12 },
+  ],
 });
 
 function playerStub() {
@@ -105,4 +109,18 @@ test('scenic tour eases back to the saved camera instead of snapping at the rout
   assert.ok(world.camera.position.distanceTo(saved) < 1e-9);
   assert.equal(player.enabled, true);
   assert.equal(player.root.visible, true);
+});
+
+test('scenic tour rejects unordered river view fractions', () => {
+  const { tour } = createTour();
+  assert.throws(
+    () => tour.configure({
+      ...TOUR_CONFIG,
+      riverViews: [
+        { fraction: 0.7, offset: 10, lift: 20 },
+        { fraction: 0.3, offset: 10, lift: 20 },
+      ],
+    }),
+    /strictly increasing/,
+  );
 });
