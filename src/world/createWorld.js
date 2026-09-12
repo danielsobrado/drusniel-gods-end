@@ -14,6 +14,7 @@ import { expandLandscape } from './ExpandedLandscape.js';
 import { createBeachScatter, disposeBeachScatter } from './BeachScatter.js';
 import { createCoastalGroundcover, disposeCoastalGroundcover } from './CoastalGroundcover.js';
 import { SnowDeformationField } from './SnowDeformationField.js';
+import { SnowPowderSystem } from './SnowPowderSystem.js';
 
 const DEFAULT_SHADOW = {
   mobileBreakpoint: 768,
@@ -167,6 +168,11 @@ export async function createWorld(config, onProgress = () => {}, { signal, rende
       : null;
     if (snowDeformation) scope.defer(() => snowDeformation.dispose());
 
+    const snowPowder = config.ground.snow?.enabled && config.ground.snow.powder?.enabled
+      ? new SnowPowderSystem({ scene, camera, terrainSampler, config })
+      : null;
+    if (snowPowder) scope.defer(() => snowPowder.dispose());
+
     let groundMaterial;
     try {
       groundMaterial = await createGroundMaterial(config, terrainSampler, snowDeformation);
@@ -227,6 +233,7 @@ export async function createWorld(config, onProgress = () => {}, { signal, rende
       terrainSampler,
       expansion,
       snowDeformation,
+      snowPowder,
       sky,
       clouds,
       ...lights,
