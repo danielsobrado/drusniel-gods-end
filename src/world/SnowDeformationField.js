@@ -15,15 +15,25 @@ function positiveNumber(value, name) {
   return number;
 }
 
+function positiveInteger(value, name) {
+  const number = positiveNumber(value, name);
+  if (!Number.isInteger(number)) throw new Error(`${name} must be a positive integer.`);
+  return number;
+}
+
 function unitNumber(value, name) {
   const number = Number(value);
   if (!Number.isFinite(number) || number < 0 || number > 1) throw new Error(`${name} must be in [0, 1].`);
   return number;
 }
 
+function emptySample() {
+  return { depression: 0, berm: 0, gradientX: 0, gradientZ: 0 };
+}
+
 export function resolveSnowDeformationConfig(config) {
   if (!config) throw new Error('ground.snow.deformation configuration is required.');
-  const resolution = Math.round(positiveNumber(config.resolution, 'ground.snow.deformation.resolution'));
+  const resolution = positiveInteger(config.resolution, 'ground.snow.deformation.resolution');
   const minRadius = positiveNumber(config.minRadius, 'ground.snow.deformation.minRadius');
   const maxRadius = positiveNumber(config.maxRadius, 'ground.snow.deformation.maxRadius');
   if (maxRadius < minRadius) throw new Error('ground.snow.deformation.maxRadius must be >= minRadius.');
@@ -138,7 +148,16 @@ export class SnowDeformationField {
     const x = position.x;
     const z = position.z;
     const terrainHeight = this.terrainSampler.sampleHeight(x, z);
-    if (Number.isFinite(position.y) && position.y > terrainHeight + this.config.contactHeight) return false;
+    const sourceRadius = Number(point.radius);
+    const contactRadius = Number.isFinite(sourceRadius) && sourceRadius > 0
+      ? sourceRadius
+      : this.config.minRadius;
+    if (Number.isFinite(position.y)) {
+      const bottom = position.y - contactRadius;
+      const top = position.y + contactRadius;
+      if (bottom > terrainHeight + this.config.contactHeight
+        || top < terrainHeight - this.config.contactHeight) return false;
+    }
 
     const step = Math.max(0.4, this.config.worldSize / this.config.resolution * 2);
     const dx = this.terrainSampler.sampleHeight(x + step, z) - this.terrainSampler.sampleHeight(x - step, z);
@@ -147,9 +166,7 @@ export class SnowDeformationField {
     const coverage = sampleSnowCoverageCpu(x, terrainHeight, z, normalY, this.rootConfig);
     if (coverage < this.config.paintMinCoverage) return false;
 
-    const sourceRadius = Number(point.radius);
-    const requestedRadius = (Number.isFinite(sourceRadius) && sourceRadius > 0 ? sourceRadius : this.config.minRadius)
-      * this.config.footRadiusScale;
+    const requestedRadius = contactRadius * this.config.footRadiusScale;
     const radius = THREE.MathUtils.clamp(requestedRadius, this.config.minRadius, this.config.maxRadius);
     const centerX = ((x - this.center.x) / this.config.worldSize + 0.5) * this.config.resolution;
     const centerY = ((z - this.center.y) / this.config.worldSize + 0.5) * this.config.resolution;
@@ -174,7 +191,7 @@ export class SnowDeformationField {
           const depression = Math.round(BYTE_MAX * this.config.depressionStrength * coverage * falloff);
           if (depression > this.pixels[offset + DEPRESSION]) {
             this.pixels[offset + DEPRESSION] = depression;
-            const directionScale = distance > MIN_RADIUS ? Math.min(1, falloff * 1.4) : 0;
+            const directionScale = distance > MIN_RADIUS ? depression / BYTE_MAX : 0;
             this.pixels[offset + GRADIENT_X] = Math.round(NEUTRAL_GRADIENT + vx * directionScale * 127);
             this.pixels[offset + GRADIENT_Z] = Math.round(NEUTRAL_GRADIENT + vz * directionScale * 127);
             this.peak = Math.max(this.peak, depression);
@@ -209,12 +226,17 @@ export class SnowDeformationField {
       const berm = Math.floor(this.pixels[index + BERM] * bermFactor);
       this.pixels[index + DEPRESSION] = depression;
       this.pixels[index + BERM] = berm;
-      this.pixels[index + GRADIENT_X] = Math.round(
-        NEUTRAL_GRADIENT + (this.pixels[index + GRADIENT_X] - NEUTRAL_GRADIENT) * depressionFactor,
-      );
-      this.pixels[index + GRADIENT_Z] = Math.round(
-        NEUTRAL_GRADIENT + (this.pixels[index + GRADIENT_Z] - NEUTRAL_GRADIENT) * depressionFactor,
-      );
+      if (depression === 0) {
+        this.pixels[index + GRADIENT_X] = NEUTRAL_GRADIENT;
+        this.pixels[index + GRADIENT_Z] = NEUTRAL_GRADIENT;
+      } else {
+        this.pixels[index + GRADIENT_X] = Math.round(
+          NEUTRAL_GRADIENT + (this.pixels[index + GRADIENT_X] - NEUTRAL_GRADIENT) * depressionFactor,
+        );
+        this.pixels[index + GRADIENT_Z] = Math.round(
+          NEUTRAL_GRADIENT + (this.pixels[index + GRADIENT_Z] - NEUTRAL_GRADIENT) * depressionFactor,
+        );
+      }
       peak = Math.max(peak, depression, berm);
     }
     this.peak = peak;
@@ -223,6 +245,7 @@ export class SnowDeformationField {
 
   #scrollPixels(shiftX, shiftY) {
     this.#clear(this.scrollPixels);
+    let peak = 0;
     for (let y = 0; y < this.config.resolution; y += 1) {
       const sourceY = y + shiftY;
       if (sourceY < 0 || sourceY >= this.config.resolution) continue;
@@ -231,13 +254,18 @@ export class SnowDeformationField {
         if (sourceX < 0 || sourceX >= this.config.resolution) continue;
         const target = (y * this.config.resolution + x) * CHANNELS;
         const source = (sourceY * this.config.resolution + sourceX) * CHANNELS;
-        this.scrollPixels[target] = this.pixels[source];
-        this.scrollPixels[target + 1] = this.pixels[source + 1];
-        this.scrollPixels[target + 2] = this.pixels[source + 2];
-        this.scrollPixels[target + 3] = this.pixels[source + 3];
+        const depression = this.pixels[source + DEPRESSION];
+        const berm = this.pixels[source + BERM];
+        this.scrollPixels[target + DEPRESSION] = depression;
+        this.scrollPixels[target + BERM] = berm;
+        this.scrollPixels[target + GRADIENT_X] = this.pixels[source + GRADIENT_X];
+        this.scrollPixels[target + GRADIENT_Z] = this.pixels[source + GRADIENT_Z];
+        peak = Math.max(peak, depression, berm);
       }
     }
     this.pixels.set(this.scrollPixels);
+    this.peak = peak;
+    if (peak === 0) this.recoveryElapsed = 0;
     this.texture.needsUpdate = true;
   }
 
@@ -257,9 +285,10 @@ export class SnowDeformationField {
   }
 
   sampleAt(x, z) {
-    if (!this.centerInitialized) return { depression: 0, berm: 0, gradientX: 0, gradientZ: 0 };
-    const u = THREE.MathUtils.clamp((x - this.center.x) / this.config.worldSize + 0.5, 0, 1);
-    const v = THREE.MathUtils.clamp((z - this.center.y) / this.config.worldSize + 0.5, 0, 1);
+    if (!this.centerInitialized) return emptySample();
+    const u = (x - this.center.x) / this.config.worldSize + 0.5;
+    const v = (z - this.center.y) / this.config.worldSize + 0.5;
+    if (u < 0 || u > 1 || v < 0 || v > 1) return emptySample();
     const px = Math.min(this.config.resolution - 1, Math.floor(u * this.config.resolution));
     const py = Math.min(this.config.resolution - 1, Math.floor(v * this.config.resolution));
     const offset = (py * this.config.resolution + px) * CHANNELS;
