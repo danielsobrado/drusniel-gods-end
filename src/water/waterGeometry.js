@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
+const MIN_RIVER_SPEED = 0.18;
+const OUTLET_BASE_SPEED = 0.7;
+const OUTLET_SPEED_GAIN = 0.65;
+
 export function createWaterGeometry(params, river) {
   const lake = new THREE.PlaneGeometry(params.size, params.size, params.segments, params.segments);
   lake.rotateX(-Math.PI / 2);
@@ -24,8 +28,10 @@ export function createWaterGeometry(params, river) {
     for (let i = 0; i < samples.length; i += 1) {
       const p = samples[i], next = samples[Math.min(i + 1, samples.length - 1)];
       const slope = Math.max(0, (p.y - next.y) / Math.max(1, next.s - p.s));
-      const mouth = THREE.MathUtils.smoothstep(p.y - river.lakeLevel, 0, 2);
-      const speed = (0.9 + Math.min(2.8, slope * 7)) * mouth + 0.18;
+      const inletStrength = THREE.MathUtils.smoothstep(p.y - river.lakeLevel, 0, 2);
+      const inletSpeed = (0.9 + Math.min(2.8, slope * 7)) * inletStrength + MIN_RIVER_SPEED;
+      const outletSpeed = OUTLET_BASE_SPEED + Math.min(1.4, slope * 12) + p.outletProgress * OUTLET_SPEED_GAIN;
+      const speed = THREE.MathUtils.lerp(inletSpeed, outletSpeed, p.outletProgress ?? 0);
       for (let j = 0; j <= columns; j += 1) {
         const across = (j / columns * 2 - 1) * (p.width / 2 + 2);
         const relief = THREE.MathUtils.smoothstep(p.slope ?? slope, 0.2, 0.8)
