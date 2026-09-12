@@ -47,7 +47,7 @@
 }
 
 .loading-progress {
-  width: min(380px, 70vw);
+  width: min(430px, 76vw);
 }
 
 .loading-progress-track {
@@ -66,6 +66,19 @@
   transform-origin: left center;
 }
 
+.loading-overlay.is-compiling-shaders .progress-bar {
+  width: 34%;
+  transform: translateX(-110%);
+  transform-origin: center;
+  animation: shader-progress-sweep 1.35s ease-in-out infinite;
+}
+
+@keyframes shader-progress-sweep {
+  0% { transform: translateX(-110%); }
+  50% { transform: translateX(100%); }
+  100% { transform: translateX(295%); }
+}
+
 .loading-overlay .loading-row {
   display: flex;
   justify-content: space-between;
@@ -73,6 +86,24 @@
   margin-top: 9px;
   color: #b6ee43;
   font-size: 11px;
+}
+
+.loading-detail {
+  min-height: 14px;
+  margin-top: 6px;
+  overflow: hidden;
+  color: rgba(238, 244, 232, .72);
+  font-size: 10px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loading-detail-tech {
+  min-height: 13px;
+  margin-top: 2px;
+  color: rgba(238, 244, 232, .42);
+  font-size: 9px;
 }
 
 .loading-start {
