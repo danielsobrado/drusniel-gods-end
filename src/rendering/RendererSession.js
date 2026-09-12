@@ -1,7 +1,37 @@
 import { WebGPURenderer } from 'three/webgpu';
 import { readRendererCapabilities } from './RendererCapabilities.js';
+import {
+  collectShaderCompileDiagnostics,
+  SHADER_COMPILE_END_EVENT,
+  SHADER_COMPILE_START_EVENT,
+} from './ShaderCompileDiagnostics.js';
 
 const REQUESTS = new Set(['auto', 'webgpu', 'webgl']);
+
+function dispatchShaderCompileEvent(name, detail) {
+  if (typeof globalThis.dispatchEvent !== 'function' || typeof globalThis.CustomEvent !== 'function') return;
+  globalThis.dispatchEvent(new CustomEvent(name, { detail }));
+}
+
+function instrumentShaderCompilation(renderer, backend) {
+  if (typeof renderer.compileAsync !== 'function') return () => {};
+  const original = renderer.compileAsync.bind(renderer);
+  renderer.compileAsync = async (scene, camera, targetScene) => {
+    const diagnostics = collectShaderCompileDiagnostics(scene);
+    const startedAt = performance.now();
+    dispatchShaderCompileEvent(SHADER_COMPILE_START_EVENT, { backend, diagnostics });
+    try {
+      return await original(scene, camera, targetScene);
+    } finally {
+      dispatchShaderCompileEvent(SHADER_COMPILE_END_EVENT, {
+        backend,
+        diagnostics,
+        elapsedMs: performance.now() - startedAt,
+      });
+    }
+  };
+  return () => { renderer.compileAsync = original; };
+}
 
 export function resolveRendererRequest(search = '', forceWebGL = false, warn = console.warn) {
   const value = new URLSearchParams(search).get('renderer');
@@ -23,11 +53,13 @@ export async function createRendererSession({
   const renderer = createRenderer({ ...options, forceWebGL: request === 'webgl' });
   let disposed = false;
   let previousLossHandler;
+  let restoreCompileAsync = () => {};
   const lossListeners = new Set();
   const dispose = () => {
     if (disposed) return;
     disposed = true;
     lossListeners.clear();
+    restoreCompileAsync();
     if (previousLossHandler) renderer.onDeviceLost = previousLossHandler;
     try { renderer.setAnimationLoop(null); } catch { /* Init may have failed before animation setup. */ }
     try { renderer.dispose(); } finally { renderer.domElement?.remove(); }
@@ -48,6 +80,7 @@ export async function createRendererSession({
       fallbackReason: request === 'auto' && capabilities.backend === 'webgl2'
         ? 'WebGPU initialization was unavailable; Three.js selected WebGL 2.' : null,
     });
+    restoreCompileAsync = instrumentShaderCompilation(renderer, capabilities.backend);
     previousLossHandler = renderer.onDeviceLost;
     renderer.onDeviceLost = (info) => {
       if (disposed) return;
