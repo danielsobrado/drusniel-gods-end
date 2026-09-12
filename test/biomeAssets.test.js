@@ -8,7 +8,7 @@ import {
 } from '../src/biome/BiomeCatalog.js';
 import { reduceConvexPoints } from '../src/biome/convexHull.js';
 import { BiomeLod } from '../src/biome/BiomeLod.js';
-import { harmonizeRockMaterials } from '../src/world/rockPack.js';
+import { canonicalizeRockMaterials, harmonizeRockMaterials } from '../src/world/rockPack.js';
 
 test('synthetic catalog stays inside triangle, atlas and hull limits', () => {
   const catalog = createSyntheticCatalog();
@@ -79,6 +79,53 @@ test('rock pack fills missing PBR maps without replacing authored maps', () => {
   normalMap.dispose();
   roughnessMap.dispose();
   preservedMap.dispose();
+});
+
+test('all rock variants can share one canonical Stone appearance', () => {
+  const geometry = new THREE.BoxGeometry(1, 1, 1);
+  const canonicalMap = new THREE.Texture();
+  const detailNormal = new THREE.Texture();
+  const detailRoughness = new THREE.Texture();
+  const canonicalMaterial = new THREE.MeshStandardMaterial({
+    map: canonicalMap,
+    color: '#d4d3ca',
+    roughness: 0.82,
+    metalness: 0.02,
+  });
+  const detailedMaterial = new THREE.MeshStandardMaterial({
+    normalMap: detailNormal,
+    roughnessMap: detailRoughness,
+    color: '#527260',
+  });
+  const otherMaterial = new THREE.MeshStandardMaterial({ color: '#344e57' });
+  const canonicalSource = new THREE.Mesh(geometry.clone(), canonicalMaterial);
+  const first = new THREE.Mesh(geometry.clone(), detailedMaterial);
+  const second = new THREE.Mesh(geometry.clone(), otherMaterial);
+
+  const shared = canonicalizeRockMaterials([first, second], canonicalSource);
+
+  assert.ok(shared);
+  assert.notEqual(shared, canonicalMaterial);
+  assert.equal(first.material, shared);
+  assert.equal(second.material, shared);
+  assert.equal(shared.map, canonicalMap);
+  assert.equal(shared.normalMap, detailNormal);
+  assert.equal(shared.roughnessMap, detailRoughness);
+  assert.equal(shared.color.getHexString(), 'd4d3ca');
+  assert.ok(shared.metalness <= 0.08);
+  assert.ok(shared.roughness >= 0.72);
+
+  geometry.dispose();
+  canonicalSource.geometry.dispose();
+  first.geometry.dispose();
+  second.geometry.dispose();
+  canonicalMaterial.dispose();
+  detailedMaterial.dispose();
+  otherMaterial.dispose();
+  shared.dispose();
+  canonicalMap.dispose();
+  detailNormal.dispose();
+  detailRoughness.dispose();
 });
 
 test('batch budgets stay at 13 main and 3 shadow', () => {
