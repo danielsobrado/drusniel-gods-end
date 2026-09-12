@@ -89,11 +89,20 @@ export class WorldNavigation {
     this.freeFly.update(deltaSeconds);
     const walking = !this.freeFly.active && !this.tour.active
       && this.player.enabled && this.player.moving && this.player.grounded;
+    const playerPosition = this.player.getPosition();
+    const influencePoints = walking ? this.player.getInfluencePoints() : [];
     this.world.snowDeformation?.update(
       deltaSeconds,
-      this.player.getPosition(),
-      walking ? this.player.getInfluencePoints() : [],
+      playerPosition,
+      influencePoints,
       walking,
+    );
+    this.world.snowPowder?.update(
+      deltaSeconds,
+      playerPosition,
+      influencePoints,
+      walking,
+      this.player.running,
     );
   }
 
