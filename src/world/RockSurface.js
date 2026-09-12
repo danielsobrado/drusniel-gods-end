@@ -35,6 +35,11 @@ function interval(value, name) {
 export function resolveRockSurfaceConfig(config) {
   const rock = config?.ground?.rock;
   if (!rock) throw new Error('ground.rock configuration is required.');
+  const textureBlendStart = finiteNumber(rock.textureBlendStart, 'ground.rock.textureBlendStart');
+  const textureBlendEnd = finiteNumber(rock.textureBlendEnd, 'ground.rock.textureBlendEnd');
+  if (!(textureBlendEnd > textureBlendStart)) {
+    throw new Error('ground.rock.textureBlendEnd must be greater than ground.rock.textureBlendStart.');
+  }
   return {
     highland: interval(rock.highland, 'ground.rock.highland'),
     cliffSlope: interval(rock.cliffSlope, 'ground.rock.cliffSlope'),
@@ -57,6 +62,9 @@ export function resolveRockSurfaceConfig(config) {
       strength: finiteNumber(rock.rockyArea.strength, 'ground.rock.rockyArea.strength'),
     },
     triplanarScale: positiveNumber(rock.triplanarScale, 'ground.rock.triplanarScale'),
+    secondaryTriplanarScale: positiveNumber(rock.secondaryTriplanarScale, 'ground.rock.secondaryTriplanarScale'),
+    textureBlendStart,
+    textureBlendEnd,
     triplanarSharpness: positiveNumber(rock.triplanarSharpness, 'ground.rock.triplanarSharpness'),
     textureStrength: finiteNumber(rock.textureStrength, 'ground.rock.textureStrength'),
     textureBias: finiteNumber(rock.textureBias, 'ground.rock.textureBias'),
@@ -111,7 +119,10 @@ export function createRockSurfaceNodes({ config, colorTexture, roughnessTexture,
     .clamp(0, 1);
 
   const weights = normalWorld.abs().pow(rock.triplanarSharpness);
-  const stoneTexture = triplanar(colorTexture, rock.triplanarScale, weights).rgb;
+  const primaryStone = triplanar(colorTexture, rock.triplanarScale, weights).rgb;
+  const secondaryStone = triplanar(colorTexture, rock.secondaryTriplanarScale, weights).rgb;
+  const textureBlend = macro.smoothstep(rock.textureBlendStart, rock.textureBlendEnd);
+  const stoneTexture = mix(primaryStone, secondaryStone, textureBlend);
   const roughnessSample = triplanar(roughnessTexture, rock.triplanarScale, weights).r;
   const grains = sin(world.x.mul(rock.grainFrequencyX)
     .add(sin(world.y.mul(rock.grainWarpFrequency))))
