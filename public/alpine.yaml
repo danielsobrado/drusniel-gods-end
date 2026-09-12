@@ -1,0 +1,36 @@
+terrain:
+  alpine:
+    enabled: true
+    center: [-25, -655]
+    basinRadius: 82
+    basinHeight: 154
+    basinRelief: 8
+    rimRadius: 155
+    rimWidth: 48
+    rimHeight: 72
+    outerBlendStart: 215
+    outerRadius: 275
+    angularPeaks: 5
+    angularVariation: 0.22
+    angularPhase: 0.65
+    detailScale: 0.015
+    detailAmplitude: 7
+    detailOctaves: 3
+    seed: 9127
+    refineRadius: 300
+    refinePasses: 1
+    treeLine: 108
+    treeClearRadius: 320
+    route:
+      name: Alpine cirque
+      width: 3.4
+      walkable: true
+      terrainWidth: 15
+      maxGrade: 0.32
+      points:
+        - [-125, -590]
+        - [-92, -618]
+        - [-58, -642]
+        - [-25, -655]
+        - [2, -679]
+        - [-15, -710]
