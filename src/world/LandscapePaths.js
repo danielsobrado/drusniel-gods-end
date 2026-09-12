@@ -49,21 +49,24 @@ function addSegment(cells, segment, padding) {
   }
 }
 
-function constrainGrade(samples, maxGrade) {
-  for (let pass = 0; pass < 2; pass += 1) {
-    for (let i = 1; i < samples.length; i += 1) {
-      const previous = samples[i - 1], current = samples[i];
-      const distance = Math.max(MIN_SEGMENT_LENGTH, Math.hypot(current.x - previous.x, current.z - previous.z));
-      const limit = distance * maxGrade;
-      current.y = THREE.MathUtils.clamp(current.y, previous.y - limit, previous.y + limit);
-    }
-    for (let i = samples.length - 2; i >= 0; i -= 1) {
-      const current = samples[i], next = samples[i + 1];
-      const distance = Math.max(MIN_SEGMENT_LENGTH, Math.hypot(current.x - next.x, current.z - next.z));
-      const limit = distance * maxGrade;
-      current.y = THREE.MathUtils.clamp(current.y, next.y - limit, next.y + limit);
-    }
+function clampGradeForward(samples, maxGrade) {
+  for (let i = 1; i < samples.length; i += 1) {
+    const previous = samples[i - 1], current = samples[i];
+    const distance = Math.max(MIN_SEGMENT_LENGTH, Math.hypot(current.x - previous.x, current.z - previous.z));
+    const limit = distance * maxGrade;
+    current.y = THREE.MathUtils.clamp(current.y, previous.y - limit, previous.y + limit);
   }
+}
+
+function constrainGrade(samples, maxGrade) {
+  clampGradeForward(samples, maxGrade);
+  for (let i = samples.length - 2; i >= 0; i -= 1) {
+    const current = samples[i], next = samples[i + 1];
+    const distance = Math.max(MIN_SEGMENT_LENGTH, Math.hypot(current.x - next.x, current.z - next.z));
+    const limit = distance * maxGrade;
+    current.y = THREE.MathUtils.clamp(current.y, next.y - limit, next.y + limit);
+  }
+  clampGradeForward(samples, maxGrade);
 }
 
 function nearestPoint(segment, x, z) {
