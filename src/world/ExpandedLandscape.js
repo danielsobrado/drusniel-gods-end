@@ -28,7 +28,7 @@ function refineCorridor(positions, uvs, indices, river) {
       const x = ids.reduce((s, id) => s + positions[id * 3], 0) / 3;
       const z = ids.reduce((s, id) => s + positions[id * 3 + 2], 0) / 3;
       const p = river.sample(x, z);
-      if (!p || p.edge > 12) continue;
+      if (!p || p.edge > Math.max(12, (p.bankBlend ?? 7) + 5)) continue;
       for (let e = 0; e < 3; e++) {
         const a = ids[e], b = ids[(e + 1) % 3], k = key(a, b);
         if (edges.has(k)) continue;
@@ -65,7 +65,7 @@ export function expandLandscape(target, original, config) {
   if (!settings?.enabled || !target?.isMesh) return null;
   const width = settings.width ?? settings.size, depth = settings.depth ?? settings.size;
   const [centerX, centerZ] = settings.center ?? [0, 0];
-  const baseHeight = (x, z) => {
+  const naturalHeight = (x, z) => {
     const cx = THREE.MathUtils.clamp(x, original.bounds.min.x, original.bounds.max.x);
     const cz = THREE.MathUtils.clamp(z, original.bounds.min.z, original.bounds.max.z);
     const edgeDistance = Math.hypot(x - cx, z - cz);
@@ -74,9 +74,18 @@ export function expandLandscape(target, original, config) {
     const base = THREE.MathUtils.lerp(old, outer, smooth(0, 170, edgeDistance));
     return coastalHeight(x, z, base + mountainHeight(x, z) * smooth(210, 325, -z), config.water.sea);
   };
+  const paths = new LandscapePaths(
+    width,
+    depth,
+    centerX,
+    centerZ,
+    config.water.sea?.enabled,
+    settings.routes,
+    naturalHeight,
+  );
+  const baseHeight = (x, z) => paths.conformHeight(x, z, naturalHeight(x, z));
   const river = config.water.river?.enabled
     ? new RiverCourse(config.water.river, baseHeight, config.water.position[1]) : null;
-  const paths = new LandscapePaths(width, depth, centerX, centerZ, config.water.sea?.enabled);
   paths.createTexture();
   const segmentsX = Math.round(width / 5), segmentsZ = Math.round(depth / 5);
   const positions = [], uvs = [], indices = [];
