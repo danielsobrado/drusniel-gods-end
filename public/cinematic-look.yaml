@@ -113,7 +113,7 @@ cinematic:
     reflectionResolution: 256
     planarReflectionScale: 0.75
   presentation:
-    title: THE WILDS
+    title: 'Drusniel: Gods’ End'
     subtitle: A living landscape
 ui:
   initialPreset: goldenHour
