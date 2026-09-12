@@ -55,6 +55,11 @@ export const SEA_DETAIL_DEFAULTS = Object.freeze({
   crestStart: 0.28,
   crestEnd: 0.88,
   crestTransmissionStrength: 0.22,
+  nearshoreLongFrequency: 0.021,
+  nearshoreCrossFrequency: 0.047,
+  nearshoreWarp: 0.32,
+  nearshoreSpacingFrequency: 0.009,
+  nearshoreSpacingVariation: 0.12,
 });
 
 export const SEA_STORM_SCALE = 1.65;
@@ -116,6 +121,9 @@ export function resolveSeaWaves(sea = {}) {
   if (params.detail.foamBreakupHigh <= params.detail.foamBreakupLow) {
     throw new Error('water.sea.detail.foamBreakupHigh must exceed foamBreakupLow.');
   }
+  if (params.detail.nearshoreSpacingVariation > 0.45) {
+    throw new Error('water.sea.detail.nearshoreSpacingVariation must not exceed 0.45.');
+  }
   for (const [start, end] of [
     ['roughnessMin', 'roughnessMax'],
     ['surfDepthStart', 'surfDepthEnd'],
@@ -154,6 +162,22 @@ export function seaWaveShape(phase, sharpness) {
   return (s + sharpness * (s * s - 0.5)) / (1 + sharpness * 0.5);
 }
 
+export function nearshoreWavePhase(basePhase, distance, z, sea) {
+  const params = sea.detail ? sea : resolveSeaWaves(sea);
+  const detail = params.detail;
+  const spacing = Math.sin(z * detail.nearshoreSpacingFrequency)
+    * detail.nearshoreSpacingVariation;
+  const spatialFrequency = Math.PI * 2 / params.coast.wave.wavelength;
+  const spacingOffset = distance * spatialFrequency * spacing;
+  const cross = Math.sin(
+    z * detail.nearshoreLongFrequency + distance * detail.nearshoreCrossFrequency,
+  ) * detail.nearshoreWarp;
+  const counter = Math.sin(
+    z * detail.nearshoreCrossFrequency * 0.73 - distance * detail.nearshoreLongFrequency * 1.37,
+  ) * detail.nearshoreWarp * 0.45;
+  return basePhase + spacingOffset + cross + counter;
+}
+
 export function sampleSeaSurface(x, z, time, sea, rain = 0) {
   const p = resolveSeaWaves(sea);
   const { signedCoastDistance: distance, beachPhase } = sampleCoastField(x, z, time, p, rain);
@@ -164,12 +188,10 @@ export function sampleSeaSurface(x, z, time, sea, rain = 0) {
     (x * wave.x + z * wave.z) * wave.frequency + time * wave.speed + wave.phase,
     sharpness,
   ), 0);
-  const beach = seaWaveShape(beachPhase, 0.45 + storm * 0.2);
+  const beach = seaWaveShape(nearshoreWavePhase(beachPhase, distance, z, p), 0.45 + storm * 0.2);
   return MathUtils.lerp(beach, swell, envelope.offshore) * envelope.amplitude;
 }
 
-// Keep this forward difference aligned with createSeaNodes.normal. Sampling
-// the complete height function also retains coast-envelope derivatives.
 export function sampleSeaNormal(x, z, time, sea, rain = 0, step = 0.25) {
   const height = sampleSeaSurface(x, z, time, sea, rain);
   const dx = (sampleSeaSurface(x + step, z, time, sea, rain) - height) / step;
