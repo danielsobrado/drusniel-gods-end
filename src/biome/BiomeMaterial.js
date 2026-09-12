@@ -80,7 +80,8 @@ export function createBiomeMeshMaterial({
 
   if (map) {
     const sample = texture(map, uv());
-    const pigment = tint ? sample.rgb.mul(tint) : sample.rgb;
+    const sourcePigment = color ? sample.rgb.mul(vec3(color.r, color.g, color.b)) : sample.rgb;
+    const pigment = tint ? sourcePigment.mul(tint) : sourcePigment;
     material.colorNode = vec4(pigment, sample.a);
     if (cinematic && backlight) {
       material.emissiveNode = foliageBacklight(
