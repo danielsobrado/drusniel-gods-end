@@ -24,6 +24,7 @@ test('effective config uses the runtime YAML file order', async () => {
     'ground-material.yaml',
     'player-controls.yaml',
     'visual-parity.yaml',
+    'tree-rendering.yaml',
     'character-visual.yaml',
     'cinematic-wind.yaml',
     'cinematic-look.yaml',
@@ -73,5 +74,16 @@ test('Warden visual scale survives later parity layers', async () => {
   const config = await loadMergedConfig();
   assert.equal(config.player.modelScale, 1.35);
   assert.equal(config.player.targetHeight, 5.0);
+});
+
+test('tree billboards stay visible across high-altitude exploration views', async () => {
+  const config = await loadMergedConfig();
+  assert.equal(config.trees.highDistance, 170);
+  assert.equal(config.trees.billboardDistance, 4000);
+  assert.equal(config.trees.billboardHysteresis, 200);
+  assert.equal(config.trees.lodUpdateInterval, 0.1);
+  assert.equal(config.trees.billboard.alphaTest, 0.4);
+  assert.equal(config.trees.billboard.anisotropy, 4);
+  assert.ok(config.trees.billboardDistance < config.camera.far);
 });
 
