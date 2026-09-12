@@ -170,10 +170,12 @@ export function nearshoreWavePhase(basePhase, distance, z, sea) {
   const spatialFrequency = Math.PI * 2 / params.coast.wave.wavelength;
   const spacingOffset = distance * spatialFrequency * spacing;
   const cross = Math.sin(
-    z * detail.nearshoreLongFrequency + distance * detail.nearshoreCrossFrequency,
+    z * detail.nearshoreLongFrequency
+      + Math.sin(z * detail.nearshoreCrossFrequency) * 1.7,
   ) * detail.nearshoreWarp;
   const counter = Math.sin(
-    z * detail.nearshoreCrossFrequency * 0.73 - distance * detail.nearshoreLongFrequency * 1.37,
+    z * detail.nearshoreCrossFrequency * 0.73
+      + Math.sin(z * detail.nearshoreLongFrequency * 1.37),
   ) * detail.nearshoreWarp * 0.45;
   return basePhase + spacingOffset + cross + counter;
 }
