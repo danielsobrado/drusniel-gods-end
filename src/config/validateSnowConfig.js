@@ -99,7 +99,10 @@ export function validateSnowConfig(config) {
 
   const deformation = snow.deformation;
   if (object(deformation, 'ground.snow.deformation', problems) && deformation.enabled !== false) {
-    number(deformation.resolution, 'ground.snow.deformation.resolution', problems, { min: 64, max: 2048 });
+    const resolution = number(deformation.resolution, 'ground.snow.deformation.resolution', problems, { min: 64, max: 2048 });
+    if (Number.isFinite(resolution) && !Number.isInteger(resolution)) {
+      problems.push('ground.snow.deformation.resolution must be an integer');
+    }
     const worldSize = number(deformation.worldSize, 'ground.snow.deformation.worldSize', problems, { min: 1, exclusiveMin: true });
     for (const name of ['paintMinCoverage', 'depressionStrength', 'bermStrength']) {
       number(deformation[name], `ground.snow.deformation.${name}`, problems, { min: 0, max: 1 });
@@ -115,6 +118,10 @@ export function validateSnowConfig(config) {
     const recenterDistance = Number(deformation.recenterDistance);
     if (Number.isFinite(worldSize) && Number.isFinite(recenterDistance) && recenterDistance >= worldSize * 0.5) {
       problems.push('ground.snow.deformation.recenterDistance must be lower than half of worldSize');
+    }
+    if (Number.isFinite(worldSize) && Number.isFinite(recenterDistance) && Number.isFinite(maxRadius)
+      && recenterDistance + maxRadius * 1.55 >= worldSize * 0.5) {
+      problems.push('ground.snow.deformation.recenterDistance must leave room for the maximum footprint berm');
     }
     for (const name of ['normalStrength', 'darkenStrength', 'bermLighten']) {
       number(deformation[name], `ground.snow.deformation.${name}`, problems, { min: 0 });
