@@ -10,7 +10,7 @@ function validConfig() {
         asset: 'Assets/terrain/coastal-jungle/scenes/coastal_jungle_reference.glb',
         anisotropy: 8,
         region: { zStart: 250, zEnd: 430, inlandStart: 140, inlandEnd: 270 },
-        ecology: { edgeFade: 18, baseVegetationScale: 0.18, suppressWorldTrees: true },
+        ecology: { edgeFade: 18, baseVegetationScale: 0.18 },
         render: { lodHysteresis: 0.06 },
         placement: {
           slopeSampleDistance: 2,

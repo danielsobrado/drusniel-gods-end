@@ -11,6 +11,7 @@ import {
   evaluateCoastalJunglePlacement,
   mapCoastalJungleHorizontal,
 } from './CoastalJunglePlacement.js';
+import { setCoastalJungleRuntimeActive } from './CoastalJungleRuntime.js';
 
 const FLOOR_NAME = 'ForestFloor';
 const PATH_NAME = 'ForestPath';
@@ -139,6 +140,7 @@ export class CoastalJungleSystem {
     this.root.updateWorldMatrix(true, true);
     this.#registerColliders();
 
+    setCoastalJungleRuntimeActive(this.config, true);
     this.ready = true;
     this.stats.active = true;
     this.stats.sourceInstances = collected.sourceInstances;
@@ -196,6 +198,7 @@ export class CoastalJungleSystem {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    setCoastalJungleRuntimeActive(this.config, false);
     this.collisions?.removeGroup(this.profile?.collisionGroup ?? 'coastalJungle');
     this.lod?.removeFromParent();
     this.releaseGltf?.();

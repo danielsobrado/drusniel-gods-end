@@ -4,6 +4,7 @@ import { logger } from '../utils/logger.js';
 import { clamp01, computeVegetationEcology, encodeVegetationShaderExclusion, fractalNoise, hash2d, vegetationCoverageChance } from './vegetationEcology.js';
 import { sampleCoastField } from '../world/CoastField.js';
 import { coastalJungleRegionWeight } from '../world/CoastalJungleRegion.js';
+import { isCoastalJungleRuntimeActive } from '../biome/CoastalJungleRuntime.js';
 
 const CHANNELS = 5;
 const DENSITY = 0;
@@ -161,15 +162,18 @@ function waterMetrics(config, x, z, height) {
 
 function applyCoastalJungleEcology(ecology, config, sea, x, z) {
   const profile = config.biomes?.coastalJungle;
-  if (!profile?.enabled || !sea?.enabled) return;
+  if (!profile?.enabled || !sea?.enabled || !isCoastalJungleRuntimeActive(config)) return ecology;
   const settings = profile.ecology ?? {};
   const weight = coastalJungleRegionWeight(x, z, profile.region, sea, settings.edgeFade ?? 18);
-  if (weight <= 0) return;
+  if (weight <= 0) return ecology;
   const baseScale = clamp01(settings.baseVegetationScale ?? 0.18);
   const scale = 1 - weight * (1 - baseScale);
-  ecology.density *= scale;
-  ecology.growth *= scale;
-  ecology.understory *= scale;
+  return {
+    ...ecology,
+    density: ecology.density * scale,
+    growth: ecology.growth * scale,
+    understory: ecology.understory * scale,
+  };
 }
 
 export class ProceduralVegetationField {
@@ -268,7 +272,6 @@ export class ProceduralVegetationField {
           const duneGrowth = coastField?.vegetationSuitability ?? 1;
           ecology.density *= duneGrowth; ecology.growth *= duneGrowth; ecology.understory *= duneGrowth;
         }
-        applyCoastalJungleEcology(ecology, this.config, sea, worldX, worldZ);
         const offset = index * CHANNELS;
         this.data[offset + DENSITY] = ecology.density;
         this.data[offset + GROWTH] = ecology.growth;
@@ -326,13 +329,14 @@ export class ProceduralVegetationField {
     }
     const u = (x - this.bounds.min.x) / Math.max(this.size.x, 0.0001);
     const v = (z - this.bounds.min.z) / Math.max(this.size.z, 0.0001);
-    return {
+    const ecology = {
       density: sampleArrayBilinear(this.data, this.resolution, u, v, DENSITY),
       growth: sampleArrayBilinear(this.data, this.resolution, u, v, GROWTH),
       moisture: sampleArrayBilinear(this.data, this.resolution, u, v, MOISTURE),
       understory: sampleArrayBilinear(this.data, this.resolution, u, v, UNDERSTORY),
       path: sampleArrayBilinear(this.data, this.resolution, u, v, PATH),
     };
+    return applyCoastalJungleEcology(ecology, this.config, this.config.water?.sea, x, z);
   }
 
   allowsVegetation(x, z) {

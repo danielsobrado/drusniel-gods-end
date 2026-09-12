@@ -4,7 +4,6 @@ import { fractalNoise } from '../grass/vegetationEcology.js';
 import { createSeededRandom } from '../core/math.js';
 import { LandscapePaths, forestWeight } from './LandscapePaths.js';
 import { coastalHeight, sampleCoastField } from './CoastField.js';
-import { coastalJungleRegionWeight } from './CoastalJungleRegion.js';
 import {
   alpineDistance,
   alpineTreeAllowed,
@@ -14,7 +13,6 @@ import {
 import { refineTerrainRegion } from './TerrainRefinement.js';
 
 const smooth = (a, b, x) => THREE.MathUtils.smoothstep(x, a, b);
-const JUNGLE_TREE_SUPPRESSION_THRESHOLD = 0.35;
 
 export function mountainHeight(x, z) {
   const peaks = [[10, -685, 95, 95, 110], [-85, -620, 115, 120, 155], [175, -575, 125, 145, 145],
@@ -144,14 +142,6 @@ export function expandLandscape(target, original, config) {
   return { river, paths, original, baseHeight, alpine, dispose() { target.geometry = previous; geometry.dispose(); river?.dispose(); paths.dispose(); original.texture?.dispose(); } };
 }
 
-function allowsWorldTree(terrain, x, z) {
-  const profile = terrain?.config?.biomes?.coastalJungle;
-  const sea = terrain?.config?.water?.sea;
-  if (!profile?.enabled || profile.ecology?.suppressWorldTrees === false || !sea?.enabled) return true;
-  const weight = coastalJungleRegionWeight(x, z, profile.region, sea, profile.ecology?.edgeFade ?? 18);
-  return weight < JUNGLE_TREE_SUPPRESSION_THRESHOLD;
-}
-
 export function adaptLandscapeRecords(trees, props, expansion, terrain) {
   if (!expansion) return { trees, props };
   const { original, river, alpine } = expansion;
@@ -161,8 +151,7 @@ export function adaptLandscapeRecords(trees, props, expansion, terrain) {
       record[1] += terrain.sampleHeight(p[0], p[2]) - original.sampleHeight(p[0], p[2]);
       return record;
     });
-  const result = rebase(trees)
-    .filter(p => alpineTreeAllowed(p[0], p[1], p[2], alpine) && allowsWorldTree(terrain, p[0], p[2]));
+  const result = rebase(trees).filter(p => alpineTreeAllowed(p[0], p[1], p[2], alpine));
   const random = createSeededRandom(29173);
   for (let z = terrain.bounds.min.z + 30; z < terrain.bounds.max.z - 30; z += 28) {
     for (let x = terrain.bounds.min.x + 30; x < terrain.bounds.max.x - 30; x += 28) {
@@ -173,7 +162,7 @@ export function adaptLandscapeRecords(trees, props, expansion, terrain) {
       if (sea?.enabled && sampleCoastField(px, pz, 0, sea).signedCoastDistance > -105) continue;
       const slope = Math.hypot(terrain.sampleHeight(px + 3, pz) - py, terrain.sampleHeight(px, pz + 3) - py) / 3;
       if (py < -15 || py > 100 || slope > 0.65 || random() > 0.55 || (river?.sample(px, pz)?.edge ?? 100) < 9) continue;
-      if (!alpineTreeAllowed(px, py, pz, alpine) || !allowsWorldTree(terrain, px, pz)) continue;
+      if (!alpineTreeAllowed(px, py, pz, alpine)) continue;
       result.push([px, py, pz, random() * Math.PI * 2, 0.8 + random() * 0.5, Math.floor(random() * 9)]);
     }
   }
@@ -185,7 +174,7 @@ export function adaptLandscapeRecords(trees, props, expansion, terrain) {
     if (occupied.has(key)) continue;
     occupied.add(key);
     const py = terrain.sampleHeight(px, pz);
-    if (!alpineTreeAllowed(px, py, pz, alpine) || !allowsWorldTree(terrain, px, pz)) continue;
+    if (!alpineTreeAllowed(px, py, pz, alpine)) continue;
     result.push([px, py, pz, random() * Math.PI * 2, 1.05 + random() * 0.65, Math.floor(random() * 9)]);
   }
   return { trees: result, props: { stones: rebase(props.stones), lanterns: rebase(props.lanterns) } };

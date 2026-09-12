@@ -15,7 +15,6 @@ biomes:
     ecology:
       edgeFade: 18
       baseVegetationScale: 0.18
-      suppressWorldTrees: true
     placement:
       groundOffset: 0.025
       pathOffset: 0.045
