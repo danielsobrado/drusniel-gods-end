@@ -1,16 +1,16 @@
 export const LOADING_STAGES = Object.freeze({
-  initializing: Object.freeze({ message: 'Starting...', progress: 0 }),
-  renderer: Object.freeze({ message: 'Initializing renderer...', progress: 0 }),
-  environment: Object.freeze({ message: 'Loading environment...', progress: 0 }),
-  world: Object.freeze({ message: 'Loading world...', progress: 5 }),
-  character: Object.freeze({ message: 'Choose your character...', progress: 20 }),
-  player: Object.freeze({ message: 'Loading player...', progress: 25 }),
-  collision: Object.freeze({ message: 'Setting up collision system...', progress: 40 }),
-  foliage: Object.freeze({ message: 'Setting up foliage', progress: 55 }),
-  grass: Object.freeze({ message: 'Growing grass...', progress: 65 }),
-  audio: Object.freeze({ message: 'Loading audio...', progress: 75 }),
-  shaders: Object.freeze({ message: 'Compiling shaders...', progress: 80 }),
-  ready: Object.freeze({ message: 'Here we are', progress: 100 }),
+  initializing: Object.freeze({ message: 'Opening the way...', progress: 0 }),
+  renderer: Object.freeze({ message: 'Lighting the horizon...', progress: 0 }),
+  environment: Object.freeze({ message: 'Waking the sky...', progress: 0 }),
+  world: Object.freeze({ message: 'Shaping the wilds...', progress: 5 }),
+  character: Object.freeze({ message: 'Choose your traveler...', progress: 20 }),
+  player: Object.freeze({ message: 'Preparing your traveler...', progress: 25 }),
+  collision: Object.freeze({ message: 'Setting the boundaries...', progress: 40 }),
+  foliage: Object.freeze({ message: 'Awakening the forest...', progress: 55 }),
+  grass: Object.freeze({ message: 'Weaving the undergrowth...', progress: 65 }),
+  audio: Object.freeze({ message: 'Waking the soundscape...', progress: 75 }),
+  shaders: Object.freeze({ message: 'Polishing the final details...', progress: 80 }),
+  ready: Object.freeze({ message: 'The way is open', progress: 100 }),
 });
 
 export const LOADING_REVEAL_SECONDS = 3;
