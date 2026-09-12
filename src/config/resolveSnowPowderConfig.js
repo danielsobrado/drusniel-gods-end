@@ -27,10 +27,10 @@ function orderedRange(config, minKey, maxKey, prefix, options) {
 }
 
 function resolveAmbient(config, prefix) {
-  if (!config) return { enabled: false };
+  if (!config || config.enabled === false) return { enabled: false };
   const ambientPrefix = `${prefix}.ambient`;
   return {
-    enabled: config.enabled !== false,
+    enabled: true,
     particlesPerSecond: finiteNumber(config.particlesPerSecond, `${ambientPrefix}.particlesPerSecond`, { min: 0, exclusiveMin: true }),
     radius: finiteNumber(config.radius, `${ambientPrefix}.radius`, { min: 0, exclusiveMin: true }),
     height: orderedRange(config, 'minHeight', 'maxHeight', ambientPrefix, { min: 0 }),
