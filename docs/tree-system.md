@@ -10,6 +10,7 @@ src/world/TreeLeafMaterial.js
 src/world/loadTreeWorldData.js
 public/tree-world.json
 public/visual-parity.yaml
+public/tree-rendering.yaml
 ```
 
 Falling detached leaves are handled separately by `LeafSystem`.
@@ -73,21 +74,26 @@ The material:
 
 This is separate from the falling-leaf particle system.
 
-## Recovered effective LOD distances
+## LOD distances
 
-The TreeSystem class has internal defaults, but the delivered demo's main code explicitly instantiates it with:
+The recovered reference used a 170-unit high-detail radius and hid far trees after 500 units. That distance is too short for free-fly and elevated overview cameras because large parts of the forest disappear at once.
+
+The current exploration tuning is layered in `tree-rendering.yaml` after the recovered parity values:
 
 ```yaml
 trees:
   highDistance: 170
-  billboardDistance: 500
+  billboardDistance: 4000
   highHysteresis: 8
-  billboardHysteresis: 10
+  billboardHysteresis: 200
   transitionDuration: 1
   lodUpdateInterval: 0.1
+  billboard:
+    alphaTest: 0.4
+    anisotropy: 4
 ```
 
-For parity, **170 / 500 are the effective reference values**. Do not replace them with the smaller constructor defaults.
+The high-detail radius remains unchanged. Only the cheap far representation receives the long visibility range.
 
 ## Current runtime representations
 
@@ -98,7 +104,9 @@ Each authored tree gets:
 
 The far geometry is baked from the corresponding low source into the high source's local coordinate context before instancing.
 
-Billboard instances keep the authored position, rotation and scale.
+Billboard instances keep the authored position, rotation and scale. Far groups do not cast or receive shadows.
+
+The far material is an unlit `MeshBasicNodeMaterial`, so long-range trees avoid per-pixel PBR lighting. It keeps the alpha-tested source texture, cinematic palette mapping, fog, depth writes and per-instance transition opacity.
 
 ## LOD states
 
@@ -113,16 +121,18 @@ HIDDEN
 Initial state is chosen from horizontal camera distance:
 
 ```text
-distance < 170   -> HIGH
-170..500         -> BILLBOARD
->= 500           -> HIDDEN
+distance < 170     -> HIGH
+170..4000          -> BILLBOARD
+>= 4000            -> HIDDEN
 ```
+
+Using horizontal distance is intentional for elevated cameras: gaining altitude does not by itself make nearby terrain trees disappear.
 
 State changes use hysteresis:
 
 ```text
 high threshold hysteresis: 8
-billboard threshold hysteresis: 10
+billboard threshold hysteresis: 200
 ```
 
 LOD checks are throttled to approximately every 0.1 seconds.
@@ -165,24 +175,24 @@ That fallback is useful for resilience but is not the recovered reference placem
 
 High foliage wind is applied in `TreeLeafMaterialFactory` with TSL vertex displacement. Environment preset changes feed tree wind strength from the current grass wind value.
 
-The far billboard material is intentionally simpler.
+The far billboard material is intentionally unlit and does not run the high-detail foliage wind shader.
 
 ## Collision status
 
-Tree collider sizes are now registered into the Rapier world by `WorldCollisionSystem`, alongside authored world bounds and named trimesh objects. Colliders are distance-gated: enabled within `collisions.activeDistance` of the player and disabled beyond `collisions.inactiveDistance`, with the gap acting as hysteresis.
+Tree collider sizes are registered into the Rapier world by `WorldCollisionSystem`, alongside authored world bounds and named trimesh objects. Colliders are distance-gated: enabled within `collisions.activeDistance` of the player and disabled beyond `collisions.inactiveDistance`, with the gap acting as hysteresis.
 
-This is a gameplay parity gap, not a reason to alter the visible authored transforms.
-
-## Parity checklist
+## Runtime checklist
 
 - load `public/tree-world.json` successfully,
 - preserve authored Y values,
 - use all nine recovered source definitions,
 - use `highLeaves` names exactly,
-- effective LOD distances are 170 / 500,
-- hysteresis is 8 / 10,
+- high-detail distance remains 170,
+- cheap billboards remain visible to 4000 units,
+- billboard hysteresis is wide enough for fast flight,
 - transition duration is one second,
 - LOD checks are throttled to 0.1 seconds,
 - source objects stay hidden,
 - high foliage uses alpha-tested TSL leaf materials,
+- far trees use unlit instanced materials with no shadows,
 - no arbitrary terrain resampling is applied to authored tree transforms.
