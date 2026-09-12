@@ -2,6 +2,10 @@ import * as THREE from 'three';
 
 const clamp = THREE.MathUtils.clamp;
 const ease = (a, b, x) => THREE.MathUtils.smoothstep(x, a, b);
+const DEFAULT_BANK_BLEND = 7;
+const DEFAULT_OUTLET_BANK_BLEND = 24;
+const DEFAULT_OUTLET_DEPTH = 1.35;
+const DEFAULT_MOUTH_DEPTH = 2.4;
 
 export function measureRiverSurface(samples) {
   let surfaceDistance = 0, impact = 0, previousSlope = 0;
@@ -16,12 +20,33 @@ export function measureRiverSurface(samples) {
   }
 }
 
+function resolveOutlet(settings, pointCount, lakeLevel) {
+  if (settings.outletStartIndex === undefined) return null;
+  const startIndex = Number(settings.outletStartIndex);
+  const level = Number(settings.outletLevel);
+  if (!Number.isInteger(startIndex) || startIndex <= 0 || startIndex >= pointCount - 1) {
+    throw new Error('water.river.outletStartIndex must reference an interior control point.');
+  }
+  if (!Number.isFinite(level) || level >= lakeLevel) {
+    throw new Error('water.river.outletLevel must be finite and below the lake level.');
+  }
+  return {
+    startFraction: startIndex / (pointCount - 1),
+    level,
+    bankBlend: Number(settings.outletBankBlend ?? DEFAULT_OUTLET_BANK_BLEND),
+    depth: Number(settings.outletDepth ?? DEFAULT_OUTLET_DEPTH),
+    mouthDepth: Number(settings.mouthDepth ?? DEFAULT_MOUTH_DEPTH),
+  };
+}
+
 /** One world-space course supplies terrain carving, ecology, shading and footsteps. */
 export class RiverCourse {
   constructor(settings, sampleHeight, lakeLevel) {
     this.settings = settings;
     this.lakeLevel = lakeLevel;
     const points = settings.points.map(([x, z, width]) => ({ x, z, width }));
+    const outlet = resolveOutlet(settings, points.length, lakeLevel);
+    this.outletLevel = outlet?.level ?? lakeLevel;
     const curve = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(p.x, 0, p.z)), false, 'centripetal');
     const count = Math.ceil(curve.getLength() / 1.5);
     this.samples = [];
@@ -37,11 +62,33 @@ export class RiverCourse {
       const f = t * (points.length - 1) - q;
       const width = THREE.MathUtils.lerp(points[q].width, points[q + 1].width, f)
         * (1 + Math.sin(t * count * 0.12) * 0.065 + Math.sin(t * count * 0.037) * 0.08);
-      // The last reach is level with the lake; upstream always runs downhill.
       const rawY = sampleHeight(p.x, p.z) - 1.15;
-      const y = Math.max(lakeLevel, Math.min(previousY, rawY));
+      const outletProgress = outlet && t >= outlet.startFraction
+        ? clamp((t - outlet.startFraction) / Math.max(0.0001, 1 - outlet.startFraction), 0, 1)
+        : 0;
+      const outletTarget = outlet
+        ? THREE.MathUtils.lerp(lakeLevel, outlet.level, ease(0, 1, outletProgress))
+        : lakeLevel;
+      const y = outletProgress > 0
+        ? Math.max(outlet.level, Math.min(previousY, outletTarget))
+        : Math.max(lakeLevel, Math.min(previousY, rawY));
       if (i) distance += Math.hypot(p.x - this.samples[i - 1].x, p.z - this.samples[i - 1].z);
-      const sample = { x: p.x, z: p.z, y, width, s: distance, dx: tangent.x, dz: tangent.z };
+      const bankBlend = THREE.MathUtils.lerp(
+        DEFAULT_BANK_BLEND,
+        outlet?.bankBlend ?? DEFAULT_BANK_BLEND,
+        outletProgress,
+      );
+      const sample = {
+        x: p.x,
+        z: p.z,
+        y,
+        width,
+        s: distance,
+        dx: tangent.x,
+        dz: tangent.z,
+        outletProgress,
+        bankBlend,
+      };
       this.samples.push(sample);
       previousY = y;
       this.bounds.expandByPoint(new THREE.Vector3(p.x, y, p.z));
@@ -52,7 +99,7 @@ export class RiverCourse {
     this.size = this.bounds.getSize(new THREE.Vector3());
     for (let i = 0; i < count; i++) {
       const a = this.samples[i], b = this.samples[i + 1];
-      const radius = Math.max(a.width, b.width) / 2 + 24;
+      const radius = Math.max(a.width, b.width) / 2 + Math.max(24, a.bankBlend, b.bankBlend);
       for (let z = Math.floor((Math.min(a.z, b.z) - radius) / 24); z <= Math.floor((Math.max(a.z, b.z) + radius) / 24); z++) {
         for (let x = Math.floor((Math.min(a.x, b.x) - radius) / 24); x <= Math.floor((Math.max(a.x, b.x) + radius) / 24); x++) {
           const key = `${x},${z}`;
@@ -79,24 +126,39 @@ export class RiverCourse {
       const span = Math.max(b.s - a.s, 0.001);
       const lateral = (px * -dz + pz * dx) / span;
       const s = a.s + span * t;
-      // Different erosion on each bank, shared by carving and the shader mask.
       const erosion = Math.sin(s * 0.39 + Math.sign(lateral) * 1.8) * 0.38
         + Math.sin(s * 0.13 + Math.sign(lateral) * 3.1) * 0.55;
-      result = { y: THREE.MathUtils.lerp(a.y, b.y, t), distance, edge: distance - width / 2 - erosion,
-        width, s: a.s + span * t, dx: dx / span, dz: dz / span,
-        slope: Math.max(0, (a.y - b.y) / span), lateral };
+      result = {
+        y: THREE.MathUtils.lerp(a.y, b.y, t),
+        distance,
+        edge: distance - width / 2 - erosion,
+        width,
+        s,
+        dx: dx / span,
+        dz: dz / span,
+        slope: Math.max(0, (a.y - b.y) / span),
+        lateral,
+        outletProgress: THREE.MathUtils.lerp(a.outletProgress, b.outletProgress, t),
+        bankBlend: THREE.MathUtils.lerp(a.bankBlend, b.bankBlend, t),
+      };
     }
     return result;
   }
 
   carve(x, z, original) {
     const p = this.sample(x, z);
-    if (!p || p.edge > 7) return original;
+    if (!p || p.edge > p.bankBlend) return original;
     const crossing = 1 - ease(0, 7, Math.hypot(x - 88, z + 19));
-    const depth = THREE.MathUtils.lerp(1.25, 0.26, crossing);
+    const upstreamDepth = THREE.MathUtils.lerp(1.25, 0.26, crossing);
+    const outletDepth = THREE.MathUtils.lerp(
+      Number(this.settings.outletDepth ?? DEFAULT_OUTLET_DEPTH),
+      Number(this.settings.mouthDepth ?? DEFAULT_MOUTH_DEPTH),
+      p.outletProgress,
+    );
+    const depth = THREE.MathUtils.lerp(upstreamDepth, outletDepth, p.outletProgress);
     const cross = clamp(1 + p.edge / (p.width * 0.5), 0, 1);
     const bed = p.y - depth + Math.pow(cross, 3) * depth * 0.72;
-    const blend = 1 - ease(-0.1, 7, p.edge);
+    const blend = 1 - ease(-0.1, p.bankBlend, p.edge);
     return Math.min(original, THREE.MathUtils.lerp(original, bed, blend));
   }
 
