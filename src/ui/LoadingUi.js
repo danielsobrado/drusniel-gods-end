@@ -1,4 +1,10 @@
 import {
+  formatShaderCompileCategories,
+  formatShaderMaterialTypes,
+  SHADER_COMPILE_END_EVENT,
+  SHADER_COMPILE_START_EVENT,
+} from '../rendering/ShaderCompileDiagnostics.js';
+import {
   LOADING_REVEAL_RADIUS_VMAX,
   LOADING_REVEAL_SECONDS,
   LOADING_STAGES,
@@ -6,10 +12,17 @@ import {
 } from './loadingStages.js';
 
 const LOGO_FILL_SECONDS = 1;
+const SHADER_STATUS_INTERVAL_MS = 100;
 
 function power2Out(value) {
   const t = Math.max(0, Math.min(1, value));
   return 1 - (1 - t) ** 2;
+}
+
+function backendLabel(value) {
+  if (value === 'webgpu') return 'WebGPU';
+  if (value === 'webgl2') return 'WebGL 2';
+  return value || 'GPU';
 }
 
 export class LoadingUi {
@@ -22,6 +35,12 @@ export class LoadingUi {
     this.characterPromise = new Promise((resolve) => { this.resolveCharacter = resolve; });
     this.logoAnimationFrame = null;
     this.revealAnimationFrame = null;
+    this.shaderTimer = null;
+    this.shaderStartedAt = 0;
+    this.onShaderCompileStart = (event) => this.#beginShaderCompilation(event.detail);
+    this.onShaderCompileEnd = (event) => this.#finishShaderCompilation(event.detail);
+    globalThis.addEventListener?.(SHADER_COMPILE_START_EVENT, this.onShaderCompileStart);
+    globalThis.addEventListener?.(SHADER_COMPILE_END_EVENT, this.onShaderCompileEnd);
     this.element = document.createElement('div');
     this.element.className = 'loading-overlay';
     this.element.innerHTML = `
@@ -32,6 +51,8 @@ export class LoadingUi {
       <div class="loading-progress" aria-live="polite">
         <div class="loading-progress-track"><i class="progress-bar"></i></div>
         <div class="loading-row"><span id="status-label">Initializing...</span><strong id="percent-label">0%</strong></div>
+        <div id="status-detail" class="loading-detail"></div>
+        <div id="status-tech" class="loading-detail loading-detail-tech"></div>
       </div>
       <button id="startButton" class="loading-start" type="button">START</button>`;
     root.appendChild(this.element);
@@ -45,6 +66,8 @@ export class LoadingUi {
     this.progressBar = this.element.querySelector('.progress-bar');
     this.percentLabel = this.element.querySelector('#percent-label');
     this.statusLabel = this.element.querySelector('#status-label');
+    this.statusDetail = this.element.querySelector('#status-detail');
+    this.statusTech = this.element.querySelector('#status-tech');
     this.logoFill = this.element.querySelector('.logo-fill');
     this.startButton = this.element.querySelector('#startButton');
     this.#createCharacterPicker();
@@ -100,8 +123,6 @@ export class LoadingUi {
     this.resolveCharacter(id);
   }
 
-  // Resolves as soon as a card is clicked; a single-entry or preselected roster
-  // resolves immediately so the load never stalls on a gate with nothing to pick.
   waitForCharacter() {
     return this.characterPromise;
   }
@@ -113,11 +134,17 @@ export class LoadingUi {
   stage(name) {
     const stage = LOADING_STAGES[name];
     if (!stage) return;
+    if (name !== 'shaders') this.#clearShaderStatus();
     this.#setProgress(stage.message, stage.progress);
+    if (name === 'shaders') {
+      this.statusDetail.textContent = 'Inspecting visible renderables and GPU material pipelines…';
+      this.statusTech.textContent = 'Waiting for renderer pipeline inventory.';
+    }
   }
 
   update(message, progress) {
     const percent = progress <= 1 ? progress * 100 : progress;
+    this.#clearShaderStatus();
     this.#setProgress(message, percent);
   }
 
@@ -129,6 +156,50 @@ export class LoadingUi {
     this.#animateLogoFill(percent);
 
     if (percent >= 100) this.element.classList.add('is-ready');
+  }
+
+  #beginShaderCompilation(detail = {}) {
+    const diagnostics = detail.diagnostics ?? { renderables: 0, materials: 0, categories: [], materialTypes: [] };
+    this.#stopShaderTimer();
+    this.element.classList.add('is-compiling-shaders');
+    this.shaderStartedAt = performance.now();
+    this.statusLabel.textContent = `Compiling ${diagnostics.materials} GPU material${diagnostics.materials === 1 ? '' : 's'}…`;
+    this.statusDetail.textContent = formatShaderCompileCategories(diagnostics, 5)
+      || `${diagnostics.renderables} renderables`;
+    const types = formatShaderMaterialTypes(diagnostics, 3);
+    this.statusTech.textContent = `${backendLabel(detail.backend)} · ${diagnostics.renderables} renderables${types ? ` · ${types}` : ''}`;
+    this.percentLabel.textContent = '0.0s';
+    this.#animateLogoFill(92);
+    this.shaderTimer = setInterval(() => {
+      const elapsedSeconds = (performance.now() - this.shaderStartedAt) / 1000;
+      this.percentLabel.textContent = `${elapsedSeconds.toFixed(1)}s`;
+    }, SHADER_STATUS_INTERVAL_MS);
+  }
+
+  #finishShaderCompilation(detail = {}) {
+    const diagnostics = detail.diagnostics ?? { renderables: 0, materials: 0, categories: [], materialTypes: [] };
+    this.#stopShaderTimer();
+    this.element.classList.remove('is-compiling-shaders');
+    const elapsedMs = Number(detail.elapsedMs);
+    const elapsedSeconds = Number.isFinite(elapsedMs) ? elapsedMs / 1000 : 0;
+    this.progressBar.style.transform = 'scaleX(.98)';
+    this.percentLabel.textContent = '98%';
+    this.statusLabel.textContent = 'Shader pipelines ready';
+    this.statusDetail.textContent = `${diagnostics.materials} unique materials · ${diagnostics.renderables} renderables`;
+    this.statusTech.textContent = `${backendLabel(detail.backend)} warm-up completed in ${elapsedSeconds.toFixed(1)}s`;
+    this.#animateLogoFill(98);
+  }
+
+  #stopShaderTimer() {
+    if (this.shaderTimer !== null) clearInterval(this.shaderTimer);
+    this.shaderTimer = null;
+  }
+
+  #clearShaderStatus() {
+    this.#stopShaderTimer();
+    this.element?.classList.remove('is-compiling-shaders');
+    if (this.statusDetail) this.statusDetail.textContent = '';
+    if (this.statusTech) this.statusTech.textContent = '';
   }
 
   #animateLogoFill(targetPercent) {
@@ -199,13 +270,14 @@ export class LoadingUi {
   }
 
   dispose() {
-    // Unblock anyone still awaiting the roster gate, so a teardown mid-load
-    // rejects the start sequence rather than hanging it.
     this.resolveCharacter?.(this.selectedCharacterId);
     this.resolveStart?.();
     this.resolveReveal?.();
     this.resolveStart = null;
     this.resolveReveal = null;
+    this.#stopShaderTimer();
+    globalThis.removeEventListener?.(SHADER_COMPILE_START_EVENT, this.onShaderCompileStart);
+    globalThis.removeEventListener?.(SHADER_COMPILE_END_EVENT, this.onShaderCompileEnd);
     if (this.logoAnimationFrame !== null) cancelAnimationFrame(this.logoAnimationFrame);
     if (this.revealAnimationFrame !== null) cancelAnimationFrame(this.revealAnimationFrame);
     this.element?.remove();
