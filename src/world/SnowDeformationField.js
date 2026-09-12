@@ -35,6 +35,8 @@ export function resolveSnowDeformationConfig(config) {
     footRadiusScale: positiveNumber(config.footRadiusScale, 'ground.snow.deformation.footRadiusScale'),
     minRadius,
     maxRadius,
+    contactHeight: positiveNumber(config.contactHeight, 'ground.snow.deformation.contactHeight'),
+    recenterDistance: positiveNumber(config.recenterDistance, 'ground.snow.deformation.recenterDistance'),
     depressionStrength: unitNumber(config.depressionStrength, 'ground.snow.deformation.depressionStrength'),
     bermStrength: unitNumber(config.bermStrength, 'ground.snow.deformation.bermStrength'),
     decaySeconds: positiveNumber(config.decaySeconds, 'ground.snow.deformation.decaySeconds'),
@@ -112,10 +114,13 @@ export class SnowDeformationField {
       this.centerInitialized = true;
       return;
     }
+    const deltaX = x - this.center.x;
+    const deltaZ = z - this.center.y;
+    if (Math.hypot(deltaX, deltaZ) < this.config.recenterDistance) return;
+
     const pixelsPerUnit = this.config.resolution / this.config.worldSize;
-    const shiftX = Math.trunc((x - this.center.x) * pixelsPerUnit);
-    const shiftY = Math.trunc((z - this.center.y) * pixelsPerUnit);
-    if (shiftX === 0 && shiftY === 0) return;
+    const shiftX = Math.trunc(deltaX * pixelsPerUnit);
+    const shiftY = Math.trunc(deltaZ * pixelsPerUnit);
     if (Math.abs(shiftX) >= this.config.resolution || Math.abs(shiftY) >= this.config.resolution) {
       this.clear();
       this.center.set(x, z);
@@ -133,6 +138,8 @@ export class SnowDeformationField {
     const x = position.x;
     const z = position.z;
     const terrainHeight = this.terrainSampler.sampleHeight(x, z);
+    if (Number.isFinite(position.y) && position.y > terrainHeight + this.config.contactHeight) return false;
+
     const step = Math.max(0.4, this.config.worldSize / this.config.resolution * 2);
     const dx = this.terrainSampler.sampleHeight(x + step, z) - this.terrainSampler.sampleHeight(x - step, z);
     const dz = this.terrainSampler.sampleHeight(x, z + step) - this.terrainSampler.sampleHeight(x, z - step);
