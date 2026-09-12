@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu';
-import { attribute, texture, uv, vec4 } from 'three/tsl';
+import { attribute, color, mix, texture, uv, vec4 } from 'three/tsl';
 import { adventureCanopyColor } from '../rendering/AdventurePalette.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { createRandom } from '../utils/random.js';
@@ -12,6 +12,7 @@ const LOD_HIDDEN = 2;
 const MIN_TRANSITION_SECONDS = 0.001;
 const TREE_RAIN_ROUGHNESS = 0.4;
 const DEFAULT_UPDATE_SECONDS = 1 / 60;
+const TREE_HASH_SCALE = 43758.5453;
 
 function materialsOf(material) {
   return Array.isArray(material) ? material : [material];
@@ -35,15 +36,35 @@ function collectMaterials(root) {
   return materials;
 }
 
-function prepareTreeClone(root, source, leafMaterialFactory) {
+function hash01(value) {
+  const sample = Math.sin(value) * TREE_HASH_SCALE;
+  return sample - Math.floor(sample);
+}
+
+function resolveTreeAppearance(index, position, config) {
+  const appearance = config.trees.appearance ?? {};
+  const seed = (index + 1) * 12.9898 + position.x * 0.031 + position.z * 0.047;
+  const scaleVariation = Math.max(0, Number(appearance.scaleVariation) || 0);
+  const brightnessVariation = Math.max(0, Number(appearance.brightnessVariation) || 0);
+  const greenVariation = Math.max(0, Number(appearance.greenVariation) || 0);
+  const scale = 1 + (hash01(seed) * 2 - 1) * scaleVariation;
+  const brightness = 1 + (hash01(seed + 19.17) * 2 - 1) * brightnessVariation;
+  const greenShift = (hash01(seed + 47.03) * 2 - 1) * greenVariation;
+  const tint = new THREE.Color(
+    brightness * (1 - greenShift * 0.35),
+    brightness * (1 + greenShift),
+    brightness * (1 - greenShift * 0.45),
+  );
+  return { scale, tint };
+}
+
+function prepareTreeClone(root, source, leafMaterialFactory, tint) {
   root.traverse((object) => {
     if (!object.isMesh) return;
     object.visible = true;
     object.frustumCulled = true;
     object.geometry.computeBoundingSphere();
     object.boundingSphere = object.geometry.boundingSphere.clone();
-    // Per-object bounds leave the shared source geometry untouched. Allow
-    // generous shader wind movement so canopy tips never pop at the edge.
     if (source.highLeavesName && object.name === source.highLeavesName) {
       object.boundingSphere.radius += 10;
       object.userData.occlusionPadding = 10;
@@ -53,7 +74,7 @@ function prepareTreeClone(root, source, leafMaterialFactory) {
     object.userData.rainRoughness = TREE_RAIN_ROUGHNESS;
 
     if (source.highLeavesName && object.name === source.highLeavesName) {
-      object.material = leafMaterialFactory.create(object.material);
+      object.material = leafMaterialFactory.create(object.material, tint);
       object.material.opacity = 1;
       return;
     }
@@ -87,7 +108,7 @@ function bakeBillboardGeometry(root, mesh) {
   return geometry;
 }
 
-function createBillboardMaterial(sourceMaterial, opacityAttributeName, config) {
+function createBillboardMaterial(sourceMaterial, opacityAttributeName, tintAttributeName, config) {
   const billboardConfig = config.trees.billboard;
   const material = new THREE.MeshBasicNodeMaterial();
   material.map = sourceMaterial?.map ?? null;
@@ -106,8 +127,11 @@ function createBillboardMaterial(sourceMaterial, opacityAttributeName, config) {
   material.opacityNode = attribute(opacityAttributeName, 'float');
   if (config.cinematic?.enabled && config.cinematic.style?.enabled && material.map) {
     const leafSample = texture(material.map, uv());
-    const canopy = adventureCanopyColor(leafSample.rgb, config);
-    material.colorNode = vec4(canopy, leafSample.a);
+    const tint = attribute(tintAttributeName, 'vec3');
+    const canopy = adventureCanopyColor(leafSample.rgb, config).mul(tint);
+    const fill = THREE.MathUtils.clamp(Number(billboardConfig.fill) || 0, 0, 1);
+    const lifted = mix(canopy, color(billboardConfig.fillColor ?? '#737363'), fill);
+    material.colorNode = vec4(lifted, leafSample.a);
   }
   return material;
 }
@@ -253,13 +277,15 @@ export class TreeSystem {
   }
 
   #createTree({ index, typeIndex, source, position, rotation, scale, zone }) {
+    const appearance = resolveTreeAppearance(index, position, this.config);
+    const resolvedScale = scale * appearance.scale;
     const high = clone(source.high);
     high.name = `TreeHigh_${index}`;
     high.visible = true;
     high.position.copy(position);
     high.rotation.y = rotation;
-    high.scale.setScalar(scale);
-    prepareTreeClone(high, source, this.leafMaterialFactory);
+    high.scale.setScalar(resolvedScale);
+    prepareTreeClone(high, source, this.leafMaterialFactory, appearance.tint);
     this.scene.add(high);
 
     this.trees.push({
@@ -269,7 +295,8 @@ export class TreeSystem {
       high,
       position: high.position,
       rotation,
-      scale,
+      scale: resolvedScale,
+      tint: appearance.tint,
       highMaterials: collectMaterials(high),
       billboardGroup: null,
       billboardIndex: -1,
@@ -293,11 +320,19 @@ export class TreeSystem {
 
       const geometry = source.billboardGeometry;
       const opacityAttributeName = `treeOpacity_${typeIndex}`;
+      const tintAttributeName = `treeTint_${typeIndex}`;
       const opacity = new THREE.InstancedBufferAttribute(new Float32Array(count), 1);
+      const tint = new THREE.InstancedBufferAttribute(new Float32Array(count * 3), 3);
       opacity.setUsage(THREE.DynamicDrawUsage);
       geometry.setAttribute(opacityAttributeName, opacity);
+      geometry.setAttribute(tintAttributeName, tint);
 
-      const material = createBillboardMaterial(source.billboardSourceMaterial, opacityAttributeName, this.config);
+      const material = createBillboardMaterial(
+        source.billboardSourceMaterial,
+        opacityAttributeName,
+        tintAttributeName,
+        this.config,
+      );
       const group = new THREE.InstancedMesh(geometry, material, count);
       group.name = `TreeBillboards_${typeIndex}`;
       group.frustumCulled = false;
@@ -313,11 +348,13 @@ export class TreeSystem {
         transform.scale.setScalar(tree.scale);
         transform.updateMatrix();
         group.setMatrixAt(billboardIndex, transform.matrix);
+        tint.setXYZ(billboardIndex, tree.tint.r, tree.tint.g, tree.tint.b);
         tree.billboardGroup = group;
         tree.billboardIndex = billboardIndex;
         billboardIndex += 1;
       }
       group.instanceMatrix.needsUpdate = true;
+      tint.needsUpdate = true;
       source.billboardGroup = group;
       this.billboardGroups.push(group);
       this.scene.add(group);
