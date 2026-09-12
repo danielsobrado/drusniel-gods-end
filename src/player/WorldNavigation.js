@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger.js';
+import { constrainCameraLineOfSight } from './cameraTerrain.js';
 import { FreeFlyController } from './FreeFlyController.js';
 
 function validateLocations(locations) {
@@ -31,6 +32,7 @@ export class WorldNavigation {
     this.world = world;
     this.player = player;
     this.tour = tour;
+    this.cameraControls = config.camera?.controls ?? {};
     this.tour.configure?.(config.navigation?.scenicTour);
     this.locations = validateLocations(config.navigation?.locations);
     this.locationById = new Map(this.locations.map((location) => [location.id, location]));
@@ -87,9 +89,22 @@ export class WorldNavigation {
 
   update(deltaSeconds) {
     this.freeFly.update(deltaSeconds);
-    const walking = !this.freeFly.active && !this.tour.active
-      && this.player.enabled && this.player.moving && this.player.grounded;
+    const walkingMode = !this.freeFly.active && !this.tour.active && this.player.enabled;
     const playerPosition = this.player.getPosition();
+    if (walkingMode) {
+      constrainCameraLineOfSight(
+        this.world.camera.position,
+        playerPosition,
+        this.world.terrainSampler,
+        {
+          clearance: this.cameraControls.terrainClearance,
+          samples: this.cameraControls.terrainOcclusionSamples,
+          padding: this.cameraControls.terrainOcclusionPadding,
+        },
+      );
+    }
+
+    const walking = walkingMode && this.player.moving && this.player.grounded;
     const influencePoints = walking ? this.player.getInfluencePoints() : [];
     const powderFocus = this.tour.active || this.freeFly.active
       ? this.world.camera.position
