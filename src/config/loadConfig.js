@@ -19,6 +19,7 @@ export const CONFIG_FILES = [
   'foliage.yaml',
   'characters.yaml',
   'reference-biome.yaml',
+  'coastal-jungle.yaml',
   'visual-refinement.yaml',
 ];
 

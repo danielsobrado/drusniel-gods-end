@@ -40,6 +40,7 @@ import { FrameProfiler, isProfileRequested } from '../debug/FrameProfiler.js';
 import { GpuCreationProbe } from '../debug/gpuCreationHooks.js';
 import { createVegetationJobScheduler } from '../foliage/vegetationRebuild.js';
 import { BiomePropSystem } from '../biome/BiomePropSystem.js';
+import { CoastalJungleSystem } from '../biome/CoastalJungleSystem.js';
 import { commitPresetChange, preparePresetChange } from '../biome/presetSwitch.js';
 import { resolvePresetConfig } from '../config/resolvePresetConfig.js';
 import { disposePresetAppearance } from '../rendering/PresetAppearance.js';
@@ -194,6 +195,23 @@ export class GrassDemo {
     });
     await this.understory.init();
     this.abortController.signal.throwIfAborted();
+
+    this.coastalJungle = new CoastalJungleSystem({
+      scene: this.world.scene,
+      config: this.config,
+      terrain: this.world.terrainSampler,
+      expansion: this.world.expansion,
+      collisions: this.collisions,
+    });
+    try {
+      await this.coastalJungle.init(this.abortController.signal);
+      this.abortController.signal.throwIfAborted();
+    } catch (error) {
+      this.coastalJungle.dispose();
+      this.coastalJungle = null;
+      if (error?.name === 'AbortError') throw error;
+      logger.warn('Coastal jungle could not start; continuing without it.', error);
+    }
 
     this.water = new WaterSurface(
       this.world.scene,
@@ -464,6 +482,7 @@ export class GrassDemo {
         this.meadow?.setQuality(name);
         this.water?.setQuality(name);
         this.biome?.setQuality(name);
+        this.coastalJungle?.setQuality(name);
       },
       setGrassShape: (shape) => this.iris.run(() => this.grass.setGrassShape(shape), 'grassShape'),
       getGrassParameters: (family) => this.environment.current.grass[family],
@@ -507,6 +526,7 @@ export class GrassDemo {
       reflections: this.water?.stats ?? null,
       understory: this.understory?.stats ?? null,
       biome: this.biome?.stats ?? null,
+      coastalJungle: this.coastalJungle?.stats ?? null,
       referenceBiome: this.config.biomes?.referenceScrub?.enabled === true,
     };
   }
@@ -644,7 +664,7 @@ export class GrassDemo {
     this.disposed = true;
     this.world?.renderer?.setAnimationLoop(null);
     for (const resource of [this.loading, this.pipeline, this.cinematicLighting,
-      this.meadow, this.wildGrass, this.understory, this.biome, this.vegetationJobs, this.ui, this.iris, this.grass, this.trees, this.props,
+      this.meadow, this.wildGrass, this.understory, this.biome, this.coastalJungle, this.vegetationJobs, this.ui, this.iris, this.grass, this.trees, this.props,
       this.collisions, this.navigation, this.player, this.leaves, this.birds, this.rain,
       this.boundaryBarrier, this.water, this.audio, this.environment, this.world]) {
       try { resource?.dispose?.(); } catch (error) { logger.warn('Demo cleanup failed.', error); }
