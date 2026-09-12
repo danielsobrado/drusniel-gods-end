@@ -1,5 +1,6 @@
 import yaml from 'js-yaml';
 import { validateConfig } from './validateConfig.js';
+import { validateSnowConfig } from './validateSnowConfig.js';
 
 export const CONFIG_FILES = [
   'config.yaml',
@@ -10,6 +11,7 @@ export const CONFIG_FILES = [
   'character-visual.yaml',
   'cinematic-wind.yaml',
   'cinematic-look.yaml',
+  'snow.yaml',
   'painter-cursor.yaml',
   'vegetation.yaml',
   'foliage.yaml',
@@ -44,5 +46,5 @@ async function loadYamlConfig(filename) {
 export async function loadConfig() {
   const configs = await Promise.all(CONFIG_FILES.map(loadYamlConfig));
   const merged = configs.slice(1).reduce((acc, current) => mergeConfig(acc, current), configs[0]);
-  return validateConfig(merged);
+  return validateSnowConfig(validateConfig(merged));
 }

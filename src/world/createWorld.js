@@ -13,6 +13,7 @@ import { ResourceScope, captureObjectResources } from '../utils/ResourceScope.js
 import { expandLandscape } from './ExpandedLandscape.js';
 import { createBeachScatter, disposeBeachScatter } from './BeachScatter.js';
 import { createCoastalGroundcover, disposeCoastalGroundcover } from './CoastalGroundcover.js';
+import { SnowDeformationField } from './SnowDeformationField.js';
 
 const DEFAULT_SHADOW = {
   mobileBreakpoint: 768,
@@ -161,9 +162,14 @@ export async function createWorld(config, onProgress = () => {}, { signal, rende
     scope.defer(() => terrainSampler.texture?.dispose());
     signal?.throwIfAborted();
 
+    const snowDeformation = config.ground.snow?.enabled && config.ground.snow.deformation?.enabled
+      ? new SnowDeformationField(config, terrainSampler)
+      : null;
+    if (snowDeformation) scope.defer(() => snowDeformation.dispose());
+
     let groundMaterial;
     try {
-      groundMaterial = await createGroundMaterial(config, terrainSampler);
+      groundMaterial = await createGroundMaterial(config, terrainSampler, snowDeformation);
     } catch (error) {
       logger.warn('Ground PBR material failed to load; using fallback material.', error);
       groundMaterial = createFallbackMaterial(config);
@@ -220,6 +226,7 @@ export async function createWorld(config, onProgress = () => {}, { signal, rende
       terrainTarget: terrainAsset.target ?? ground,
       terrainSampler,
       expansion,
+      snowDeformation,
       sky,
       clouds,
       ...lights,
