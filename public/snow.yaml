@@ -39,11 +39,11 @@ ground:
       sun: '#f7fbf7'
       driftVariation: 0.08
     roughness:
-      base: 0.76
+      base: 0.82
       compressed: 0.52
-      berm: 0.82
+      berm: 0.86
     lighting:
-      sssStrength: 0.07
+      sssStrength: 0.09
       backscatterPower: 4
       glintStrength: 0.16
       glintPower: 90
@@ -66,3 +66,30 @@ ground:
       decaySeconds: 90
       bermDecaySeconds: 45
       recoveryInterval: 0.2
+    powder:
+      enabled: true
+      capacity: 144
+      particlesPerContact: 8
+      runningMultiplier: 1.75
+      emitDistance: 0.16
+      minCoverage: 0.25
+      contactHeight: 0.6
+      normalSampleDistance: 0.5
+      spawnHeight: 0.06
+      spread: 0.18
+      lifetimeMin: 0.45
+      lifetimeMax: 0.95
+      sizeMin: 0.12
+      sizeMax: 0.34
+      sizeGrowth: 1.4
+      fadeStart: 0.35
+      horizontalSpeedMin: 0.18
+      horizontalSpeedMax: 0.75
+      verticalSpeedMin: 0.25
+      verticalSpeedMax: 0.8
+      drag: 2.2
+      gravity: 0.28
+      opacity: 0.55
+      color: '#f5fbff'
+      textureSize: 64
+      seed: 1337
