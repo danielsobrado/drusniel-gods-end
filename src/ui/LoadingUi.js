@@ -50,7 +50,7 @@ export class LoadingUi {
       </div>
       <div class="loading-progress" aria-live="polite">
         <div class="loading-progress-track"><i class="progress-bar"></i></div>
-        <div class="loading-row"><span id="status-label">Initializing...</span><strong id="percent-label">0%</strong></div>
+        <div class="loading-row"><span id="status-label">Opening the way...</span><strong id="percent-label">0%</strong></div>
         <div id="status-detail" class="loading-detail"></div>
         <div id="status-tech" class="loading-detail loading-detail-tech"></div>
       </div>
@@ -137,7 +137,7 @@ export class LoadingUi {
     if (name !== 'shaders') this.#clearShaderStatus();
     this.#setProgress(stage.message, stage.progress);
     if (name === 'shaders') {
-      this.statusDetail.textContent = 'Inspecting visible renderables and GPU material pipelines…';
+      this.statusDetail.textContent = 'Preparing the final lighting and surfaces…';
       this.statusTech.textContent = 'Waiting for renderer pipeline inventory.';
     }
   }
@@ -163,11 +163,12 @@ export class LoadingUi {
     this.#stopShaderTimer();
     this.element.classList.add('is-compiling-shaders');
     this.shaderStartedAt = performance.now();
-    this.statusLabel.textContent = `Compiling ${diagnostics.materials} GPU material${diagnostics.materials === 1 ? '' : 's'}…`;
-    this.statusDetail.textContent = formatShaderCompileCategories(diagnostics, 5)
-      || `${diagnostics.renderables} renderables`;
+    this.statusLabel.textContent = 'Polishing the final details…';
+    this.statusDetail.textContent = 'Preparing surfaces, lighting, and effects…';
+    const categories = formatShaderCompileCategories(diagnostics, 5);
     const types = formatShaderMaterialTypes(diagnostics, 3);
-    this.statusTech.textContent = `${backendLabel(detail.backend)} · ${diagnostics.renderables} renderables${types ? ` · ${types}` : ''}`;
+    this.statusTech.textContent = `${backendLabel(detail.backend)} · ${diagnostics.materials} materials · ${diagnostics.renderables} renderables`
+      + `${categories ? ` · ${categories}` : ''}${types ? ` · ${types}` : ''}`;
     this.percentLabel.textContent = '0.0s';
     this.#animateLogoFill(92);
     this.shaderTimer = setInterval(() => {
@@ -184,9 +185,9 @@ export class LoadingUi {
     const elapsedSeconds = Number.isFinite(elapsedMs) ? elapsedMs / 1000 : 0;
     this.progressBar.style.transform = 'scaleX(.98)';
     this.percentLabel.textContent = '98%';
-    this.statusLabel.textContent = 'Shader pipelines ready';
-    this.statusDetail.textContent = `${diagnostics.materials} unique materials · ${diagnostics.renderables} renderables`;
-    this.statusTech.textContent = `${backendLabel(detail.backend)} warm-up completed in ${elapsedSeconds.toFixed(1)}s`;
+    this.statusLabel.textContent = 'The world is ready';
+    this.statusDetail.textContent = 'Everything is in place.';
+    this.statusTech.textContent = `${backendLabel(detail.backend)} · ${diagnostics.materials} materials · ${diagnostics.renderables} renderables · ${elapsedSeconds.toFixed(1)}s`;
     this.#animateLogoFill(98);
   }
 
