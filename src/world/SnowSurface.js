@@ -80,6 +80,10 @@ export function resolveSnowConfig(config) {
       frequency: positiveNumber(config.sastrugi.frequency, 'ground.snow.sastrugi.frequency'),
       crossFrequency: positiveNumber(config.sastrugi.crossFrequency, 'ground.snow.sastrugi.crossFrequency'),
       warp: finiteNumber(config.sastrugi.warp, 'ground.snow.sastrugi.warp'),
+      macroFrequency: positiveNumber(config.sastrugi.macroFrequency, 'ground.snow.sastrugi.macroFrequency'),
+      macroCrossFrequency: positiveNumber(config.sastrugi.macroCrossFrequency, 'ground.snow.sastrugi.macroCrossFrequency'),
+      macroWarp: finiteNumber(config.sastrugi.macroWarp, 'ground.snow.sastrugi.macroWarp'),
+      amplitudeVariation: finiteNumber(config.sastrugi.amplitudeVariation, 'ground.snow.sastrugi.amplitudeVariation'),
       amplitude: finiteNumber(config.sastrugi.amplitude, 'ground.snow.sastrugi.amplitude'),
       secondaryFrequency: positiveNumber(config.sastrugi.secondaryFrequency, 'ground.snow.sastrugi.secondaryFrequency'),
       secondaryAmplitude: finiteNumber(config.sastrugi.secondaryAmplitude, 'ground.snow.sastrugi.secondaryAmplitude'),
@@ -87,6 +91,8 @@ export function resolveSnowConfig(config) {
     ripples: {
       frequency: positiveNumber(config.ripples.frequency, 'ground.snow.ripples.frequency'),
       crossFrequency: positiveNumber(config.ripples.crossFrequency, 'ground.snow.ripples.crossFrequency'),
+      macroFrequency: positiveNumber(config.ripples.macroFrequency, 'ground.snow.ripples.macroFrequency'),
+      macroWarp: finiteNumber(config.ripples.macroWarp, 'ground.snow.ripples.macroWarp'),
       amplitude: finiteNumber(config.ripples.amplitude, 'ground.snow.ripples.amplitude'),
     },
     grain: {
@@ -135,19 +141,35 @@ export function createSnowSurfaceNodes(config, deformationField = null) {
   const slope = smoothstep(snow.slope.start, snow.slope.full, normalWorld.y.abs());
   const mask = altitude.mul(slope).clamp(0, 1).toVar();
 
+  const sastrugiMacro = sin(along.mul(snow.sastrugi.macroFrequency)
+    .add(sin(across.mul(snow.sastrugi.macroCrossFrequency)).mul(1.7)));
+  const sastrugiAmplitude = mix(
+    1 - snow.sastrugi.amplitudeVariation,
+    1 + snow.sastrugi.amplitudeVariation,
+    sastrugiMacro.mul(0.5).add(0.5),
+  );
   const sastrugiPhase = along.mul(snow.sastrugi.frequency)
-    .add(sin(across.mul(snow.sastrugi.crossFrequency)).mul(snow.sastrugi.warp));
-  const sastrugiDerivative = shiftedCos(sastrugiPhase).mul(snow.sastrugi.frequency * snow.sastrugi.amplitude);
+    .add(sin(across.mul(snow.sastrugi.crossFrequency)).mul(snow.sastrugi.warp))
+    .add(sastrugiMacro.mul(snow.sastrugi.macroWarp));
+  const sastrugiDerivative = shiftedCos(sastrugiPhase)
+    .mul(snow.sastrugi.frequency * snow.sastrugi.amplitude)
+    .mul(sastrugiAmplitude);
   const sastrugiCrossDerivative = shiftedCos(sastrugiPhase)
     .mul(shiftedCos(across.mul(snow.sastrugi.crossFrequency)))
-    .mul(snow.sastrugi.crossFrequency * snow.sastrugi.warp * snow.sastrugi.amplitude);
+    .mul(snow.sastrugi.crossFrequency * snow.sastrugi.warp * snow.sastrugi.amplitude)
+    .mul(sastrugiAmplitude);
   const secondaryPhase = along.mul(snow.sastrugi.secondaryFrequency)
-    .add(sin(across.mul(snow.sastrugi.crossFrequency * 1.7)).mul(snow.sastrugi.warp * 0.45));
+    .add(sin(across.mul(snow.sastrugi.crossFrequency * 1.7)).mul(snow.sastrugi.warp * 0.45))
+    .sub(sastrugiMacro.mul(snow.sastrugi.macroWarp * 0.37));
   const secondaryDerivative = shiftedCos(secondaryPhase)
-    .mul(snow.sastrugi.secondaryFrequency * snow.sastrugi.secondaryAmplitude);
+    .mul(snow.sastrugi.secondaryFrequency * snow.sastrugi.secondaryAmplitude)
+    .mul(sastrugiAmplitude);
 
+  const rippleMacro = sin(along.mul(snow.ripples.macroFrequency)
+    .sub(sin(across.mul(snow.ripples.macroFrequency * 0.71)).mul(1.3)));
   const ripplePhase = along.mul(snow.ripples.frequency)
-    .add(sin(across.mul(snow.ripples.crossFrequency)).mul(0.75));
+    .add(sin(across.mul(snow.ripples.crossFrequency)).mul(0.75))
+    .add(rippleMacro.mul(snow.ripples.macroWarp));
   const rippleAlong = shiftedCos(ripplePhase).mul(snow.ripples.frequency * snow.ripples.amplitude);
   const rippleAcross = shiftedCos(ripplePhase)
     .mul(shiftedCos(across.mul(snow.ripples.crossFrequency)))
