@@ -100,17 +100,21 @@ export function validateSnowConfig(config) {
   const deformation = snow.deformation;
   if (object(deformation, 'ground.snow.deformation', problems) && deformation.enabled !== false) {
     number(deformation.resolution, 'ground.snow.deformation.resolution', problems, { min: 64, max: 2048 });
-    number(deformation.worldSize, 'ground.snow.deformation.worldSize', problems, { min: 1, exclusiveMin: true });
+    const worldSize = number(deformation.worldSize, 'ground.snow.deformation.worldSize', problems, { min: 1, exclusiveMin: true });
     for (const name of ['paintMinCoverage', 'depressionStrength', 'bermStrength']) {
       number(deformation[name], `ground.snow.deformation.${name}`, problems, { min: 0, max: 1 });
     }
-    for (const name of ['footRadiusScale', 'minRadius', 'maxRadius', 'decaySeconds', 'bermDecaySeconds', 'recoveryInterval']) {
+    for (const name of ['footRadiusScale', 'minRadius', 'maxRadius', 'contactHeight', 'recenterDistance', 'decaySeconds', 'bermDecaySeconds', 'recoveryInterval']) {
       number(deformation[name], `ground.snow.deformation.${name}`, problems, { min: 0, exclusiveMin: true });
     }
     const minRadius = Number(deformation.minRadius);
     const maxRadius = Number(deformation.maxRadius);
     if (Number.isFinite(minRadius) && Number.isFinite(maxRadius) && maxRadius < minRadius) {
       problems.push('ground.snow.deformation.maxRadius must be greater than or equal to minRadius');
+    }
+    const recenterDistance = Number(deformation.recenterDistance);
+    if (Number.isFinite(worldSize) && Number.isFinite(recenterDistance) && recenterDistance >= worldSize * 0.5) {
+      problems.push('ground.snow.deformation.recenterDistance must be lower than half of worldSize');
     }
     for (const name of ['normalStrength', 'darkenStrength', 'bermLighten']) {
       number(deformation[name], `ground.snow.deformation.${name}`, problems, { min: 0 });
