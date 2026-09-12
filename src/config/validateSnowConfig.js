@@ -96,6 +96,12 @@ export function validateSnowConfig(config) {
     number(snow.colors.driftVariation, 'ground.snow.colors.driftVariation', problems, { min: 0, max: 1 });
   }
 
+  if (object(snow.surfaceTone, 'ground.snow.surfaceTone', problems)) {
+    for (const name of ['sastrugiContrast', 'rippleContrast', 'exposureContrast']) {
+      number(snow.surfaceTone[name], `ground.snow.surfaceTone.${name}`, problems, { min: 0, max: 0.3 });
+    }
+  }
+
   if (object(snow.roughness, 'ground.snow.roughness', problems)) {
     for (const name of ['base', 'compressed', 'berm']) {
       number(snow.roughness[name], `ground.snow.roughness.${name}`, problems, { min: 0, max: 1 });
