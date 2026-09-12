@@ -104,8 +104,13 @@ export function validateSnowConfig(config) {
     for (const name of ['paintMinCoverage', 'depressionStrength', 'bermStrength']) {
       number(deformation[name], `ground.snow.deformation.${name}`, problems, { min: 0, max: 1 });
     }
-    for (const name of ['footRadiusScale', 'decaySeconds', 'bermDecaySeconds', 'recoveryInterval']) {
+    for (const name of ['footRadiusScale', 'minRadius', 'maxRadius', 'decaySeconds', 'bermDecaySeconds', 'recoveryInterval']) {
       number(deformation[name], `ground.snow.deformation.${name}`, problems, { min: 0, exclusiveMin: true });
+    }
+    const minRadius = Number(deformation.minRadius);
+    const maxRadius = Number(deformation.maxRadius);
+    if (Number.isFinite(minRadius) && Number.isFinite(maxRadius) && maxRadius < minRadius) {
+      problems.push('ground.snow.deformation.maxRadius must be greater than or equal to minRadius');
     }
     for (const name of ['normalStrength', 'darkenStrength', 'bermLighten']) {
       number(deformation[name], `ground.snow.deformation.${name}`, problems, { min: 0 });
