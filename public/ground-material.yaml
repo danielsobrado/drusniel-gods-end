@@ -6,6 +6,18 @@ ground:
   groundTextureScale: 70
   anisotropy: 16
   metalness: 0.04
+  antiTiling:
+    enabled: true
+    secondaryScale: 0.618
+    offset: [0.37, 0.61]
+    macroFrequencyX: 0.012
+    macroFrequencyZ: 0.016
+    warpFrequency: 0.009
+    warpStrength: 2.1
+    blendStart: 0.18
+    blendEnd: 0.82
+    colorVariation: 0.07
+    roughnessVariation: 0.05
   rock:
     highland:
       start: 48
@@ -26,25 +38,28 @@ ground:
       inner: 0.3
       outer: 1.1
       strength: 0.95
-    triplanarScale: 0.18
+    triplanarScale: 0.16
+    secondaryTriplanarScale: 0.097
+    textureBlendStart: 0.2
+    textureBlendEnd: 0.8
     triplanarSharpness: 4.0
-    textureStrength: 0.62
-    textureBias: 0.62
+    textureStrength: 0.5
+    textureBias: 0.7
     grainFrequencyX: 8.3
     grainFrequencyZ: 11.1
     grainWarpFrequency: 5.7
-    grainAmplitude: 0.08
+    grainAmplitude: 0.07
     strataFrequency: 0.55
     strataMacroInfluence: 3.0
-    strataAmplitude: 0.06
+    strataAmplitude: 0.05
     normalFrequency: [1.35, 1.9, 1.6]
-    normalStrength: 0.2
+    normalStrength: 0.18
     dryRoughness: 0.9
     wetRoughness: 0.38
-    roughnessTextureStrength: 0.32
+    roughnessTextureStrength: 0.28
     colors:
-      shadow: '#56615d'
-      sun: '#9f9684'
-      lake: '#85897b'
-    lakeColorStrength: 0.55
+      shadow: '#626968'
+      sun: '#bbb9b0'
+      lake: '#858a88'
+    lakeColorStrength: 0.5
     wetDarkening: 0.28
