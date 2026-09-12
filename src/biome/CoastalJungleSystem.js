@@ -5,6 +5,8 @@ import { captureObjectResources } from '../utils/ResourceScope.js';
 import { logger } from '../utils/logger.js';
 import {
   classifyCoastalJungleObject,
+  coastalJungleRegionCenter,
+  coastalJungleRegionRadius,
   createCoastalJungleSourceBounds,
   evaluateCoastalJunglePlacement,
   mapCoastalJungleHorizontal,
@@ -43,7 +45,7 @@ function sourceRecord(matrix, kind) {
   const rotation = new THREE.Quaternion();
   const scale = new THREE.Vector3();
   matrix.decompose(position, rotation, scale);
-  return { kind, matrix, position, rotation, scale };
+  return { kind, position, rotation, scale };
 }
 
 export class CoastalJungleSystem {
@@ -56,6 +58,8 @@ export class CoastalJungleSystem {
     this.profile = config?.biomes?.coastalJungle ?? null;
     this.qualityName = config?.ui?.initialQuality ?? DEFAULT_QUALITY;
     this.root = null;
+    this.lod = null;
+    this.farRoot = null;
     this.releaseGltf = null;
     this.sourceBounds = null;
     this.batches = [];
@@ -71,6 +75,8 @@ export class CoastalJungleSystem {
       visibleInstances: 0,
       colliders: 0,
       triangles: 0,
+      regionRadius: 0,
+      visibilityDistance: 0,
       byKind: {},
     };
   }
@@ -103,18 +109,30 @@ export class CoastalJungleSystem {
     signal?.throwIfAborted();
     this.#relocateBatches(collected.batches, signal);
     this.#relocateSingles(collected.singles, signal);
-    this.#conformSurface(collected.floor, Number(this.profile.placement?.groundOffset ?? 0.025));
-    this.#conformSurface(collected.path, Number(this.profile.placement?.pathOffset ?? 0.045), true);
-    this.#prepareRendering();
+    const availableInstances = this.#availableInstanceCount();
+    if (availableInstances === 0) {
+      logger.warn('Coastal jungle placement rejected every authored vegetation instance; skipping biome.');
+      this.dispose();
+      return this;
+    }
 
-    this.scene?.add(this.root);
+    this.#conformSurface(collected.floor, {
+      offset: Number(this.profile.placement?.groundOffset ?? 0.025),
+      revealRoutes: true,
+    });
+    this.#conformSurface(collected.path, {
+      offset: Number(this.profile.placement?.pathOffset ?? 0.045),
+      transparent: true,
+    });
+    this.#prepareRendering();
+    this.#mountLod();
     this.root.updateWorldMatrix(true, true);
     this.#registerColliders();
+
     this.ready = true;
     this.stats.active = true;
     this.stats.sourceInstances = collected.sourceInstances;
-    this.stats.availableInstances = this.batches.reduce((sum, batch) => sum + batch.availableCount, 0)
-      + this.singles.filter((single) => single.accepted).length;
+    this.stats.availableInstances = availableInstances;
     this.stats.batches = this.batches.length;
     this.setQuality(this.qualityName);
 
@@ -124,6 +142,7 @@ export class CoastalJungleSystem {
       availableInstances: this.stats.availableInstances,
       visibleInstances: this.stats.visibleInstances,
       colliders: this.stats.colliders,
+      visibilityDistance: this.stats.visibilityDistance,
     });
     return this;
   }
@@ -131,9 +150,7 @@ export class CoastalJungleSystem {
   setQuality(name) {
     this.qualityName = name ?? DEFAULT_QUALITY;
     if (!this.ready) return;
-    const quality = this.profile.quality?.[this.qualityName]
-      ?? this.profile.quality?.[DEFAULT_QUALITY]
-      ?? {};
+    const quality = this.#quality();
     const shadowKinds = new Set(this.profile.shadowKinds ?? []);
     const byKind = {};
     let visibleInstances = 0;
@@ -160,6 +177,7 @@ export class CoastalJungleSystem {
       triangles += single.triangles;
     }
 
+    this.#applyLodDistance(quality);
     this.stats.visibleInstances = visibleInstances;
     this.stats.triangles = Math.round(triangles);
     this.stats.byKind = byKind;
@@ -169,14 +187,68 @@ export class CoastalJungleSystem {
     if (this.disposed) return;
     this.disposed = true;
     this.collisions?.removeGroup(this.profile?.collisionGroup ?? 'coastalJungle');
+    this.lod?.removeFromParent();
     this.releaseGltf?.();
     this.releaseGltf = null;
     this.root = null;
+    this.lod = null;
+    this.farRoot = null;
     this.batches.length = 0;
     this.singles.length = 0;
     this.colliderRecords.length = 0;
     this.ready = false;
     this.stats.active = false;
+  }
+
+  #quality() {
+    return this.profile.quality?.[this.qualityName]
+      ?? this.profile.quality?.[DEFAULT_QUALITY]
+      ?? {};
+  }
+
+  #availableInstanceCount() {
+    return this.batches.reduce((sum, batch) => sum + batch.availableCount, 0)
+      + this.singles.filter((single) => single.accepted).length;
+  }
+
+  #mountLod() {
+    const center = coastalJungleRegionCenter(this.profile.region, this.config.water.sea);
+    if (!center) throw new Error('Coastal jungle region has no valid center.');
+    const sampledHeight = this.terrain.sampleHeight(center.x, center.z);
+    const centerY = Number.isFinite(sampledHeight) ? sampledHeight : 0;
+    const regionRadius = coastalJungleRegionRadius(this.profile.region, this.config.water.sea);
+    const hysteresis = clampDensity(this.profile.render?.lodHysteresis ?? 0.06);
+
+    const lod = new THREE.LOD();
+    lod.name = 'CoastalJungleLOD';
+    lod.position.set(center.x, centerY, center.z);
+    this.root.position.x -= center.x;
+    this.root.position.y -= centerY;
+    this.root.position.z -= center.z;
+    this.root.updateMatrix();
+
+    const farRoot = new THREE.Group();
+    farRoot.name = 'CoastalJungleCulled';
+    lod.addLevel(this.root, 0, hysteresis);
+    lod.addLevel(farRoot, this.#visibilityDistance(this.#quality(), regionRadius), hysteresis);
+    this.scene?.add(lod);
+
+    this.lod = lod;
+    this.farRoot = farRoot;
+    this.stats.regionRadius = regionRadius;
+  }
+
+  #visibilityDistance(quality, radius = this.stats.regionRadius) {
+    return Math.max(1, Number(quality?.maxDistance ?? 500)) + Math.max(0, radius);
+  }
+
+  #applyLodDistance(quality) {
+    if (!this.lod || !this.farRoot) return;
+    const level = this.lod.levels.find((entry) => entry.object === this.farRoot);
+    const distance = this.#visibilityDistance(quality);
+    if (level) level.distance = distance;
+    this.lod.levels.sort((a, b) => a.distance - b.distance);
+    this.stats.visibilityDistance = distance;
   }
 
   #collectSource() {
@@ -312,7 +384,7 @@ export class CoastalJungleSystem {
     }
   }
 
-  #conformSurface(object, offset, transparent = false) {
+  #conformSurface(object, { offset = 0, transparent = false, revealRoutes = false } = {}) {
     if (!object?.isMesh || !object.geometry?.attributes?.position) return;
     object.updateWorldMatrix(true, false);
     const sourceWorldMatrix = object.matrixWorld.clone();
@@ -331,7 +403,8 @@ export class CoastalJungleSystem {
       if (!mapped) continue;
       const height = this.terrain.sampleHeight(mapped.x, mapped.z);
       if (!Number.isFinite(height)) continue;
-      target.set(mapped.x, height + offset, mapped.z).applyMatrix4(inverse);
+      const surfaceOffset = revealRoutes ? this.#routeAwareFloorOffset(mapped.x, mapped.z, offset) : offset;
+      target.set(mapped.x, height + surfaceOffset, mapped.z).applyMatrix4(inverse);
       positions.setXYZ(index, target.x, target.y, target.z);
     }
     positions.needsUpdate = true;
@@ -350,6 +423,15 @@ export class CoastalJungleSystem {
       }
       object.renderOrder = 1;
     }
+  }
+
+  #routeAwareFloorOffset(x, z, baseOffset) {
+    const mask = Number(this.expansion?.paths?.sample?.(x, z) ?? 0);
+    const start = Number(this.profile.placement?.routeFloorRevealStart ?? 0.08);
+    if (!(mask > start)) return baseOffset;
+    const reveal = THREE.MathUtils.smoothstep(mask, start, 1);
+    const depth = Number(this.profile.placement?.routeFloorRevealDepth ?? 0.08);
+    return THREE.MathUtils.lerp(baseOffset, -Math.abs(depth), reveal);
   }
 
   #prepareRendering() {
@@ -382,7 +464,7 @@ export class CoastalJungleSystem {
       if (!(radius > 0) || !(height > 0)) continue;
       const position = record.position.clone();
       position.y += height * 0.5;
-      this.collisions.addPreparedConvex(
+      const collider = this.collisions.addPreparedConvex(
         boxHull(radius, height),
         {
           position,
@@ -392,7 +474,7 @@ export class CoastalJungleSystem {
         },
         { group, id: `coastal-jungle-${record.kind}-${index}` },
       );
-      index += 1;
+      if (collider) index += 1;
     }
     this.stats.colliders = index;
   }

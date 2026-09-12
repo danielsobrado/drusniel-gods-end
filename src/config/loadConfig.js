@@ -1,5 +1,6 @@
 import yaml from 'js-yaml';
 import { validateAlpineConfig } from './validateAlpineConfig.js';
+import { validateCoastalJungleConfig } from './validateCoastalJungleConfig.js';
 import { validateConfig } from './validateConfig.js';
 import { validateSnowConfig } from './validateSnowConfig.js';
 
@@ -19,7 +20,7 @@ export const CONFIG_FILES = [
   'foliage.yaml',
   'characters.yaml',
   'reference-biome.yaml',
-  'coastal-jungle.yaml',
+  'coastal-jungle-runtime.yaml',
   'visual-refinement.yaml',
 ];
 
@@ -50,5 +51,7 @@ async function loadYamlConfig(filename) {
 export async function loadConfig() {
   const configs = await Promise.all(CONFIG_FILES.map(loadYamlConfig));
   const merged = configs.slice(1).reduce((acc, current) => mergeConfig(acc, current), configs[0]);
-  return validateAlpineConfig(validateSnowConfig(validateConfig(merged)));
+  return validateCoastalJungleConfig(
+    validateAlpineConfig(validateSnowConfig(validateConfig(merged))),
+  );
 }
