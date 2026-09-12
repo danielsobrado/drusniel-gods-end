@@ -1,3 +1,6 @@
+export const SHADER_COMPILE_START_EVENT = 'grass:shader-compile-start';
+export const SHADER_COMPILE_END_EVENT = 'grass:shader-compile-end';
+
 const CATEGORY_ORDER = Object.freeze([
   'terrain',
   'vegetation',
@@ -121,5 +124,12 @@ export function formatShaderCompileCategories(diagnostics, limit = 4) {
     .sort((a, b) => b.materials - a.materials || b.renderables - a.renderables)
     .slice(0, limit)
     .map((entry) => `${entry.label} ${entry.materials}`)
+    .join(' · ');
+}
+
+export function formatShaderMaterialTypes(diagnostics, limit = 3) {
+  return diagnostics.materialTypes
+    .slice(0, limit)
+    .map((entry) => `${entry.type} ×${entry.count}`)
     .join(' · ');
 }
