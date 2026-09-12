@@ -24,12 +24,17 @@ function unitNumber(value, name) {
 export function resolveSnowDeformationConfig(config) {
   if (!config) throw new Error('ground.snow.deformation configuration is required.');
   const resolution = Math.round(positiveNumber(config.resolution, 'ground.snow.deformation.resolution'));
+  const minRadius = positiveNumber(config.minRadius, 'ground.snow.deformation.minRadius');
+  const maxRadius = positiveNumber(config.maxRadius, 'ground.snow.deformation.maxRadius');
+  if (maxRadius < minRadius) throw new Error('ground.snow.deformation.maxRadius must be >= minRadius.');
   return {
     enabled: config.enabled !== false,
     resolution,
     worldSize: positiveNumber(config.worldSize, 'ground.snow.deformation.worldSize'),
     paintMinCoverage: unitNumber(config.paintMinCoverage, 'ground.snow.deformation.paintMinCoverage'),
     footRadiusScale: positiveNumber(config.footRadiusScale, 'ground.snow.deformation.footRadiusScale'),
+    minRadius,
+    maxRadius,
     depressionStrength: unitNumber(config.depressionStrength, 'ground.snow.deformation.depressionStrength'),
     bermStrength: unitNumber(config.bermStrength, 'ground.snow.deformation.bermStrength'),
     decaySeconds: positiveNumber(config.decaySeconds, 'ground.snow.deformation.decaySeconds'),
@@ -62,7 +67,8 @@ export class SnowDeformationField {
     this.config = resolveSnowDeformationConfig(config.ground.snow.deformation);
     this.rootConfig = config;
     this.terrainSampler = terrainSampler;
-    this.center = new THREE.Vector2(Number.NaN, Number.NaN);
+    this.center = new THREE.Vector2();
+    this.centerInitialized = false;
     this.recoveryElapsed = 0;
     this.peak = 0;
     const length = this.config.resolution * this.config.resolution * CHANNELS;
@@ -94,15 +100,16 @@ export class SnowDeformationField {
     if (moving) {
       const points = influencePoints.length > 0
         ? influencePoints
-        : [{ position: playerPosition, radius: this.config.worldSize / this.config.resolution * 2 }];
+        : [{ position: playerPosition, radius: this.config.minRadius }];
       for (const point of points) changed = this.#paintPoint(point) || changed;
     }
     if (changed) this.texture.needsUpdate = true;
   }
 
   #recenter(x, z) {
-    if (!Number.isFinite(this.center.x) || this.peak === 0) {
+    if (!this.centerInitialized || this.peak === 0) {
       this.center.set(x, z);
+      this.centerInitialized = true;
       return;
     }
     const pixelsPerUnit = this.config.resolution / this.config.worldSize;
@@ -112,6 +119,7 @@ export class SnowDeformationField {
     if (Math.abs(shiftX) >= this.config.resolution || Math.abs(shiftY) >= this.config.resolution) {
       this.clear();
       this.center.set(x, z);
+      this.centerInitialized = true;
       return;
     }
     this.#scrollPixels(shiftX, shiftY);
@@ -133,11 +141,9 @@ export class SnowDeformationField {
     if (coverage < this.config.paintMinCoverage) return false;
 
     const sourceRadius = Number(point.radius);
-    const fallbackRadius = this.config.worldSize / this.config.resolution * 2;
-    const radius = Math.max(
-      MIN_RADIUS,
-      (Number.isFinite(sourceRadius) && sourceRadius > 0 ? sourceRadius : fallbackRadius) * this.config.footRadiusScale,
-    );
+    const requestedRadius = (Number.isFinite(sourceRadius) && sourceRadius > 0 ? sourceRadius : this.config.minRadius)
+      * this.config.footRadiusScale;
+    const radius = THREE.MathUtils.clamp(requestedRadius, this.config.minRadius, this.config.maxRadius);
     const centerX = ((x - this.center.x) / this.config.worldSize + 0.5) * this.config.resolution;
     const centerY = ((z - this.center.y) / this.config.worldSize + 0.5) * this.config.resolution;
     const pixelRadius = Math.max(1, radius * this.config.resolution / this.config.worldSize);
@@ -244,7 +250,7 @@ export class SnowDeformationField {
   }
 
   sampleAt(x, z) {
-    if (!Number.isFinite(this.center.x)) return { depression: 0, berm: 0, gradientX: 0, gradientZ: 0 };
+    if (!this.centerInitialized) return { depression: 0, berm: 0, gradientX: 0, gradientZ: 0 };
     const u = THREE.MathUtils.clamp((x - this.center.x) / this.config.worldSize + 0.5, 0, 1);
     const v = THREE.MathUtils.clamp((z - this.center.y) / this.config.worldSize + 0.5, 0, 1);
     const px = Math.min(this.config.resolution - 1, Math.floor(u * this.config.resolution));
