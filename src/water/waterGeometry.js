@@ -4,6 +4,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 const MIN_RIVER_SPEED = 0.18;
 const OUTLET_BASE_SPEED = 0.7;
 const OUTLET_SPEED_GAIN = 0.65;
+const OUTLET_TAIL_DISTANCE = 2;
 
 export function createWaterGeometry(params, river) {
   const lake = new THREE.PlaneGeometry(params.size, params.size, params.segments, params.segments);
@@ -23,7 +24,8 @@ export function createWaterGeometry(params, river) {
     const samples = [...river.samples];
     const first = samples[0], last = samples.at(-1);
     samples.unshift({ ...first, x: first.x - first.dx * first.width, z: first.z - first.dz * first.width });
-    samples.push({ ...last, x: last.x + last.dx * last.width, z: last.z + last.dz * last.width });
+    const tailDistance = last.outletProgress > 0 ? OUTLET_TAIL_DISTANCE : last.width;
+    samples.push({ ...last, x: last.x + last.dx * tailDistance, z: last.z + last.dz * tailDistance });
     const columns = 16;
     for (let i = 0; i < samples.length; i += 1) {
       const p = samples[i], next = samples[Math.min(i + 1, samples.length - 1)];
