@@ -5,6 +5,7 @@ import { LeafSystem } from '../foliage/LeafSystem.js';
 import { GrassField } from '../grass/GrassField.js';
 import { WorldCollisionSystem } from '../physics/WorldCollisionSystem.js';
 import { PlayerController } from '../player/PlayerController.js';
+import { WorldNavigation } from '../player/WorldNavigation.js';
 import { DemoUi } from '../ui/DemoUi.js';
 import { IrisTransition } from '../ui/IrisTransition.js';
 import { LoadingUi } from '../ui/LoadingUi.js';
@@ -303,6 +304,12 @@ export class GrassDemo {
       }
     }
     this.tour = new ScenicTour(this.world, this.player, this.trees, this.water);
+    this.navigation = new WorldNavigation({
+      world: this.world,
+      player: this.player,
+      tour: this.tour,
+      config: this.config,
+    });
     this.iris = new IrisTransition(this.root);
     this.ui = new DemoUi(this.root, this.config, this.#createUiActions());
     this.pipeline = new CinematicPipeline(this.world, this.config);
@@ -324,6 +331,7 @@ export class GrassDemo {
       // Resize resets the controller's zoom, so restore the pose only after
       // the final resize (including a recovered pixel-ratio override).
       this.#restorePose(this.resumeState);
+      this.navigation.restoreState(this.resumeState.navigation);
       if (this.resumeState.soundEnabled) {
         try {
           await this.audio.start();
@@ -366,6 +374,7 @@ export class GrassDemo {
       audioVolumes: this.audio && { master: this.audio.masterVolume,
         ambient: this.audio.ambientVolume, environment: this.audio.environmentVolume },
       interactionEnabled: this.grass?.interactionMap.enabled,
+      navigation: this.navigation?.captureState(),
       position: this.player?.getPosition().toArray(),
       camera: this.world?.camera.position.toArray(),
       quaternion: this.world?.camera.quaternion.toArray(),
@@ -441,9 +450,13 @@ export class GrassDemo {
   #createUiActions() {
     return {
       setPreset: (name) => this.#switchPreset(name),
-      toggleTour: () => this.tour.start(),
-      stopTour: () => this.tour.stop(),
+      toggleTour: () => this.navigation.startTour(),
+      stopTour: () => this.navigation.stopTour(),
       isTourActive: () => this.tour.active,
+      toggleFreeFly: () => this.navigation.toggleFreeFly(),
+      isFreeFlyActive: () => this.navigation.freeFly.active,
+      getTeleportLocations: () => this.navigation.getLocationOptions(),
+      teleportToLocation: (id) => this.navigation.teleport(id),
       setQuality: (name) => {
         this.grass.setQuality(name);
         this.environment.setQuality(name);
@@ -542,6 +555,7 @@ export class GrassDemo {
 
     time('player', () => this.player.update(deltaSeconds));
     this.tour.update(deltaSeconds);
+    this.navigation.update(deltaSeconds);
     this.world.terrainAnimations?.update(deltaSeconds);
     this.leaves.update(deltaSeconds);
     this.world.clouds?.update?.(deltaSeconds);
@@ -558,7 +572,7 @@ export class GrassDemo {
       this.player.getPosition(),
       this.player.getInfluencePoints(),
     ));
-    const focus = this.tour.active ? this.world.camera.position : this.player.getPosition();
+    const focus = this.navigation.getFocusPosition();
     this.environment.updateSunTarget(focus);
     this.cinematicLighting.update();
     time('meadow', () => this.meadow?.update(deltaSeconds, focus, this.environment.current));
@@ -631,7 +645,7 @@ export class GrassDemo {
     this.world?.renderer?.setAnimationLoop(null);
     for (const resource of [this.loading, this.pipeline, this.cinematicLighting,
       this.meadow, this.wildGrass, this.understory, this.biome, this.vegetationJobs, this.ui, this.iris, this.grass, this.trees, this.props,
-      this.collisions, this.player, this.leaves, this.birds, this.rain,
+      this.collisions, this.navigation, this.player, this.leaves, this.birds, this.rain,
       this.boundaryBarrier, this.water, this.audio, this.environment, this.world]) {
       try { resource?.dispose?.(); } catch (error) { logger.warn('Demo cleanup failed.', error); }
     }
