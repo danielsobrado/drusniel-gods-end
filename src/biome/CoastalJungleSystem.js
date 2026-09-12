@@ -16,6 +16,8 @@ import { setCoastalJungleRuntimeActive } from './CoastalJungleRuntime.js';
 const FLOOR_NAME = 'ForestFloor';
 const PATH_NAME = 'ForestPath';
 const DEFAULT_QUALITY = 'high';
+const WORK_CHUNK_SIZE = 384;
+const SURFACE_CHUNK_SIZE = 1024;
 const COLLIDER_KINDS = new Set(['tree', 'background_tree', 'palm']);
 
 function materialsOf(object) {
@@ -30,6 +32,10 @@ function trianglesPerInstance(object) {
 
 function clampDensity(value) {
   return Math.max(0, Math.min(1, Number(value) || 0));
+}
+
+function nextTask() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 function boxHull(radius, height) {
@@ -76,6 +82,7 @@ export class CoastalJungleSystem {
     this.batches = [];
     this.singles = [];
     this.colliderRecords = [];
+    this.initTask = null;
     this.ready = false;
     this.disposed = false;
     this.stats = {
@@ -92,16 +99,26 @@ export class CoastalJungleSystem {
     };
   }
 
-  async init(signal) {
+  init(signal) {
     if (this.disposed || !this.profile?.enabled || !this.profile.asset) return this;
     if (!this.config?.water?.sea?.enabled || !this.terrain) return this;
+    if (this.initTask) return this;
 
+    this.initTask = this.#initialize(signal).catch((error) => {
+      if (error?.name === 'AbortError' || signal?.aborted || this.disposed) return;
+      logger.warn('Coastal jungle could not start; continuing without it.', error);
+      this.dispose();
+    });
+    return this;
+  }
+
+  async #initialize(signal) {
     const gltf = await new GLTFLoader().loadAsync(assetUrl(this.profile.asset));
     const release = captureObjectResources(gltf.scene);
     if (signal?.aborted || this.disposed) {
       release();
       signal?.throwIfAborted();
-      return this;
+      return;
     }
 
     this.releaseGltf = release;
@@ -109,32 +126,38 @@ export class CoastalJungleSystem {
     this.root.name = 'CoastalJungle';
     this.root.updateWorldMatrix(true, true);
 
-    const collected = this.#collectSource();
+    const collected = await this.#collectSource(signal);
+    if (this.disposed) return;
     this.sourceBounds = createCoastalJungleSourceBounds(collected.points);
     if (!this.sourceBounds || collected.sourceInstances === 0) {
       logger.warn('Coastal jungle scene contained no recognized vegetation instances.');
       this.dispose();
-      return this;
+      return;
     }
 
     signal?.throwIfAborted();
-    this.#relocateBatches(collected.batches, signal);
-    this.#relocateSingles(collected.singles, signal);
+    await this.#relocateBatches(collected.batches, signal);
+    await this.#relocateSingles(collected.singles, signal);
+    if (this.disposed) return;
     const availableInstances = this.#availableInstanceCount();
     if (availableInstances === 0) {
       logger.warn('Coastal jungle placement rejected every authored vegetation instance; skipping biome.');
       this.dispose();
-      return this;
+      return;
     }
 
-    this.#conformSurface(collected.floor, {
+    await this.#conformSurface(collected.floor, {
       offset: Number(this.profile.placement?.groundOffset ?? 0.025),
       revealRoutes: true,
+      signal,
     });
-    this.#conformSurface(collected.path, {
+    await this.#conformSurface(collected.path, {
       offset: Number(this.profile.placement?.pathOffset ?? 0.045),
       transparent: true,
+      signal,
     });
+    if (this.disposed) return;
+
     this.#prepareRendering();
     this.#mountLod();
     this.root.updateWorldMatrix(true, true);
@@ -156,7 +179,6 @@ export class CoastalJungleSystem {
       colliders: this.stats.colliders,
       visibilityDistance: this.stats.visibilityDistance,
     });
-    return this;
   }
 
   setQuality(name) {
@@ -264,10 +286,11 @@ export class CoastalJungleSystem {
     this.stats.visibilityDistance = distance;
   }
 
-  #collectSource() {
+  async #collectSource(signal) {
     const batches = [];
     const singles = [];
     const points = [];
+    const candidates = [];
     let floor = null;
     let path = null;
     let sourceInstances = 0;
@@ -279,6 +302,15 @@ export class CoastalJungleSystem {
       if (object.name === PATH_NAME) path = object;
       const kind = classifyCoastalJungleObject(object);
       if (!kind) return;
+      if (object.isInstancedMesh || (object.isMesh && object.name !== FLOOR_NAME && object.name !== PATH_NAME)) {
+        candidates.push({ object, kind });
+      }
+    });
+
+    let processed = 0;
+    for (const { object, kind } of candidates) {
+      signal?.throwIfAborted();
+      if (this.disposed) return { batches, singles, points, floor, path, sourceInstances };
 
       if (object.isInstancedMesh) {
         const records = [];
@@ -286,25 +318,28 @@ export class CoastalJungleSystem {
         for (let index = 0; index < object.count; index += 1) {
           object.getMatrixAt(index, instanceMatrix);
           worldMatrix.multiplyMatrices(object.matrixWorld, instanceMatrix);
-          const record = sourceRecord(worldMatrix.clone(), kind);
+          const record = sourceRecord(worldMatrix, kind);
           records.push(record);
           points.push(record.position);
+          sourceInstances += 1;
+          processed += 1;
+          if (processed % WORK_CHUNK_SIZE === 0) {
+            await nextTask();
+            signal?.throwIfAborted();
+            if (this.disposed) return { batches, singles, points, floor, path, sourceInstances };
+          }
         }
-        if (records.length > 0) {
-          batches.push({ object, kind, records });
-          sourceInstances += records.length;
-        }
-        return;
+        if (records.length > 0) batches.push({ object, kind, records });
+        continue;
       }
 
-      if (object.isMesh && object.name !== FLOOR_NAME && object.name !== PATH_NAME) {
-        object.updateWorldMatrix(true, false);
-        const record = sourceRecord(object.matrixWorld.clone(), kind);
-        singles.push({ object, ...record });
-        points.push(record.position);
-        sourceInstances += 1;
-      }
-    });
+      object.updateWorldMatrix(true, false);
+      const record = sourceRecord(object.matrixWorld, kind);
+      singles.push({ object, ...record });
+      points.push(record.position);
+      sourceInstances += 1;
+      processed += 1;
+    }
 
     appendObjectBounds(points, floor);
     return { batches, singles, points, floor, path, sourceInstances };
@@ -338,23 +373,32 @@ export class CoastalJungleSystem {
     return { ...record, position, placement };
   }
 
-  #relocateBatches(sourceBatches, signal) {
+  async #relocateBatches(sourceBatches, signal) {
     const localMatrix = new THREE.Matrix4();
     const targetWorld = new THREE.Matrix4();
+    let processed = 0;
     for (const source of sourceBatches) {
       signal?.throwIfAborted();
+      if (this.disposed) return;
       source.object.updateWorldMatrix(true, false);
       const inverse = source.object.matrixWorld.clone().invert();
       let writeIndex = 0;
       const accepted = [];
       for (const record of source.records) {
         const target = this.#targetRecord(record);
-        if (!target) continue;
-        targetWorld.compose(target.position, target.rotation, target.scale);
-        localMatrix.multiplyMatrices(inverse, targetWorld);
-        source.object.setMatrixAt(writeIndex, localMatrix);
-        accepted.push(target);
-        writeIndex += 1;
+        if (target) {
+          targetWorld.compose(target.position, target.rotation, target.scale);
+          localMatrix.multiplyMatrices(inverse, targetWorld);
+          source.object.setMatrixAt(writeIndex, localMatrix);
+          accepted.push(target);
+          writeIndex += 1;
+        }
+        processed += 1;
+        if (processed % WORK_CHUNK_SIZE === 0) {
+          await nextTask();
+          signal?.throwIfAborted();
+          if (this.disposed) return;
+        }
       }
       source.object.count = writeIndex;
       source.object.instanceMatrix.needsUpdate = true;
@@ -371,11 +415,13 @@ export class CoastalJungleSystem {
     }
   }
 
-  #relocateSingles(sourceSingles, signal) {
+  async #relocateSingles(sourceSingles, signal) {
     const targetWorld = new THREE.Matrix4();
     const localMatrix = new THREE.Matrix4();
+    let processed = 0;
     for (const source of sourceSingles) {
       signal?.throwIfAborted();
+      if (this.disposed) return;
       const target = this.#targetRecord(source);
       const single = {
         object: source.object,
@@ -386,19 +432,30 @@ export class CoastalJungleSystem {
       this.singles.push(single);
       if (!target) {
         source.object.visible = false;
-        continue;
+      } else {
+        source.object.parent?.updateWorldMatrix(true, false);
+        const parentInverse = source.object.parent?.matrixWorld?.clone().invert() ?? new THREE.Matrix4();
+        targetWorld.compose(target.position, target.rotation, target.scale);
+        localMatrix.multiplyMatrices(parentInverse, targetWorld);
+        localMatrix.decompose(source.object.position, source.object.quaternion, source.object.scale);
+        source.object.updateMatrix();
+        if (COLLIDER_KINDS.has(source.kind)) this.colliderRecords.push(target);
       }
-      source.object.parent?.updateWorldMatrix(true, false);
-      const parentInverse = source.object.parent?.matrixWorld?.clone().invert() ?? new THREE.Matrix4();
-      targetWorld.compose(target.position, target.rotation, target.scale);
-      localMatrix.multiplyMatrices(parentInverse, targetWorld);
-      localMatrix.decompose(source.object.position, source.object.quaternion, source.object.scale);
-      source.object.updateMatrix();
-      if (COLLIDER_KINDS.has(source.kind)) this.colliderRecords.push(target);
+      processed += 1;
+      if (processed % WORK_CHUNK_SIZE === 0) {
+        await nextTask();
+        signal?.throwIfAborted();
+        if (this.disposed) return;
+      }
     }
   }
 
-  #conformSurface(object, { offset = 0, transparent = false, revealRoutes = false } = {}) {
+  async #conformSurface(object, {
+    offset = 0,
+    transparent = false,
+    revealRoutes = false,
+    signal = null,
+  } = {}) {
     if (!object?.isMesh || !object.geometry?.attributes?.position) return;
     object.updateWorldMatrix(true, false);
     const sourceWorldMatrix = object.matrixWorld.clone();
@@ -414,12 +471,19 @@ export class CoastalJungleSystem {
         this.profile.region,
         this.config.water.sea,
       );
-      if (!mapped) continue;
-      const height = this.terrain.sampleHeight(mapped.x, mapped.z);
-      if (!Number.isFinite(height)) continue;
-      const surfaceOffset = revealRoutes ? this.#routeAwareFloorOffset(mapped.x, mapped.z, offset) : offset;
-      target.set(mapped.x, height + surfaceOffset, mapped.z).applyMatrix4(inverse);
-      positions.setXYZ(index, target.x, target.y, target.z);
+      if (mapped) {
+        const height = this.terrain.sampleHeight(mapped.x, mapped.z);
+        if (Number.isFinite(height)) {
+          const surfaceOffset = revealRoutes ? this.#routeAwareFloorOffset(mapped.x, mapped.z, offset) : offset;
+          target.set(mapped.x, height + surfaceOffset, mapped.z).applyMatrix4(inverse);
+          positions.setXYZ(index, target.x, target.y, target.z);
+        }
+      }
+      if ((index + 1) % SURFACE_CHUNK_SIZE === 0) {
+        await nextTask();
+        signal?.throwIfAborted();
+        if (this.disposed) return;
+      }
     }
     positions.needsUpdate = true;
     object.geometry.computeVertexNormals();
