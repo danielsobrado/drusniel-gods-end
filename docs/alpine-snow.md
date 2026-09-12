@@ -43,25 +43,35 @@ The field keeps its mapping origin stable while the player moves locally, then s
 
 This integration deforms snow **visually** through color, roughness and normal response. It intentionally does not displace foot-scale terrain geometry: the expanded landscape terrain is much coarser than a footprint. True centimetre-scale silhouette deformation would require a dedicated near-player snow overlay or clipmap and should be treated as a separate feature rather than distorting the world terrain mesh.
 
-## Contact powder
+## Powder and wind
 
-Grounded foot contacts also emit short-lived local powder bursts. The powder system uses the same CPU snow-coverage test as the deformation field, so bare rock and low terrain do not produce snow particles. Walking emits restrained puffs while running scales the burst count. Particles are pooled in one instanced draw call and use a generated soft radial texture; no external particle asset is required.
+The airborne snow follows the same principle as Snowflow's pooled spray: particles do not simply lose horizontal speed. Their horizontal velocity is pulled toward the configured prevailing wind, while vertical velocity is affected by gravity and drag. Snow that reaches the surface settles and fades instead of falling through the terrain.
+
+The same pooled draw call serves two emitters. Grounded foot contacts kick short-lived powder from the snow surface, while a low-rate ambient emitter creates near-ground spindrift around the active view. Both emitters use the CPU snow-coverage function, so lowlands and exposed rock do not create airborne snow. The ambient emitter follows the player, scenic-tour camera, or free-fly camera and therefore remains visible at alpine viewpoints even while the character is standing still.
+
+The wind bearing is shared with the sastrugi and accumulation system through `ground.snow.wind.angleDegrees`. This keeps surface ridges, scouring, contact powder and ambient spindrift visually coherent rather than giving each feature a separate wind direction.
 
 <!-- effective-config: ground.snow.powder -->
 ```yaml
 enabled: true
-capacity: 144
-particlesPerContact: 8
-runningMultiplier: 1.75
-emitDistance: 0.16
-lifetimeMin: 0.45
-lifetimeMax: 0.95
-sizeMin: 0.12
-sizeMax: 0.34
+capacity: 768
+particlesPerContact: 18
+windSpeed: 2.4
+terminalFallSpeed: 1.9
+drag: 5.2
+gravity: 9.81
+ambient:
+  enabled: true
+  particlesPerSecond: 36
+  radius: 16
 ```
+
+## Alpine Summit
+
+The navigation list includes `Alpine Summit` at `[-25, -655]`. This point sits on the central high point of the generated northern mountain cluster. The surrounding ridges stay within the snow accumulation band, so the teleport opens onto snow in multiple directions rather than placing the player on an isolated white patch. Ground-mode teleporting still samples the actual terrain height at runtime; the configured point only fixes the horizontal location and viewing direction.
 
 ## Performance
 
-The persistent field is one 512 x 512 RGBA8 texture (1 MiB). Recovery runs at the configured interval rather than sweeping the array every render frame, and texture scrolling is amortized across eight metres of player travel. Snow surface rendering adds one local deformation texture sample plus procedural ALU to the ground material. Contact powder adds one pooled instanced transparent draw call only when snow powder is enabled; it has no shadow pass and a fixed particle budget.
+The persistent field is one 512 x 512 RGBA8 texture (1 MiB). Recovery runs at the configured interval rather than sweeping the array every render frame, and texture scrolling is amortized across eight metres of player travel. Snow surface rendering adds one local deformation texture sample plus procedural ALU to the ground material. Airborne snow uses one pooled instanced transparent draw call with a fixed capacity, no shadow pass and no per-frame object allocation.
 
-Visual review should cover Snow Pass and Snow Peak in sunny, golden-hour and rainy presets, plus WebGL 2. Verify that exposed cliffs remain rocky, sastrugi follow one coherent wind direction, glints stay subtle, only contacting feet carve the surface and kick powder, and old footprints soften rather than popping away.
+Visual review should cover Snow Pass, Snow Peak and Alpine Summit in sunny, golden-hour and rainy presets, plus WebGL 2. Verify that exposed cliffs remain rocky, sastrugi and airborne powder share one coherent wind direction, glints stay subtle, only contacting feet carve the surface, ambient spindrift stays close to snow, and old footprints soften rather than popping away.
