@@ -118,16 +118,16 @@ test('snow deformation samples outside its local window as empty', () => {
 test('snow powder config resolves contact and ambient particle budgets', () => {
   const powder = resolveSnowPowderConfig(snowConfig.ground.snow.powder);
   assert.equal(powder.enabled, true);
-  assert.equal(powder.capacity, 768);
+  assert.equal(powder.capacity, 1400);
   assert.equal(powder.particlesPerContact, 18);
   assert.equal(powder.ambient.enabled, true);
-  assert.equal(powder.ambient.particlesPerSecond, 36);
+  assert.equal(powder.ambient.particlesPerSecond, 72);
   assert.ok(powder.lifetime.max >= powder.lifetime.min);
   assert.ok(powder.size.max >= powder.size.min);
 });
 
 test('snow powder velocity converges toward prevailing wind and terminal fall', () => {
-  const wind = snowWindVector(0, 2.4);
+  const wind = snowWindVector(90, 2.4);
   const velocity = new Float32Array([0, 2, 0]);
   const physics = {
     windX: wind.x,
@@ -148,11 +148,15 @@ test('snow powder velocity converges toward prevailing wind and terminal fall', 
   assert.ok(Math.abs(velocity[1] + 1.9) < 0.02);
 });
 
-test('snow validation rejects invalid accumulation, deformation and powder settings', () => {
+test('snow validation rejects invalid accumulation, surface, deformation and powder settings', () => {
   const invalid = structuredClone(snowConfig);
   invalid.ground.snow.altitude.full = invalid.ground.snow.altitude.start;
   invalid.ground.snow.deformation.resolution = 16;
   assert.throws(() => validateSnowConfig(invalid), /Snow configuration is invalid/);
+
+  const invalidSurfaceTone = structuredClone(snowConfig);
+  invalidSurfaceTone.ground.snow.surfaceTone.sastrugiContrast = 0.5;
+  assert.throws(() => validateSnowConfig(invalidSurfaceTone), /sastrugiContrast/);
 
   const fractionalResolution = structuredClone(snowConfig);
   fractionalResolution.ground.snow.deformation.resolution = 512.5;
@@ -168,7 +172,7 @@ test('snow validation rejects invalid accumulation, deformation and powder setti
   assert.throws(() => validateSnowConfig(invalidPowderRange), /sizeMax must be greater/);
 
   const invalidPowderBudget = structuredClone(snowConfig);
-  invalidPowderBudget.ground.snow.powder.capacity = 768.5;
+  invalidPowderBudget.ground.snow.powder.capacity = 1400.5;
   assert.throws(() => validateSnowConfig(invalidPowderBudget), /capacity must be an integer/);
 
   const invalidAmbientRange = structuredClone(snowConfig);
