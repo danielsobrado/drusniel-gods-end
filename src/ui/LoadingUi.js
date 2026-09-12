@@ -25,9 +25,9 @@ export class LoadingUi {
     this.element = document.createElement('div');
     this.element.className = 'loading-overlay';
     this.element.innerHTML = `
-      <div class="loading-logo" aria-label="Drusniel RPG Demo">
-        <span class="logo-outline">Drusniel RPG DEMO</span>
-        <span class="logo-fill">Drusniel RPG DEMO</span>
+      <div class="loading-logo" aria-label="Drusniel: Gods’ End">
+        <span class="logo-outline">Drusniel: Gods’ End</span>
+        <span class="logo-fill">Drusniel: Gods’ End</span>
       </div>
       <div class="loading-progress" aria-live="polite">
         <div class="loading-progress-track"><i class="progress-bar"></i></div>
@@ -39,7 +39,7 @@ export class LoadingUi {
       this.element.classList.add('cinematic-loading');
       this.element.querySelectorAll('.logo-outline, .logo-fill').forEach(element => { element.textContent = presentation.title; });
       this.element.querySelector('.loading-logo').setAttribute('aria-label', presentation.title);
-      this.element.querySelector('#startButton').textContent = 'Enter the wilds';
+      this.element.querySelector('#startButton').textContent = 'Enter Gods’ End';
     }
 
     this.progressBar = this.element.querySelector('.progress-bar');
