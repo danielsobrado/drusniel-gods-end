@@ -87,3 +87,18 @@ test('tree billboards stay visible across high-altitude exploration views', asyn
   assert.ok(config.trees.billboardDistance < config.camera.far);
 });
 
+test('exploration config exposes snow, beach, lake and sea travel without breaking river continuity', async () => {
+  const config = await loadMergedConfig();
+  assert.deepEqual(
+    config.navigation.locations.map(location => location.label),
+    ['Start', 'River', 'Lake', 'Beach North', 'Beach South', 'Snow Pass', 'Snow Peak', 'Offshore', 'Deep Sea'],
+  );
+  assert.ok(config.navigation.scenicTour.riverViews[0].fraction < 0.05);
+  assert.ok(config.navigation.scenicTour.riverViews.at(-1).fraction > 0.95);
+  assert.equal(config.water.river.outletLevel, config.water.sea.level);
+  assert.ok(config.water.river.points.at(-1)[2] > config.water.river.points[13][2]);
+  const routes = config.terrain.expansion.routes;
+  assert.ok(routes.some(route => route.name === 'Snow climb' && route.walkable));
+  assert.ok(routes.some(route => route.name === 'Meadow north beach road' && route.walkable));
+  assert.ok(routes.some(route => route.name === 'Foothill south beach trail' && route.walkable));
+});
