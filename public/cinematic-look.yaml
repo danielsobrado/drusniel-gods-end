@@ -7,6 +7,25 @@ terrain:
     width: 2400
     depth: 1600
     center: [400, 0]
+    routes:
+      - name: Snow climb
+        width: 5.5
+        walkable: true
+        terrainWidth: 30
+        maxGrade: 0.24
+        points: [[-80, -250], [-125, -350], [-60, -440], [-150, -490], [-160, -550], [-125, -590], [-80, -620], [-55, -655], [-15, -710]]
+      - name: Meadow north beach road
+        width: 5.5
+        walkable: true
+        terrainWidth: 26
+        maxGrade: 0.16
+        points: [[2, -5], [-40, 120], [-20, 260], [80, 420], [210, 520], [420, 550], [620, 500], [800, 420], [990, 320]]
+      - name: Foothill south beach trail
+        width: 4.8
+        walkable: true
+        terrainWidth: 24
+        maxGrade: 0.2
+        points: [[-80, -250], [80, -280], [250, -310], [430, -300], [600, -260], [750, -220], [850, -195], [900, -180]]
 grass:
   heightResolution: 2048
 collisions:
@@ -329,7 +348,12 @@ water:
         roughness: 0.94
   river:
     enabled: true
-    # World X, Z and full channel width; elevations follow the mountain profile.
+    outletStartIndex: 16
+    outletLevel: -24
+    outletBankBlend: 30
+    outletDepth: 1.5
+    mouthDepth: 2.8
+    # World X, Z and full channel width. The outlet crosses the lake and reaches the sea.
     points:
       - [15, -650, 7]
       - [65, -555, 9]
@@ -345,6 +369,15 @@ water:
       - [142, 53, 14]
       - [171, 80, 18]
       - [202, 97, 26]
+      - [350, 110, 30]
+      - [500, 118, 34]
+      - [610, 120, 38]
+      - [690, 118, 42]
+      - [770, 112, 46]
+      - [850, 104, 50]
+      - [930, 94, 56]
+      - [1000, 86, 64]
+      - [1045, 80, 72]
   metalness: 0
   roughness: 0.24
   speed: 1.1
