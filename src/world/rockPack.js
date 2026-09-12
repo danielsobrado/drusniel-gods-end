@@ -16,6 +16,31 @@ function textureScore(material) {
   return ROCK_TEXTURE_KEYS.reduce((score, key) => score + (material?.[key] ? 1 : 0), 0);
 }
 
+function bestTexturedMaterial(meshes) {
+  let reference = null;
+  let bestScore = 0;
+  for (const mesh of meshes ?? []) {
+    for (const material of materialsOf(mesh)) {
+      const score = textureScore(material);
+      if (score > bestScore) {
+        bestScore = score;
+        reference = material;
+      }
+    }
+  }
+  return reference;
+}
+
+export function firstMeshMaterial(root) {
+  if (!root) return null;
+  if (root.isMesh) return materialsOf(root)[0] ?? null;
+  let material = null;
+  root.traverse?.((object) => {
+    if (!material && object.isMesh) material = materialsOf(object)[0] ?? null;
+  });
+  return material;
+}
+
 export function isRockMesh(object) {
   return Boolean(object?.isMesh && ROCK_MESH_PATTERN.test(object.name ?? ''));
 }
@@ -30,18 +55,8 @@ export function collectRockMeshes(root) {
 }
 
 export function harmonizeRockMaterials(meshes) {
-  let reference = null;
-  let bestScore = 0;
-  for (const mesh of meshes ?? []) {
-    for (const material of materialsOf(mesh)) {
-      const score = textureScore(material);
-      if (score > bestScore) {
-        bestScore = score;
-        reference = material;
-      }
-    }
-  }
-  if (!reference || bestScore === 0) return null;
+  const reference = bestTexturedMaterial(meshes);
+  if (!reference) return null;
 
   for (const mesh of meshes ?? []) {
     if (!mesh.geometry?.attributes?.uv) continue;
@@ -53,6 +68,28 @@ export function harmonizeRockMaterials(meshes) {
     }
   }
   return reference;
+}
+
+export function canonicalizeRockMaterials(meshes, source) {
+  const sourceMaterial = firstMeshMaterial(source);
+  if (!sourceMaterial) return harmonizeRockMaterials(meshes);
+
+  const material = sourceMaterial.clone();
+  const detailReference = bestTexturedMaterial(meshes);
+  if (!material.normalMap && detailReference?.normalMap) material.normalMap = detailReference.normalMap;
+  if (!material.roughnessMap && detailReference?.roughnessMap) material.roughnessMap = detailReference.roughnessMap;
+  if (!material.aoMap && detailReference?.aoMap) material.aoMap = detailReference.aoMap;
+  material.metalness = Math.min(Number(material.metalness) || 0, 0.08);
+  material.roughness = Math.max(Number(material.roughness) || 0.8, 0.72);
+  material.needsUpdate = true;
+
+  for (const mesh of meshes ?? []) {
+    const materialCount = Array.isArray(mesh.material) ? mesh.material.length : 1;
+    mesh.material = materialCount > 1
+      ? Array.from({ length: materialCount }, () => material)
+      : material;
+  }
+  return material;
 }
 
 export function hideRockPack(meshes) {
