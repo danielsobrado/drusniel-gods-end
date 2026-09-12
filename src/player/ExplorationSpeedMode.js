@@ -51,10 +51,16 @@ function applyBaseline(config, baseline, multiplier) {
 }
 
 export class ExplorationSpeedMode {
-  constructor({ eventTarget = globalThis.window, now = () => performance.now(), onChange } = {}) {
+  constructor({
+    eventTarget = globalThis.window,
+    now = () => performance.now(),
+    onChange,
+    isEnabled = () => true,
+  } = {}) {
     this.eventTarget = eventTarget;
     this.now = now;
     this.onChange = onChange;
+    this.isEnabled = isEnabled;
     this.active = false;
     this.lastShiftTap = Number.NEGATIVE_INFINITY;
     this.config = null;
@@ -76,7 +82,8 @@ export class ExplorationSpeedMode {
   }
 
   handleKeyDown(event) {
-    if (!this.config || event?.repeat || !SHIFT_CODES.has(event?.code) || isFormControl(event?.target)) return false;
+    if (!this.isEnabled() || !this.config || event?.repeat
+      || !SHIFT_CODES.has(event?.code) || isFormControl(event?.target)) return false;
     const now = this.now();
     if (now - this.lastShiftTap <= this.settings.doubleTapWindowMs) {
       this.lastShiftTap = Number.NEGATIVE_INFINITY;
