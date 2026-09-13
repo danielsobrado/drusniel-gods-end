@@ -1,3 +1,4 @@
+# Snow appearance and interaction tuning.
 ground:
   snow:
     enabled: true
