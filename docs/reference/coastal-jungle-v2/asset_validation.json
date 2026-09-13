@@ -1,0 +1,278 @@
+{
+  "passed": true,
+  "config": {
+    "texture_max_size": 1024,
+    "surface_max_size": 512,
+    "webp_quality": 78,
+    "webp_alpha_quality": 100,
+    "brotli_quality": 9
+  },
+  "assets": [
+    {
+      "name": "coastal_jungle.glb",
+      "sourceBytes": 11873064,
+      "optimizedGlbBytes": 5935380,
+      "meshes": 35,
+      "sourceSHA256": "8f0200f54be645e9befbe0e5da1122826244dacf004f79913f38efbc07091b33",
+      "verified": true
+    },
+    {
+      "name": "background_tree_01.glb",
+      "sourceBytes": 1117684,
+      "optimizedGlbBytes": 552460,
+      "meshes": 1,
+      "sourceSHA256": "eb0c8e4c786b286ba0865ddad70497ab5a146a5770dad5cf2449dc8deab4ec98",
+      "verified": true
+    },
+    {
+      "name": "background_tree_02.glb",
+      "sourceBytes": 1117684,
+      "optimizedGlbBytes": 552196,
+      "meshes": 1,
+      "sourceSHA256": "1311e4ccdd30901873347aa884f1ee372278ffed4b6598632151a025756e640a",
+      "verified": true
+    },
+    {
+      "name": "background_tree_03.glb",
+      "sourceBytes": 1117680,
+      "optimizedGlbBytes": 555404,
+      "meshes": 1,
+      "sourceSHA256": "08a34f22dff87526db30efbe4cb3480811ea18f8f48f6cf0040d9bf4ca730c30",
+      "verified": true
+    },
+    {
+      "name": "broadleaf_01.glb",
+      "sourceBytes": 325156,
+      "optimizedGlbBytes": 238232,
+      "meshes": 1,
+      "sourceSHA256": "9d2a182100ae2c001e1d46ec65b6e68940eccf424726e5ee2bfe9f6d42bd3053",
+      "verified": true
+    },
+    {
+      "name": "broadleaf_02.glb",
+      "sourceBytes": 325160,
+      "optimizedGlbBytes": 237328,
+      "meshes": 1,
+      "sourceSHA256": "62fad328f71c7c87b2a70bf6a1088409f032f6da81033520ae8ff1733fb681ed",
+      "verified": true
+    },
+    {
+      "name": "broadleaf_03.glb",
+      "sourceBytes": 325156,
+      "optimizedGlbBytes": 237184,
+      "meshes": 1,
+      "sourceSHA256": "41fff7a58a339fe06bd482891824cf7fa4b274d9531099862a2a218bc4f1fdcf",
+      "verified": true
+    },
+    {
+      "name": "climber_01.glb",
+      "sourceBytes": 813396,
+      "optimizedGlbBytes": 336308,
+      "meshes": 1,
+      "sourceSHA256": "4e14cc892bea2ccdd1ddb80a32d52401f69538bcbbcd9aef1cded66e3bf2df58",
+      "verified": true
+    },
+    {
+      "name": "climber_02.glb",
+      "sourceBytes": 813392,
+      "optimizedGlbBytes": 336228,
+      "meshes": 1,
+      "sourceSHA256": "e2ebbf917aae5708a955ed2e032626970cf7fd2ae660aee04564de99597a52f2",
+      "verified": true
+    },
+    {
+      "name": "fern_01.glb",
+      "sourceBytes": 607280,
+      "optimizedGlbBytes": 498856,
+      "meshes": 1,
+      "sourceSHA256": "9115d60748675a3ec35d912c5d44cd812f7d48a20947edf18c33d218bfd346b1",
+      "verified": true
+    },
+    {
+      "name": "fern_02.glb",
+      "sourceBytes": 607280,
+      "optimizedGlbBytes": 498940,
+      "meshes": 1,
+      "sourceSHA256": "ac972f946c8e57fb9d7faa9b0053307f3509043466416da7bcdb07c5eac27838",
+      "verified": true
+    },
+    {
+      "name": "grass_01.glb",
+      "sourceBytes": 361868,
+      "optimizedGlbBytes": 257212,
+      "meshes": 1,
+      "sourceSHA256": "13f7b600944cea588061b167c3c55954113d7ff9d16b21dbf0c38644a0008a7d",
+      "verified": true
+    },
+    {
+      "name": "grass_02.glb",
+      "sourceBytes": 361868,
+      "optimizedGlbBytes": 257204,
+      "meshes": 1,
+      "sourceSHA256": "2a2e3851edb11f3663240c23cd5e9b2609110523a43d56054fa57f6e286c00fa",
+      "verified": true
+    },
+    {
+      "name": "grass_03.glb",
+      "sourceBytes": 361868,
+      "optimizedGlbBytes": 257188,
+      "meshes": 1,
+      "sourceSHA256": "f68bdaf42ae86f13ff95510f6bac149afb279d418a2d329f8224f0a968d91800",
+      "verified": true
+    },
+    {
+      "name": "groundcover_01.glb",
+      "sourceBytes": 167348,
+      "optimizedGlbBytes": 123160,
+      "meshes": 1,
+      "sourceSHA256": "05e36151ac98c4f26bf04189dc0239c1f2f403eb00b2a0dcfd51b626edf73e6b",
+      "verified": true
+    },
+    {
+      "name": "groundcover_02.glb",
+      "sourceBytes": 167348,
+      "optimizedGlbBytes": 123152,
+      "meshes": 1,
+      "sourceSHA256": "022e184d66ee205a92b42567e76e492f7b2cea3e8624d5b8827917bed65fe74b",
+      "verified": true
+    },
+    {
+      "name": "palm_01.glb",
+      "sourceBytes": 1084136,
+      "optimizedGlbBytes": 593620,
+      "meshes": 1,
+      "sourceSHA256": "c5430c985f502394f62ccb744dfe9112805fc2547cc83123fc7bb60f5cba579c",
+      "verified": true
+    },
+    {
+      "name": "palm_02.glb",
+      "sourceBytes": 1084136,
+      "optimizedGlbBytes": 593748,
+      "meshes": 1,
+      "sourceSHA256": "b8bff1d0370826588f4e5dd58b20e72ecfb8840611720dbdd063951965699e93",
+      "verified": true
+    },
+    {
+      "name": "shrub_01.glb",
+      "sourceBytes": 922220,
+      "optimizedGlbBytes": 444492,
+      "meshes": 1,
+      "sourceSHA256": "12f78813aaf7b6917611a3d8e9a0142a45b3d181b6dfdb3282c34af3ee592367",
+      "verified": true
+    },
+    {
+      "name": "shrub_02.glb",
+      "sourceBytes": 922212,
+      "optimizedGlbBytes": 443904,
+      "meshes": 1,
+      "sourceSHA256": "27cda4ef4969144b2e2ab3e0221f55d0d43507dd500896276a93b827393fdb22",
+      "verified": true
+    },
+    {
+      "name": "split_leaf_01.glb",
+      "sourceBytes": 317320,
+      "optimizedGlbBytes": 232520,
+      "meshes": 1,
+      "sourceSHA256": "44c47b64c3d755d7e8943a043bc3233fb5ac97600a50accba7b01eaf208f3357",
+      "verified": true
+    },
+    {
+      "name": "split_leaf_02.glb",
+      "sourceBytes": 317324,
+      "optimizedGlbBytes": 233064,
+      "meshes": 1,
+      "sourceSHA256": "4ad780ae645e31f56943934fe0fa808376857434b2af528c687ba66b10ecbc12",
+      "verified": true
+    },
+    {
+      "name": "tree_01.glb",
+      "sourceBytes": 1384224,
+      "optimizedGlbBytes": 711680,
+      "meshes": 1,
+      "sourceSHA256": "5e8f6f803cebd8c3732f61b64ba86ce4e7a4b9356b707370e08c5d030fb3d3eb",
+      "verified": true
+    },
+    {
+      "name": "tree_02.glb",
+      "sourceBytes": 1315904,
+      "optimizedGlbBytes": 671744,
+      "meshes": 1,
+      "sourceSHA256": "e1401026ebeb60993ba06ac4c3420868c75696b0885eb45a504e2169d28d0423",
+      "verified": true
+    },
+    {
+      "name": "tree_03.glb",
+      "sourceBytes": 1452544,
+      "optimizedGlbBytes": 752620,
+      "meshes": 1,
+      "sourceSHA256": "7cf3a686e1ab8dbce1ad819b52363405a38c0e32f72698de75fcad04cf3ba515",
+      "verified": true
+    },
+    {
+      "name": "tree_04.glb",
+      "sourceBytes": 1350064,
+      "optimizedGlbBytes": 689656,
+      "meshes": 1,
+      "sourceSHA256": "73efbeb024cf705d895beb548983c078b52ea6ca165f9eacd659bc903d9918ef",
+      "verified": true
+    },
+    {
+      "name": "tree_05.glb",
+      "sourceBytes": 1418384,
+      "optimizedGlbBytes": 730980,
+      "meshes": 1,
+      "sourceSHA256": "01df8221c5397ce922a2abc3c710950a0723a3ab2183353977aae14133a6efe5",
+      "verified": true
+    },
+    {
+      "name": "tree_06.glb",
+      "sourceBytes": 1384224,
+      "optimizedGlbBytes": 711388,
+      "meshes": 1,
+      "sourceSHA256": "10a2e505b680f36f2ca06c2f4b9759dd023fab991d281309dd3323318e9ccd8b",
+      "verified": true
+    },
+    {
+      "name": "tree_lod_01.glb",
+      "sourceBytes": 992788,
+      "optimizedGlbBytes": 485728,
+      "meshes": 1,
+      "sourceSHA256": "ab1ce0b5e39fed3beafa404f656ef374ed2c1892fa93babee9b3959659f8f434",
+      "verified": true
+    },
+    {
+      "name": "tree_lod_02.glb",
+      "sourceBytes": 992788,
+      "optimizedGlbBytes": 484316,
+      "meshes": 1,
+      "sourceSHA256": "139603140dd9e546661e5e2454a69e3a9f6e3cb2db7fab1ecdd9c653df187d6e",
+      "verified": true
+    },
+    {
+      "name": "tree_lod_03.glb",
+      "sourceBytes": 992780,
+      "optimizedGlbBytes": 484804,
+      "meshes": 1,
+      "sourceSHA256": "7c6d9951de691738905dec6426210b15eff997d3ac1e6fc97dc61ea4f4514dfd",
+      "verified": true
+    },
+    {
+      "name": "vine_01.glb",
+      "sourceBytes": 842400,
+      "optimizedGlbBytes": 328888,
+      "meshes": 1,
+      "sourceSHA256": "99cf5d8071c717b72a9752384fd686a8f4743ad39280c323840d73872e3e25c7",
+      "verified": true
+    },
+    {
+      "name": "vine_02.glb",
+      "sourceBytes": 842400,
+      "optimizedGlbBytes": 328160,
+      "meshes": 1,
+      "sourceSHA256": "893b64cbf1dafe7515274f70d3b9c94226ec9a362af42730157fd85786a5d409",
+      "verified": true
+    }
+  ],
+  "sourceBytes": 38079080,
+  "optimizedGlbBytes": 19917744
+}

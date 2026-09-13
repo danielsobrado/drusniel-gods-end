@@ -1,11 +1,51 @@
 {
   "source": "Codex-and-Blender/output/textures/manifest.json",
+  "sourceCommit": "54ac4d9f0cd7168051b1604aa48170a34c550198",
   "excludedDryBiome": [
     "agave_leaf",
     "cactus_skin_basecolor",
     "dry_grass_atlas"
   ],
   "files": [
+    {
+      "name": "canopy_branch_atlas_new",
+      "original": "ChatGPT Image Sep 12, 2026, 09_01_50 PM.png",
+      "source": "assets\\textures\\canopy_branch_atlas_new.png",
+      "sha256": "f366742566ad25e73086a73b078e144e5301ad9e901aecca2ad842667ce4c41c",
+      "size": [
+        1024,
+        1024
+      ],
+      "alpha": true,
+      "png_bytes": 1350230,
+      "webp_bytes": 401246
+    },
+    {
+      "name": "tropical_bark_basecolor",
+      "original": "ChatGPT Image Sep 12, 2026, 09_03_08 PM.png",
+      "source": "assets\\textures\\tropical_bark_basecolor.png",
+      "sha256": "57072a6df09aa219c2e4b2e09fdfbc7edcc1e07dcb010ec704492c7a69eb7dc1",
+      "size": [
+        1024,
+        1024
+      ],
+      "alpha": false,
+      "png_bytes": 2397443,
+      "webp_bytes": 449702
+    },
+    {
+      "name": "shrub_leaf_atlas",
+      "original": "ChatGPT Image Sep 12, 2026, 03_00_17 PM.png",
+      "source": "assets\\textures\\shrub_leaf_atlas.png",
+      "sha256": "fd32e2d15d91829f7ccbdad2dcda2bb30d279f01a74c92a5814b97163a8a4192",
+      "size": [
+        1024,
+        1024
+      ],
+      "alpha": true,
+      "png_bytes": 575210,
+      "webp_bytes": 150920
+    },
     {
       "name": "jungle_grass_atlas",
       "original": "ChatGPT Image Sep 12, 2026, 03_07_30 PM.png",
@@ -18,6 +58,58 @@
       "alpha": true,
       "png_bytes": 908939,
       "webp_bytes": 316126
+    },
+    {
+      "name": "palm_fern_atlas",
+      "original": "ChatGPT Image Sep 12, 2026, 03_08_56 PM.png",
+      "source": "assets\\textures\\palm_fern_atlas.png",
+      "sha256": "63359de336ec25afac07268361ee9afeadfec6e877f018bbeb33635520bbab45",
+      "size": [
+        1024,
+        1024
+      ],
+      "alpha": true,
+      "png_bytes": 1581710,
+      "webp_bytes": 576196
+    },
+    {
+      "name": "tropical_leaf_atlas",
+      "original": "ChatGPT Image Sep 12, 2026, 03_17_15 PM.png",
+      "source": "assets\\textures\\tropical_leaf_atlas.png",
+      "sha256": "2c292a7692db53379b1b2f9187aad1abd3daab8f9fb7dfb22b669e29abd31217",
+      "size": [
+        1024,
+        1024
+      ],
+      "alpha": true,
+      "png_bytes": 1353529,
+      "webp_bytes": 276462
+    },
+    {
+      "name": "palm_bark_basecolor",
+      "original": "ChatGPT Image Sep 12, 2026, 03_19_10 PM.png",
+      "source": "assets\\textures\\palm_bark_basecolor.png",
+      "sha256": "b55e5e56d8efb8c32c7efba736dbffd8e82219b48cbbcf2975a02301e93e9ad7",
+      "size": [
+        1024,
+        1024
+      ],
+      "alpha": false,
+      "png_bytes": 2433489,
+      "webp_bytes": 449878
+    },
+    {
+      "name": "jungle_path_basecolor",
+      "original": "ChatGPT Image Sep 12, 2026, 03_39_14 PM.png",
+      "source": "assets\\textures\\jungle_path_basecolor.png",
+      "sha256": "efc213078995554dd8580010a75dca3d90ed1aa6a07aea01799f2512179f9807",
+      "size": [
+        1024,
+        1024
+      ],
+      "alpha": false,
+      "png_bytes": 2624413,
+      "webp_bytes": 556758
     },
     {
       "name": "jungle_grass_reference_atlas",
@@ -44,75 +136,6 @@
       "alpha": false,
       "png_bytes": 2394365,
       "webp_bytes": 467220
-    },
-    {
-      "name": "jungle_path_basecolor",
-      "original": "ChatGPT Image Sep 12, 2026, 03_39_14 PM.png",
-      "source": "assets\\textures\\jungle_path_basecolor.png",
-      "sha256": "efc213078995554dd8580010a75dca3d90ed1aa6a07aea01799f2512179f9807",
-      "size": [
-        1024,
-        1024
-      ],
-      "alpha": false,
-      "png_bytes": 2624413,
-      "webp_bytes": 556758
-    },
-    {
-      "name": "palm_bark_basecolor",
-      "original": "ChatGPT Image Sep 12, 2026, 03_19_10 PM.png",
-      "source": "assets\\textures\\palm_bark_basecolor.png",
-      "sha256": "b55e5e56d8efb8c32c7efba736dbffd8e82219b48cbbcf2975a02301e93e9ad7",
-      "size": [
-        1024,
-        1024
-      ],
-      "alpha": false,
-      "png_bytes": 2433489,
-      "webp_bytes": 449878
-    },
-    {
-      "name": "palm_fern_atlas",
-      "original": "ChatGPT Image Sep 12, 2026, 03_08_56 PM.png",
-      "source": "assets\\textures\\palm_fern_atlas.png",
-      "sha256": "63359de336ec25afac07268361ee9afeadfec6e877f018bbeb33635520bbab45",
-      "size": [
-        1024,
-        1024
-      ],
-      "alpha": true,
-      "png_bytes": 1581710,
-      "webp_bytes": 576196
-    },
-    {
-      "name": "shrub_leaf_atlas",
-      "original": "ChatGPT Image Sep 12, 2026, 03_00_17 PM.png",
-      "source": "assets\\textures\\shrub_leaf_atlas.png",
-      "sha256": "fd32e2d15d91829f7ccbdad2dcda2bb30d279f01a74c92a5814b97163a8a4192",
-      "size": [
-        1024,
-        1024
-      ],
-      "alpha": true,
-      "png_bytes": 575210,
-      "webp_bytes": 150920
-    },
-    {
-      "name": "tropical_leaf_atlas",
-      "original": "ChatGPT Image Sep 12, 2026, 03_17_15 PM.png",
-      "source": "assets\\textures\\tropical_leaf_atlas.png",
-      "sha256": "2c292a7692db53379b1b2f9187aad1abd3daab8f9fb7dfb22b669e29abd31217",
-      "size": [
-        1024,
-        1024
-      ],
-      "alpha": true,
-      "png_bytes": 1353529,
-      "webp_bytes": 276462
     }
-  ],
-  "derivedNotInSourceManifest": [
-    "jungle_path_basecolor_edge",
-    "canopy_branch_atlas"
   ]
 }

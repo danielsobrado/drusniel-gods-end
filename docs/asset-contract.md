@@ -66,7 +66,7 @@ public/
       props/
       colliders/
       fauna/
-      coastal-jungle/   <- staged biome pack; not loaded by current runtime, see section 35
+      coastal-jungle/   <- v1 combined scene is runtime-active; v2 kit is staged, see section 35
     Drusniel_Dark_Elf.glb
     blend2.jpg
     grass.jpg
@@ -679,7 +679,7 @@ Do not silently rename GLB nodes or alter mask conventions and then tune unrelat
 
 ---
 
-# Coastal Jungle Pack (staged, not runtime)
+# Coastal Jungle Pack (v1 runtime-active, v2 staged)
 
 ## 35. Coastal jungle biome pack
 
@@ -694,8 +694,11 @@ YAML/config paths omit `public/`:
 ```text
 Assets/terrain/coastal-jungle/manifest.json
 Assets/terrain/coastal-jungle/scenes/coastal_jungle_reference.glb
+Assets/terrain/coastal-jungle/scenes/coastal_jungle_v2_reference.glb
 ```
 
-Composition data is in `public/coastal-jungle.yaml`. That file is **not** in `CONFIG_FILES` and is not merged into the running config.
+The v1 combined scene is the currently active runtime asset via `public/coastal-jungle-runtime.yaml`. The v2 object kit, textures, combined scene, and source recipe are staged for a later runtime pass and must not replace the active scene path yet.
 
-This pack is staging only. Current runtime must not load it, scatter it, or bake it into the existing terrain GLB. Forest-kit GLBs are primary; `objects/tropical-kit/` is supplementary unique older plants. Forest vines use a top attachment pivot; other forest plants use ground origins; units are meters. Provenance, licenses, and per-file roles are recorded in `Assets/terrain/coastal-jungle/manifest.json`.
+Composition data is in `public/coastal-jungle.yaml`. That file is **not** in `CONFIG_FILES` and is not merged into the running config. Source runtime snapshots live in `docs/reference/coastal-jungle-v2/` and are not loaded by Grass Test.
+
+Primary forest objects are 32 Meshopt-compressed GLBs. `GLTFLoader` must use `MeshoptDecoder` when those files are loaded. Forest vines use a top attachment pivot; other forest plants use ground origins; units are meters. `objects/tropical-kit/` remains a supplementary unique older plant set. Provenance, MIT license, and per-file roles are recorded in `Assets/terrain/coastal-jungle/manifest.json`.

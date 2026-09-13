@@ -1,0 +1,7 @@
+{
+  "texture_max_size": 1024,
+  "surface_max_size": 512,
+  "webp_quality": 78,
+  "webp_alpha_quality": 100,
+  "brotli_quality": 9
+}

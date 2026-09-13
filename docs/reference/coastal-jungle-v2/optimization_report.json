@@ -1,0 +1,212 @@
+{
+  "passed": true,
+  "config": {
+    "texture_max_size": 1024,
+    "surface_max_size": 512,
+    "webp_quality": 78,
+    "webp_alpha_quality": 100,
+    "brotli_quality": 9
+  },
+  "assets": [
+    {
+      "name": "coastal_jungle.glb",
+      "sourceBytes": 11873064,
+      "optimizedGlbBytes": 5935380,
+      "meshes": 35
+    },
+    {
+      "name": "background_tree_01.glb",
+      "sourceBytes": 1117684,
+      "optimizedGlbBytes": 552460,
+      "meshes": 1
+    },
+    {
+      "name": "background_tree_02.glb",
+      "sourceBytes": 1117684,
+      "optimizedGlbBytes": 552196,
+      "meshes": 1
+    },
+    {
+      "name": "background_tree_03.glb",
+      "sourceBytes": 1117680,
+      "optimizedGlbBytes": 555404,
+      "meshes": 1
+    },
+    {
+      "name": "broadleaf_01.glb",
+      "sourceBytes": 325156,
+      "optimizedGlbBytes": 238232,
+      "meshes": 1
+    },
+    {
+      "name": "broadleaf_02.glb",
+      "sourceBytes": 325160,
+      "optimizedGlbBytes": 237328,
+      "meshes": 1
+    },
+    {
+      "name": "broadleaf_03.glb",
+      "sourceBytes": 325156,
+      "optimizedGlbBytes": 237184,
+      "meshes": 1
+    },
+    {
+      "name": "climber_01.glb",
+      "sourceBytes": 813396,
+      "optimizedGlbBytes": 336308,
+      "meshes": 1
+    },
+    {
+      "name": "climber_02.glb",
+      "sourceBytes": 813392,
+      "optimizedGlbBytes": 336228,
+      "meshes": 1
+    },
+    {
+      "name": "fern_01.glb",
+      "sourceBytes": 607280,
+      "optimizedGlbBytes": 498856,
+      "meshes": 1
+    },
+    {
+      "name": "fern_02.glb",
+      "sourceBytes": 607280,
+      "optimizedGlbBytes": 498940,
+      "meshes": 1
+    },
+    {
+      "name": "grass_01.glb",
+      "sourceBytes": 361868,
+      "optimizedGlbBytes": 257212,
+      "meshes": 1
+    },
+    {
+      "name": "grass_02.glb",
+      "sourceBytes": 361868,
+      "optimizedGlbBytes": 257204,
+      "meshes": 1
+    },
+    {
+      "name": "grass_03.glb",
+      "sourceBytes": 361868,
+      "optimizedGlbBytes": 257188,
+      "meshes": 1
+    },
+    {
+      "name": "groundcover_01.glb",
+      "sourceBytes": 167348,
+      "optimizedGlbBytes": 123160,
+      "meshes": 1
+    },
+    {
+      "name": "groundcover_02.glb",
+      "sourceBytes": 167348,
+      "optimizedGlbBytes": 123152,
+      "meshes": 1
+    },
+    {
+      "name": "palm_01.glb",
+      "sourceBytes": 1084136,
+      "optimizedGlbBytes": 593620,
+      "meshes": 1
+    },
+    {
+      "name": "palm_02.glb",
+      "sourceBytes": 1084136,
+      "optimizedGlbBytes": 593748,
+      "meshes": 1
+    },
+    {
+      "name": "shrub_01.glb",
+      "sourceBytes": 922220,
+      "optimizedGlbBytes": 444492,
+      "meshes": 1
+    },
+    {
+      "name": "shrub_02.glb",
+      "sourceBytes": 922212,
+      "optimizedGlbBytes": 443904,
+      "meshes": 1
+    },
+    {
+      "name": "split_leaf_01.glb",
+      "sourceBytes": 317320,
+      "optimizedGlbBytes": 232520,
+      "meshes": 1
+    },
+    {
+      "name": "split_leaf_02.glb",
+      "sourceBytes": 317324,
+      "optimizedGlbBytes": 233064,
+      "meshes": 1
+    },
+    {
+      "name": "tree_01.glb",
+      "sourceBytes": 1384224,
+      "optimizedGlbBytes": 711680,
+      "meshes": 1
+    },
+    {
+      "name": "tree_02.glb",
+      "sourceBytes": 1315904,
+      "optimizedGlbBytes": 671744,
+      "meshes": 1
+    },
+    {
+      "name": "tree_03.glb",
+      "sourceBytes": 1452544,
+      "optimizedGlbBytes": 752620,
+      "meshes": 1
+    },
+    {
+      "name": "tree_04.glb",
+      "sourceBytes": 1350064,
+      "optimizedGlbBytes": 689656,
+      "meshes": 1
+    },
+    {
+      "name": "tree_05.glb",
+      "sourceBytes": 1418384,
+      "optimizedGlbBytes": 730980,
+      "meshes": 1
+    },
+    {
+      "name": "tree_06.glb",
+      "sourceBytes": 1384224,
+      "optimizedGlbBytes": 711388,
+      "meshes": 1
+    },
+    {
+      "name": "tree_lod_01.glb",
+      "sourceBytes": 992788,
+      "optimizedGlbBytes": 485728,
+      "meshes": 1
+    },
+    {
+      "name": "tree_lod_02.glb",
+      "sourceBytes": 992788,
+      "optimizedGlbBytes": 484316,
+      "meshes": 1
+    },
+    {
+      "name": "tree_lod_03.glb",
+      "sourceBytes": 992780,
+      "optimizedGlbBytes": 484804,
+      "meshes": 1
+    },
+    {
+      "name": "vine_01.glb",
+      "sourceBytes": 842400,
+      "optimizedGlbBytes": 328888,
+      "meshes": 1
+    },
+    {
+      "name": "vine_02.glb",
+      "sourceBytes": 842400,
+      "optimizedGlbBytes": 328160,
+      "meshes": 1
+    }
+  ],
+  "sourceBytes": 38079080,
+  "optimizedGlbBytes": 19917744
+}

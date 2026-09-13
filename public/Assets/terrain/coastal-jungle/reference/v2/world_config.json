@@ -1,0 +1,16 @@
+{
+  "chunk_size": 16,
+  "grass_per_chunk": 540,
+  "groundcover_per_chunk": 100,
+  "undergrowth_per_chunk": 7,
+  "grass_distance": 34,
+  "groundcover_distance": 28,
+  "undergrowth_distance": 72,
+  "tree_distance": 180,
+  "tree_lod_distance": 48,
+  "max_instances_per_asset": 4500,
+  "fog_density": 0.006,
+  "extent": 128,
+  "seed": 941,
+  "plant_extent": 22
+}

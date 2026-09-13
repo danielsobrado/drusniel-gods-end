@@ -1,0 +1,302 @@
+{
+  "passed": true,
+  "errors": [],
+  "stats": {
+    "fps": 0,
+    "calls": 69,
+    "triangles": 2370916,
+    "sourceInstances": 176423,
+    "totalChunks": 256,
+    "visibleInstances": 5065,
+    "visibleChunks": 118,
+    "lodInstances": 435,
+    "capacityDrops": 0,
+    "byKind": {
+      "broadleaf": 181,
+      "fern": 157,
+      "grass": 2205,
+      "groundcover": 1340,
+      "shrub": 363,
+      "split_leaf": 54,
+      "climber": 53,
+      "palm": 162,
+      "tree": 22,
+      "vine": 73,
+      "palm.001": 1,
+      "palm.002": 1,
+      "background_tree": 452,
+      "palm.003": 1
+    },
+    "cameraPosition": [
+      0,
+      2.4999999999999987,
+      12
+    ],
+    "revision": 10
+  },
+  "referenceStats": {
+    "fps": 0,
+    "calls": 69,
+    "triangles": 2399460,
+    "sourceInstances": 176423,
+    "totalChunks": 256,
+    "visibleInstances": 5065,
+    "visibleChunks": 118,
+    "lodInstances": 419,
+    "capacityDrops": 0,
+    "byKind": {
+      "broadleaf": 181,
+      "fern": 157,
+      "grass": 2205,
+      "groundcover": 1340,
+      "shrub": 363,
+      "split_leaf": 54,
+      "climber": 53,
+      "palm": 162,
+      "tree": 22,
+      "vine": 73,
+      "palm.001": 1,
+      "palm.002": 1,
+      "background_tree": 452,
+      "palm.003": 1
+    },
+    "cameraPosition": [
+      0,
+      2.4999999999999987,
+      12
+    ],
+    "revision": 1
+  },
+  "interiorStats": {
+    "fps": 0,
+    "calls": 69,
+    "triangles": 2165672,
+    "sourceInstances": 176423,
+    "totalChunks": 256,
+    "visibleInstances": 4716,
+    "visibleChunks": 106,
+    "lodInstances": 358,
+    "capacityDrops": 0,
+    "byKind": {
+      "broadleaf": 137,
+      "fern": 129,
+      "grass": 2134,
+      "groundcover": 1253,
+      "shrub": 346,
+      "split_leaf": 43,
+      "climber": 49,
+      "palm": 149,
+      "tree": 18,
+      "vine": 65,
+      "palm.001": 1,
+      "palm.002": 1,
+      "background_tree": 390,
+      "palm.003": 1
+    },
+    "cameraPosition": [
+      2,
+      2.3000000000000003,
+      5
+    ],
+    "revision": 2
+  },
+  "overviewStats": {
+    "fps": 1,
+    "calls": 40,
+    "triangles": 1316652,
+    "sourceInstances": 176423,
+    "totalChunks": 256,
+    "visibleInstances": 1084,
+    "visibleChunks": 151,
+    "lodInstances": 610,
+    "capacityDrops": 0,
+    "byKind": {
+      "background_tree": 602,
+      "shrub": 201,
+      "palm": 215,
+      "fern": 10,
+      "broadleaf": 31,
+      "tree": 22,
+      "palm.001": 1,
+      "palm.002": 1,
+      "palm.003": 1
+    },
+    "cameraPosition": [
+      65,
+      35.99999999999999,
+      75
+    ],
+    "revision": 3
+  },
+  "offscreenStats": {
+    "sourceInstances": 176423,
+    "totalChunks": 256,
+    "visibleInstances": 0,
+    "visibleChunks": 0,
+    "lodInstances": 0,
+    "capacityDrops": 0,
+    "byKind": {},
+    "cameraPosition": [
+      0,
+      60,
+      280
+    ],
+    "revision": 4
+  },
+  "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+  "loading": {
+    "readyMs": 518.8999999985099,
+    "resources": [
+      {
+        "name": "/app.js",
+        "transferBytes": 156253,
+        "encodedBytes": 155953,
+        "decodedBytes": 675316
+      },
+      {
+        "name": "/assets/coastal_jungle.gltf",
+        "transferBytes": 12646,
+        "encodedBytes": 12346,
+        "decodedBytes": 114482
+      },
+      {
+        "name": "/textures/b38dbcb4b0aff8b12c79.bin",
+        "transferBytes": 2883481,
+        "encodedBytes": 2883181,
+        "decodedBytes": 4080336
+      },
+      {
+        "name": "/textures/f7855f5a87719aa33366.webp",
+        "transferBytes": 81076,
+        "encodedBytes": 80776,
+        "decodedBytes": 80776
+      },
+      {
+        "name": "/textures/61ad8103382577d81c9b.webp",
+        "transferBytes": 331348,
+        "encodedBytes": 331048,
+        "decodedBytes": 331048
+      },
+      {
+        "name": "/textures/fffec155511cf7d59423.webp",
+        "transferBytes": 212066,
+        "encodedBytes": 211766,
+        "decodedBytes": 211766
+      },
+      {
+        "name": "/textures/89ca81f75eba4b1cc6c7.webp",
+        "transferBytes": 80852,
+        "encodedBytes": 80552,
+        "decodedBytes": 80552
+      },
+      {
+        "name": "/textures/af044d977e5eb41a90ee.webp",
+        "transferBytes": 490422,
+        "encodedBytes": 490122,
+        "decodedBytes": 490122
+      },
+      {
+        "name": "/textures/0eb1fb54062e521d4bd2.webp",
+        "transferBytes": 83524,
+        "encodedBytes": 83224,
+        "decodedBytes": 83224
+      },
+      {
+        "name": "/textures/bb210886d1d54d84e0cd.webp",
+        "transferBytes": 102796,
+        "encodedBytes": 102496,
+        "decodedBytes": 102496
+      },
+      {
+        "name": "/textures/32d2af1b6b618a966ce0.webp",
+        "transferBytes": 243430,
+        "encodedBytes": 243130,
+        "decodedBytes": 243130
+      },
+      {
+        "name": "/textures/283f80a6257f058b69e0.webp",
+        "transferBytes": 117380,
+        "encodedBytes": 117080,
+        "decodedBytes": 117080
+      },
+      {
+        "name": "/assets/world_config.json",
+        "transferBytes": 475,
+        "encodedBytes": 175,
+        "decodedBytes": 373
+      },
+      {
+        "name": "/assets/objects/tree_lod_01.gltf",
+        "transferBytes": 1398,
+        "encodedBytes": 1098,
+        "decodedBytes": 4121
+      },
+      {
+        "name": "/assets/objects/tree_lod_02.gltf",
+        "transferBytes": 1395,
+        "encodedBytes": 1095,
+        "decodedBytes": 4123
+      },
+      {
+        "name": "/assets/objects/tree_lod_03.gltf",
+        "transferBytes": 1391,
+        "encodedBytes": 1091,
+        "decodedBytes": 4113
+      },
+      {
+        "name": "/textures/76b799657b4c4041379d.bin",
+        "transferBytes": 56382,
+        "encodedBytes": 56082,
+        "decodedBytes": 68344
+      },
+      {
+        "name": "/textures/f7855f5a87719aa33366.webp",
+        "transferBytes": 0,
+        "encodedBytes": 80776,
+        "decodedBytes": 80776
+      },
+      {
+        "name": "/textures/61ad8103382577d81c9b.webp",
+        "transferBytes": 0,
+        "encodedBytes": 331048,
+        "decodedBytes": 331048
+      },
+      {
+        "name": "/textures/aff0bada53f55e1077f5.bin",
+        "transferBytes": 57378,
+        "encodedBytes": 57078,
+        "decodedBytes": 69756
+      },
+      {
+        "name": "/textures/61ad8103382577d81c9b.webp",
+        "transferBytes": 0,
+        "encodedBytes": 331048,
+        "decodedBytes": 331048
+      },
+      {
+        "name": "/textures/f7855f5a87719aa33366.webp",
+        "transferBytes": 0,
+        "encodedBytes": 80776,
+        "decodedBytes": 80776
+      },
+      {
+        "name": "/textures/644ef98072eff32e800d.bin",
+        "transferBytes": 56775,
+        "encodedBytes": 56475,
+        "decodedBytes": 68840
+      },
+      {
+        "name": "/textures/61ad8103382577d81c9b.webp",
+        "transferBytes": 0,
+        "encodedBytes": 331048,
+        "decodedBytes": 331048
+      },
+      {
+        "name": "/textures/f7855f5a87719aa33366.webp",
+        "transferBytes": 0,
+        "encodedBytes": 80776,
+        "decodedBytes": 80776
+      }
+    ]
+  }
+}
