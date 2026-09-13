@@ -23,7 +23,7 @@ test('coastal jungle texture preparation restores runtime sampling quality', () 
   assert.equal(map.generateMipmaps, true);
 });
 
-test('coastal jungle foliage gets alpha cutout, two-sided shading and wind nodes', () => {
+test('coastal jungle foliage gets source-style cutout, depth haze and wind nodes', () => {
   const material = new THREE.MeshStandardMaterial({ map: new THREE.Texture(), roughness: 0.4 });
   material.name = 'jungle_grass_atlas';
   prepareCoastalJungleMaterial(material, {
@@ -36,6 +36,7 @@ test('coastal jungle foliage gets alpha cutout, two-sided shading and wind nodes
       foliageRoughnessMin: 0.84,
       ambientLift: 0.035,
       backlight: 0.18,
+      haze: { enabled: true, color: '#91b1b7', start: 18, end: 85, strength: 0.28 },
       wind: { enabled: true, amplitude: 0.035, speed: 1.4, spatialX: 0.7, spatialZ: 0.6 },
     },
   });
@@ -46,6 +47,7 @@ test('coastal jungle foliage gets alpha cutout, two-sided shading and wind nodes
   assert.equal(material.roughness, 0.84);
   assert.equal(material.metalness, 0);
   assert.ok(material.alphaTestNode);
+  assert.ok(material.colorNode);
   assert.ok(material.maskShadowNode);
   assert.ok(material.emissiveNode);
   assert.ok(material.positionNode);
