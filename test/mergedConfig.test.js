@@ -22,6 +22,7 @@ test('effective config uses the runtime YAML file order', async () => {
   assert.deepEqual(CONFIG_FILES, [
     'config.yaml',
     'ground-material.yaml',
+    'surface-filtering.yaml',
     'player-controls.yaml',
     'visual-parity.yaml',
     'tree-rendering.yaml',

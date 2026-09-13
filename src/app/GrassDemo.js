@@ -337,6 +337,8 @@ export class GrassDemo {
     }
 
     loading.stage('shaders');
+    this.#resize();
+    this.trees.resetLod();
     this.cinematicLighting.activateShadows();
     await this.world.renderer.compileAsync(this.world.scene, this.world.camera);
     this.abortController.signal.throwIfAborted();

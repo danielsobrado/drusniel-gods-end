@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu';
-import { attribute, color, mix, texture, uv, vec4 } from 'three/tsl';
+import { attribute, color, mix, reference, texture, uv, vec4 } from 'three/tsl';
 import { adventureCanopyColor } from '../rendering/AdventurePalette.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { createRandom } from '../utils/random.js';
@@ -19,11 +19,14 @@ function materialsOf(material) {
 }
 
 function cloneHighMaterial(material) {
-  const cloneMaterial = material.clone();
+  const cloneMaterial = material.isNodeMaterial ? material.clone()
+    : new THREE.MeshStandardNodeMaterial().copy(material);
+  cloneMaterial.name = `TreeBark:${material.name || material.type}`;
   cloneMaterial.alphaHash = true;
   cloneMaterial.transparent = false;
   cloneMaterial.depthWrite = true;
   cloneMaterial.opacity = 1;
+  cloneMaterial.opacityNode = reference('userData.treeAppearance.opacity', 'float');
   return cloneMaterial;
 }
 
@@ -64,12 +67,12 @@ function resolveTreeAppearance(index, position, config) {
   return { retained: hash01(seed + 83.19) <= retention, scale, tint };
 }
 
-function prepareTreeClone(root, source, leafMaterialFactory, tint) {
+function prepareTreeClone(root, source, leafMaterialFactory, appearance, barkMaterials) {
   root.traverse((object) => {
     if (!object.isMesh) return;
     object.visible = true;
     object.frustumCulled = true;
-    object.geometry.computeBoundingSphere();
+    if (!object.geometry.boundingSphere) object.geometry.computeBoundingSphere();
     object.boundingSphere = object.geometry.boundingSphere.clone();
     if (source.highLeavesName && object.name === source.highLeavesName) {
       object.boundingSphere.radius += 10;
@@ -78,21 +81,20 @@ function prepareTreeClone(root, source, leafMaterialFactory, tint) {
     object.castShadow = true;
     object.receiveShadow = true;
     object.userData.rainRoughness = TREE_RAIN_ROUGHNESS;
+    object.userData.treeAppearance = appearance;
 
     if (source.highLeavesName && object.name === source.highLeavesName) {
-      object.material = leafMaterialFactory.create(object.material, tint);
-      object.material.opacity = 1;
+      object.material = leafMaterialFactory.createShared(object.material);
       return;
     }
 
     if (!object.material) return;
-    const cloned = materialsOf(object.material).map(cloneHighMaterial);
+    const cloned = materialsOf(object.material).map(material => {
+      if (!barkMaterials.has(material)) barkMaterials.set(material, cloneHighMaterial(material));
+      return barkMaterials.get(material);
+    });
     object.material = Array.isArray(object.material) ? cloned : cloned[0];
   });
-}
-
-function setMaterialsOpacity(materials, opacity) {
-  for (const material of materials) material.opacity = opacity;
 }
 
 function findFirstMesh(root) {
@@ -164,6 +166,7 @@ export class TreeSystem {
     this.cameraPosition = new THREE.Vector3();
     this.lodUpdateTimer = 0;
     this.leafMaterialFactory = new TreeLeafMaterialFactory(config);
+    this.barkMaterials = new Map();
   }
 
   init() {
@@ -179,6 +182,7 @@ export class TreeSystem {
 
     this.#buildBillboards();
     this.#hideSourceObjects();
+    this.resetLod();
 
     logger.info('Tree system initialized.', {
       trees: this.trees.length,
@@ -286,13 +290,14 @@ export class TreeSystem {
     const appearance = resolveTreeAppearance(index, position, this.config);
     if (!appearance.retained) return;
     const resolvedScale = scale * appearance.scale;
+    const renderAppearance = { tint: appearance.tint, opacity: 1 };
     const high = clone(source.high);
     high.name = `TreeHigh_${index}`;
     high.visible = true;
     high.position.copy(position);
     high.rotation.y = rotation;
     high.scale.setScalar(resolvedScale);
-    prepareTreeClone(high, source, this.leafMaterialFactory, appearance.tint);
+    prepareTreeClone(high, source, this.leafMaterialFactory, renderAppearance, this.barkMaterials);
     this.scene.add(high);
 
     this.trees.push({
@@ -304,6 +309,7 @@ export class TreeSystem {
       rotation,
       scale: resolvedScale,
       tint: appearance.tint,
+      appearance: renderAppearance,
       highMaterials: collectMaterials(high),
       billboardGroup: null,
       billboardIndex: -1,
@@ -413,7 +419,7 @@ export class TreeSystem {
     tree.transitioning = true;
     this.transitioningTrees.add(tree);
     tree.transitionTime = 0;
-    tree.transitionHighStart = tree.highMaterials[0]?.opacity ?? 0;
+    tree.transitionHighStart = tree.appearance.opacity;
     tree.transitionBillboardStart = tree.billboardOpacity;
     tree.high.visible = true;
   }
@@ -427,7 +433,7 @@ export class TreeSystem {
     const billboardTarget = tree.targetLOD === LOD_BILLBOARD ? 1 : 0;
     const highOpacity = THREE.MathUtils.lerp(tree.transitionHighStart, highTarget, t);
     const billboardOpacity = THREE.MathUtils.lerp(tree.transitionBillboardStart, billboardTarget, t);
-    setMaterialsOpacity(tree.highMaterials, highOpacity);
+    tree.appearance.opacity = highOpacity;
     this.#setBillboardOpacity(tree, billboardOpacity);
 
     if (t < 1) return;
@@ -451,6 +457,25 @@ export class TreeSystem {
     this.leafMaterialFactory.setSimulationSpeed(value);
   }
 
+  // Select the opening view before shader warm-up or any reflection capture.
+  // Starting every tree at high detail compiles and draws the entire forest.
+  resetLod() {
+    this.camera.getWorldPosition(this.cameraPosition);
+    this.transitioningTrees.clear();
+    this.lodUpdateTimer = 0;
+    for (const tree of this.trees) {
+      const distance = this.#horizontalDistance(tree.position);
+      const lod = distance < this.config.trees.highDistance ? LOD_HIGH
+        : distance < this.config.trees.billboardDistance ? LOD_BILLBOARD : LOD_HIDDEN;
+      tree.currentLOD = tree.targetLOD = lod;
+      tree.transitioning = false;
+      tree.transitionTime = 0;
+      tree.appearance.opacity = lod === LOD_HIGH ? 1 : 0;
+      tree.high.visible = lod === LOD_HIGH;
+      this.#setBillboardOpacity(tree, lod === LOD_BILLBOARD ? 1 : 0);
+    }
+  }
+
   update(deltaSeconds = DEFAULT_UPDATE_SECONDS) {
     this.camera.getWorldPosition(this.cameraPosition);
     for (const tree of this.transitioningTrees) this.#updateTransition(tree, deltaSeconds);
@@ -469,8 +494,11 @@ export class TreeSystem {
   dispose() {
     for (const tree of this.trees) {
       this.scene.remove(tree.high);
-      for (const material of tree.highMaterials) material.dispose?.();
     }
+    for (const material of this.barkMaterials.values()) material.dispose();
+    this.barkMaterials.clear();
+    this.leafMaterialFactory.dispose();
+    this.transitioningTrees.clear();
     for (const group of this.billboardGroups) {
       this.scene.remove(group);
       group.geometry?.dispose?.();

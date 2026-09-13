@@ -7,6 +7,7 @@ import {
   cos,
   modelWorldMatrix,
   positionLocal,
+  reference,
   sin,
   smoothstep,
   texture,
@@ -30,6 +31,7 @@ const CINEMATIC_MODEL = 'cinematic';
 export class TreeLeafMaterialFactory {
   constructor(config) {
     this.config = config;
+    this.sharedMaterials = new Map();
     this.windConfig = resolveWindConfig(config);
     this.windSpeed = uniform(config.trees.windSpeed);
     this.windStrength = uniform(config.trees.windStrength);
@@ -132,7 +134,7 @@ export class TreeLeafMaterialFactory {
       const leafSample = texture(material.map, uv());
       const canopy = adventureCanopyColor(leafSample.rgb, this.config);
       const leafColor = tint
-        ? canopy.mul(vec3(tint.r, tint.g, tint.b))
+        ? canopy.mul(tint.isNode ? tint : vec3(tint.r, tint.g, tint.b))
         : canopy;
       material.colorNode = vec4(leafColor, leafSample.a);
       material.emissiveNode = foliageBacklight(leafColor, 0.5);
@@ -148,6 +150,22 @@ export class TreeLeafMaterialFactory {
       material.maskShadowNode = Fn(() => texture(material.map, uv()).a.greaterThan(SHADOW_ALPHA_TEST))();
     }
     return material;
+  }
+
+  createShared(sourceMaterial) {
+    const source = Array.isArray(sourceMaterial) ? sourceMaterial[0] : sourceMaterial;
+    if (!this.sharedMaterials.has(source)) {
+      const material = this.create(source, reference('userData.treeAppearance.tint', 'color'));
+      material.name = `TreeLeaves:${source?.name || 'foliage'}`;
+      material.opacityNode = reference('userData.treeAppearance.opacity', 'float');
+      this.sharedMaterials.set(source, material);
+    }
+    return this.sharedMaterials.get(source);
+  }
+
+  dispose() {
+    for (const material of this.sharedMaterials.values()) material.dispose();
+    this.sharedMaterials.clear();
   }
 
   setWindSpeed(value) {
