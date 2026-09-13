@@ -129,6 +129,9 @@ export function validateCoastalJungleConfig(config) {
   unitInterval(problems, 'biomes.coastalJungle.placement.routeMaskMax', placement.routeMaskMax);
   unitInterval(problems, 'biomes.coastalJungle.placement.routeFloorRevealStart', placement.routeFloorRevealStart, false);
   positive(problems, 'biomes.coastalJungle.placement.routeFloorRevealDepth', placement.routeFloorRevealDepth, true);
+  if (placement.surfaceEdgeFade !== undefined) {
+    positive(problems, 'biomes.coastalJungle.placement.surfaceEdgeFade', placement.surfaceEdgeFade, true);
+  }
   positive(problems, 'biomes.coastalJungle.placement.riverClearance', placement.riverClearance, true);
   positive(problems, 'biomes.coastalJungle.placement.boundsPadding', placement.boundsPadding, true);
 
