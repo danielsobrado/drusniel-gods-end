@@ -43,6 +43,7 @@ export function resolveSnowDeformationConfig(config) {
     worldSize: positiveNumber(config.worldSize, 'ground.snow.deformation.worldSize'),
     paintMinCoverage: unitNumber(config.paintMinCoverage, 'ground.snow.deformation.paintMinCoverage'),
     footRadiusScale: positiveNumber(config.footRadiusScale, 'ground.snow.deformation.footRadiusScale'),
+    stampSpacingScale: positiveNumber(config.stampSpacingScale, 'ground.snow.deformation.stampSpacingScale'),
     minRadius,
     maxRadius,
     contactHeight: positiveNumber(config.contactHeight, 'ground.snow.deformation.contactHeight'),
@@ -83,6 +84,7 @@ export class SnowDeformationField {
     this.centerInitialized = false;
     this.recoveryElapsed = 0;
     this.peak = 0;
+    this.lastContacts = [];
     const length = this.config.resolution * this.config.resolution * CHANNELS;
     this.pixels = new Uint8Array(length);
     this.scrollPixels = new Uint8Array(length);
@@ -113,7 +115,12 @@ export class SnowDeformationField {
       const points = influencePoints.length > 0
         ? influencePoints
         : [{ position: playerPosition, radius: this.config.minRadius }];
-      for (const point of points) changed = this.#paintPoint(point) || changed;
+      for (let index = 0; index < points.length; index += 1) {
+        changed = this.#paintSpacedPoint(points[index], index) || changed;
+      }
+      if (this.lastContacts.length > points.length) this.lastContacts.length = points.length;
+    } else {
+      this.lastContacts.length = 0;
     }
     if (changed) this.texture.needsUpdate = true;
   }
@@ -142,12 +149,43 @@ export class SnowDeformationField {
     this.center.y += shiftY / pixelsPerUnit;
   }
 
-  #paintPoint(point) {
+  #footprintRadius(point) {
+    const sourceRadius = Number(point?.radius);
+    const contactRadius = Number.isFinite(sourceRadius) && sourceRadius > 0
+      ? sourceRadius
+      : this.config.minRadius;
+    return THREE.MathUtils.clamp(
+      contactRadius * this.config.footRadiusScale,
+      this.config.minRadius,
+      this.config.maxRadius,
+    );
+  }
+
+  #paintSpacedPoint(point, index) {
     const position = point?.position;
     if (!position) return false;
+    const radius = this.#footprintRadius(point);
+    const previous = this.lastContacts[index];
+    const minimumDistance = radius * this.config.stampSpacingScale;
+    if (previous && Math.hypot(position.x - previous.x, position.z - previous.y) < minimumDistance) {
+      return false;
+    }
+
+    const painted = this.#paintPoint(point, radius);
+    if (painted === null) return false;
+    const contact = previous ?? new THREE.Vector2();
+    contact.set(position.x, position.z);
+    this.lastContacts[index] = contact;
+    return painted;
+  }
+
+  #paintPoint(point, radius) {
+    const position = point?.position;
+    if (!position) return null;
     const x = position.x;
     const z = position.z;
     const terrainHeight = this.terrainSampler.sampleHeight(x, z);
+    if (!Number.isFinite(terrainHeight)) return null;
     const sourceRadius = Number(point.radius);
     const contactRadius = Number.isFinite(sourceRadius) && sourceRadius > 0
       ? sourceRadius
@@ -156,18 +194,17 @@ export class SnowDeformationField {
       const bottom = position.y - contactRadius;
       const top = position.y + contactRadius;
       if (bottom > terrainHeight + this.config.contactHeight
-        || top < terrainHeight - this.config.contactHeight) return false;
+        || top < terrainHeight - this.config.contactHeight) return null;
     }
 
     const step = Math.max(0.4, this.config.worldSize / this.config.resolution * 2);
     const dx = this.terrainSampler.sampleHeight(x + step, z) - this.terrainSampler.sampleHeight(x - step, z);
     const dz = this.terrainSampler.sampleHeight(x, z + step) - this.terrainSampler.sampleHeight(x, z - step);
+    if (!Number.isFinite(dx) || !Number.isFinite(dz)) return null;
     const normalY = 1 / Math.sqrt(1 + (dx / (step * 2)) ** 2 + (dz / (step * 2)) ** 2);
     const coverage = sampleSnowCoverageCpu(x, terrainHeight, z, normalY, this.rootConfig);
-    if (coverage < this.config.paintMinCoverage) return false;
+    if (coverage < this.config.paintMinCoverage) return null;
 
-    const requestedRadius = contactRadius * this.config.footRadiusScale;
-    const radius = THREE.MathUtils.clamp(requestedRadius, this.config.minRadius, this.config.maxRadius);
     const centerX = ((x - this.center.x) / this.config.worldSize + 0.5) * this.config.resolution;
     const centerY = ((z - this.center.y) / this.config.worldSize + 0.5) * this.config.resolution;
     const pixelRadius = Math.max(1, radius * this.config.resolution / this.config.worldSize);
@@ -281,6 +318,7 @@ export class SnowDeformationField {
     this.#clear(this.pixels);
     this.peak = 0;
     this.recoveryElapsed = 0;
+    this.lastContacts.length = 0;
     this.texture.needsUpdate = true;
   }
 

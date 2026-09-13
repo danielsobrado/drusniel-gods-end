@@ -60,19 +60,22 @@ export function validateSnowConfig(config) {
   }
 
   if (object(snow.sastrugi, 'ground.snow.sastrugi', problems)) {
-    for (const name of ['frequency', 'crossFrequency', 'secondaryFrequency']) {
+    for (const name of ['frequency', 'crossFrequency', 'macroFrequency', 'macroCrossFrequency', 'secondaryFrequency']) {
       number(snow.sastrugi[name], `ground.snow.sastrugi.${name}`, problems, { min: 0, exclusiveMin: true });
     }
-    for (const name of ['warp', 'amplitude', 'secondaryAmplitude']) {
+    for (const name of ['warp', 'macroWarp', 'amplitude', 'secondaryAmplitude']) {
       number(snow.sastrugi[name], `ground.snow.sastrugi.${name}`, problems);
     }
+    number(snow.sastrugi.amplitudeVariation, 'ground.snow.sastrugi.amplitudeVariation', problems, { min: 0, max: 1 });
   }
 
   if (object(snow.ripples, 'ground.snow.ripples', problems)) {
-    for (const name of ['frequency', 'crossFrequency']) {
+    for (const name of ['frequency', 'crossFrequency', 'macroFrequency']) {
       number(snow.ripples[name], `ground.snow.ripples.${name}`, problems, { min: 0, exclusiveMin: true });
     }
-    number(snow.ripples.amplitude, 'ground.snow.ripples.amplitude', problems);
+    for (const name of ['macroWarp', 'amplitude']) {
+      number(snow.ripples[name], `ground.snow.ripples.${name}`, problems);
+    }
   }
 
   if (object(snow.grain, 'ground.snow.grain', problems)) {
@@ -106,6 +109,7 @@ export function validateSnowConfig(config) {
     for (const name of ['base', 'compressed', 'berm']) {
       number(snow.roughness[name], `ground.snow.roughness.${name}`, problems, { min: 0, max: 1 });
     }
+    number(snow.roughness.variation, 'ground.snow.roughness.variation', problems, { min: 0, max: 0.5 });
   }
 
   if (object(snow.lighting, 'ground.snow.lighting', problems)) {
@@ -124,7 +128,7 @@ export function validateSnowConfig(config) {
     for (const name of ['paintMinCoverage', 'depressionStrength', 'bermStrength']) {
       number(deformation[name], `ground.snow.deformation.${name}`, problems, { min: 0, max: 1 });
     }
-    for (const name of ['footRadiusScale', 'minRadius', 'maxRadius', 'contactHeight', 'recenterDistance', 'decaySeconds', 'bermDecaySeconds', 'recoveryInterval']) {
+    for (const name of ['footRadiusScale', 'stampSpacingScale', 'minRadius', 'maxRadius', 'contactHeight', 'recenterDistance', 'decaySeconds', 'bermDecaySeconds', 'recoveryInterval']) {
       number(deformation[name], `ground.snow.deformation.${name}`, problems, { min: 0, exclusiveMin: true });
     }
     const minRadius = Number(deformation.minRadius);

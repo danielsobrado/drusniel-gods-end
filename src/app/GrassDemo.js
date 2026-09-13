@@ -586,11 +586,29 @@ export class GrassDemo {
     this.surface = this.#detectSurface();
     this.audio.update(deltaSeconds);
     this.collisions.update();
+    const playerPosition = this.player.getPosition();
+    const influencePoints = this.player.getInfluencePoints();
+    const movementState = this.player.getMovementState(this.surface);
+    time('snow', () => {
+      this.world.snowDeformation?.update(
+        deltaSeconds,
+        playerPosition,
+        influencePoints,
+        movementState.moving,
+      );
+      this.world.snowPowder?.update(
+        deltaSeconds,
+        playerPosition,
+        influencePoints,
+        movementState.moving,
+        movementState.running,
+      );
+    });
     time('grass', () => this.grass.update(
       deltaSeconds,
       elapsedSeconds,
-      this.player.getPosition(),
-      this.player.getInfluencePoints(),
+      playerPosition,
+      influencePoints,
     ));
     const focus = this.navigation.getFocusPosition();
     this.environment.updateSunTarget(focus);
@@ -598,9 +616,9 @@ export class GrassDemo {
     time('meadow', () => this.meadow?.update(deltaSeconds, focus, this.environment.current));
     time('wildGrass', () => this.wildGrass?.update(deltaSeconds, focus, this.environment.current));
     time('understory', () => this.understory?.update(deltaSeconds, focus, this.environment.current));
-    time('biome', () => this.biome?.update(deltaSeconds, this.world.camera, this.player.getPosition()));
+    time('biome', () => this.biome?.update(deltaSeconds, this.world.camera, playerPosition));
     time('vegetationJobs', () => this.vegetationJobs?.tick());
-    this.boundaryBarrier?.update(deltaSeconds, this.player.getPosition());
+    this.boundaryBarrier?.update(deltaSeconds, playerPosition);
     time('water', () => this.water.update(deltaSeconds, this.player, this.environment.current.lighting));
     this.world.terrainTarget.material.userData.updateCoast?.(deltaSeconds, this.water.rippleElapsed);
     time('render', () => this.pipeline.render({ occlusionEnabled: true, profiler }));
