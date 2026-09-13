@@ -13,6 +13,12 @@ biomes:
       surfaceRoughnessMin: 0.9
       ambientLift: 0.035
       backlight: 0.18
+      haze:
+        enabled: true
+        color: '#91b1b7'
+        start: 18
+        end: 85
+        strength: 0.28
       wind:
         enabled: true
         amplitude: 0.035
