@@ -9,6 +9,25 @@ function validConfig() {
         enabled: true,
         asset: 'Assets/terrain/coastal-jungle/scenes/coastal_jungle_reference.glb',
         anisotropy: 8,
+        material: {
+          alphaTest: 0.4,
+          shadowAlphaTest: 0.48,
+          alphaToCoverage: true,
+          foliageRoughnessMin: 0.84,
+          surfaceRoughnessMin: 0.9,
+          ambientLift: 0.035,
+          backlight: 0.18,
+          wind: {
+            enabled: true,
+            amplitude: 0.035,
+            speed: 1.4,
+            spatialX: 0.7,
+            spatialZ: 0.6,
+            turbulence: 0.28,
+            flutterRatio: 0.32,
+            kindScale: { grass: 1, tree: 0.18 },
+          },
+        },
         region: { zStart: 250, zEnd: 430, inlandStart: 140, inlandEnd: 270 },
         ecology: { edgeFade: 18, baseVegetationScale: 0.18 },
         render: { lodHysteresis: 0.06 },
@@ -58,4 +77,12 @@ test('coastal jungle validator rejects degenerate route reveal and ecology setti
   config.biomes.coastalJungle.ecology.baseVegetationScale = -0.1;
   assert.throws(() => validateCoastalJungleConfig(config), /routeFloorRevealStart/);
   assert.throws(() => validateCoastalJungleConfig(config), /baseVegetationScale/);
+});
+
+test('coastal jungle validator rejects invalid material and wind settings', () => {
+  const config = validConfig();
+  config.biomes.coastalJungle.material.alphaTest = 1.2;
+  config.biomes.coastalJungle.material.wind.amplitude = -0.01;
+  assert.throws(() => validateCoastalJungleConfig(config), /material\.alphaTest/);
+  assert.throws(() => validateCoastalJungleConfig(config), /wind\.amplitude/);
 });
