@@ -7,6 +7,7 @@ import { validateSnowConfig } from './validateSnowConfig.js';
 export const CONFIG_FILES = [
   'config.yaml',
   'ground-material.yaml',
+  'surface-filtering.yaml',
   'player-controls.yaml',
   'visual-parity.yaml',
   'tree-rendering.yaml',

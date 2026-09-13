@@ -6,6 +6,7 @@ import { loadConfig } from './config/loadConfig.js';
 import { ExplorationSpeedMode } from './player/ExplorationSpeedMode.js';
 import { RendererRecovery } from './rendering/RendererRecovery.js';
 import { resolveRendererRequest } from './rendering/RendererSession.js';
+import { SurfaceAnisotropyController } from './rendering/SurfaceAnisotropyController.js';
 
 async function bootstrap() {
   const root = document.querySelector('#app');
@@ -13,8 +14,15 @@ async function bootstrap() {
   let disposed = false;
   let explorationSpeedMode;
   let recovery;
+  let surfaceAnisotropy;
   let unsubscribeLoss;
-  const release = () => { unsubscribeLoss?.(); unsubscribeLoss = null; demo?.dispose(); };
+  const release = () => {
+    unsubscribeLoss?.();
+    unsubscribeLoss = null;
+    surfaceAnisotropy?.dispose();
+    surfaceAnisotropy = null;
+    demo?.dispose();
+  };
   const showFailure = (error) => {
     console.error('Failed to start grass demo', error);
     root.textContent = '';
@@ -51,9 +59,13 @@ async function bootstrap() {
       explorationSpeedMode.setConfig(runtimeConfig);
       demo = new GrassDemo(root, runtimeConfig);
       const candidate = demo;
+      const anisotropyController = new SurfaceAnisotropyController(candidate);
       demo.rendererRequest = backend;
       demo.resumeState = state;
       demo.onRendererReady = (session) => {
+        surfaceAnisotropy?.dispose();
+        surfaceAnisotropy = anisotropyController;
+        anisotropyController.apply();
         root.dataset.renderer = session.diagnostics.actual;
         console.info('[Renderer]', session.diagnostics);
         unsubscribeLoss = session.subscribeDeviceLoss((info) => {
@@ -74,7 +86,10 @@ async function bootstrap() {
       }
       try {
         await candidate.start();
+        if (candidate === demo && !disposed) anisotropyController.mount();
       } catch (error) {
+        anisotropyController.dispose();
+        if (surfaceAnisotropy === anisotropyController) surfaceAnisotropy = null;
         // A replacement owns the UI and renderer now; obsolete startup work
         // must never tear it down through bootstrap's outer failure handler.
         if (candidate !== demo || disposed) return;
