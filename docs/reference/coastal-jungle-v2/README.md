@@ -4,7 +4,7 @@ These files are **SOURCE REFERENCE MATERIAL**.
 
 They are **not** loaded by Grass Test.
 
-They exist so a later Grass Test runtime pass can reproduce the Codex-and-Blender forest behavior without guessing. The second-round source contains the performance architecture to adapt: spatial chunking, frustum and distance culling, grass thinning, tree LOD hysteresis, and shared instanced GPU batches.
+They exist so Grass Test can reproduce the Codex-and-Blender forest behavior without guessing. The second-round source contains the performance architecture adapted by the active runtime: spatial chunking, frustum and distance culling, grass thinning, and shared instanced GPU batches. Dedicated tree-LOD substitution remains reference material until the standalone Meshopt LOD assets are wired into the runtime.
 
 Do not copy `output/browser/app.js`, `index.html`, or `serve.mjs` into Grass Test. Do not treat this folder as a second application.
 
@@ -35,11 +35,11 @@ Matching visual oracles and authored scene evidence also live at:
 
 `public/Assets/terrain/coastal-jungle/reference/v2/`
 
-The v2 combined scene is staged at:
+The active Grass Test scene is:
 
 `public/Assets/terrain/coastal-jungle/scenes/coastal_jungle_v2_reference.glb`
 
-The currently active Grass Test scene remains:
+The previous v1 combined scene remains preserved at:
 
 `public/Assets/terrain/coastal-jungle/scenes/coastal_jungle_reference.glb`
 
@@ -75,4 +75,4 @@ Source runtime behavior also uses:
 - update-range-limited instance uploads
 - no reculling when camera movement/rotation is negligible
 
-Primary forest objects are Meshopt-compressed GLBs. `GLTFLoader` must use `MeshoptDecoder` when those files are loaded.
+Primary forest objects are Meshopt-compressed GLBs. `GLTFLoader` must use `MeshoptDecoder` when those files are loaded. The active combined v2 scene does not load the standalone tree LOD GLBs yet.

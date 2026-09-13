@@ -1,8 +1,8 @@
-# Runtime-only integration for the authored coastal jungle pack.
+# Runtime integration for the authored coastal jungle v2 pack.
 biomes:
   coastalJungle:
     enabled: true
-    asset: Assets/terrain/coastal-jungle/scenes/coastal_jungle_reference.glb
+    asset: Assets/terrain/coastal-jungle/scenes/coastal_jungle_v2_reference.glb
     collisionGroup: coastalJungle
     anisotropy: 8
     material:
@@ -62,63 +62,71 @@ biomes:
       boundsPadding: 1
     collider:
       tree: { radius: 0.52, height: 7.5 }
-      background_tree: { radius: 0.48, height: 7.5 }
       palm: { radius: 0.38, height: 7 }
     shadowKinds: [groundcover, fern, broadleaf, palm, tree, shrub, vine, climber, background_tree, split_leaf]
     render:
       lodHysteresis: 0.06
+      chunkSize: 16
+      grassDenseDistance: 14
+      grassDistance: 34
+      grassFarDensity: 0.2
+      groundcoverDistance: 28
+      undergrowthDistance: 72
+      treeDistance: 180
+      cameraMoveThreshold: 0.2
+      cameraRotationThreshold: 0.00002
     quality:
       performance:
-        maxDistance: 260
+        maxDistance: 130
         shadows: false
         density:
-          grass: 0.08
-          groundcover: 0.14
-          fern: 0.30
-          broadleaf: 0.38
+          grass: 0.55
+          groundcover: 0.65
+          fern: 0.70
+          broadleaf: 0.75
           palm: 1
           tree: 1
-          shrub: 0.30
-          vine: 0.25
-          climber: 0.30
-          background_tree: 1
-          split_leaf: 0.35
-      balanced:
-        maxDistance: 360
-        shadows: false
-        density:
-          grass: 0.16
-          groundcover: 0.25
-          fern: 0.50
-          broadleaf: 0.60
-          palm: 1
-          tree: 1
-          shrub: 0.50
-          vine: 0.45
-          climber: 0.50
-          background_tree: 1
-          split_leaf: 0.60
-      high:
-        maxDistance: 500
-        shadows: true
-        density:
-          grass: 0.25
-          groundcover: 0.42
-          fern: 0.72
-          broadleaf: 0.80
-          palm: 1
-          tree: 1
-          shrub: 0.72
-          vine: 0.68
+          shrub: 0.70
+          vine: 0.65
           climber: 0.70
           background_tree: 1
-          split_leaf: 0.80
-      ultra:
-        maxDistance: 650
+          split_leaf: 0.75
+      balanced:
+        maxDistance: 160
+        shadows: false
+        density:
+          grass: 0.80
+          groundcover: 0.85
+          fern: 0.90
+          broadleaf: 0.90
+          palm: 1
+          tree: 1
+          shrub: 0.90
+          vine: 0.85
+          climber: 0.90
+          background_tree: 1
+          split_leaf: 0.90
+      high:
+        maxDistance: 180
         shadows: true
         density:
-          grass: 0.45
-          groundcover: 0.65
+          grass: 1
+          groundcover: 1
+          fern: 1
+          broadleaf: 1
+          palm: 1
+          tree: 1
+          shrub: 1
+          vine: 1
+          climber: 1
+          background_tree: 1
+          split_leaf: 1
+      ultra:
+        maxDistance: 180
+        shadows: true
+        density:
+          grass: 1
+          groundcover: 1
           fern: 1
           broadleaf: 1
           palm: 1

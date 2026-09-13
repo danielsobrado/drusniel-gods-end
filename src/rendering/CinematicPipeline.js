@@ -66,6 +66,7 @@ export class CinematicPipeline {
   render({ occlusionEnabled = true, profiler } = {}) {
     this.#installCpuHooks();
     resetCpuStats(this.cpu);
+    this.world.scene.userData.updateCoastalJungleVisibility?.(this.world.camera);
     const started = performance.now();
     if (occlusionEnabled) this.gpuOcclusion.prepare();
     else this.gpuOcclusion.active.clear();

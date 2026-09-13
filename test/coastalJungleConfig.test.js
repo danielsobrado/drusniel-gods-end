@@ -7,7 +7,7 @@ function validConfig() {
     biomes: {
       coastalJungle: {
         enabled: true,
-        asset: 'Assets/terrain/coastal-jungle/scenes/coastal_jungle_reference.glb',
+        asset: 'Assets/terrain/coastal-jungle/scenes/coastal_jungle_v2_reference.glb',
         anisotropy: 8,
         material: {
           alphaTest: 0.4,
@@ -37,7 +37,18 @@ function validConfig() {
         },
         region: { zStart: 250, zEnd: 430, inlandStart: 140, inlandEnd: 270 },
         ecology: { edgeFade: 18, baseVegetationScale: 0.18 },
-        render: { lodHysteresis: 0.06 },
+        render: {
+          lodHysteresis: 0.06,
+          chunkSize: 16,
+          grassDenseDistance: 14,
+          grassDistance: 34,
+          grassFarDensity: 0.2,
+          groundcoverDistance: 28,
+          undergrowthDistance: 72,
+          treeDistance: 180,
+          cameraMoveThreshold: 0.2,
+          cameraRotationThreshold: 0.00002,
+        },
         placement: {
           slopeSampleDistance: 2,
           maxSlope: 0.75,
@@ -52,14 +63,14 @@ function validConfig() {
         },
         quality: Object.fromEntries(['performance', 'balanced', 'high', 'ultra'].map((name) => [
           name,
-          { maxDistance: 300, density: { grass: 0.5, tree: 1 } },
+          { maxDistance: 180, shadows: name !== 'performance', density: { grass: 1, tree: 1 } },
         ])),
       },
     },
   };
 }
 
-test('coastal jungle validator accepts the runtime contract', () => {
+test('coastal jungle validator accepts the v2 runtime contract', () => {
   const config = validConfig();
   assert.equal(validateCoastalJungleConfig(config), config);
 });
@@ -98,4 +109,15 @@ test('coastal jungle validator rejects inverted haze ranges', () => {
   const config = validConfig();
   config.biomes.coastalJungle.material.haze.end = 10;
   assert.throws(() => validateCoastalJungleConfig(config), /haze\.end must be greater/);
+});
+
+test('coastal jungle validator rejects invalid v2 visibility settings', () => {
+  const config = validConfig();
+  config.biomes.coastalJungle.render.grassDenseDistance = 35;
+  config.biomes.coastalJungle.render.grassDistance = 34;
+  assert.throws(() => validateCoastalJungleConfig(config), /grassDenseDistance must not exceed/);
+
+  config.biomes.coastalJungle.render.grassDenseDistance = 14;
+  config.biomes.coastalJungle.render.cameraRotationThreshold = 2;
+  assert.throws(() => validateCoastalJungleConfig(config), /cameraRotationThreshold/);
 });

@@ -67,6 +67,26 @@ function validateMaterial(problems, profile) {
   }
 }
 
+function validateRender(problems, profile) {
+  const render = profile.render ?? {};
+  unitInterval(problems, 'biomes.coastalJungle.render.lodHysteresis', render.lodHysteresis);
+  positive(problems, 'biomes.coastalJungle.render.chunkSize', render.chunkSize);
+  positive(problems, 'biomes.coastalJungle.render.grassDenseDistance', render.grassDenseDistance, true);
+  positive(problems, 'biomes.coastalJungle.render.grassDistance', render.grassDistance);
+  unitInterval(problems, 'biomes.coastalJungle.render.grassFarDensity', render.grassFarDensity);
+  positive(problems, 'biomes.coastalJungle.render.groundcoverDistance', render.groundcoverDistance);
+  positive(problems, 'biomes.coastalJungle.render.undergrowthDistance', render.undergrowthDistance);
+  positive(problems, 'biomes.coastalJungle.render.treeDistance', render.treeDistance);
+  positive(problems, 'biomes.coastalJungle.render.cameraMoveThreshold', render.cameraMoveThreshold, true);
+  unitInterval(problems, 'biomes.coastalJungle.render.cameraRotationThreshold', render.cameraRotationThreshold);
+
+  const denseDistance = finiteNumber(render.grassDenseDistance);
+  const grassDistance = finiteNumber(render.grassDistance);
+  if (denseDistance !== null && grassDistance !== null && denseDistance > grassDistance) {
+    problems.push('biomes.coastalJungle.render.grassDenseDistance must not exceed grassDistance');
+  }
+}
+
 export function validateCoastalJungleConfig(config) {
   const profile = config?.biomes?.coastalJungle;
   if (!profile?.enabled) return config;
@@ -101,7 +121,7 @@ export function validateCoastalJungleConfig(config) {
   validateMaterial(problems, profile);
   positive(problems, 'biomes.coastalJungle.ecology.edgeFade', profile.ecology?.edgeFade, true);
   unitInterval(problems, 'biomes.coastalJungle.ecology.baseVegetationScale', profile.ecology?.baseVegetationScale);
-  unitInterval(problems, 'biomes.coastalJungle.render.lodHysteresis', profile.render?.lodHysteresis);
+  validateRender(problems, profile);
 
   const placement = profile.placement ?? {};
   positive(problems, 'biomes.coastalJungle.placement.slopeSampleDistance', placement.slopeSampleDistance);
@@ -120,6 +140,9 @@ export function validateCoastalJungleConfig(config) {
       continue;
     }
     positive(problems, `biomes.coastalJungle.quality.${name}.maxDistance`, settings.maxDistance);
+    if (settings.shadows !== undefined && typeof settings.shadows !== 'boolean') {
+      problems.push(`biomes.coastalJungle.quality.${name}.shadows must be boolean`);
+    }
     for (const [kind, density] of Object.entries(settings.density ?? {})) {
       unitInterval(problems, `biomes.coastalJungle.quality.${name}.density.${kind}`, density);
     }
