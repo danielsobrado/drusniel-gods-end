@@ -33,6 +33,24 @@ function validateMaterial(problems, profile) {
     problems.push('biomes.coastalJungle.material.alphaToCoverage must be boolean');
   }
 
+  const haze = material.haze;
+  if (haze) {
+    if (haze.enabled !== undefined && typeof haze.enabled !== 'boolean') {
+      problems.push('biomes.coastalJungle.material.haze.enabled must be boolean');
+    }
+    if (typeof haze.color !== 'string' || haze.color.trim() === '') {
+      problems.push('biomes.coastalJungle.material.haze.color must be a non-empty string');
+    }
+    positive(problems, 'biomes.coastalJungle.material.haze.start', haze.start, true);
+    positive(problems, 'biomes.coastalJungle.material.haze.end', haze.end);
+    unitInterval(problems, 'biomes.coastalJungle.material.haze.strength', haze.strength);
+    const start = finiteNumber(haze.start);
+    const end = finiteNumber(haze.end);
+    if (start !== null && end !== null && end <= start) {
+      problems.push('biomes.coastalJungle.material.haze.end must be greater than haze.start');
+    }
+  }
+
   const wind = material.wind;
   if (!wind) return;
   if (wind.enabled !== undefined && typeof wind.enabled !== 'boolean') {
