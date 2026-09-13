@@ -47,6 +47,10 @@ function clamp01(value) {
   return Math.max(0, Math.min(1, numberOr(value, 0)));
 }
 
+function materialTint(material) {
+  return material?.color?.getHexString ? color(`#${material.color.getHexString()}`) : color('#ffffff');
+}
+
 export function isCoastalJungleFoliageMaterial(material, kind = null) {
   const name = String(material?.name ?? '').toLowerCase();
   if (name.includes('atlas')) return true;
@@ -110,14 +114,15 @@ function createWindPosition(kind, instanced, settings) {
   ));
 }
 
-function createFoliageColor(sample, settings) {
+function createFoliageColor(sample, material, settings) {
+  const base = sample.rgb.mul(materialTint(material));
   const haze = settings.haze ?? {};
-  if (haze.enabled === false) return sample;
+  if (haze.enabled === false) return vec4(base, sample.a);
   const start = Math.max(0, numberOr(haze.start, 18));
   const end = Math.max(start + 0.01, numberOr(haze.end, 85));
   const strength = clamp01(haze.strength ?? 0.28);
   const hazeAmount = smoothstep(start, end, positionWorld.sub(cameraPosition).length()).mul(strength);
-  return vec4(mix(sample.rgb, color(haze.color ?? '#91b1b7'), hazeAmount), sample.a);
+  return vec4(mix(base, color(haze.color ?? '#91b1b7'), hazeAmount), sample.a);
 }
 
 export function prepareCoastalJungleMaterial(material, {
@@ -162,9 +167,10 @@ export function prepareCoastalJungleMaterial(material, {
 
   if (material.map) {
     const sample = texture(material.map, uv());
-    material.colorNode = createFoliageColor(sample, settings);
-    material.emissiveNode = sample.rgb.mul(float(ambientLift))
-      .add(foliageBacklight(sample.rgb, backlight));
+    const base = sample.rgb.mul(materialTint(material));
+    material.colorNode = createFoliageColor(sample, material, settings);
+    material.emissiveNode = base.mul(float(ambientLift))
+      .add(foliageBacklight(base, backlight));
     material.maskShadowNode = Fn(() => texture(material.map, uv()).a.greaterThan(shadowAlphaTest))();
   }
 
