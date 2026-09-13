@@ -1,16 +1,21 @@
 import * as THREE from 'three/webgpu';
 import {
   Fn,
+  cameraPosition,
+  color,
   cos,
   float,
   instanceIndex,
+  mix,
   positionLocal,
+  positionWorld,
   sin,
   smoothstep,
   texture,
   time,
   uv,
   vec3,
+  vec4,
 } from 'three/tsl';
 import { foliageBacklight } from '../rendering/CinematicLighting.js';
 import { getSharedWindUniforms } from '../weather/WindField.js';
@@ -98,12 +103,21 @@ function createWindPosition(kind, instanced, settings) {
   const angle = shared.directionDegrees.mul(DEG_TO_RAD);
   const dirX = cos(angle);
   const dirZ = sin(angle);
-  const offset = vec3(
+  return positionLocal.add(vec3(
     dirX.mul(bend).sub(dirZ.mul(cross)),
     0,
     dirZ.mul(bend).add(dirX.mul(cross)),
-  );
-  return positionLocal.add(offset);
+  ));
+}
+
+function createFoliageColor(sample, settings) {
+  const haze = settings.haze ?? {};
+  if (haze.enabled === false) return sample;
+  const start = Math.max(0, numberOr(haze.start, 18));
+  const end = Math.max(start + 0.01, numberOr(haze.end, 85));
+  const strength = clamp01(haze.strength ?? 0.28);
+  const hazeAmount = smoothstep(start, end, positionWorld.sub(cameraPosition).length()).mul(strength);
+  return vec4(mix(sample.rgb, color(haze.color ?? '#91b1b7'), hazeAmount), sample.a);
 }
 
 export function prepareCoastalJungleMaterial(material, {
@@ -148,6 +162,7 @@ export function prepareCoastalJungleMaterial(material, {
 
   if (material.map) {
     const sample = texture(material.map, uv());
+    material.colorNode = createFoliageColor(sample, settings);
     material.emissiveNode = sample.rgb.mul(float(ambientLift))
       .add(foliageBacklight(sample.rgb, backlight));
     material.maskShadowNode = Fn(() => texture(material.map, uv()).a.greaterThan(shadowAlphaTest))();
