@@ -17,6 +17,7 @@ import { GrassTile } from './GrassTile.js';
 import { InteractionMap } from './InteractionMap.js';
 import { ProceduralVegetationField } from './ProceduralVegetationField.js';
 import { collectCooperative } from '../foliage/vegetationRebuild.js';
+import { isCoastalJungleRuntimeActive } from '../biome/CoastalJungleRuntime.js';
 
 const GRASS_TYPES = ['blade', 'billboard'];
 
@@ -43,6 +44,7 @@ export class GrassField {
     this.emptyGrassTiles = new Set();
     this.vegetation = new ProceduralVegetationField(config, terrainSampler, trees);
     this.layoutRevision = 0;
+    this.coastalJungleRuntimeActive = isCoastalJungleRuntimeActive(config);
     this.referenceState = null;
     this.containsGrass = (x, z) => this.vegetation.allowsVegetation(x, z)
       && (!this.referenceState || (!this.referenceState.solids.overlaps(x, z)
@@ -332,7 +334,16 @@ export class GrassField {
     }
   }
 
+  #syncCoastalJungleRuntime() {
+    const active = isCoastalJungleRuntimeActive(this.config);
+    if (active === this.coastalJungleRuntimeActive) return;
+    this.coastalJungleRuntimeActive = active;
+    this.layoutRevision += 1;
+    for (const tile of this.tiles) tile.invalidate();
+  }
+
   update(deltaSeconds, elapsedSeconds, playerPosition, influencePoints = []) {
+    this.#syncCoastalJungleRuntime();
     this.interactionMap.update(playerPosition, influencePoints);
     this.materialController.setInteractionCenter(this.interactionMap.center);
 
