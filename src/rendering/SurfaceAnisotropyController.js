@@ -26,7 +26,7 @@ export function resolveSurfaceAnisotropy(config) {
     ? Math.max(MIN_LEVEL, Math.min(MAX_LEVEL, Math.round(requestedLevel)))
     : DEFAULT_LEVEL;
   return {
-    enabled: settings.enabled === true,
+    enabled: settings.enabled !== false,
     level,
   };
 }
@@ -61,6 +61,7 @@ export function applySurfaceAnisotropy(demo, enabled = resolveSurfaceAnisotropy(
   const textures = collectSurfaceAnisotropyTextures(demo);
   const anisotropy = active ? settings.level : MIN_LEVEL;
   for (const texture of textures) {
+    if (texture.anisotropy === anisotropy) continue;
     texture.anisotropy = anisotropy;
     texture.needsUpdate = true;
   }

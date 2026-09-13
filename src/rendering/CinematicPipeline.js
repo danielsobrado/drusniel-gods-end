@@ -42,14 +42,18 @@ export class CinematicPipeline {
     const luminance = dot(lit, vec3(0.2126, 0.7152, 0.0722));
     const graded = mix(vec3(luminance), lit, this.settings.saturation);
     const vignette = smoothstep(0.22, 0.72, uv().sub(0.5).length()).mul(this.settings.vignette).oneMinus();
-    this.richOutput = fxaa(renderOutput(vec4(graded.mul(vignette), beauty.a)));
+    this.richOutput = renderOutput(vec4(graded.mul(vignette), beauty.a));
+    this.smoothedOutput = fxaa(this.richOutput);
     this.leanOutput = fxaa(renderOutput(vec4(mix(vec3(dot(beauty.rgb, vec3(0.2126, 0.7152, 0.0722))), beauty.rgb, this.settings.saturation).mul(vignette), beauty.a)));
     this.setQuality(config.ui.initialQuality);
   }
 
   setQuality(name) {
     if (!this.post) return;
-    this.post.outputNode = name === 'performance' ? this.leanOutput : this.richOutput;
+    // High/Ultra already use multisample coverage. A second FXAA pass softens
+    // texture and foliage detail without providing temporal stabilization.
+    this.post.outputNode = name === 'performance' ? this.leanOutput
+      : name === 'balanced' || (this.settings.samples ?? 4) < 2 ? this.smoothedOutput : this.richOutput;
     this.aoStrength.value = this.settings.aoStrength * (name === 'balanced' ? 0.75 : 1);
     this.post.needsUpdate = true;
   }

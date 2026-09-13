@@ -45,8 +45,8 @@ minRadius: 0.16
 maxRadius: 0.42
 contactHeight: 0.75
 recenterDistance: 8
-decaySeconds: 90
-bermDecaySeconds: 45
+decaySeconds: 120
+bermDecaySeconds: 55
 ```
 
 The field keeps its mapping origin stable while the player moves locally, then scrolls in whole texels after the player has moved eight metres from the field centre. This avoids a full 512-square buffer copy for every small movement while keeping stored tracks in the same world positions. Footprint painting is enabled only while the grounded character is moving, and an influence point must also be close enough to the terrain to count as foot contact. Free-fly and the scenic tour do not carve snow.

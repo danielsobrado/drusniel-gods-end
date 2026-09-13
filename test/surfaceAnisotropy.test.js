@@ -45,9 +45,9 @@ function fakeDemo() {
   };
 }
 
-test('surface anisotropy is disabled by default', () => {
+test('surface anisotropy is enabled by default to retain oblique ground detail', () => {
   assert.deepEqual(resolveSurfaceAnisotropy(filteringConfig), {
-    enabled: false,
+    enabled: true,
     level: 16,
   });
 });
@@ -57,7 +57,7 @@ test('surface anisotropy applies consistently to terrain and named path textures
   const textures = collectSurfaceAnisotropyTextures(demo);
   assert.equal(textures.size, 3);
 
-  const disabled = applySurfaceAnisotropy(demo);
+  const disabled = applySurfaceAnisotropy(demo, false);
   assert.deepEqual(disabled, { enabled: false, level: 16, textures: 3 });
   assert.equal(demo.textures.groundTexture.anisotropy, 1);
   assert.equal(demo.textures.pathMask.anisotropy, 1);

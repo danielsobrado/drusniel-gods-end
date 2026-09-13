@@ -1,5 +1,5 @@
 import * as THREE from 'three/webgpu';
-import { color, mix, positionWorld, sin, uniform } from 'three/tsl';
+import { color, materialColor, materialRoughness, mix, positionWorld, sin, uniform } from 'three/tsl';
 import { createSeededRandom } from '../core/math.js';
 import { riverField } from './riverNodes.js';
 import { coastX, coastXNode } from '../world/coast.js';
@@ -16,6 +16,7 @@ export class RiverDetails {
     this.rain = uniform(0);
     const random = createSeededRandom(7319);
     const templates = sources.length ? sources.slice(0, 4) : [new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1))];
+    const materialCache = new Map();
     const batches = templates.map(source => {
       const geometry = source.geometry.clone();
       geometry.computeBoundingBox();
@@ -24,17 +25,27 @@ export class RiverDetails {
       geometry.computeBoundingBox();
       const center = geometry.boundingBox.getCenter(new THREE.Vector3());
       geometry.translate(-center.x, -geometry.boundingBox.min.y, -center.z);
-      const material = new THREE.MeshStandardNodeMaterial({ roughness: 0.78, metalness: 0 });
-      const variation = sin(positionWorld.x.mul(1.7)).mul(sin(positionWorld.z.mul(2.3))).mul(0.5).add(0.5);
-      const water = riverField(river);
-      let wet = positionWorld.y.sub(water.x).smoothstep(-0.4, 1.3).oneMinus()
-        .mul(water.y.smoothstep(2, 7).oneMinus());
-      const sea = terrain.config.water.sea;
-      if (sea?.enabled) wet = wet.max(positionWorld.y.sub(sea.level).smoothstep(-0.3, 1.5).oneMinus()
-        .mul(positionWorld.x.sub(coastXNode(positionWorld.z, sea.shoreX)).smoothstep(-80, -20)));
-      material.colorNode = mix(color('#566961'), color('#929285'), variation).mul(wet.mul(0.3).oneMinus());
-      material.roughnessNode = mix(0.9, 0.26, wet);
-      this.materials.push(material);
+      const sourceMaterial = Array.isArray(source.material) ? source.material[0] : source.material;
+      let material = materialCache.get(sourceMaterial);
+      if (!material) {
+        material = new THREE.MeshStandardNodeMaterial({ roughness: 0.78, metalness: 0 });
+        if (sourceMaterial) material.copy(sourceMaterial);
+        material.name = 'Textured river and upland rock';
+        const variation = sin(positionWorld.x.mul(1.7)).mul(sin(positionWorld.z.mul(2.3))).mul(0.5).add(0.5);
+        const water = riverField(river);
+        let wet = positionWorld.y.sub(water.x).smoothstep(-0.4, 1.3).oneMinus()
+          .mul(water.y.smoothstep(2, 7).oneMinus());
+        const sea = terrain.config.water.sea;
+        if (sea?.enabled) wet = wet.max(positionWorld.y.sub(sea.level).smoothstep(-0.3, 1.5).oneMinus()
+          .mul(positionWorld.x.sub(coastXNode(positionWorld.z, sea.shoreX)).smoothstep(-80, -20)));
+        // Preserve the source texture maps, then add the local wet response.
+        // The procedural replacement discarded every texture for these rocks.
+        const pigment = material.map ? materialColor.rgb : mix(color('#566961'), color('#929285'), variation);
+        material.colorNode = pigment.mul(wet.mul(0.3).oneMinus());
+        material.roughnessNode = mix(materialRoughness.max(0.72), 0.26, wet);
+        materialCache.set(sourceMaterial, material);
+        this.materials.push(material);
+      }
       const mesh = new THREE.InstancedMesh(geometry, material, 1400);
       mesh.count = 0;
       mesh.name = 'River bank boulders'; mesh.receiveShadow = true; mesh.castShadow = true;

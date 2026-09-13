@@ -21,7 +21,25 @@ The current runtime exposes or uses these main controls:
 - vegetation rebuild jobs with a shared 2 ms CPU budget,
 - GPU occlusion with open-view probe cooldown.
 
-Antialiasing, post effects and reflection-refresh budgets stay on their existing quality tables. Ultra does not lower grass density or draw distance.
+High and Ultra use the cinematic pass's multisample coverage without an additional FXAA pass, preserving texture detail. Balanced, Performance, and configurations without multisampling retain FXAA. Reflection-refresh budgets keep their existing quality tables. Ultra does not lower grass density or draw distance.
+
+## Startup material reuse
+
+High-detail trees share bark and leaf materials by source material. Per-tree tint and transition opacity are object references in the shader, so different tree colors and fades do not create new shader graphs. Tree distance LOD is initialized before shader warm-up, after the initial camera placement; distant trees start as billboards. Geometry bounds are computed once per shared geometry. River and upland rock batches also share their textured wet-rock material by source.
+
+A local Chrome WebGPU check on 2026-09-13 (1440 x 640, device pixel ratio 1, `?character=drusniel&profile=1`) measured:
+
+| Startup measurement | Before | After |
+|---|---:|---:|
+| Unique visible materials at warm-up | 3,343 | 94 |
+| Visible renderable objects at warm-up | 3,820 | 714 |
+| Shader warm-up | 32.60 s | 2.60 s |
+
+The population remains 1,632 trees. Their high-detail materials decreased from 3,264 to 18; tint, wind, shadows and independent LOD fades remain active. These are single local before/after runs, not a cross-device benchmark. The final run reached the ready screen in 8.73 s; terrain construction and the first rendered frame still each produced roughly one second of synchronous work.
+
+The forced WebGL 2 smoke check rendered the corrected scene without console errors, with the same 94 materials. Its first frame still stalled for 9.57 s; the WebGPU timing improvement above should not be read as eliminating WebGL startup stalls. The legacy `occlusion-check.html` harness assumes r180 indirect draws and fails before its cinematic check because `GpuOcclusion` deliberately disables that optimization on r185. The scene smoke checks and the dedicated depth-normal/material GPU regressions exercise the current renderer paths directly.
+
+`test/treeMaterials.test.js` checks material sharing, initial LOD, independent transitions and disposal. `scripts/gpu/tree-material-check.html` verifies per-object tint and opacity through an actual shared leaf material; append `?renderer=webgl` for WebGL 2. `test/riverRockMaterials.test.js` checks texture retention and material reuse in generated rock batches.
 
 ## Opt-in profiling
 

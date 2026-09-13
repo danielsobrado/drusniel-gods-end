@@ -61,7 +61,7 @@ High-detail runtime trees are cloned with `SkeletonUtils.clone()` so animated/sk
 
 ## High-detail foliage
 
-When a cloned mesh name matches the recovered `highLeaves` name, `TreeLeafMaterialFactory` supplies a dedicated TSL foliage material.
+When a cloned mesh name matches the recovered `highLeaves` name, `TreeLeafMaterialFactory` supplies a TSL foliage material shared by clones of that source material. Bark materials are also shared by source. Each tree stores its own tint and transition opacity in `userData.treeAppearance`; shader object references read those values without baking a different shader graph per tree.
 
 The material:
 
@@ -128,6 +128,8 @@ distance < 170     -> HIGH
 
 Using horizontal distance is intentional for elevated cameras: gaining altitude does not by itself make nearby terrain trees disappear.
 
+`resetLod()` sets visibility and both representation opacities immediately during initialization and again after the initial camera placement, before shader warm-up. This avoids compiling thousands of distant high-detail meshes during loading.
+
 State changes use hysteresis:
 
 ```text
@@ -139,7 +141,7 @@ LOD checks are throttled to approximately every 0.1 seconds.
 
 ## Transition
 
-A state change starts a one-second smooth transition. The high-detail material opacity and per-instance billboard opacity are interpolated rather than swapped instantly.
+A state change starts a one-second smooth transition. The per-tree high-detail opacity and per-instance billboard opacity are interpolated rather than swapped instantly. Shared materials stay unchanged, so a fading tree cannot change the opacity of neighboring trees.
 
 The billboard groups store a dynamic per-instance opacity attribute, allowing many far trees of one source type to share one instanced draw path while transitioning independently.
 

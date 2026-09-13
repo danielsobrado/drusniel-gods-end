@@ -34,6 +34,16 @@ Assets/ground/ground_0109_roughness_1k.jpg
 
 Grass and ground colors use sRGB. Normal, roughness and the blend mask use `NoColorSpace`. Grass/color/normal/roughness textures repeat with mipmaps and anisotropy `16`; the blend mask is clamped, `flipY = false`, and uses mipmaps plus linear filtering.
 
+The runtime surface-filtering controller enables anisotropy by default, clamped to the renderer's supported maximum. `public/surface-filtering.yaml` and the Surface Anisotropy checkbox can still disable it. Reapplying an unchanged setting does not re-upload textures.
+
+<!-- effective-config: renderer.surfaceAnisotropy -->
+```yaml
+enabled: true
+level: 16
+```
+
+The cinematic AO pass reconstructs normals from scalar depth in `DepthNormals.js`. Texture dimensions must be converted from `uvec2` to `vec2` before taking their reciprocal. Integer reciprocals produced zero texel offsets, invalid normals, speckled shading and a triangular patch across otherwise continuous terrain. `scripts/gpu/depth-normals-check.html` verifies uniform normals for flat and inclined depth planes on WebGPU and, with `?renderer=webgl`, WebGL 2.
+
 ## UVs and base PBR
 
 Recovered UV scales are fixed:

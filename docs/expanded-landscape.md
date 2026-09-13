@@ -10,6 +10,8 @@ The base grid has five-unit spacing. Two conforming subdivision passes refine th
 
 The western forest adds deterministic, larger tree clusters around a winding loop. The eastern rocky uplands use the shipped rock pack with varied boulder sizes and collision for large rocks. Northern elevation and slope blend exposed rock into snow, and vegetation thins below the snow line. Authored trees and props affected by the new relief are regrounded, and objects inside the river corridor are omitted. Placement data on disk remains unchanged.
 
+`RiverDetails` preserves each source rock's texture maps for river banks, submerged stones, upland boulders and coastal stones. Batches sharing a source material reuse one node material. Wetness darkens the textured color and reduces roughness near water; procedural coloring is only a fallback for untextured sources. The shipped pack supplies baked color textures, while any additional source normal, roughness or AO maps are retained.
+
 `LandscapePaths` supplies the original River walk, Forest loop, Summit trail, Stone country, Lakeside circuit, Coastal approach and Dune trail. Its shared mask drives ground shading, vegetation exclusion and footstep surface classification. Additional exploration routes are configured under `terrain.expansion.routes` rather than hardcoded into the renderer.
 
 Configured routes can opt into terrain conformation with `walkable: true`, `terrainWidth` and `maxGrade`. Their centerline first samples the natural terrain, then forward/backward grade constraints produce a safe profile. Terrain inside `terrainWidth` blends toward that profile while the narrower route width remains the visible path mask. This keeps paths traversable without flattening large areas of the biome.

@@ -9,7 +9,9 @@ export function createDepthNormals(depth, camera) {
   const inverseProjection = uniform(camera.projectionMatrixInverse);
   const normal = Fn(() => {
     const coord = uv();
-    const size = textureSize(depth);
+    // textureSize is uvec2. Taking its reciprocal before converting to float
+    // truncates each texel step to zero, producing degenerate/NaN normals.
+    const size = vec2(textureSize(depth));
     const pixel = ivec2(coord.mul(size));
     const read = (x, y) => textureLoad(depth.value, pixel.add(ivec2(x, y))).r;
     const center = read(0, 0).toVar();
