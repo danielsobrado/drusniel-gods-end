@@ -17,6 +17,13 @@ function validConfig() {
           surfaceRoughnessMin: 0.9,
           ambientLift: 0.035,
           backlight: 0.18,
+          haze: {
+            enabled: true,
+            color: '#91b1b7',
+            start: 18,
+            end: 85,
+            strength: 0.28,
+          },
           wind: {
             enabled: true,
             amplitude: 0.035,
@@ -85,4 +92,10 @@ test('coastal jungle validator rejects invalid material and wind settings', () =
   config.biomes.coastalJungle.material.wind.amplitude = -0.01;
   assert.throws(() => validateCoastalJungleConfig(config), /material\.alphaTest/);
   assert.throws(() => validateCoastalJungleConfig(config), /wind\.amplitude/);
+});
+
+test('coastal jungle validator rejects inverted haze ranges', () => {
+  const config = validConfig();
+  config.biomes.coastalJungle.material.haze.end = 10;
+  assert.throws(() => validateCoastalJungleConfig(config), /haze\.end must be greater/);
 });
