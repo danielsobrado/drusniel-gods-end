@@ -3,7 +3,10 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { assetUrl } from '../assets/assetUrl.js';
 import { captureObjectResources } from '../utils/ResourceScope.js';
 import { logger } from '../utils/logger.js';
-import { prepareCoastalJungleMaterial } from './CoastalJungleMaterial.js';
+import {
+  isCoastalJungleFoliageMaterial,
+  prepareCoastalJungleMaterial,
+} from './CoastalJungleMaterial.js';
 import {
   classifyCoastalJungleObject,
   coastalJungleRegionCenter,
@@ -83,6 +86,8 @@ export class CoastalJungleSystem {
     this.batches = [];
     this.singles = [];
     this.colliderRecords = [];
+    this.runtimeMaterials = new Set();
+    this.materialVariants = new Map();
     this.initTask = null;
     this.ready = false;
     this.disposed = false;
@@ -224,6 +229,9 @@ export class CoastalJungleSystem {
     setCoastalJungleRuntimeActive(this.config, false);
     this.collisions?.removeGroup(this.profile?.collisionGroup ?? 'coastalJungle');
     this.lod?.removeFromParent();
+    for (const material of this.runtimeMaterials) material.dispose?.();
+    this.runtimeMaterials.clear();
+    this.materialVariants.clear();
     this.releaseGltf?.();
     this.releaseGltf = null;
     this.root = null;
@@ -523,16 +531,44 @@ export class CoastalJungleSystem {
       object.userData.excludeFromReflection = object.name !== FLOOR_NAME && object.name !== PATH_NAME;
       const kind = classifyCoastalJungleObject(object);
       const surface = object.name === FLOOR_NAME || object.name === PATH_NAME;
-      for (const material of materialsOf(object)) {
+      const prepare = (source) => {
+        if (surface || !isCoastalJungleFoliageMaterial(source, kind)) {
+          prepareCoastalJungleMaterial(source, {
+            kind,
+            instanced: object.isInstancedMesh,
+            surface,
+            settings,
+            anisotropy,
+            cinematic,
+          });
+          return source;
+        }
+
+        let variants = this.materialVariants.get(source);
+        if (!variants) {
+          variants = new Map();
+          this.materialVariants.set(source, variants);
+        }
+        const key = `${kind ?? 'unknown'}:${object.isInstancedMesh ? 'instanced' : 'single'}`;
+        if (variants.has(key)) return variants.get(key);
+
+        const material = source.clone();
+        material.name = source.name;
         prepareCoastalJungleMaterial(material, {
           kind,
           instanced: object.isInstancedMesh,
-          surface,
+          surface: false,
           settings,
           anisotropy,
           cinematic,
         });
-      }
+        variants.set(key, material);
+        this.runtimeMaterials.add(material);
+        return material;
+      };
+      object.material = Array.isArray(object.material)
+        ? object.material.map(prepare)
+        : prepare(object.material);
     });
   }
 
