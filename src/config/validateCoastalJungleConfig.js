@@ -20,6 +20,35 @@ function unitInterval(problems, path, value, includeOne = true) {
   }
 }
 
+function validateMaterial(problems, profile) {
+  const material = profile.material;
+  if (!material) return;
+  unitInterval(problems, 'biomes.coastalJungle.material.alphaTest', material.alphaTest);
+  unitInterval(problems, 'biomes.coastalJungle.material.shadowAlphaTest', material.shadowAlphaTest);
+  unitInterval(problems, 'biomes.coastalJungle.material.foliageRoughnessMin', material.foliageRoughnessMin);
+  unitInterval(problems, 'biomes.coastalJungle.material.surfaceRoughnessMin', material.surfaceRoughnessMin);
+  unitInterval(problems, 'biomes.coastalJungle.material.ambientLift', material.ambientLift);
+  unitInterval(problems, 'biomes.coastalJungle.material.backlight', material.backlight);
+  if (material.alphaToCoverage !== undefined && typeof material.alphaToCoverage !== 'boolean') {
+    problems.push('biomes.coastalJungle.material.alphaToCoverage must be boolean');
+  }
+
+  const wind = material.wind;
+  if (!wind) return;
+  if (wind.enabled !== undefined && typeof wind.enabled !== 'boolean') {
+    problems.push('biomes.coastalJungle.material.wind.enabled must be boolean');
+  }
+  positive(problems, 'biomes.coastalJungle.material.wind.amplitude', wind.amplitude, true);
+  positive(problems, 'biomes.coastalJungle.material.wind.speed', wind.speed, true);
+  positive(problems, 'biomes.coastalJungle.material.wind.spatialX', Math.abs(Number(wind.spatialX)), true);
+  positive(problems, 'biomes.coastalJungle.material.wind.spatialZ', Math.abs(Number(wind.spatialZ)), true);
+  unitInterval(problems, 'biomes.coastalJungle.material.wind.turbulence', wind.turbulence);
+  unitInterval(problems, 'biomes.coastalJungle.material.wind.flutterRatio', wind.flutterRatio);
+  for (const [kind, scale] of Object.entries(wind.kindScale ?? {})) {
+    positive(problems, `biomes.coastalJungle.material.wind.kindScale.${kind}`, scale, true);
+  }
+}
+
 export function validateCoastalJungleConfig(config) {
   const profile = config?.biomes?.coastalJungle;
   if (!profile?.enabled) return config;
@@ -51,6 +80,7 @@ export function validateCoastalJungleConfig(config) {
   }
 
   positive(problems, 'biomes.coastalJungle.anisotropy', profile.anisotropy);
+  validateMaterial(problems, profile);
   positive(problems, 'biomes.coastalJungle.ecology.edgeFade', profile.ecology?.edgeFade, true);
   unitInterval(problems, 'biomes.coastalJungle.ecology.baseVegetationScale', profile.ecology?.baseVegetationScale);
   unitInterval(problems, 'biomes.coastalJungle.render.lodHysteresis', profile.render?.lodHysteresis);
