@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { assetUrl } from '../assets/assetUrl.js';
 import { captureObjectResources } from '../utils/ResourceScope.js';
 import { logger } from '../utils/logger.js';
+import { prepareCoastalJungleMaterial } from './CoastalJungleMaterial.js';
 import {
   classifyCoastalJungleObject,
   coastalJungleRegionCenter,
@@ -514,16 +515,23 @@ export class CoastalJungleSystem {
 
   #prepareRendering() {
     const anisotropy = Math.max(1, Number(this.profile.anisotropy ?? 8));
+    const settings = this.profile.material ?? {};
+    const cinematic = Boolean(this.config.cinematic?.enabled);
     this.root.traverse((object) => {
       if (!object.isMesh) return;
       object.frustumCulled = true;
       object.userData.excludeFromReflection = object.name !== FLOOR_NAME && object.name !== PATH_NAME;
+      const kind = classifyCoastalJungleObject(object);
+      const surface = object.name === FLOOR_NAME || object.name === PATH_NAME;
       for (const material of materialsOf(object)) {
-        for (const value of Object.values(material)) {
-          if (!value?.isTexture) continue;
-          value.anisotropy = Math.max(value.anisotropy ?? 1, anisotropy);
-          value.needsUpdate = true;
-        }
+        prepareCoastalJungleMaterial(material, {
+          kind,
+          instanced: object.isInstancedMesh,
+          surface,
+          settings,
+          anisotropy,
+          cinematic,
+        });
       }
     });
   }
