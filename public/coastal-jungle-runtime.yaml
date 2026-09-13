@@ -57,7 +57,8 @@ biomes:
       maxSlope: 0.75
       routeMaskMax: 0.08
       routeFloorRevealStart: 0.08
-      routeFloorRevealDepth: 0.08
+      routeFloorRevealDepth: 0.015
+      surfaceEdgeFade: 18
       riverClearance: 10
       boundsPadding: 1
     collider:
