@@ -11,14 +11,19 @@ This document records the effective configuration contract on current `main`. Re
 2. public/ground-material.yaml
 3. public/player-controls.yaml
 4. public/visual-parity.yaml
-5. public/character-visual.yaml
-6. public/cinematic-wind.yaml
-7. public/cinematic-look.yaml
-8. public/painter-cursor.yaml
-9. public/vegetation.yaml
-10. public/foliage.yaml
-11. public/characters.yaml
-12. public/reference-biome.yaml
+5. public/tree-rendering.yaml
+6. public/character-visual.yaml
+7. public/cinematic-wind.yaml
+8. public/cinematic-look.yaml
+9. public/snow.yaml
+10. public/alpine.yaml
+11. public/painter-cursor.yaml
+12. public/vegetation.yaml
+13. public/foliage.yaml
+14. public/characters.yaml
+15. public/reference-biome.yaml
+16. public/coastal-jungle-runtime.yaml
+17. public/visual-refinement.yaml
 ```
 
 Merge rules:
@@ -289,9 +294,9 @@ The recovered painter/mask surface is 1024×1024. The initial Add value, orbit c
 <!-- effective-config: trees -->
 ```yaml
 highDistance: 170
-billboardDistance: 500
+billboardDistance: 4000
 highHysteresis: 8
-billboardHysteresis: 10
+billboardHysteresis: 200
 transitionDuration: 1
 lodUpdateInterval: 0.1
 windSpeed: 3

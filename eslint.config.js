@@ -12,6 +12,7 @@ export default [
         document: 'readonly',
         HTMLElement: 'readonly',
         Element: 'readonly',
+        CustomEvent: 'readonly',
         navigator: 'readonly',
         console: 'readonly',
         performance: 'readonly',

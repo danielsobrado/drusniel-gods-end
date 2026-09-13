@@ -145,7 +145,7 @@ test('root water geometry contains only lake and river surface attributes', asyn
     const count = geometry.attributes.position.count;
     for (const name of ['waterKind', 'waterFlow', 'waterLevel', 'riverSurface', 'normal']) assert.equal(geometry.attributes[name].count, count);
     assert.ok(geometry.boundingBox.max.y > 140);
-    assert.ok(geometry.boundingBox.min.y < config.water.position[1]);
+    assert.ok(geometry.boundingBox.min.y < 0);
     assert.ok(geometry.attributes.waterKind.array.includes(0) && geometry.attributes.waterKind.array.includes(1));
     assert.equal(geometry.attributes.waterKind.array.includes(2), false);
   } finally { geometry.dispose(); }

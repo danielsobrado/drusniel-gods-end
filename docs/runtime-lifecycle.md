@@ -18,20 +18,21 @@ painter-cursor.yaml
 
 ## Recovered loading stages
 
-The visible loading contract is recovered directly from the browser bundle and lives in `src/ui/loadingStages.js`:
+The visible loading contract lives in `src/ui/loadingStages.js`:
 
 ```text
-Initializing...                 0%
-Initializing renderer...       0%
-Loading environment...         0%
-Loading world...               5%
-Loading player...             25%
-Setting up collision system... 40%
-Setting up foliage            55%
-Growing grass...              65%
-Loading audio...              75%
-Compiling shaders...          80%
-Ready                        100%
+Opening the way...                 0%
+Lighting the horizon...            0%
+Waking the sky...                  0%
+Shaping the wilds...               5%
+Choose your traveler...           20%
+Preparing your traveler...        25%
+Setting the boundaries...         40%
+Awakening the forest...           55%
+Weaving the undergrowth...        65%
+Waking the soundscape...          75%
+Polishing the final details...    80%
+The way is open                  100%
 ```
 
 `LoadingUi` updates the progress bar with `scaleX(progress / 100)`, updates the percentage/status labels, and fills the wordmark from bottom to top over one second with a `power2.out` equivalent.

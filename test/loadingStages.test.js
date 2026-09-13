@@ -10,20 +10,20 @@ import {
   power4InOut,
 } from '../src/ui/loadingStages.js';
 
-test('loading stages match the recovered browser sequence', () => {
+test('loading stages match the current startup sequence', () => {
   assert.deepEqual(LOADING_STAGES, {
-    initializing: { message: 'Starting...', progress: 0 },
-    renderer: { message: 'Initializing renderer...', progress: 0 },
-    environment: { message: 'Loading environment...', progress: 0 },
-    world: { message: 'Loading world...', progress: 5 },
-    character: { message: 'Choose your character...', progress: 20 },
-    player: { message: 'Loading player...', progress: 25 },
-    collision: { message: 'Setting up collision system...', progress: 40 },
-    foliage: { message: 'Setting up foliage', progress: 55 },
-    grass: { message: 'Growing grass...', progress: 65 },
-    audio: { message: 'Loading audio...', progress: 75 },
-    shaders: { message: 'Compiling shaders...', progress: 80 },
-    ready: { message: 'Here we are', progress: 100 },
+    initializing: { message: 'Opening the way...', progress: 0 },
+    renderer: { message: 'Lighting the horizon...', progress: 0 },
+    environment: { message: 'Waking the sky...', progress: 0 },
+    world: { message: 'Shaping the wilds...', progress: 5 },
+    character: { message: 'Choose your traveler...', progress: 20 },
+    player: { message: 'Preparing your traveler...', progress: 25 },
+    collision: { message: 'Setting the boundaries...', progress: 40 },
+    foliage: { message: 'Awakening the forest...', progress: 55 },
+    grass: { message: 'Weaving the undergrowth...', progress: 65 },
+    audio: { message: 'Waking the soundscape...', progress: 75 },
+    shaders: { message: 'Polishing the final details...', progress: 80 },
+    ready: { message: 'The way is open', progress: 100 },
   });
 });
 

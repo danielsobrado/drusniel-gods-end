@@ -29,11 +29,14 @@ test('effective config uses the runtime YAML file order', async () => {
     'cinematic-wind.yaml',
     'cinematic-look.yaml',
     'snow.yaml',
+    'alpine.yaml',
     'painter-cursor.yaml',
     'vegetation.yaml',
     'foliage.yaml',
     'characters.yaml',
     'reference-biome.yaml',
+    'coastal-jungle-runtime.yaml',
+    'visual-refinement.yaml',
   ]);
 
   const config = await loadMergedConfig();
@@ -92,7 +95,7 @@ test('exploration config exposes snow, beach, lake and sea travel without breaki
   const config = await loadMergedConfig();
   assert.deepEqual(
     config.navigation.locations.map(location => location.label),
-    ['Start', 'River', 'Lake', 'Beach North', 'Beach South', 'Snow Pass', 'Snow Peak', 'Offshore', 'Deep Sea'],
+    ['Start', 'River', 'Lake', 'Beach North', 'Coastal Jungle', 'Beach South', 'Snow Pass', 'Alpine Summit', 'Snow Peak', 'Offshore', 'Deep Sea'],
   );
   assert.ok(config.navigation.scenicTour.riverViews[0].fraction < 0.05);
   assert.ok(config.navigation.scenicTour.riverViews.at(-1).fraction > 0.95);
@@ -107,7 +110,7 @@ test('exploration config exposes snow, beach, lake and sea travel without breaki
 test('alpine snow config is loaded after the cinematic terrain defaults', async () => {
   const config = await loadMergedConfig();
   assert.equal(config.ground.snow.enabled, true);
-  assert.deepEqual(config.ground.snow.altitude, { start: 92, full: 142 });
+  assert.deepEqual(config.ground.snow.altitude, { start: 84, full: 132 });
   assert.equal(config.ground.snow.deformation.resolution, 512);
   assert.equal(config.ground.snow.deformation.worldSize, 64);
   assert.equal(config.ground.snow.deformation.maxRadius, 0.42);

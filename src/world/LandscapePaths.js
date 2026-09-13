@@ -107,11 +107,12 @@ export class LandscapePaths {
     const terrainWidth = Number(route.terrainWidth);
     if (!(maxGrade > 0) || !(terrainWidth > Number(route.width))) return;
 
-    const terrainSamples = samples.map((point) => new THREE.Vector3(
-      point.x,
-      sampleHeight(point.x, point.z),
-      point.z,
-    ));
+    const terrainSamples = samples.map((point) => {
+      const natural = sampleHeight(point.x, point.z);
+      // Later routes inherit already-carved walkable height at junctions so a
+      // spur cannot start 90 m above the road it forks from.
+      return new THREE.Vector3(point.x, this.conformHeight(point.x, point.z, natural), point.z);
+    });
     constrainGrade(terrainSamples, maxGrade);
 
     for (let i = 1; i < terrainSamples.length; i += 1) {
@@ -136,13 +137,16 @@ export class LandscapePaths {
   }
 
   conformHeight(x, z, naturalHeight) {
+    let bestScore = -Infinity;
     let bestBlend = 0;
     let targetHeight = naturalHeight;
     for (const segment of this.terrainCells.get(`${Math.floor(x / CELL_SIZE)},${Math.floor(z / CELL_SIZE)}`) ?? []) {
       const { t, distance } = nearestPoint(segment, x, z);
       if (distance >= segment.half) continue;
       const blend = 1 - THREE.MathUtils.smoothstep(distance, segment.flatHalf, segment.half);
-      if (blend <= bestBlend) continue;
+      const score = blend * 1000 - distance;
+      if (score <= bestScore) continue;
+      bestScore = score;
       bestBlend = blend;
       targetHeight = THREE.MathUtils.lerp(segment.a.y, segment.b.y, t);
     }
