@@ -80,6 +80,7 @@ export class CoastalJungleCulling {
     camera.updateMatrixWorld();
     this.frustum.setFromProjectionMatrix(
       this.projection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse),
+      camera.coordinateSystem,
     );
 
     const maxDistance = Math.max(1, Number(quality.maxDistance) || Number(render.treeDistance) || 180);
