@@ -5,10 +5,16 @@
   z-index: 20000;
   display: grid;
   place-content: center;
+  /* Six roster cards wrap to two rows, and the START button below them is now
+     taller. Centred grid content overflows in both directions, so a short viewport
+     used to push the button out of a clipped overlay with no way to reach it.
+     `safe center` gives up centring rather than overflow the top edge; browsers
+     that do not know it drop this line and keep the `place-content` above. */
+  align-content: safe center;
   justify-items: center;
   gap: 18px;
   padding: 28px;
-  overflow: hidden;
+  overflow: hidden auto;
   background: radial-gradient(circle at 50% 42%, #17252a 0, #071015 62%);
   color: #eef4e8;
   pointer-events: auto;
@@ -106,28 +112,76 @@
   font-size: 9px;
 }
 
+/* The button is the one thing on this screen the player has to act on, and it used
+   to arrive as an 11px label fading up over a full second -- easy to sit through
+   without noticing. It is now the largest control on the overlay, it rises into
+   place when the world is ready, and it keeps a slow halo afterwards so a player
+   who looked away still finds it. */
 .loading-start {
-  min-width: 132px;
-  margin-top: 4px;
-  padding: 10px 18px;
-  border-color: rgba(182, 238, 67, .45);
+  min-width: 260px;
+  margin-top: 14px;
+  padding: 18px 46px;
+  border-width: 1px;
+  border-color: rgba(182, 238, 67, .55);
+  border-radius: 9px;
   background: rgba(7, 16, 21, .68);
   color: #b6ee43;
-  font-size: 11px;
+  font-size: 16px;
   font-weight: 800;
-  letter-spacing: .14em;
+  letter-spacing: .2em;
   opacity: 0;
+  transform: translateY(20px) scale(.94);
   pointer-events: none;
-  transition: opacity 1s;
 }
 
 .loading-overlay.is-ready .loading-start {
-  opacity: 1;
   pointer-events: all;
+  animation:
+    start-rise .75s cubic-bezier(.16, .84, .28, 1) both,
+    start-halo 2.6s ease-out .75s infinite;
 }
 
-.loading-start:disabled {
+/* Keyed off transform/opacity/box-shadow only, so the whole thing stays on the
+   compositor while the scene behind it is still settling. */
+@keyframes start-rise {
+  from { opacity: 0; transform: translateY(20px) scale(.94); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes start-halo {
+  0%   { box-shadow: 0 0 0 0 rgba(182, 238, 67, .38), 0 14px 38px rgba(0, 0, 0, .5); }
+  70%  { box-shadow: 0 0 0 18px rgba(182, 238, 67, 0), 0 14px 38px rgba(0, 0, 0, .5); }
+  100% { box-shadow: 0 0 0 0 rgba(182, 238, 67, 0), 0 14px 38px rgba(0, 0, 0, .5); }
+}
+
+.loading-overlay.is-ready .loading-start:hover:not(:disabled) {
+  border-color: rgba(182, 238, 67, .9);
+  background: rgba(182, 238, 67, .12);
+  color: #d7ff7a;
+}
+
+/* The click handler disables the button while the three-second scene reveal runs.
+   The entrance animation fills forwards, so it has to be cancelled here or it would
+   hold the button at full opacity and the press would read as ignored. This has to
+   out-specify `.loading-overlay.is-ready .loading-start` above, not merely follow it. */
+.loading-overlay.is-ready .loading-start:disabled {
+  animation: none;
   opacity: .55;
+  transform: none;
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-start {
+    transform: none;
+    transition: opacity .4s;
+  }
+
+  .loading-overlay.is-ready .loading-start {
+    animation: none;
+    opacity: 1;
+    box-shadow: 0 0 0 1px rgba(182, 238, 67, .3), 0 14px 38px rgba(0, 0, 0, .5);
+  }
 }
 
 .character-select {

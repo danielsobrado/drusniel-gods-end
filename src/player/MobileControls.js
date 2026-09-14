@@ -1,4 +1,9 @@
 const MOBILE_CONTROLS_ID = 'third-person-mobile-controls';
+// `lookArea` below is a transparent full-screen touch surface, so whatever sits
+// under this layer is untappable on a phone. The HUD overlay deliberately sits
+// above it (`.overlay` in src/styles.css); raise this and the scene buttons go
+// dead again.
+const MOBILE_CONTROLS_Z = 100;
 
 function applyCss(element, cssText) {
   element.style.cssText = cssText;
@@ -27,7 +32,7 @@ export class MobileControls {
     this.root = applyCss(document.createElement('div'), `
       position: fixed;
       inset: 0;
-      z-index: 100;
+      z-index: ${MOBILE_CONTROLS_Z};
       pointer-events: none;
       touch-action: none;
       user-select: none;

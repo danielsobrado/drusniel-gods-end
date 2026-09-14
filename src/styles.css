@@ -45,7 +45,14 @@ input[type="range"] { width: 100%; accent-color: #b9e84d; }
 input[type="checkbox"] { accent-color: #b9e84d; }
 a { color: inherit; }
 
-.overlay { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+/* Above MOBILE_CONTROLS_Z (100) in src/player/MobileControls.js. On phones that
+   module lays a transparent full-screen look-drag surface over the viewport, and
+   at the HUD's old z-index of 5 it swallowed every tap meant for the scenic-tour,
+   free-fly and scene-settings buttons -- its touchstart handler also
+   preventDefault()s, so no click was ever synthesised. The overlay itself is
+   pointer-events: none and only its real controls opt back in, so sitting on top
+   costs the look layer nothing: drags anywhere but a button still fall through. */
+.overlay { position: fixed; inset: 0; pointer-events: none; z-index: 120; }
 .panel {
   border: 1px solid rgba(229,247,218,.12);
   background: rgba(45,75,34,.58);
