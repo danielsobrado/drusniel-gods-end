@@ -1,13 +1,13 @@
 # Final visual tuning layered after the recovered and biome-specific settings.
 cinematic:
   style:
-    grassRootBrightness: 0.72
+    grassRootBrightness: 0.5
     grassGradientPower: 2.35
     grassFill: 0.025
-    grassBacklight: 0.58
+    grassBacklight: 1.05
     meadowPatchScale: 0.025
-    meadowTintCool: [0.88, 0.96, 0.9]
-    meadowTintWarm: [1.04, 1.0, 0.84]
+    meadowTintCool: [0.8, 0.98, 0.86]
+    meadowTintWarm: [1.12, 1.02, 0.74]
     meadowDryPatchScale: 0.011
     meadowDryPatchStart: 0.56
     meadowDryPatchEnd: 0.84
@@ -27,7 +27,7 @@ cinematic:
   post:
     aoStrength: 0.32
     aoRadius: 1.1
-    saturation: 0.98
+    saturation: 1.04
 
 quality:
   balanced:

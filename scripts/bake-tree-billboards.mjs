@@ -13,7 +13,7 @@ try {
   const page = await browser.newPage();
   page.on('pageerror', error => { throw error; });
   await page.goto(`${process.env.ASSET_PREVIEW_URL ?? 'http://127.0.0.1:5173'}/scripts/debug/bake-tree-billboards.html`);
-  for(let type=1;type<=9;type++) {
+  for(let type=Number(process.env.TREE_BAKE_START ?? 1);type<=Number(process.env.TREE_BAKE_END ?? 11);type++) {
     const size = await page.evaluate(async type => (await window.__billboardBaker).load(type), type);
     const images = []; let positions;
     for (let side=0;side<2;side++) {

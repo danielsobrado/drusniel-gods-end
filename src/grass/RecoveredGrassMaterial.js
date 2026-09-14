@@ -2,7 +2,8 @@ import { getPresetAppearance, sampleReferenceField } from '../rendering/PresetAp
 import * as THREE from 'three/webgpu';
 import { foliageBacklight, foliageLight } from '../rendering/CinematicLighting.js';
 import { resolveVegetationPolicy } from './vegetationPolicy.js';
-import { meadowColors, setMeadowPalette } from '../rendering/MeadowPalette.js';
+import { meadowColors, meadowRootColor, setMeadowPalette } from '../rendering/MeadowPalette.js';
+import { cloudShade } from '../rendering/cloudShadow.js';
 import {
   Fn,
   If,
@@ -854,9 +855,16 @@ export class GrassMaterial {
     const height = bladeUv.y.clamp(0, 1);
     const colorHeight = height.pow(getPresetAppearance(this.config).grassGradientPower);
     const pigment = mix(palette.root.toVarying('meadowRootPigment'), palette.tip.toVarying('meadowTipPigment'), colorHeight);
-    const rootShade = mix(getPresetAppearance(this.config).grassRootBrightness, 1, smoothstep(0, 0.45, height));
-    const variation = mix(0.96, 1.04, instanceData.w);
-    material.colorNode = pigment.mul(rootShade).mul(variation);
+    const appearance = getPresetAppearance(this.config);
+    // Contact darkening at the base and a blend toward the soil color, so blade
+    // bottoms meet the terrain instead of floating on a painted lawn.
+    const rootShade = mix(appearance.grassRootBrightness, 1, smoothstep(0, 0.3, height));
+    const soil = meadowRootColor(rootWorld.xz, this.config).mul(0.75).toVarying('meadowSoilPigment');
+    const based = mix(soil, pigment, smoothstep(0, 0.18, height));
+    // Per-instance hue drift (cooler/darker vs warmer/yellower) instead of a
+    // plain brightness jitter, plus drifting cloud shadows.
+    const variation = mix(vec3(0.93, 1.0, 0.9), vec3(1.07, 1.0, 0.86), instanceData.w);
+    material.colorNode = based.mul(rootShade).mul(variation).mul(cloudShade());
     // Sun-facing transmission is strongest at the thin tip. A small shared
     // ambient fill keeps roots and terrain together without bleaching the field.
     material.emissiveNode = foliageBacklight(pigment, this.uniforms.sheen.clamp(0, 1).add(getPresetAppearance(this.config).grassBacklight))

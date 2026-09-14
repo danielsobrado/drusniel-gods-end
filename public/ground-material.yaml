@@ -16,8 +16,8 @@ ground:
     warpStrength: 2.1
     blendStart: 0.18
     blendEnd: 0.82
-    colorVariation: 0.07
-    roughnessVariation: 0.05
+    colorVariation: 0.16
+    roughnessVariation: 0.1
   rock:
     highland:
       start: 48

@@ -137,7 +137,7 @@ export class TreeLeafMaterialFactory {
         ? canopy.mul(tint.isNode ? tint : vec3(tint.r, tint.g, tint.b))
         : canopy;
       material.colorNode = vec4(leafColor, leafSample.a);
-      material.emissiveNode = foliageBacklight(leafColor, 0.5);
+      material.emissiveNode = foliageBacklight(leafColor, 0.8);
       if (this.config.cinematic.style?.enabled) {
         material.emissiveNode = material.emissiveNode.add(
           leafColor.mul(foliageLight.fill).mul(getPresetAppearance(this.config).foliageFill),

@@ -144,8 +144,9 @@ function createBillboardMaterial(sourceMaterial, opacityAttributeName, tintAttri
   if (config.cinematic?.enabled && config.cinematic.style?.enabled && material.map) {
     const leafSample = texture(material.map, uv());
     const tint = attribute(tintAttributeName, 'vec3');
-    const canopy = adventureCanopyColor(leafSample.rgb, config).mul(tint);
-    const fill = THREE.MathUtils.clamp(Number(billboardConfig.fill) || 0, 0, 1);
+    const preserveSnow = sourceMaterial?.userData?.snowPalette === true;
+    const canopy = (preserveSnow ? leafSample.rgb : adventureCanopyColor(leafSample.rgb, config)).mul(tint);
+    const fill = preserveSnow ? 0 : THREE.MathUtils.clamp(Number(billboardConfig.fill) || 0, 0, 1);
     const lifted = mix(canopy, color(billboardConfig.fillColor ?? '#737363'), fill);
     material.colorNode = vec4(lifted, leafSample.a);
   }

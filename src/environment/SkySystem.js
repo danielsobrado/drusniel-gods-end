@@ -82,6 +82,9 @@ export class SkySystem {
         this.uniforms.zenith,
         highSky,
       );
+      // Compress the horizon toward the fog color so the sky meets the
+      // aerial perspective of the far terrain instead of ending in a hard band.
+      skyColor = mix(skyColor, this.uniforms.fog, float(1).sub(elevation.abs()).pow(6).mul(0.55));
     }
 
     const sunDot = max(dot(direction, normalize(this.uniforms.sunDirection)), float(0));

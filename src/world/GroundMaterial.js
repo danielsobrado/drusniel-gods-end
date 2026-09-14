@@ -28,6 +28,7 @@ import {
 import { assetUrl } from '../assets/assetUrl.js';
 import { foliageLight } from '../rendering/CinematicLighting.js';
 import { meadowRootColor } from '../rendering/MeadowPalette.js';
+import { cloudShade } from '../rendering/cloudShadow.js';
 import { getPresetAppearance, sampleReferenceField } from '../rendering/PresetAppearance.js';
 import { groundGrassTexture, groundRoughness as turfRoughness, groundTurf } from '../rendering/GroundTurf.js';
 import { riverField } from '../water/riverNodes.js';
@@ -228,13 +229,19 @@ export async function createGroundMaterial(config, terrainSampler = null, snowDe
       baseNormal = normalize(baseNormal.add(cameraViewMatrix.mul(vec4(turfSlope, 0)).xyz));
       material.normalNode = baseNormal;
     }
+    // Turf sits slightly darker than the blade pigment so it reads as shaded
+    // soil beneath the canopy rather than a painted lawn.
     const grassPaint = style?.enabled
-      ? meadowRootColor(world, config).mul(grassSample.g.mul(0.08).add(0.96)).mul(turf.x.mul(0.12).add(1))
+      ? meadowRootColor(world, config).mul(grassSample.g.mul(0.08).add(0.96)).mul(turf.x.mul(0.12).add(1)).mul(0.84)
       : grassSample.rgb;
     const pathPaint = style?.enabled
       ? mix(groundSample.rgb, color(style.groundPath).mul(groundSample.r.mul(0.65).add(0.65)), 0.48)
       : groundSample.rgb;
-    const earth = mix(grassPaint, pathPaint, soilPaint);
+    // Break the low-resolution path mask contour with the turf fibre and macro
+    // noise already computed, so grass and soil interpenetrate at the edge.
+    const ditheredSoil = smoothstep(0.12, 0.88, blend.add(turf.x.mul(0.09)).add(macro.sub(0.5).mul(0.06)));
+    const soilEdge = style?.enabled ? mix(ditheredSoil, ditheredSoil.max(field.a), appearance.enabled) : soilPaint;
+    const earth = mix(grassPaint, pathPaint, soilEdge);
     const variation = mix(1 - (config.ground.macroVariation ?? 0.2), 1.08, macro);
     const river = riverField(terrainSampler?.river).toVar();
     const riverBank = river.y.smoothstep(-1, 6).oneMinus();
@@ -242,7 +249,7 @@ export async function createGroundMaterial(config, terrainSampler = null, snowDe
       .max(positionWorld.y.sub(river.x).abs().smoothstep(0.2, 3.5).oneMinus().mul(riverBank));
     const wet = wetness.max(bank.mul(0.65));
     material.colorNode = style?.enabled
-      ? earth.mul(mix(1, variation.mul(mix(0.94, 1.04, flecks)), blend)).mul(wet.mul(0.16).oneMinus())
+      ? earth.mul(mix(1, variation.mul(mix(0.94, 1.04, flecks)), blend)).mul(wet.mul(0.16).oneMinus()).mul(cloudShade())
       : mix(earth, earth.mul(vec3(0.7, 0.87, 0.56)), moss)
         .mul(variation).mul(mix(0.94, 1.04, flecks)).mul(wet.mul(0.28).oneMinus());
     if (style?.enabled) material.emissiveNode = earth.mul(foliageLight.fill).mul(appearance.grassFill);

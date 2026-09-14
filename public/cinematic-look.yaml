@@ -47,7 +47,7 @@ boundaryBarrier:
   proximityRadius: 16
 cinematic:
   enabled: true
-  exposure: 0.98
+  exposure: 0.94
   style:
     enabled: true
     grassRootBrightness: 0.9
@@ -79,19 +79,24 @@ cinematic:
     distance: 180
     mapSize: 2048
     intensity: 0.72
-    radius: 2.5
+    radius: 4
   atmosphere:
-    height: 10
-    falloff: 0.05
-    density: 0.00065
+    height: 14
+    falloff: 0.045
+    density: 0.0016
   post:
     samples: 4
     aoStrength: 0.18
     aoRadius: 0.85
     bloomStrength: 0.09
     bloomThreshold: 2.1
-    saturation: 1.02
-    vignette: 0.045
+    saturation: 1.04
+    contrast: 1.12
+    lift: [0.004, 0.006, 0.012]
+    gain: [1.02, 1.0, 0.97]
+    highlightDesaturation: 0.35
+    vignette: 0.14
+    grain: 0.012
   vegetation:
     count: 3200
     radius: 95
@@ -149,8 +154,8 @@ presets:
       fogDensity: 0.0035
   goldenHour:
     grass:
-      blade: { baseColor: '#50852b', tipColor: '#a6bf65', sheen: 0.055 }
-      billboard: { baseColor: '#50852b', tipColor: '#a6bf65', sheen: 0.055 }
+      blade: { baseColor: '#50852b', tipColor: '#a6bf65', sheen: 0.12 }
+      billboard: { baseColor: '#50852b', tipColor: '#a6bf65', sheen: 0.12 }
     lighting:
       color: '#fff0c9'
       directionalIntensity: 2.8
@@ -167,11 +172,11 @@ presets:
       sunHaloColor: '#ffe8ad'
       sunPosition: [-28, 65, -30]
       fogColor: '#a5ced3'
-      fogDensity: 0.0009
+      fogDensity: 0.0016
     cloudCoverage: 0.7
 ground:
   metalness: 0
-  macroVariation: 0.14
+  macroVariation: 0.26
   normalStrength: 0.38
   normalY: -1
   wetness: 0.7

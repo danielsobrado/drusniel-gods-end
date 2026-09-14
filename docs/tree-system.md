@@ -25,6 +25,12 @@ Seven user-supplied paintings are preserved in `assets-source/stylized-textures`
 
 ## Original placement source
 
+### Snow-region additions
+
+Types 10 and 11 are original procedural conifers: a tall, layered snow spruce and a broader windswept mountain pine. Each has six exposed roots, textured bark, evergreen branch clusters and modeled snow caps. Three shared near materials and a two-card distant atlas keep instance costs bounded. The existing deterministic shape variation changes width, height, depth and orientation across placements.
+
+`AlpineTrees.js` seeds these species only in the alpine region, from the existing treeline up to 28 meters above the basin floor. It rejects steep ground and leaves a four-meter clearance sample around paths. Ordinary meadow trees retain their existing alpine exclusion. Generate with `npm run assets:alpine-trees`, bake types 10–11 using `TREE_BAKE_START=10 TREE_BAKE_END=11 npm run assets:tree-billboards` (environment syntax varies by shell), then rerun the alpine generator. Review both species with the Snow trees button on the fantasy asset review page.
+
 The recovered demo supplies an authored world-data array. Each tree record is:
 
 ```text

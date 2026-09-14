@@ -4,6 +4,15 @@
   "command": "npm run assets:fantasy",
   "assets": [
     {
+      "files": ["tree10.glb", "tree11.glb"],
+      "generator": "scripts/generate-alpine-trees.mjs",
+      "internalSource": "Original conifer geometry; user-supplied bark-rugged artwork; tree1 low-card UV layout",
+      "author": "Procedural geometry authored in this repository; user-provided ChatGPT bark artwork",
+      "license": "Original project geometry; preserved source rights for the reused billboard layout",
+      "attribution": "Retain upstream attribution associated with the original tree asset layout",
+      "changes": "Snow spruce and windswept mountain pine with six roots, three shared materials, modeled snow caps and rebaked distant atlases"
+    },
+    {
       "files": ["tree1.glb", "tree2.glb", "tree3.glb", "tree4.glb", "tree5.glb", "tree6.glb", "tree7.glb", "tree8.glb", "tree9.glb"],
       "internalSource": "public/Assets/terrain/trees/tree1.glb through tree9.glb",
       "author": "Existing project tree assets; root geometry and trunk deformation authored in this repository",

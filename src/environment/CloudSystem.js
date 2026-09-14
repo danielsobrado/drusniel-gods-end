@@ -1,4 +1,5 @@
 import * as THREE from 'three/webgpu';
+import { updateCloudShadow } from '../rendering/cloudShadow.js';
 import {
   Fn,
   cameraPosition,
@@ -135,6 +136,14 @@ export class CloudSystem {
 
   update(deltaSeconds) {
     this.uniforms.time.value += deltaSeconds;
+    updateCloudShadow({
+      windX: this.uniforms.wind.value.x,
+      windZ: this.uniforms.wind.value.y,
+      time: this.uniforms.time.value,
+      speed: this.uniforms.speed.value,
+      coverage: this.uniforms.coverage.value,
+      strength: this.config.shadowStrength ?? 0.32,
+    });
     if (this.followCamera && this.camera) {
       this.mesh.position.x = this.camera.position.x;
       this.mesh.position.z = this.camera.position.z;

@@ -31,10 +31,14 @@ export class CinematicLighting {
     const coastalHaze = mix(0.5, 1, this.fogDensity.smoothstep(0.0015, 0.003));
     const density = this.fogDensity.add(lowMist.mul(atmosphere.density)).mul(mix(1, coastalHaze, coastal));
     const factor = distance.mul(density).pow(2).negate().exp().oneMinus().clamp(0, 1);
-    const towardSun = dot(positionWorld.sub(cameraPosition).normalize(), foliageLight.direction).max(0).pow(8);
-    const mistColor = mix(this.fogColor, foliageLight.color, towardSun.mul(0.16));
-    const farColor = world.sky?.getColorNode(positionWorld.sub(cameraPosition).normalize()) ?? mistColor;
-    world.scene.fogNode = fog(mix(mistColor, farColor, smoothstep(350, 1000, distance)), factor);
+    const viewDirection = positionWorld.sub(cameraPosition).normalize();
+    // Broad sun-colored inscatter toward the light, damped in dense (rainy)
+    // fog so grey weather stays grey; the horizon picks up sky tint early.
+    const towardSun = dot(viewDirection, foliageLight.direction).max(0).pow(3.5);
+    const clearWeather = float(1).sub(this.fogDensity.smoothstep(0.001, 0.004));
+    const mistColor = mix(this.fogColor, foliageLight.color.mul(1.15), towardSun.mul(0.42).mul(clearWeather));
+    const farColor = world.sky?.getColorNode(viewDirection) ?? mistColor;
+    world.scene.fogNode = fog(mix(mistColor, farColor, smoothstep(180, 700, distance)), factor);
     const backdrop = world.terrain?.getObjectByName('Landscape046');
     if (backdrop?.isMesh && backdrop !== world.terrainTarget) {
       this.backdrop = backdrop;
@@ -76,7 +80,7 @@ export class CinematicLighting {
     this.fogDensity.value = scene.fog.density;
     foliageLight.direction.value.copy(sun.position).sub(sun.target.position).normalize();
     foliageLight.color.value.copy(sun.color);
-    foliageLight.strength.value = Math.min(sun.intensity * 0.12, 0.55);
+    foliageLight.strength.value = Math.min(sun.intensity * 0.12, 0.8);
     foliageLight.fill.value = Math.min((this.world.hemisphere?.intensity ?? 0) * 0.35
       + (this.world.ambient?.intensity ?? 0) * 0.5, 0.7);
   }
@@ -104,6 +108,6 @@ export class CinematicLighting {
 
 export function foliageBacklight(colorNode, amount = 0.3) {
   const view = cameraPosition.sub(positionWorld).normalize();
-  const transmission = dot(view.negate(), foliageLight.direction).max(0).pow(3);
+  const transmission = dot(view.negate(), foliageLight.direction).max(0).pow(2.2);
   return colorNode.mul(foliageLight.color).mul(transmission).mul(foliageLight.strength).mul(amount);
 }

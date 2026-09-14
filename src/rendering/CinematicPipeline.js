@@ -1,5 +1,7 @@
-import { RenderPipeline, FloatType, RedFormat, NearestFilter } from 'three/webgpu';
-import { pass, rtt, renderOutput, vec4, vec3, uniform, mix, dot, uv, smoothstep } from 'three/tsl';
+import { RenderPipeline, FloatType, RedFormat, NearestFilter, Vector3 } from 'three/webgpu';
+import {
+  pass, rtt, renderOutput, vec4, vec3, vec2, uniform, mix, dot, uv, smoothstep, float, fract, sin, screenCoordinate, time,
+} from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { fxaa } from 'three/addons/tsl/display/FXAANode.js';
@@ -39,13 +41,37 @@ export class CinematicPipeline {
     this.occlusion.resolutionScale = 0.5;
     this.aoStrength = uniform(this.settings.aoStrength);
     this.bloom = bloom(beauty, this.settings.bloomStrength, 0.3, this.settings.bloomThreshold);
+    const post = this.settings;
+    this.grade = {
+      saturation: uniform(post.saturation ?? 1),
+      contrast: uniform(post.contrast ?? 1),
+      lift: uniform(new Vector3().fromArray(post.lift ?? [0, 0, 0])),
+      gain: uniform(new Vector3().fromArray(post.gain ?? [1, 1, 1])),
+      highlightDesaturation: uniform(post.highlightDesaturation ?? 0),
+      vignette: uniform(post.vignette ?? 0),
+      grain: uniform(post.grain ?? 0),
+    };
+    // Filmic grade in linear light ahead of the ACES output transform:
+    // saturation, pivot-preserving contrast, a lift/gain split that cools
+    // shadows and warms highlights, highlight desaturation so sunlit grass
+    // bleaches toward white instead of neon, a soft vignette and animated grain.
+    const luma = vec3(0.2126, 0.7152, 0.0722);
+    const grade = (input) => {
+      const saturated = mix(vec3(dot(input, luma)), input, this.grade.saturation);
+      const pivot = float(0.18);
+      const contrasted = saturated.sub(pivot).mul(this.grade.contrast).add(pivot).max(0);
+      const shaped = contrasted.mul(this.grade.gain).add(this.grade.lift.mul(contrasted.oneMinus().max(0)));
+      const shapedLuma = dot(shaped, luma);
+      const rolled = mix(shaped, vec3(shapedLuma), smoothstep(0.55, 1.4, shapedLuma).mul(this.grade.highlightDesaturation));
+      const vignette = smoothstep(0.18, 0.95, uv().sub(0.5).length()).mul(this.grade.vignette).oneMinus();
+      const grain = fract(sin(dot(screenCoordinate.xy, vec2(12.9898, 78.233)).add(time.fract().mul(43758.5453))).mul(43758.5453))
+        .sub(0.5).mul(this.grade.grain);
+      return rolled.mul(vignette).add(grain).max(0);
+    };
     const lit = beauty.rgb.mul(mix(1, this.occlusion.r, this.aoStrength)).add(this.bloom.rgb);
-    const luminance = dot(lit, vec3(0.2126, 0.7152, 0.0722));
-    const graded = mix(vec3(luminance), lit, this.settings.saturation);
-    const vignette = smoothstep(0.22, 0.72, uv().sub(0.5).length()).mul(this.settings.vignette).oneMinus();
-    this.richOutput = renderOutput(vec4(graded.mul(vignette), beauty.a));
+    this.richOutput = renderOutput(vec4(grade(lit), beauty.a));
     this.smoothedOutput = fxaa(this.richOutput);
-    this.leanOutput = fxaa(renderOutput(vec4(mix(vec3(dot(beauty.rgb, vec3(0.2126, 0.7152, 0.0722))), beauty.rgb, this.settings.saturation).mul(vignette), beauty.a)));
+    this.leanOutput = fxaa(renderOutput(vec4(grade(beauty.rgb), beauty.a)));
     this.setQuality(config.ui.initialQuality);
   }
 

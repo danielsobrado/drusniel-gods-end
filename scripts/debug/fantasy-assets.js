@@ -32,7 +32,19 @@ window.__fantasyPreview = (async () => {
   const treeSource = tree.scene.getObjectByName('Tree1_High');
   async function show(view) {
     subject.clear();
-    if (view === 'lantern') {
+    ground.material.color.set(view === 'snow' ? '#dde8ed' : '#777666');
+    if (view === 'snow') {
+      const snowTrees = await Promise.all([10, 11].map(type => loader.loadAsync(`/Assets/terrain/fantasy/tree${type}.glb`)));
+      for (let i = 0; i < 4; i++) {
+        const type = i < 2 ? 10 : 11;
+        const instance = snowTrees[type - 10].scene.getObjectByName(`Tree${type}_High`).clone();
+        instance.position.x = (i - 1.5) * 10;
+        instance.rotation.y = i * 1.9;
+        instance.scale.copy(resolveTreeShape(i * 19, instance.position, { enabled: true, width: 0.22, depth: 0.18, height: 0.08 }));
+        subject.add(instance);
+      }
+      camera.position.set(27, 18, 55); controls.target.set(0, 6, 0);
+    } else if (view === 'lantern') {
       const lineup = lantern.scene.clone();
       lineup.children.forEach((object, index) => object.position.x = (index - 1) * 3.4);
       subject.add(lineup);
@@ -50,7 +62,7 @@ window.__fantasyPreview = (async () => {
     }
     subject.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     controls.update();
-    document.querySelector('#caption').textContent = view === 'lantern' ? 'Timber crossbeam · twisted woodland · braced roadside'
+    document.querySelector('#caption').textContent = view === 'snow' ? 'Snow spruce · windswept mountain pine · individual shape variations' : view === 'lantern' ? 'Timber crossbeam · twisted woodland · braced roadside'
       : view === 'roots' ? 'Flared trunk · seven tapered, bark-textured roots' : 'Shared tree geometry · stable individual proportions';
     await renderer.compileAsync(scene, camera);
     renderer.render(scene, camera);

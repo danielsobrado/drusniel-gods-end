@@ -41,8 +41,8 @@ export function meadowColors(worldXZ, config, reference = false) {
   }
 
   const scale = style.meadowPatchScale ?? 0.035;
-  const patch = meadowNoise(worldXZ.mul(scale)).mul(0.8)
-    .add(meadowNoise(worldXZ.mul(scale * 2.7).add(19.3)).mul(0.2));
+  const patch = meadowNoise(worldXZ.mul(scale)).mul(0.65)
+    .add(meadowNoise(worldXZ.mul(scale * 2.7).add(19.3)).mul(0.35));
   const cool = style.meadowTintCool ?? [0.84, 0.97, 1.03];
   const warm = style.meadowTintWarm ?? [1.13, 1.04, 0.77];
   const tint = mix(
