@@ -54,6 +54,10 @@ navigation:
     lookAheadDistance: 24
     orientationSharpness: 7
     terrainClearance: 4
+    # Height kept above the crown of any tree, rock or structure the route passes
+    # over, and how far to either side of the flight path those count as in the way.
+    canopyClearance: 9
+    obstacleStandoff: 14
     targetDrop: 2
     seaLookBlendStart: 0.9
     seaFocusXZ: [1500, 65]

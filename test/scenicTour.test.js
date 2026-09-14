@@ -13,6 +13,8 @@ const TOUR_CONFIG = Object.freeze({
   seaLookBlendStart: 0.88,
   seaFocusXZ: [1500, 65],
   seaFocusHeightOffset: 2,
+  canopyClearance: 9,
+  obstacleStandoff: 14,
   riverViews: [
     { fraction: 0.05, offset: 20, lift: 25 },
     { fraction: 0.95, offset: -15, lift: 12 },
@@ -122,5 +124,128 @@ test('scenic tour rejects unordered river view fractions', () => {
       ],
     }),
     /strictly increasing/,
+  );
+});
+
+// A tree standing on the route, tall enough that the terrain-only clamp the tour used
+// to rely on flew the camera straight through its canopy.
+function treeStub(x, z, { height = 30, radius = 6 } = {}) {
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(radius * 2, height, radius * 2),
+    new THREE.MeshBasicMaterial(),
+  );
+  mesh.position.set(x, height / 2, z);
+  mesh.updateMatrixWorld(true);
+  return { high: mesh, position: mesh.position, top: height, radius };
+}
+
+function solidPart(x, z, { height = 20, size = 10 } = {}) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(size, height, size), new THREE.MeshBasicMaterial());
+  mesh.position.set(x, height / 2, z);
+  const group = new THREE.Group();
+  group.add(mesh);
+  group.updateMatrixWorld(true);
+  return group;
+}
+
+// Drives the real start()/update() path rather than reaching into the tour, so these
+// cover the wiring as well as the geometry.
+function flyGroundTour({ trees = [], terrainParts = new Map() } = {}) {
+  const camera = new THREE.PerspectiveCamera();
+  camera.position.set(0, 6, 0);
+  const world = {
+    camera,
+    terrainSampler: { sampleHeight: () => 0, contains: () => true },
+    terrainParts,
+  };
+  const water = {
+    params: { sea: { enabled: false, level: 0 } },
+    mesh: { position: new THREE.Vector3() },
+    bounds: new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()),
+  };
+  const tour = new ScenicTour(world, playerStub(), { trees }, water).configure(TOUR_CONFIG);
+  assert.equal(tour.start(), true);
+
+  const samples = [];
+  const step = TOUR_CONFIG.travelDurationSeconds ?? 0.05;
+  for (let elapsed = 0; elapsed < TOUR_CONFIG.durationSeconds && tour.active && !tour.returning; elapsed += 0.05) {
+    tour.update(0.05);
+    samples.push(camera.position.clone());
+  }
+  void step;
+  return { tour, samples };
+}
+
+test('the flight clears tree canopies instead of passing through the leaves', () => {
+  const tree = treeStub(40, 0, { height: 30, radius: 6 });
+  const { samples } = flyGroundTour({ trees: [tree] });
+  assert.ok(samples.length > 10, 'the tour produced no flight samples');
+
+  const reach = tree.radius + TOUR_CONFIG.obstacleStandoff;
+  const overhead = samples.filter((point) => Math.hypot(point.x - 40, point.z - 0) <= reach);
+  assert.ok(overhead.length > 0, 'the route never went near the tree, so nothing was tested');
+
+  for (const point of overhead) {
+    assert.ok(
+      point.y >= tree.top + TOUR_CONFIG.canopyClearance - 1e-6,
+      `camera at y=${point.y.toFixed(2)} is inside the canopy of a ${tree.top}-high tree`,
+    );
+  }
+});
+
+test('the flight clears solid structures and props, not just trees', () => {
+  const parts = new Map([
+    ['props/stone', solidPart(40, 0, { height: 22, size: 10 })],
+    // Trigger volumes and invisible collision proxies must not push the camera up.
+    ['zones', solidPart(45, 0, { height: 400, size: 10 })],
+    ['colliders', solidPart(50, 0, { height: 400, size: 10 })],
+  ]);
+  const { samples } = flyGroundTour({ trees: [treeStub(40, 0, { height: 8, radius: 4 })], terrainParts: parts });
+
+  const overhead = samples.filter((point) => Math.hypot(point.x - 40, point.z) <= 5 + TOUR_CONFIG.obstacleStandoff);
+  assert.ok(overhead.length > 0, 'the route never crossed the prop');
+  for (const point of overhead) {
+    assert.ok(point.y >= 22 + TOUR_CONFIG.canopyClearance - 1e-6, `camera at y=${point.y.toFixed(2)} clips the prop`);
+  }
+  // 400-high trigger volumes would have thrown the camera into orbit had they counted.
+  assert.ok(Math.max(...samples.map((point) => point.y)) < 120, 'a non-solid part was treated as an obstacle');
+});
+
+test('clearing the canopy is a climb, not a step', () => {
+  const { samples } = flyGroundTour({ trees: [treeStub(40, 0, { height: 30, radius: 6 })] });
+  const climb = Math.max(...samples.map((point) => point.y)) - samples[0].y;
+  assert.ok(climb > 20, 'the route did not have to climb, so nothing was tested');
+
+  let biggestStep = 0;
+  for (let index = 1; index < samples.length; index += 1) {
+    biggestStep = Math.max(biggestStep, Math.abs(samples[index].y - samples[index - 1].y));
+  }
+  // Frames are ~0.8 units of travel apart. Clamping to the canopy per frame instead of
+  // routing over it put the whole climb into one of them.
+  assert.ok(
+    biggestStep < climb / 8,
+    `a single frame moved the camera ${biggestStep.toFixed(1)} of a ${climb.toFixed(1)} climb`,
+  );
+});
+
+test('the flight starts from the live camera position rather than snapping upward', () => {
+  const tree = treeStub(20, 0, { height: 45, radius: 8 });
+  const camera = new THREE.PerspectiveCamera();
+  camera.position.set(0, 6, 0);
+  const world = {
+    camera,
+    terrainSampler: { sampleHeight: () => 0, contains: () => true },
+    terrainParts: new Map(),
+  };
+  const water = {
+    params: { sea: { enabled: false, level: 0 } },
+    mesh: { position: new THREE.Vector3() },
+    bounds: new THREE.Box3(new THREE.Vector3(), new THREE.Vector3()),
+  };
+  const tour = new ScenicTour(world, playerStub(), { trees: [tree] }, water).configure(TOUR_CONFIG);
+  tour.start();
+  assert.ok(
+    tour.curve.getPointAt(0).distanceTo(new THREE.Vector3(0, 6, 0)) < 1e-6,
+    'lifting moved the first station, which would jump the view on the first frame',
   );
 });
