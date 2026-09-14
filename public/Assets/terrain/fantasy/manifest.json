@@ -21,11 +21,11 @@
     },
     {
       "files": ["lantern.glb"],
-      "internalSource": "scripts/generate-fantasy-assets.mjs",
-      "author": "Original procedural geometry authored in this repository",
-      "license": "Original project work; no third-party artwork incorporated",
-      "attribution": "No additional third-party attribution",
-      "changes": "Wrought-iron hooked post, chain, hexagonal cage, aged brass fittings and emissive amber glass"
+      "internalSource": "scripts/wooden-lanterns.mjs; wood color texture from public/Assets/terrain/trees/tree1.glb",
+      "author": "Original procedural geometry authored in this repository; existing project bark texture",
+      "license": "Geometry is original project work; the reused bark texture retains its source rights",
+      "attribution": "Retain upstream attribution associated with the original project tree texture",
+      "changes": "Three wooden supports: timber crossbeam, twisted woodland staff, and braced roadside post; stone footings and three distinct warm lantern cages"
     }
   ]
 }

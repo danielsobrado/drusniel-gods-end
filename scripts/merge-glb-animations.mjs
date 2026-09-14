@@ -2,13 +2,19 @@
  * Merges animation clips from one or more GLBs into a single model GLB, then
  * optionally compresses the result.
  *
- * Characters in this project share one 24-joint armature with identical bone names,
- * which is why a clip authored against one skin plays on another. `PlayerController`
- * exploits that at runtime through `player.animationSources`: it fetches each extra
- * GLB purely to harvest `gltf.animations` and merge them into the mixer. That is
- * expensive when the extra GLB is a full duplicate of the skin -- the Enanillo walk
- * cycle shipped 11.7 MB of byte-identical mesh and texture to deliver 10 KB of
- * animation. This script does the same merge at build time so only the clips ship.
+ * Characters in this project share one armature -- in two generations, 24 joints and
+ * 28, the latter adding four leaf bones -- with identical bone names, which is why a
+ * clip authored against one skin plays on another of the same generation.
+ * `PlayerController` exploits that at runtime through `player.animationSources`: it
+ * fetches each extra GLB purely to harvest `gltf.animations` and merge them into the
+ * mixer. That is expensive when the extra GLB is a full duplicate of the skin -- the
+ * Enanillo walk cycle shipped 11.7 MB of byte-identical mesh and texture to deliver
+ * 10 KB of animation. This script does the same merge at build time so only the clips
+ * ship.
+ *
+ * With no --clips the script is a compression pass alone, which is how the four
+ * re-authored skins below were built: they arrived with their clips already merged
+ * and their textures as uncompressed PNG.
  *
  * Clips are rebound by bone NAME, not by node index, because the two documents are
  * separate glTF files whose node numbering need not agree.
@@ -33,6 +39,17 @@
  *   Radiant_Paladin.glb   (2 sources, 15.2 MB -> 1.3 MB), untracked when merged:
  *     Meshy_AI_Radiant_Paladin_biped_Animation_Running_withSkin.glb  --model
  *     Meshy_AI_Radiant_Paladin_biped_Animation_Walking_withSkin.glb  --clips
+ *
+ * Compression-only, from single untracked sources that already carried their clips:
+ *
+ *   Drusniel_Dark_Elf.glb  New_Drisniel_Merged_Animations.glb  (17.8 MB -> 1.6 MB)
+ *   Devout_Cleric.glb      Cleric_Merged_Animations.glb        (30.3 MB -> 2.6 MB)
+ *   Serpent_Master.glb     Snake_Master_Merged_Animations.glb  (19.7 MB -> 2.3 MB)
+ *   Arcane_Wizard.glb      Wizard_Merged_Animations.glb        ( 9.0 MB -> 1.4 MB)
+ *
+ * The first three superseded the 24-joint generation for their characters; the Wizard
+ * is a 24-joint skin whose clips were renamed to the newer Running/Walking convention.
+ * The Drusniel entry replaced the earlier Frostveil merge listed above.
  *
  * A third Drusniel file, Drunsiel_Warden_biped_Animation_Running_withSkin.glb (also
  * at c83c515), was the superseded export: same geometry to within float32 epsilon,
@@ -172,7 +189,7 @@ async function main(argv) {
     await model.transform(
       textureCompress({ encoder: sharp, targetFormat: 'webp', quality: WEBP_QUALITY }),
       // Defaults quantize generic attributes to 12 bits, which is lossless for the
-      // 0-23 joint indices this rig uses.
+      // 0-27 joint indices these rigs use.
       draco(),
     );
   }

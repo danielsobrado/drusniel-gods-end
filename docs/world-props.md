@@ -19,7 +19,7 @@ The current runtime loads `Assets/terrain/fantasy/rocks.glb`, derived from the p
 
 Variants 10 and 11 originally sampled tiny, flat brown patches of the atlas. Assigning the same material did not fix that UV problem. They now use the painted 06/07 geometry and UV islands, reshaped to the original variant bounds. This retains coherent painted surfaces and one shared texture/material across the pack.
 
-`Assets/terrain/fantasy/lantern.glb` replaces the old lantern with a wrought-iron hooked post, hanging chain, hexagonal cage, brass fittings and emissive amber glass. All 20 placed lanterns in the expanded scene share three material batches; no extra lights or texture downloads are added. The source template is hidden after cloning, so it does not appear as an extra lantern at the origin.
+`Assets/terrain/fantasy/lantern.glb` contains three wooden-supported styles: a timber crossbeam with a tapered cage, a twisted woodland staff with a swept square hood, and a braced roadside post with a hexagonal lamp. Each has stone footings, metal fittings and emissive amber glass. `props.lanternSourceNames` lists the three root names; authored placements cycle through them deterministically (7/7/6 across the 20 expanded-scene lanterns). All styles share five materials and one embedded wood texture reused from the existing tree asset. No additional light sources are added. Templates are hidden after cloning, so they do not appear as extra lanterns at the origin.
 
 Regenerate these GLBs with `npm run assets:fantasy`. Original assets remain intact. Derivative source records are in `public/Assets/terrain/fantasy/manifest.json`; the interactive review is `/scripts/debug/fantasy-assets.html`.
 

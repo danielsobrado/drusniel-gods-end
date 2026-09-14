@@ -2,10 +2,20 @@
 #
 # `model` replaces assets.player and the `player` block is merged over the
 # effective player config, so every character carries its own proportions and
-# clip names. Both rigs are the same 24-joint armature, which is why a clip
-# authored for one skin plays on the other: `animationSources` borrows such clips
-# from another GLB at runtime, and scripts/merge-glb-animations.mjs does the same
-# merge at build time when the clips belong in the character's own asset.
+# clip names.
+#
+# Two rig generations ship side by side. The older skins (Enanillo, the Paladin,
+# the Wizard) are the 24-joint armature exported in centimetres under an 0.01
+# Armature node; the newer ones (Drusniel, the Cleric, the Serpent Master) are the
+# same skeleton plus four leaf bones -- LeftHand_End, RightHand_End, LeftToe_end,
+# RightToe_end -- exported in metres at Armature scale 1, and they name their clips
+# `Running`/`Walking` rather than `Armature|running|baselayer`. Both land at the
+# same on-screen height because `PlayerController` measures the posed skinned bounds
+# and rescales to `targetHeight`; see docs/character-rig-and-armour.md.
+#
+# A clip only binds across skins of the same generation, which is why
+# `animationSources` is empty everywhere: every character carries its own walk and
+# run, merged in at build time by scripts/merge-glb-animations.mjs.
 characters:
   default: drusniel
   roster:
@@ -19,8 +29,8 @@ characters:
         animationSources: []
         animations:
           idle: null
-          walk: Armature|walking_man|baselayer
-          run: Armature|running|baselayer
+          walk: Walking
+          run: Running
     - id: enanillo
       name: Enanillo
       title: Dwarven Delver
@@ -45,3 +55,39 @@ characters:
           idle: null
           walk: Armature|walking_man|baselayer
           run: Armature|running|baselayer
+    - id: cleric
+      name: Cleric
+      title: Devout of the Grove
+      blurb: Robed and deliberate, the heaviest mesh on the roster.
+      model: Assets/Devout_Cleric.glb
+      player:
+        targetHeight: 5.0
+        animationSources: []
+        animations:
+          idle: null
+          walk: Walking
+          run: Running
+    - id: serpent
+      name: Serpent Master
+      title: Keeper of Coils
+      blurb: Broad-shouldered, and the only one who brought dances along.
+      model: Assets/Serpent_Master.glb
+      player:
+        targetHeight: 5.0
+        animationSources: []
+        animations:
+          idle: null
+          walk: Walking
+          run: Running
+    - id: wizard
+      name: Wizard
+      title: Arcane Wanderer
+      blurb: Staff-bearing and light-footed, on the older armature.
+      model: Assets/Arcane_Wizard.glb
+      player:
+        targetHeight: 5.0
+        animationSources: []
+        animations:
+          idle: null
+          walk: Walking
+          run: Running

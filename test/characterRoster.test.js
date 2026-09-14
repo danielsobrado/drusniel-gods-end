@@ -25,18 +25,53 @@ function readGlbJson(path) {
   throw new Error('GLB JSON chunk not found');
 }
 
-test('the roster offers Drusniel, Enanillo and the Paladin, defaulting to Drusniel', async () => {
+test('the roster offers all six characters, defaulting to Drusniel', async () => {
   const config = await loadMergedConfig();
-  assert.deepEqual(getRoster(config).map((entry) => entry.id), ['drusniel', 'enanillo', 'paladin']);
+  assert.deepEqual(
+    getRoster(config).map((entry) => entry.id),
+    ['drusniel', 'enanillo', 'paladin', 'cleric', 'serpent', 'wizard'],
+  );
   assert.equal(defaultCharacterId(config), 'drusniel');
 });
 
-test('every roster model and animation source resolves to a shipped GLB', async () => {
+// Two rig generations ship: the original 24-joint armature and a 28-joint export of
+// the same skeleton with four extra leaf bones. Clips bind by bone name, so a clip
+// only crosses skins within a generation -- which is what the joint-count check here
+// is really guarding, since `animationSources` borrows across GLBs by name alone.
+const RIG_GENERATIONS = new Map([
+  [24, ['Hips', 'Spine', 'neck', 'Head', 'LeftFoot', 'RightHand']],
+  [28, ['Hips', 'Spine', 'neck', 'Head', 'LeftFoot', 'RightHand', 'LeftToe_end', 'RightHand_End']],
+]);
+
+test('every roster model and animation source is one of the two shipped rigs', async () => {
   const config = await loadMergedConfig();
   for (const entry of getRoster(config)) {
     for (const asset of [entry.model, ...entry.player?.animationSources ?? []]) {
       const gltf = readGlbJson(new URL(`../public/${asset}`, import.meta.url));
-      assert.equal(gltf.skins?.[0]?.joints?.length, 24, `${asset} is not the shared 24-joint rig`);
+      const joints = gltf.skins?.[0]?.joints ?? [];
+      const expected = RIG_GENERATIONS.get(joints.length);
+      assert.ok(expected, `${asset} has ${joints.length} joints, which is neither shipped rig`);
+
+      const names = new Set(joints.map((index) => gltf.nodes[index].name));
+      for (const bone of expected) {
+        assert.ok(names.has(bone), `${asset} is missing the ${bone} bone`);
+      }
+    }
+  }
+});
+
+test('a character never borrows clips across rig generations', async () => {
+  const config = await loadMergedConfig();
+  const jointCount = (asset) =>
+    readGlbJson(new URL(`../public/${asset}`, import.meta.url)).skins?.[0]?.joints?.length;
+
+  for (const entry of getRoster(config)) {
+    for (const source of entry.player?.animationSources ?? []) {
+      assert.equal(
+        jointCount(source),
+        jointCount(entry.model),
+        `${entry.id} borrows ${source}, which is a different armature`,
+      );
     }
   }
 });
@@ -76,6 +111,11 @@ test('applying Enanillo swaps the model, the proportions and the walk clip', asy
   assert.equal(config.player.modelRotationY, 0);
   assert.equal(config.assets.player, 'Assets/Enanillo_Dwarven.glb');
   assert.ok(config.player.targetHeight < 5, 'the dwarf should be shorter than the warden');
+  // Only the dwarf is authored shorter; every other roster entry stands at 5.0, so
+  // the two rig generations cannot drift apart on screen.
+  for (const entry of getRoster(config).filter((candidate) => candidate.id !== 'enanillo')) {
+    assert.equal(entry.player.targetHeight, 5.0, `${entry.id} is not the shared 5.0 height`);
+  }
   // Both clips are baked into the one GLB, so nothing is borrowed at runtime.
   assert.deepEqual(config.player.animationSources, []);
   assert.equal(config.player.animations.walk, 'Armature|walking_man|baselayer');

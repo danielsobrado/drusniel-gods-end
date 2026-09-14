@@ -7,6 +7,8 @@ import draco3d from 'draco3dgltf';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createSeededRandom } from '../src/core/math.js';
+import { buildWoodenLanterns } from './wooden-lanterns.mjs';
+import { prepareStylizedTreeTextures, applyStylizedTreeTextures, applyBakedTreeBillboard } from './stylized-tree-textures.mjs';
 
 const base = 'public/Assets/terrain';
 const output = `${base}/fantasy`;
@@ -15,6 +17,7 @@ const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies(
   'draco3d.encoder': await draco3d.createEncoderModule(),
 });
 await mkdir(output, { recursive: true });
+const stylizedTextures = await prepareStylizedTreeTextures();
 
 function geometryOf(primitive) {
   const geometry = new THREE.BufferGeometry();
@@ -104,6 +107,7 @@ function rootsGeometry(radius, seed) {
 
 for (let type = 1; type <= 9; type++) {
   const doc = await io.read(`${base}/trees/tree${type}.glb`);
+  applyStylizedTreeTextures(doc, type, stylizedTextures);
   const high = doc.getRoot().listNodes().find(n => n.getName() === `Tree${type}_High`);
   const nodes = [];
   high.traverse(n => { if (n.getMesh()) nodes.push(n); });
@@ -120,6 +124,11 @@ for (let type = 1; type <= 9; type++) {
   radius = Math.max(radius, height * 0.012);
   for (const node of nodes) for (const primitive of node.getMesh().listPrimitives()) {
     let geometry = primitive === barkPrimitive ? barkGeometry : geometryOf(primitive);
+    if (node !== bark) {
+      // The new sprig grows from the bottom; authored cards attach at the top.
+      const uv = geometry.getAttribute('uv');
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, 1 - uv.getX(i), 1 - uv.getY(i));
+    }
     const p = geometry.getAttribute('position');
     for (let i = 0; i < p.count; i++) {
       const y = p.getY(i), t = Math.max(0, y / height);
@@ -137,49 +146,13 @@ for (let type = 1; type <= 9; type++) {
     setGeometry(doc, primitive, geometry);
   }
   high.setExtras({ ...high.getExtras(), fantasyRoots: 7, curvedTrunk: true });
+  await applyBakedTreeBillboard(doc, type, stylizedTextures);
   await save(doc, `tree${type}`);
 }
 
-// Three merged material batches for the whole prop, shared by every placement.
+// All three supports share wood, metal, glass and foundation materials.
 const lantern = new Document();
-const scene = lantern.createScene();
-const root = lantern.createNode('Lantern').setExtras({ design: 'Wrought-iron adventurer waylight' });
-scene.addChild(root);
-const iron = lantern.createMaterial('Forged dark iron').setBaseColorFactor([0.075, 0.09, 0.085, 1]).setMetallicFactor(0.72).setRoughnessFactor(0.48);
-const brass = lantern.createMaterial('Aged brass fittings').setBaseColorFactor([0.38, 0.22, 0.065, 1]).setMetallicFactor(0.75).setRoughnessFactor(0.4);
-const amber = lantern.createMaterial('Amber lantern glass').setBaseColorFactor([0.8, 0.33, 0.065, 1]).setEmissiveFactor([1, 0.42, 0.09]).setRoughnessFactor(0.3);
-const batches = new Map([[iron, []], [brass, []], [amber, []]]);
-const add = (material, geometry, x, y, z, rotation = null) => {
-  if (rotation) geometry.rotateZ(rotation);
-  geometry.translate(x, y, z);
-  batches.get(material).push(geometry.index ? geometry.toNonIndexed() : geometry);
-};
-add(iron, new THREE.CylinderGeometry(0.19, 0.38, 0.32, 8), 0, 0.16, 0);
-add(iron, new THREE.CylinderGeometry(0.065, 0.11, 4.35, 10), 0, 2.3, 0);
-for (const y of [0.42, 0.62, 2.2, 4.2]) add(brass, new THREE.CylinderGeometry(0.135, 0.135, 0.065, 10), 0, y, 0);
-const hook = new THREE.CatmullRomCurve3([[0, 4.25, 0], [0.1, 4.65, 0], [0.55, 4.83, 0], [0.95, 4.6, 0], [0.95, 4.42, 0]].map(p => new THREE.Vector3(...p)));
-add(iron, new THREE.TubeGeometry(hook, 24, 0.065, 8, false), 0, 0, 0);
-for (let i = 0; i < 3; i++) {
-  const link = new THREE.TorusGeometry(0.068, 0.018, 6, 12);
-  if (i % 2) link.rotateY(Math.PI / 2);
-  add(brass, link, 0.95, 4.38 - i * 0.1, 0);
-}
-add(iron, new THREE.ConeGeometry(0.48, 0.38, 6), 0.95, 4.02, 0);
-add(brass, new THREE.CylinderGeometry(0.46, 0.46, 0.06, 6), 0.95, 3.84, 0);
-add(amber, new THREE.CylinderGeometry(0.3, 0.23, 0.66, 6), 0.95, 3.48, 0);
-for (let side = 0; side < 6; side++) {
-  const a = side / 6 * Math.PI * 2;
-  add(iron, new THREE.CylinderGeometry(0.034, 0.034, 0.75, 6), 0.95 + Math.sin(a) * 0.32, 3.48, Math.cos(a) * 0.32);
-  const trim = new THREE.TorusGeometry(0.105, 0.018, 5, 4);
-  trim.rotateY(a);
-  add(brass, trim, 0.95 + Math.sin(a) * 0.31, 3.48, Math.cos(a) * 0.31);
-}
-add(brass, new THREE.CylinderGeometry(0.34, 0.27, 0.09, 6), 0.95, 3.12, 0);
-add(iron, new THREE.ConeGeometry(0.23, 0.26, 6), 0.95, 2.96, 0, Math.PI);
-add(brass, new THREE.SphereGeometry(0.08, 8, 6), 0.95, 2.8, 0);
-for (const [material, geometries] of batches) {
-  const primitive = lantern.createPrimitive().setMaterial(material);
-  setGeometry(lantern, primitive, mergeGeometries(geometries));
-  root.addChild(lantern.createNode(material.getName()).setMesh(lantern.createMesh().addPrimitive(primitive)));
-}
-await save(lantern, 'lantern');
+const treeDoc = await io.read(base + '/trees/tree1.glb');
+const bark = treeDoc.getRoot().listMaterials().find(m => m.getAlphaMode() === "OPAQUE");
+buildWoodenLanterns(lantern, setGeometry, bark.getBaseColorTexture());
+await save(lantern, "lantern");

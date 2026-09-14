@@ -406,11 +406,11 @@ Animation mapping:
 
 ```yaml
 idle: null
-walk: Armature|walking_man|baselayer
-run: Armature|running|baselayer
+walk: Walking
+run: Running
 ```
 
-The single movement clip is shared by walking and running. It fades out to the static pose when the player becomes idle.
+Walking and running each have their own authored clip. The active one fades out to the static pose when the player becomes idle.
 
 Movement is camera-yaw-relative and uses exponentially damped velocity rather than instant speed changes.
 

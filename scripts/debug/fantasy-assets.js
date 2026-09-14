@@ -33,8 +33,10 @@ window.__fantasyPreview = (async () => {
   async function show(view) {
     subject.clear();
     if (view === 'lantern') {
-      subject.add(lantern.scene.clone());
-      camera.position.set(6, 4, 8); controls.target.set(0.5, 2.5, 0);
+      const lineup = lantern.scene.clone();
+      lineup.children.forEach((object, index) => object.position.x = (index - 1) * 3.4);
+      subject.add(lineup);
+      camera.position.set(8, 5.8, 17); controls.target.set(0.5, 2.4, 0);
     } else {
       for (let i = 0; i < (view === 'trees' ? 3 : 1); i++) {
         const instance = treeSource.clone();
@@ -48,7 +50,7 @@ window.__fantasyPreview = (async () => {
     }
     subject.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     controls.update();
-    document.querySelector('#caption').textContent = view === 'lantern' ? 'Forged iron · aged brass · amber glass'
+    document.querySelector('#caption').textContent = view === 'lantern' ? 'Timber crossbeam · twisted woodland · braced roadside'
       : view === 'roots' ? 'Flared trunk · seven tapered, bark-textured roots' : 'Shared tree geometry · stable individual proportions';
     await renderer.compileAsync(scene, camera);
     renderer.render(scene, camera);

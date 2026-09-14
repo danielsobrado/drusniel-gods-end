@@ -6,8 +6,13 @@ import { loadMergedConfig } from '../scripts/mergedConfig.mjs';
 const GLB_MAGIC = 0x46546c67;
 const JSON_CHUNK = 0x4e4f534a;
 const PLAYER_ASSET = 'Assets/Drusniel_Dark_Elf.glb';
-const RUN_CLIP = 'Armature|running|baselayer';
-const WALK_CLIP = 'Armature|walking_man|baselayer';
+const RUN_CLIP = 'Running';
+const WALK_CLIP = 'Walking';
+// The re-authored Drusniel is the 28-joint export: the same skeleton as the older
+// skins plus four leaf bones, in metres at Armature scale 1 instead of centimetres
+// under an 0.01 Armature. `PlayerController` measures the posed skinned bounds, so
+// the unit change does not reach the screen -- see docs/character-rig-and-armour.md.
+const MESH = 'output_unwrapped';
 
 function readGlbJson(path) {
   const data = readFileSync(path);
@@ -48,20 +53,20 @@ test('Drusniel dark elf GLB keeps both movement clips and the skinned mesh', () 
   const skins = gltf.skins ?? [];
   const animationNames = (gltf.animations ?? []).map((animation) => animation.name);
 
-  assert.deepEqual(animationNames, [RUN_CLIP, WALK_CLIP]);
+  assert.deepEqual(animationNames, [RUN_CLIP, WALK_CLIP, 'restpose']);
   assert.equal(skins.length, 1);
   assert.equal(skins[0].name, 'Armature');
-  assert.equal(skins[0].joints?.length, 24);
+  assert.equal(skins[0].joints?.length, 28);
 
-  const characterIndex = nodeIndexByName(nodes, 'char1');
-  assert.notEqual(characterIndex, -1, 'char1 mesh is missing');
+  const characterIndex = nodeIndexByName(nodes, MESH);
+  assert.notEqual(characterIndex, -1, `${MESH} mesh is missing`);
   const character = nodes[characterIndex];
   assert.equal(character.skin, 0);
 
   // Draco keeps the semantic->accessor map in `attributes` and adds its own index
   // map under the extension, so the skinning attributes stay visible in the JSON.
   for (const primitive of meshes[character.mesh]?.primitives ?? []) {
-    assert.ok(primitive.attributes?.JOINTS_0 !== undefined, 'char1 is missing JOINTS_0');
-    assert.ok(primitive.attributes?.WEIGHTS_0 !== undefined, 'char1 is missing WEIGHTS_0');
+    assert.ok(primitive.attributes?.JOINTS_0 !== undefined, `${MESH} is missing JOINTS_0`);
+    assert.ok(primitive.attributes?.WEIGHTS_0 !== undefined, `${MESH} is missing WEIGHTS_0`);
   }
 });

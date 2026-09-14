@@ -5,6 +5,7 @@ import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import draco from 'draco3dgltf';
 import * as THREE from 'three';
 import { resolveTreeShape } from '../src/world/TreeSystem.js';
+import { WorldPropSystem } from '../src/world/WorldPropSystem.js';
 
 const ioReady = draco.createDecoderModule().then(decoder => new NodeIO()
   .registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'draco3d.decoder': decoder }));
@@ -61,11 +62,37 @@ test('tree shape variation is stable and keeps both LOD representations compatib
   }
 });
 
-test('fantasy lantern preserves the placement name and uses three shared material batches', async () => {
+test('three wooden lantern styles share one wood texture and five materials', async () => {
   const doc = await read('lantern');
   assert.ok(doc.getRoot().listNodes().some(n => n.getName() === 'Lantern'));
-  assert.equal(doc.getRoot().listMeshes().length, 3);
+  for (const name of ['Lantern', 'LanternWoodland', 'LanternRoadside']) {
+    const root = doc.getRoot().listNodes().find(n => n.getName() === name);
+    assert.ok(root?.getExtras().lanternStyle);
+    assert.equal(root.listChildren().length, 5);
+  }
+  assert.equal(doc.getRoot().listMaterials().length, 5);
   const glass = doc.getRoot().listMaterials().find(m => /Amber/.test(m.getName()));
   assert.ok(glass.getEmissiveFactor()[0] > 0.5);
-  assert.equal(doc.getRoot().listTextures().length, 0, 'no extra texture downloads');
+  assert.equal(doc.getRoot().listTextures().length, 1, 'wood texture shared by all three supports');
+});
+
+test('world placements cycle through all three lantern styles with shared materials', () => {
+  const scene = new THREE.Scene(), root = new THREE.Group();
+  const names = ['Lantern', 'LanternWoodland', 'LanternRoadside'];
+  const geometry = new THREE.BoxGeometry(), material = new THREE.MeshStandardMaterial();
+  for (const name of names) {
+    const source = new THREE.Group(); source.name = name;
+    source.add(new THREE.Mesh(geometry, material)); root.add(source);
+  }
+  scene.add(root);
+  const system = new WorldPropSystem({ scene, terrainRoot: root,
+    config: { props: { lanternSourceNames: names } },
+    data: { lanterns: Array.from({ length: 20 }, (_, i) => [i * 10, 0, 0, 0]) },
+  }).init();
+  try {
+    assert.deepEqual(names.map(name => system.instances.filter(o => o.name === name).length), [7, 7, 6]);
+    assert.ok(root.children.every(o => !o.visible));
+    assert.ok(system.instances.every(o => o.visible && o.children[0].material === material));
+    assert.deepEqual(system.instances.map(o => o.position.x), Array.from({ length: 20 }, (_, i) => i * 10));
+  } finally { system.dispose(); geometry.dispose(); material.dispose(); }
 });

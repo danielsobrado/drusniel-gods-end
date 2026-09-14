@@ -2,6 +2,8 @@ renderer:
   pixelRatioCap: 2
   exposure: 1
   forceWebGL: false
+props:
+  lanternSourceNames: [Lantern, LanternWoodland, LanternRoadside]
 camera:
   fov: 52
   near: 0.1
@@ -173,8 +175,8 @@ player:
   capsuleRadius: 0.7
   animations:
     idle: null
-    walk: Armature|walking_man|baselayer
-    run: Armature|running|baselayer
+    walk: Walking
+    run: Running
 water:
   objectName: LakeWater
   colliderName: WaterCollider

@@ -417,13 +417,13 @@ Configured:
 
 ```yaml
 idle: null
-walk: Armature|walking_man|baselayer
-run: Armature|running|baselayer
+walk: Walking
+run: Running
 ```
 
 There is no retargeting system.
 
-The Warden asset contains one 24-joint skinned mesh and one movement clip. Walking and running share that clip; entering idle fades it out to the asset's static pose. The controller uses exact clip-name lookup, so replacement clips must already animate the replacement skeleton correctly.
+The Warden asset contains one 28-joint skinned mesh and an authored `Walking` and `Running` clip; entering idle fades the movement action out to the asset's static pose. The controller uses exact clip-name lookup, so replacement clips must already animate the replacement skeleton correctly. Older roster skins are a 24-joint export of the same skeleton with differently named clips -- see `docs/character-rig-and-armour.md`.
 
 ---
 

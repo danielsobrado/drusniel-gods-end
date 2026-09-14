@@ -186,8 +186,8 @@ Configured names:
 player:
   animations:
     idle: null
-    walk: Armature|walking_man|baselayer
-    run: Armature|running|baselayer
+    walk: Walking
+    run: Running
 ```
 
 Actions are indexed by their exact exported clip names. The dark elf asset provides an authored walk and an authored run, so the two states use different clips. A null idle mapping fades the current action out to the static asset pose.
@@ -516,7 +516,7 @@ A correct recreation should satisfy all of these:
 - use walk 2.5 and run 15,
 - use linear acceleration 20 / deceleration 16,
 - use turn speed 18,
-- map walk to `Armature|walking_man|baselayer` and run to `Armature|running|baselayer`, fading out for idle,
+- map walk and run to the clip names the selected character declares (`Walking`/`Running` on the current rig), fading out for idle,
 - preserve the FootSphere/fallback influence logic,
 - expose movement/surface state to audio rather than choosing sounds in the player class.
 

@@ -98,7 +98,8 @@ export class WorldPropSystem {
     if (!this.terrainRoot) return this;
 
     const propConfig = this.config.props ?? {};
-    const lanternSource = this.terrainRoot.getObjectByName(propConfig.lanternSourceName ?? 'Lantern');
+    const lanternNames = propConfig.lanternSourceNames ?? [propConfig.lanternSourceName ?? 'Lantern'];
+    const lanternSources = lanternNames.map(name => this.terrainRoot.getObjectByName(name)).filter(Boolean);
     const stoneSources = this.#createStoneSources(propConfig);
 
     if (stoneSources.length > 0) {
@@ -115,13 +116,13 @@ export class WorldPropSystem {
       logger.warn('Recovered Stone source was not found in terrain GLB.');
     }
 
-    if (lanternSource) {
-      prepareSource(lanternSource, propConfig);
-      for (const record of this.data?.lanterns ?? []) {
-        const instance = createLantern(this.scene, lanternSource, record, this.collisionSystem);
+    if (lanternSources.length) {
+      for (const source of lanternSources) prepareSource(source, propConfig);
+      for (const [index, record] of (this.data?.lanterns ?? []).entries()) {
+        const instance = createLantern(this.scene, lanternSources[index % lanternSources.length], record, this.collisionSystem);
         if (instance) this.instances.push(instance);
       }
-      lanternSource.visible = false;
+      for (const source of lanternSources) source.visible = false;
     } else {
       logger.warn('Recovered Lantern source was not found in terrain GLB.');
     }
