@@ -18,8 +18,15 @@ export class InteractionMap {
     // reaches 0 every pixel is 0, and floor(0 * r) = 0 -- the recovery pass is
     // bit-exact idempotent from then on, so skipping it changes nothing.
     this.peak = 0;
+    // Inclusive pixel rectangle containing every non-zero red pixel (an
+    // over-approximation is fine). Empty when maxX < minX. Recovery and
+    // scrolling only touch this rectangle: outside it every red byte is 0, and
+    // both floor(0 * r) and a translated 0 stay 0, so the result is byte-exact.
+    this.ink = { minX: 0, minY: 0, maxX: -1, maxY: -1 };
     this.pixels = new Uint8Array(this.resolution * this.resolution * 4);
-    this.scrollPixels = new Uint8Array(this.pixels.length);
+    // Red-channel stash used while scrolling the ink rectangle.
+    this.scratch = new Uint8Array(this.resolution * this.resolution);
+    this.scrollPixels = null;
     this.#clearPixels(this.pixels);
     this.texture = new THREE.DataTexture(
       this.pixels,
@@ -39,6 +46,28 @@ export class InteractionMap {
   #clearPixels(buffer) {
     buffer.fill(0);
     for (let index = 3; index < buffer.length; index += 4) buffer[index] = 255;
+  }
+
+  #clearInk() {
+    this.ink.minX = 0;
+    this.ink.minY = 0;
+    this.ink.maxX = -1;
+    this.ink.maxY = -1;
+  }
+
+  #addInk(minX, minY, maxX, maxY) {
+    const ink = this.ink;
+    if (ink.maxX < ink.minX || ink.maxY < ink.minY) {
+      ink.minX = minX;
+      ink.minY = minY;
+      ink.maxX = maxX;
+      ink.maxY = maxY;
+      return;
+    }
+    if (minX < ink.minX) ink.minX = minX;
+    if (minY < ink.minY) ink.minY = minY;
+    if (maxX > ink.maxX) ink.maxX = maxX;
+    if (maxY > ink.maxY) ink.maxY = maxY;
   }
 
   setEnabled(enabled) {
@@ -76,10 +105,19 @@ export class InteractionMap {
 
   #recover() {
     if (this.peak === 0) return;
-    for (let index = 0; index < this.pixels.length; index += 4) {
-      this.pixels[index] = Math.floor(this.pixels[index] * this.recoverySpeed);
+    const { minX, minY, maxX, maxY } = this.ink;
+    const pixels = this.pixels;
+    const stride = this.resolution * 4;
+    const speed = this.recoverySpeed;
+    for (let y = minY; y <= maxY; y += 1) {
+      const row = y * stride;
+      for (let x = minX; x <= maxX; x += 1) {
+        const index = row + x * 4;
+        pixels[index] = Math.floor(pixels[index] * speed);
+      }
     }
-    this.peak = Math.floor(this.peak * this.recoverySpeed);
+    this.peak = Math.floor(this.peak * speed);
+    if (this.peak === 0) this.#clearInk();
   }
 
   // Test seams: the differential harness drives a reference implementation that
@@ -89,26 +127,13 @@ export class InteractionMap {
       this.pixels[index] = Math.floor(this.pixels[index] * this.recoverySpeed);
     }
     this.peak = Math.floor(this.peak * this.recoverySpeed);
+    if (this.peak === 0) this.#clearInk();
   }
 
   forceScroll(deltaX, deltaZ) {
-    this.#scrollPixels(deltaX, deltaZ);
-  }
-
-  #scroll(deltaX, deltaZ) {
-    // Scroll only translates values. With an all-zero red channel the result is
-    // identical to the input, since G/B are never written non-zero and alpha is
-    // 255 in both #clearPixels and the scroll write.
-    if (this.peak === 0) return;
-    this.#scrollPixels(deltaX, deltaZ);
-  }
-
-  #scrollPixels(deltaX, deltaZ) {
-    const pixelsPerWorldUnit = this.resolution / this.worldSize;
-    const shiftX = Math.trunc(deltaX * pixelsPerWorldUnit);
-    const shiftY = Math.trunc(deltaZ * pixelsPerWorldUnit);
+    const { shiftX, shiftY } = this.#pixelShift(deltaX, deltaZ);
     if (shiftX === 0 && shiftY === 0) return;
-
+    this.scrollPixels ??= new Uint8Array(this.pixels.length);
     this.#clearPixels(this.scrollPixels);
     for (let y = 0; y < this.resolution; y += 1) {
       const sourceY = y + shiftY;
@@ -123,6 +148,78 @@ export class InteractionMap {
       }
     }
     this.pixels.set(this.scrollPixels);
+    this.#translateInk(shiftX, shiftY);
+  }
+
+  #scroll(deltaX, deltaZ) {
+    // Scroll only translates values. With an all-zero red channel the result is
+    // identical to the input, since G/B are never written non-zero and alpha is
+    // 255 in both #clearPixels and the scroll write.
+    if (this.peak === 0) return;
+    this.#scrollPixels(deltaX, deltaZ);
+  }
+
+  #pixelShift(deltaX, deltaZ) {
+    const pixelsPerWorldUnit = this.resolution / this.worldSize;
+    return {
+      shiftX: Math.trunc(deltaX * pixelsPerWorldUnit),
+      shiftY: Math.trunc(deltaZ * pixelsPerWorldUnit),
+    };
+  }
+
+  // Target pixel (x, y) reads source (x + shiftX, y + shiftY), so the ink
+  // rectangle moves by (-shiftX, -shiftY) and is clamped to the texture.
+  #translateInk(shiftX, shiftY) {
+    const ink = this.ink;
+    if (ink.maxX < ink.minX || ink.maxY < ink.minY) return;
+    const last = this.resolution - 1;
+    const minX = Math.max(0, ink.minX - shiftX);
+    const maxX = Math.min(last, ink.maxX - shiftX);
+    const minY = Math.max(0, ink.minY - shiftY);
+    const maxY = Math.min(last, ink.maxY - shiftY);
+    if (maxX < minX || maxY < minY) {
+      this.#clearInk();
+      return;
+    }
+    ink.minX = minX;
+    ink.minY = minY;
+    ink.maxX = maxX;
+    ink.maxY = maxY;
+  }
+
+  #scrollPixels(deltaX, deltaZ) {
+    const { shiftX, shiftY } = this.#pixelShift(deltaX, deltaZ);
+    if (shiftX === 0 && shiftY === 0) return;
+    const ink = this.ink;
+    if (ink.maxX < ink.minX || ink.maxY < ink.minY) return;
+
+    const resolution = this.resolution;
+    const pixels = this.pixels;
+    const scratch = this.scratch;
+    const { minX: oldMinX, minY: oldMinY, maxX: oldMaxX, maxY: oldMaxY } = ink;
+    const width = oldMaxX - oldMinX + 1;
+    // Stash the old rectangle's red channel and zero it in place. Every other
+    // red byte is already 0, alpha is already 255 and G/B are already 0, which
+    // is exactly the state a full clear-and-copy leaves outside the translated
+    // rectangle.
+    for (let y = oldMinY; y <= oldMaxY; y += 1) {
+      const row = (y - oldMinY) * width - oldMinX;
+      const pixelRow = y * resolution;
+      for (let x = oldMinX; x <= oldMaxX; x += 1) {
+        const offset = (pixelRow + x) * 4;
+        scratch[row + x] = pixels[offset];
+        pixels[offset] = 0;
+      }
+    }
+    this.#translateInk(shiftX, shiftY);
+    if (ink.maxX < ink.minX) return;
+    for (let y = ink.minY; y <= ink.maxY; y += 1) {
+      const row = (y + shiftY - oldMinY) * width + shiftX - oldMinX;
+      const pixelRow = y * resolution;
+      for (let x = ink.minX; x <= ink.maxX; x += 1) {
+        pixels[(pixelRow + x) * 4] = scratch[row + x];
+      }
+    }
   }
 
   paintSphere(x, y, z, radius, strength = 1) {
@@ -137,6 +234,8 @@ export class InteractionMap {
     const maxX = Math.min(this.resolution - 1, Math.ceil(centerX + pixelRadius));
     const minY = Math.max(0, Math.floor(centerY - pixelRadius));
     const maxY = Math.min(this.resolution - 1, Math.ceil(centerY + pixelRadius));
+    if (maxX < minX || maxY < minY) return;
+    this.#addInk(minX, minY, maxX, maxY);
     const radiusSquared = radius * radius;
 
     for (let py = minY; py <= maxY; py += 1) {
@@ -163,6 +262,7 @@ export class InteractionMap {
   clear() {
     this.#clearPixels(this.pixels);
     this.peak = 0;
+    this.#clearInk();
     this.texture.needsUpdate = true;
   }
 

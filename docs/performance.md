@@ -271,3 +271,9 @@ Loading-time optimization and broader tree-rendering rewrites are separate work.
 Compare each change independently against a baseline recorded with the same backend, viewport, pixel ratio and Ultra settings. Retain a change only when its benefit exceeds run-to-run variation. A repeatable regression above 5% in demanding views is a failure.
 
 Use processing-time percentiles, not FPS alone: a 144 Hz display can hide a 4 ms CPU improvement behind vsync.
+
+On this machine the GPU power state changes per page load and scales every timing by roughly 1.9× with identical work submitted; compare only sessions whose run-0 `bloom` mark is about 0.3 ms, or take the fastest of several sessions per variant.
+
+## Frame-loop caches
+
+`src/core/matrixUpdateCache.js` (installed from `main.js`) skips recomposing the local matrix of objects whose position, quaternion and scale did not change, so the 87% of the scene graph that is static no longer costs a compose and a 4×4 multiply per object per render pass. `src/water/reflectionMask.js` caches the reflection-capture exclusion traverse against the scene-graph version. Both have kill switches (`?matrixCache=0`, `?reflectionMaskCache=0`). Measurements and the smaller per-frame savings are in [Frame-loop CPU performance pass](improvements/frame-cpu-performance-2026-09-14.md).

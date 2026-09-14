@@ -5,9 +5,10 @@ import { createLegacyWaterMaterial } from './LegacyWaterMaterial.js';
 import { createWaterGeometry } from './waterGeometry.js';
 import { createSeaTileGeometries, seaTileStats } from './seaGeometry.js';
 import { RiverDetails } from './RiverDetails.js';
-import { sampleCoastField } from '../world/CoastField.js';
+import { coastDistanceAt } from '../world/CoastField.js';
 import { ReflectionBudget } from './ReflectionBudget.js';
 import { createReflectionCapture } from './WaterReflection.js';
+import { withReflectionMask } from './reflectionMask.js';
 
 export { createReflectionRenderTarget } from './WaterReflection.js';
 
@@ -59,25 +60,6 @@ function mergeWaterConfig(config) {
   return { ...DEFAULT_WATER, ...(config.water ?? {}) };
 }
 
-function withReflectionMask(scene, callback) {
-  const hidden = [], shadows = [];
-  scene.traverse((object) => {
-    if (object.visible && object.userData.excludeFromReflection) {
-      hidden.push(object);
-      object.visible = false;
-    }
-    if (object.isLight && object.shadow) {
-      shadows.push([object.shadow, object.shadow.autoUpdate]);
-      object.shadow.autoUpdate = false;
-    }
-  });
-  try {
-    return callback();
-  } finally {
-    for (const object of hidden) object.visible = true;
-    for (const [shadow, autoUpdate] of shadows) shadow.autoUpdate = autoUpdate;
-  }
-}
 
 export class WaterSurface {
   constructor(scene, renderer, terrainRoot, terrainSampler, config, options = {}) {
@@ -208,13 +190,7 @@ export class WaterSurface {
 
   #coastDistance(position) {
     if (!this.params.sea?.enabled) return Number.NEGATIVE_INFINITY;
-    return sampleCoastField(
-      position.x,
-      position.z,
-      this.rippleElapsed,
-      this.params.sea,
-      this.uniforms?.rain?.value ?? 0,
-    ).signedCoastDistance;
+    return coastDistanceAt(position.x, position.z, this.params.sea);
   }
 
   withReflectionWarmup(render) {
@@ -320,7 +296,7 @@ export class WaterSurface {
     }
     // Inland-only and minimal recovery surfaces do not allocate sea tiles.
     // Tiled sea surfaces report their main-view visibility every frame.
-    if (this.seaTiles?.length) this.#updateVisibleSeaStats(this.camera);
+    if (this.collectStats && this.seaTiles?.length) this.#updateVisibleSeaStats(this.camera);
 
     if (this.reflectionInitialized && (this.enhanced || !this.cinematic || this.quality === 'performance')) return;
     this.reflectionElapsed += delta;

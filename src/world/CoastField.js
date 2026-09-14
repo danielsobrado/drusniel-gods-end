@@ -312,6 +312,12 @@ function swashState(distance, z, phase, sea, rain) {
   return { front, coverage, foam, memory };
 }
 
+// Same value as sampleCoastField().signedCoastDistance without evaluating the
+// swash, moisture and suitability terms.
+export function coastDistanceAt(x, z, seaConfig) {
+  return x - coastX(z, resolveCoastConfig(seaConfig));
+}
+
 export function sampleCoastField(x, z, clock, seaConfig, rain = 0) {
   const sea = resolveCoastConfig(seaConfig);
   const distance = x - coastX(z, sea);

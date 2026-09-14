@@ -289,8 +289,12 @@ export class LeafSystem {
       ? { x: -cinematicWind.direction.z, z: cinematicWind.direction.x }
       : null;
 
+    // Every active leaf writes its instance matrix below (move, respawn or
+    // hide), so the upload is only needed when at least one leaf was active.
+    let wrote = false;
     for (const leaf of this.leaves) {
       if (!leaf.active) continue;
+      wrote = true;
       leaf.time += scaledDelta;
 
       const driftX = Math.sin(leaf.time * leaf.driftSpeed + leaf.phase) * leaf.drift;
@@ -340,7 +344,7 @@ export class LeafSystem {
       this.#updateLeafMatrix(leaf);
     }
 
-    this.mesh.instanceMatrix.needsUpdate = true;
+    if (wrote) this.mesh.instanceMatrix.needsUpdate = true;
   }
 
   dispose() {

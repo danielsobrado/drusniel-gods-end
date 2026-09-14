@@ -119,7 +119,7 @@ export class WorldPropSystem {
     if (lanternSources.length) {
       for (const source of lanternSources) prepareSource(source, propConfig);
       for (const [index, record] of (this.data?.lanterns ?? []).entries()) {
-        const instance = createLantern(this.scene, lanternSources[index % lanternSources.length], record, this.collisionSystem);
+        const instance = createLantern(this.scene, lanternSources[Math.floor(index / 2) % lanternSources.length], record, this.collisionSystem);
         if (instance) this.instances.push(instance);
       }
       for (const source of lanternSources) source.visible = false;

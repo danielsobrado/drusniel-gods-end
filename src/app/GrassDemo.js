@@ -53,7 +53,6 @@ export class GrassDemo {
     this.root = root;
     this.config = config;
     this.clock = new THREE.Clock();
-    this.surface = 'grass';
     this.pixelRatioOverride = null;
     this.pixelRatio = getRendererPixelRatio(config);
     this.abortController = new AbortController();
@@ -546,13 +545,6 @@ export class GrassDemo {
     this.cinematicLighting?.resize();
   }
 
-  #detectSurface() {
-    const position = this.player.getPosition();
-    if (this.water.containsPoint(position, this.player.metrics.rootToFeet)) return 'water';
-    const ecology = this.grass.sampleVegetation(position.x, position.z);
-    return ecology.path >= this.config.vegetation.surfacePathThreshold ? 'mud' : 'grass';
-  }
-
   #render() {
     try {
       this.#renderFrame();
@@ -574,6 +566,7 @@ export class GrassDemo {
     if (this.water) {
       this.water.lastCubeCaptureMs = 0;
       this.water.lastPlanarCaptureMs = 0;
+      this.water.collectStats = profiler !== null;
     }
     const time = profiler ? (name, fn) => profiler.time(name, fn) : (_name, fn) => fn();
 
@@ -587,27 +580,13 @@ export class GrassDemo {
     this.rain.update();
     this.birds.update(deltaSeconds);
 
-    this.surface = this.#detectSurface();
     this.audio.update(deltaSeconds);
     this.collisions.update();
     const playerPosition = this.player.getPosition();
     const influencePoints = this.player.getInfluencePoints();
-    const movementState = this.player.getMovementState(this.surface);
-    time('snow', () => {
-      this.world.snowDeformation?.update(
-        deltaSeconds,
-        playerPosition,
-        influencePoints,
-        movementState.moving,
-      );
-      this.world.snowPowder?.update(
-        deltaSeconds,
-        playerPosition,
-        influencePoints,
-        movementState.moving,
-        movementState.running,
-      );
-    });
+    // Snow deformation and powder are stepped once per frame by
+    // WorldNavigation.update(); stepping them here as well ran their
+    // integration and recovery twice per frame.
     time('grass', () => this.grass.update(
       deltaSeconds,
       elapsedSeconds,
@@ -654,7 +633,7 @@ export class GrassDemo {
       occlusionMs: this.pipeline?.gpuOcclusion.lastPrepareMs ?? 0,
       gpuPrograms: this.gpuCreationProbe?.stats.programs ?? 0,
       gpuPipelines: this.gpuCreationProbe?.stats.pipelines ?? 0,
-      colliders: this.collisions?.colliders?.filter((entry) => entry.active)?.length ?? 0,
+      colliders: this.collisions?.activeCount ?? 0,
       biomeNear: this.biome?.stats?.near ?? 0,
       biomeMid: this.biome?.stats?.mid ?? 0,
       biomeFar: this.biome?.stats?.far ?? 0,

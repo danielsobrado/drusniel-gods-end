@@ -3,6 +3,7 @@ import { RiverCourse } from '../water/RiverCourse.js';
 import { fractalNoise } from '../grass/vegetationEcology.js';
 import { createSeededRandom } from '../core/math.js';
 import { LandscapePaths, forestWeight } from './LandscapePaths.js';
+import { createPathLanternPairs } from './PathLanterns.js';
 import { coastalHeight, sampleCoastField } from './CoastField.js';
 import {
   alpineDistance,
@@ -177,5 +178,6 @@ export function adaptLandscapeRecords(trees, props, expansion, terrain) {
     if (!alpineTreeAllowed(px, py, pz, alpine)) continue;
     result.push([px, py, pz, random() * Math.PI * 2, 1.05 + random() * 0.65, Math.floor(random() * 9)]);
   }
-  return { trees: result, props: { stones: rebase(props.stones), lanterns: rebase(props.lanterns) } };
+  return { trees: result, props: { stones: rebase(props.stones),
+    lanterns: createPathLanternPairs(rebase(props.lanterns), expansion.paths, terrain, river) } };
 }

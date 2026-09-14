@@ -189,8 +189,15 @@ export class WildGrassSystem {
     this.ready = false;
   }
 
+  // Resolved settings are never mutated, so cache them per preset/quality pair
+  // instead of re-merging the defaults, quality tier and preset every frame.
   #settings() {
-    return resolveWildGrassSettings(this.config, this.presetName, this.qualityName);
+    if (this.settingsCache && this.settingsCachePreset === this.presetName
+      && this.settingsCacheQuality === this.qualityName) return this.settingsCache;
+    this.settingsCache = resolveWildGrassSettings(this.config, this.presetName, this.qualityName);
+    this.settingsCachePreset = this.presetName;
+    this.settingsCacheQuality = this.qualityName;
+    return this.settingsCache;
   }
 
   #applySettings() {

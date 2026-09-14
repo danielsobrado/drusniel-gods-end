@@ -9,7 +9,7 @@
       "author": "Existing project tree assets; root geometry and trunk deformation authored in this repository",
       "license": "Derivative: retains the existing source assets' rights; no new license grant",
       "attribution": "Retain all upstream attribution associated with the original project tree assets",
-      "changes": "Curved trunks, flared bases, seven tapered roots merged into each bark primitive; original leaf textures and billboard assets retained"
+      "changes": "Curved trunks, flared bases, seven merged roots; user-provided stylized bark and foliage from assets-source/stylized-textures; regenerated distant atlases"
     },
     {
       "files": ["rocks.glb"],
@@ -21,10 +21,10 @@
     },
     {
       "files": ["lantern.glb"],
-      "internalSource": "scripts/wooden-lanterns.mjs; wood color texture from public/Assets/terrain/trees/tree1.glb",
-      "author": "Original procedural geometry authored in this repository; existing project bark texture",
-      "license": "Geometry is original project work; the reused bark texture retains its source rights",
-      "attribution": "Retain upstream attribution associated with the original project tree texture",
+      "internalSource": "scripts/wooden-lanterns.mjs; user-provided bark-knotted texture; existing stylized rock pack texture and UV geometry",
+      "author": "Original procedural supports; user-provided ChatGPT bark artwork; existing project rock pack",
+      "license": "Support geometry is original project work; user-provided bark artwork; reused rock geometry and texture retain source rights",
+      "attribution": "Retain upstream attribution associated with the original project rock pack",
       "changes": "Three wooden supports: timber crossbeam, twisted woodland staff, and braced roadside post; stone footings and three distinct warm lantern cages"
     }
   ]

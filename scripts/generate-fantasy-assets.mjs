@@ -154,5 +154,9 @@ for (let type = 1; type <= 9; type++) {
 const lantern = new Document();
 const treeDoc = await io.read(base + '/trees/tree1.glb');
 const bark = treeDoc.getRoot().listMaterials().find(m => m.getAlphaMode() === "OPAQUE");
-buildWoodenLanterns(lantern, setGeometry, bark.getBaseColorTexture());
+bark.getBaseColorTexture().setImage(stylizedTextures.get('bark-knotted')).setMimeType('image/jpeg');
+const footing = rocks.getRoot().listNodes().find(n => n.getName().startsWith('SM_Rocks_06_')).getMesh().listPrimitives()[0];
+buildWoodenLanterns(lantern, setGeometry, bark.getBaseColorTexture(), {
+  geometry: geometryOf(footing), texture: footing.getMaterial().getBaseColorTexture(),
+});
 await save(lantern, "lantern");

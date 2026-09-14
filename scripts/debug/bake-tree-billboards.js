@@ -32,7 +32,17 @@ window.__billboardBaker = (async () => {
     },
     async render(side) {
       // The authored low meshes contain two four-vertex atlas cards.
-      const ids = Array.from({ length: uv.count }, (_, i) => i).filter(i => (uv.getX(i) < 0.5 ? 0 : 1) === side);
+      const groups = [];
+      const indices = mesh.geometry.index.array;
+      for (let i=0;i<indices.length;i+=3) {
+        const triangle = [indices[i],indices[i+1],indices[i+2]];
+        const touching = groups.filter(group => triangle.some(vertex => group.has(vertex)));
+        const combined = new Set([...triangle,...touching.flatMap(group=>[...group])]);
+        for (const group of touching) groups.splice(groups.indexOf(group),1);
+        groups.push(combined);
+      }
+      groups.sort((a,b)=>[...a].reduce((sum,i)=>sum+uv.getX(i),0)/a.size-[...b].reduce((sum,i)=>sum+uv.getX(i),0)/b.size);
+      const ids = [...groups[side]];
       if (ids.length !== 4) throw new Error(`Expected four billboard corners, got ${ids.length}`);
       const u0 = Math.min(...ids.map(i => uv.getX(i))), u1 = Math.max(...ids.map(i => uv.getX(i)));
       const v0 = Math.min(...ids.map(i => uv.getY(i))), v1 = Math.max(...ids.map(i => uv.getY(i)));

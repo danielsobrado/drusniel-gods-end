@@ -60,7 +60,8 @@ export class FootPlacement {
 
   update(grounded, solesY) {
     if (!grounded) return;
-    this.model.updateWorldMatrix(true, true);
+    // getWorldPosition / getWorldQuaternion refresh the ancestor chain of the
+    // bones they read, so a full-rig world-matrix pass here was redundant.
     for (const chain of this.chains) {
       chain.foot.getWorldPosition(this.foot);
       // Leave the raised foot of a stride untouched.

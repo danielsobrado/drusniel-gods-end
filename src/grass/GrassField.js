@@ -4,7 +4,8 @@ import { loadGrassAtlas } from './GrassAtlas.js';
 import {
   LOD_ORDER,
   computeGrassGrid,
-  selectGrassLod,
+  grassLodThresholds,
+  selectGrassLodFromThresholds,
   terrainTileKey,
   tileDistanceSquared,
   tileOverlapsTerrain,
@@ -42,6 +43,7 @@ export class GrassField {
     this.tileBoxMin = new THREE.Vector3();
     this.tileBoxMax = new THREE.Vector3();
     this.emptyGrassTiles = new Set();
+    this.lodThresholds = [];
     this.vegetation = new ProceduralVegetationField(config, terrainSampler, trees);
     this.layoutRevision = 0;
     this.coastalJungleRuntimeActive = isCoastalJungleRuntimeActive(config);
@@ -304,6 +306,17 @@ export class GrassField {
       this.terrainSampler.size.z,
       this.config.grass.tileSize,
     );
+    for (const tile of this.tiles) this.#refreshTileEmpty(tile);
+  }
+
+  // Cached per tile because it only depends on the tile position and the
+  // empty-tile set; evaluating it per frame built a string key per tile.
+  #refreshTileEmpty(tile) {
+    const { x, z } = tile.mesh.position;
+    const tileSize = this.config.grass.tileSize;
+    const bounds = this.terrainSampler.bounds;
+    tile.isEmpty = !tileOverlapsTerrain(x, z, tileSize, bounds)
+      || this.emptyGrassTiles.has(terrainTileKey(x, z, tileSize, bounds));
   }
 
   #repositionTiles(centerTileX, centerTileZ) {
@@ -330,6 +343,7 @@ export class GrassField {
         const range = this.terrainSampler.getHeightRange(this.tileBox);
         tile.minHeight = range.min;
         tile.maxHeight = range.max;
+        this.#refreshTileEmpty(tile);
       }
     }
   }
@@ -358,56 +372,51 @@ export class GrassField {
     const quality = this.#getQuality();
     const maxDistance = quality.maxDistance;
     const maxDistanceSquared = maxDistance * maxDistance;
-    const bounds = this.terrainSampler.bounds;
     const bladeHeight = Number(this.materialController.uniforms.bladeHeight.value) * (this.referenceState ? 2.6 : 1);
 
     this.camera.updateMatrixWorld();
     this.projectionView.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
     this.frustum.setFromProjectionMatrix(this.projectionView, this.camera.coordinateSystem);
-    Object.assign(this.stats, {
-      visibleTiles: 0, submittedBlades: 0, proceduralCulledBlades: 0,
-      compactionMs: 0, compactionTiles: 0,
-      shareVertices: this.shareVertices,
-    });
+    const stats = this.stats;
+    stats.visibleTiles = 0;
+    stats.submittedBlades = 0;
+    stats.proceduralCulledBlades = 0;
+    stats.compactionMs = 0;
+    stats.compactionTiles = 0;
+    stats.shareVertices = this.shareVertices;
     this.materialController.setFrame(elapsedSeconds, this.camera.position);
     this.materialController.setViewProjection(this.projectionView);
 
+    const boundingBox = this.geometries.high.boundingBox;
+    const lodThresholds = grassLodThresholds(maxDistance, quality.lod, this.lodThresholds);
+    const cameraX = this.camera.position.x;
+    const cameraZ = this.camera.position.z;
+    const tempBox = this.tempBox;
+
     for (const tile of this.tiles) {
+      if (tile.isEmpty) {
+        tile.setVisible(false);
+        continue;
+      }
+
       const { x, z } = tile.mesh.position;
-      if (!tileOverlapsTerrain(x, z, tileSize, bounds)) {
-        tile.setVisible(false);
-        continue;
-      }
-
-      if (this.emptyGrassTiles.has(terrainTileKey(x, z, tileSize, bounds))) {
-        tile.setVisible(false);
-        continue;
-      }
-
-      const distanceSquared = tileDistanceSquared(
-        this.camera.position.x,
-        this.camera.position.z,
-        x,
-        z,
-        tileSize,
-      );
+      const distanceSquared = tileDistanceSquared(cameraX, cameraZ, x, z, tileSize);
       if (distanceSquared >= maxDistanceSquared) {
         tile.setVisible(false);
         continue;
       }
 
-      tile.mesh.updateMatrixWorld();
-      const boundingBox = this.geometries.high.boundingBox;
       if (!boundingBox) continue;
-      this.tempBox.copy(boundingBox).applyMatrix4(tile.mesh.matrixWorld);
-      this.tempBox.min.y = tile.minHeight - bladeHeight;
-      this.tempBox.max.y = tile.maxHeight + bladeHeight;
-      this.tempBox.expandByScalar(bladeHeight);
-      tile.mesh.userData.occlusionBounds.copy(this.tempBox);
-      tile.setVisible(this.frustum.intersectsBox(this.tempBox));
+      // The tile mesh is a pure translation of the shared template, so offsetting
+      // the template bounds equals Box3.applyMatrix4 with the tile matrix.
+      tempBox.min.set(boundingBox.min.x + x, tile.minHeight - bladeHeight, boundingBox.min.z + z);
+      tempBox.max.set(boundingBox.max.x + x, tile.maxHeight + bladeHeight, boundingBox.max.z + z);
+      tempBox.expandByScalar(bladeHeight);
+      tile.mesh.userData.occlusionBounds.copy(tempBox);
+      tile.setVisible(this.frustum.intersectsBox(tempBox));
       if (!tile.mesh.visible) continue;
 
-      const lodName = selectGrassLod(distanceSquared, maxDistance, quality.lod);
+      const lodName = selectGrassLodFromThresholds(distanceSquared, lodThresholds);
       const compacted = tile.setGeometry(this.geometries[lodName], lodName, this.containsGrass, this.layoutRevision);
       if (compacted) {
         this.stats.compactionMs += tile.lastCompactionMs;

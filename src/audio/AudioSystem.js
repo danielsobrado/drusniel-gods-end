@@ -184,6 +184,7 @@ export class AudioSystem {
   }
 
   stopAll() {
+    this.footsteps?.update(0, false);
     this.ambient.stopAll();
     this.randomEmitters.stopAll();
   }

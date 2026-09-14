@@ -56,3 +56,21 @@ export function selectGrassLod(distanceSquared, maxDistance, lod) {
   }
   return 'veryLow';
 }
+
+// Flat [name, thresholdSquared, name, thresholdSquared, ...] list so the per-tile
+// loop compares against precomputed squares. Same arithmetic as selectGrassLod.
+export function grassLodThresholds(maxDistance, lod, target = []) {
+  target.length = 0;
+  for (const name of LOD_ORDER) {
+    const threshold = lod[name].distance * maxDistance;
+    target.push(name, threshold * threshold);
+  }
+  return target;
+}
+
+export function selectGrassLodFromThresholds(distanceSquared, thresholds) {
+  for (let index = 0; index < thresholds.length; index += 2) {
+    if (distanceSquared < thresholds[index + 1]) return thresholds[index];
+  }
+  return 'veryLow';
+}

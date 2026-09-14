@@ -73,7 +73,7 @@ test('three wooden lantern styles share one wood texture and five materials', as
   assert.equal(doc.getRoot().listMaterials().length, 5);
   const glass = doc.getRoot().listMaterials().find(m => /Amber/.test(m.getName()));
   assert.ok(glass.getEmissiveFactor()[0] > 0.5);
-  assert.equal(doc.getRoot().listTextures().length, 1, 'wood texture shared by all three supports');
+  assert.equal(doc.getRoot().listTextures().length, 2, 'wood and painted stone textures shared by all three supports');
 });
 
 test('world placements cycle through all three lantern styles with shared materials', () => {
@@ -90,7 +90,7 @@ test('world placements cycle through all three lantern styles with shared materi
     data: { lanterns: Array.from({ length: 20 }, (_, i) => [i * 10, 0, 0, 0]) },
   }).init();
   try {
-    assert.deepEqual(names.map(name => system.instances.filter(o => o.name === name).length), [7, 7, 6]);
+    assert.deepEqual(names.map(name => system.instances.filter(o => o.name === name).length), [8, 6, 6]);
     assert.ok(root.children.every(o => !o.visible));
     assert.ok(system.instances.every(o => o.visible && o.children[0].material === material));
     assert.deepEqual(system.instances.map(o => o.position.x), Array.from({ length: 20 }, (_, i) => i * 10));

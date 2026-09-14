@@ -2,14 +2,15 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 /** Original wooden supports and three lantern silhouettes, baked offline. */
-export function buildWoodenLanterns(doc, setGeometry, barkTexture) {
+export function buildWoodenLanterns(doc, setGeometry, barkTexture, stoneSource) {
   const scene = doc.createScene();
   const texture = doc.createTexture('Weathered wood').setImage(barkTexture.getImage()).setMimeType(barkTexture.getMimeType());
   const wood = doc.createMaterial('Weathered oak').setBaseColorTexture(texture).setBaseColorFactor([0.85, 0.68, 0.45, 1]).setRoughnessFactor(0.95).setMetallicFactor(0);
   const iron = doc.createMaterial('Forged dark iron').setBaseColorFactor([0.055, 0.067, 0.065, 1]).setMetallicFactor(0.72).setRoughnessFactor(0.48);
   const brass = doc.createMaterial('Aged brass fittings').setBaseColorFactor([0.38, 0.22, 0.065, 1]).setMetallicFactor(0.75).setRoughnessFactor(0.4);
   const amber = doc.createMaterial('Amber lantern glass').setBaseColorFactor([0.8, 0.33, 0.065, 1]).setEmissiveFactor([1, 0.42, 0.09]).setRoughnessFactor(0.3);
-  const stone = doc.createMaterial('Foundation stone').setBaseColorFactor([0.28, 0.32, 0.3, 1]).setMetallicFactor(0).setRoughnessFactor(1);
+  const stoneTexture = doc.createTexture('Painted foundation stone').setImage(stoneSource.texture.getImage()).setMimeType(stoneSource.texture.getMimeType());
+  const stone = doc.createMaterial('Foundation stone').setBaseColorTexture(stoneTexture).setMetallicFactor(0).setRoughnessFactor(1);
   const names = ['Lantern', 'LanternWoodland', 'LanternRoadside'];
   for (let style = 0; style < 3; style++) {
     const root = doc.createNode(names[style]).setExtras({ lanternStyle: ['Timber crossbeam', 'Twisted woodland', 'Braced roadside'][style] });
@@ -31,7 +32,13 @@ export function buildWoodenLanterns(doc, setGeometry, barkTexture) {
     // Irregular masonry footing, rather than a miniature display plinth.
     for (let tier = 0; tier < 2; tier++) for (let i = 0; i < 6; i++) {
       const a = i / 6 * Math.PI * 2 + tier * 0.4;
-      const block = new THREE.DodecahedronGeometry(0.24 + (i % 3) * 0.02);
+      const block = stoneSource.geometry.clone();
+      block.computeBoundingBox();
+      const center = block.boundingBox.getCenter(new THREE.Vector3());
+      const size = block.boundingBox.getSize(new THREE.Vector3());
+      const diameter = 0.48 + (i % 3) * 0.04;
+      block.translate(-center.x, -center.y, -center.z);
+      block.scale(diameter / size.x, diameter / size.y, diameter / size.z);
       block.scale(1, 0.75, 0.85); block.rotateY(a);
       add(stone, block, Math.cos(a) * (0.34 - tier * 0.07), 0.14 + tier * 0.23, Math.sin(a) * (0.34 - tier * 0.07));
     }

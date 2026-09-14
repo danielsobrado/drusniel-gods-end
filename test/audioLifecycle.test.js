@@ -24,10 +24,12 @@ test('re-enabling audio restarts both ambient and random schedulers', () => {
   let randomStarts = 0;
   let ambientStops = 0;
   let randomStops = 0;
+  let footstepStops = 0;
   const audio = {
     enabled: true,
     started: true,
     currentPreset: 'sunny',
+    footsteps: { update: (_delta, enabled) => { if (!enabled) footstepStops++; } },
     ambient: {
       start: () => ambientStarts++,
       stopAll: () => ambientStops++,
@@ -42,6 +44,7 @@ test('re-enabling audio restarts both ambient and random schedulers', () => {
   AudioSystem.prototype.setEnabled.call(audio, false);
   assert.equal(ambientStops, 1);
   assert.equal(randomStops, 1);
+  assert.equal(footstepStops, 1);
 
   AudioSystem.prototype.setEnabled.call(audio, true);
   assert.equal(ambientStarts, 1);

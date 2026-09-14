@@ -129,4 +129,6 @@ The audio subsystem does not own the camera, scene or player controller.
 
 ## Parity boundary
 
+Current footstep corrections: character setup samples each selected walk/run clip's foot heights once to derive landing phases; unsupported rigs retain the configured phase fallback. Playback follows the active animation time, including its speed adjustment. The grass source files include multi-step recordings, so decoding extracts one impact (up to 0.4 seconds), trims the lead-in and fades the tail without modifying shared source buffers. Idle, airborne, disabled controls/audio and frame gaps above 0.25 seconds cancel active footsteps and reset phase tracking. No delayed contact is replayed on resumption.
+
 The target is recovered observable audio behavior and scene awareness, not the unavailable original class/file layout. Missing source audio assets remain a documented asset gap rather than a reason to invent replacements.

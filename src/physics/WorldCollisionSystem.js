@@ -230,7 +230,9 @@ export class WorldCollisionSystem {
     for (const entry of this.colliders) {
       if (entry.group !== group) continue;
       entry.groupEnabled = on;
-      entry.collider?.setEnabled(on && entry.active);
+      if (!entry.collider) continue;
+      entry.enabled = on && entry.active;
+      entry.collider.setEnabled(entry.enabled);
     }
   }
 
@@ -260,6 +262,7 @@ export class WorldCollisionSystem {
     entry.collider = collider;
     entry.retained = true;
     collider.setEnabled(false);
+    entry.enabled = false;
   }
 
   #unloadPrepared(entry) {
@@ -274,6 +277,7 @@ export class WorldCollisionSystem {
   update() {
     if (!this.player) return;
     this.player.getWorldPosition(this.playerPosition);
+    let activeCount = 0;
 
     for (const entry of this.colliders) {
       const dx = this.playerPosition.x - entry.position.x;
@@ -299,9 +303,15 @@ export class WorldCollisionSystem {
         entry.active = true;
       }
 
+      if (entry.active) activeCount += 1;
       const enabled = entry.active && entry.groupEnabled !== false;
-      entry.collider?.setEnabled(enabled);
+      // Only cross into Rapier when the enabled state actually changes.
+      if (entry.collider && entry.enabled !== enabled) {
+        entry.collider.setEnabled(enabled);
+        entry.enabled = enabled;
+      }
     }
+    this.activeCount = activeCount;
   }
 
   dispose() {

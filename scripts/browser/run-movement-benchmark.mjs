@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 
 const label = process.argv[2] ?? 'current';
 const port = Number(process.argv[3] ?? 5173);
@@ -164,7 +165,8 @@ try {
           cpu: run.processing, interval: run.interval, compaction: run.compactionMs,
           grassMiB: run.memory.grassBytes / 1048576, renderError: run.renderError }));
       }
-      if (quality === 'high') await page.screenshot({ path: new URL(`${label}-${scenario.id}.png`, out).pathname });
+      // URL.pathname yields "/F:/..." on Windows, which Playwright resolves to a bogus drive path.
+      if (quality === 'high') await page.screenshot({ path: fileURLToPath(new URL(`${label}-${scenario.id}.png`, out)) });
     }
   }
   if (report.errors.length) throw new Error(`Browser emitted ${report.errors.length} errors`);

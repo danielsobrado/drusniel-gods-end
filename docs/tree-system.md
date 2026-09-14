@@ -17,9 +17,11 @@ Falling detached leaves are handled separately by `LeafSystem`.
 
 ## Current model upgrades
 
-The active GLBs are `Assets/terrain/fantasy/tree1.glb` through `tree9.glb`, generated offline by `npm run assets:fantasy` from the preserved tree splits. Each high-detail model adds a flared trunk base, seven tapered, curved roots, and a gentle trunk/branch sweep. Roots reuse the bark texture and are merged into the bark primitive, keeping two high-detail meshes and the existing shared materials. The nine GLBs total about 5.08 MB versus 4.85 MB for their sources.
+The active GLBs are `Assets/terrain/fantasy/tree1.glb` through `tree9.glb`, generated offline by `npm run assets:fantasy` from the preserved tree splits. Each high-detail model adds a flared trunk base, seven tapered, curved roots, and a gentle trunk/branch sweep. Roots reuse the bark texture and are merged into the bark primitive, keeping two high-detail meshes and the existing shared materials. The nine GLBs total about 5.28 MB versus 5.08 MB before the new textures (4.85 MB for the original models).
 
-`trees.shapeVariation` in `tree-rendering.yaml` gives each placement stable, independent width, depth and height proportions. This varies meadow crowns without duplicating geometry or shader materials. The same proportions apply to billboard transforms and trunk collider dimensions. The original far billboard images are retained; root detail is only present in the near representation. The asset review page is `/scripts/debug/fantasy-assets.html`.
+`trees.shapeVariation` in `tree-rendering.yaml` gives each placement stable, independent width, depth and height proportions. This varies meadow crowns without duplicating geometry or shader materials. The same proportions apply to billboard transforms and trunk collider dimensions. The asset review page is `/scripts/debug/fantasy-assets.html`.
+
+Seven user-supplied paintings are preserved in `assets-source/stylized-textures`. The texture preparation script exports 512-square JPEG bark and transparent indexed PNG foliage, about 0.83 MB combined. Four bark patterns and three leaf palettes replace the photographic maps; leaf UVs turn to match the new sprig attachment. Distant atlases are rebaked from the upgraded geometry and colors, with updated quad bounds. To regenerate after artwork changes: run `npm run assets:fantasy`, start Vite on port 5173, run `npm run assets:tree-billboards`, then run `npm run assets:fantasy` again to embed the atlases. The baker requires the browser harness dependencies (`npm ci --prefix scripts/browser`). Atlas metadata includes a source hash; stale atlases are not embedded.
 
 ## Original placement source
 

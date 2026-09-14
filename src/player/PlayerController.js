@@ -7,6 +7,7 @@ import { clampCameraAboveTerrain } from './cameraTerrain.js';
 import { MobileControls } from './MobileControls.js';
 import { PlayerPhysics } from './PlayerPhysics.js';
 import { createLocomotionClips, FootPlacement } from './CharacterMotion.js';
+import { measureFootstepContacts } from './FootstepContacts.js';
 import { ResourceScope, captureObjectResources } from '../utils/ResourceScope.js';
 
 const MOVEMENT_KEYS = new Set([
@@ -286,7 +287,10 @@ export class PlayerController {
       requested.run = find(/run/i) ?? requested.run;
     }
     const actions = Object.fromEntries(clips.map((clip) => [clip.name, mixer.clipAction(clip)]));
+    const footsteps = Object.fromEntries(['walk', 'run'].map(kind => [kind,
+      measureFootstepContacts(this.model, actions[requested[kind]]?.getClip())]));
     this.animation = {
+      footsteps,
       mixer,
       actions,
       names: {
@@ -589,7 +593,13 @@ export class PlayerController {
       + this.metrics.groundOffset;
   }
 
+  // Cached in handleResize(): reading window.innerWidth every frame is a layout
+  // read that can force a synchronous style flush after HUD text updates.
   #targetOffset() {
+    return this.cachedTargetOffset ?? this.#computeTargetOffset();
+  }
+
+  #computeTargetOffset() {
     const breakpoint = this.cameraControls.mobileBreakpoint ?? MOBILE_BREAKPOINT;
     return window.innerWidth > breakpoint
       ? window.innerWidth * this.cameraControls.desktopTargetOffsetFactor
@@ -658,6 +668,7 @@ export class PlayerController {
   handleResize() {
     const breakpoint = this.cameraControls.mobileBreakpoint ?? MOBILE_BREAKPOINT;
     const mobile = window.innerWidth < breakpoint;
+    this.cachedTargetOffset = this.#computeTargetOffset();
     const baseDistance = mobile
       ? this.cameraControls.mobileDistance
       : this.cameraControls.desktopDistance;

@@ -15,13 +15,16 @@ export class GrassTile {
     this.mesh.userData.excludeFromReflection = true;
     this.mesh.userData.occlusionBounds = new THREE.Box3();
     this.mesh.frustumCulled = false;
+    // The tile only moves in setPosition(), which recomposes the local matrix
+    // itself; skipping auto-update saves a compose per tile per render pass.
+    this.mesh.matrixAutoUpdate = false;
     this.mesh.castShadow = false;
     this.mesh.receiveShadow = true;
     this.mesh.userData.currentLOD = 'veryLow';
     this.mesh.userData.tileX = 0;
     this.mesh.userData.tileZ = 0;
-    // Set by GrassField.remapEmptyTiles(); false until then, matching the
-    // previous "key absent from the emptyTiles set means visible" behavior.
+    // Maintained by GrassField (tile repositioning and remapEmptyTiles): true
+    // when the tile lies outside the terrain or in the empty-tile set.
     this.isEmpty = false;
     scene.add(this.mesh);
   }
@@ -32,6 +35,7 @@ export class GrassTile {
       this.discardStaging();
     }
     this.mesh.position.set(x, 0, z);
+    this.mesh.updateMatrix();
     this.mesh.userData.tileX = tileX;
     this.mesh.userData.tileZ = tileZ;
   }

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { assetUrl } from '../assets/assetUrl.js';
 import { logger } from '../utils/logger.js';
 import { animationPhaseCrossed, classifyTerrainBlend, randomRange } from './audioUtils.js';
+import { prepareFootstepBuffer } from './footstepBuffer.js';
 
 const MOVEMENT_EPSILON = 0.1;
 const VELOCITY_EPSILON_SQ = 0.0001;
@@ -50,9 +51,9 @@ export class FootstepAudioSystem {
     for (const surface of ['grass', 'mud', 'water']) {
       for (const path of this.config[surface]?.sounds ?? []) paths.add(path);
     }
-    await Promise.all([...paths].map(async (path) => {
+    await Promise.all([...paths].map(async (path, index) => {
       const buffer = await this.loadBuffer(path);
-      if (buffer && !this.disposed) this.buffers.set(path, buffer);
+      if (buffer && !this.disposed) this.buffers.set(path, prepareFootstepBuffer(buffer, this.listener.context, index));
     }));
   }
 
@@ -61,7 +62,7 @@ export class FootstepAudioSystem {
     state.timeSinceLastStep += deltaSeconds;
     const mixer = this.controls?.mixer ?? this.controls?.animation?.mixer;
     const activeAction = this.controls?.activeAction ?? this.controls?.animation?.current;
-    if (!enabled || !mixer || !activeAction) {
+    if (!enabled || this.controls?.enabled === false || !mixer || !activeAction || deltaSeconds > 0.25) {
       this.#resetAnimationState();
       return;
     }
@@ -69,7 +70,7 @@ export class FootstepAudioSystem {
       this.#resetAnimationState();
       return;
     }
-    if ((this.controls.horizontalVelocity?.length() ?? 0) < MOVEMENT_EPSILON) {
+    if (this.controls.moving === false || (this.controls.horizontalVelocity?.length() ?? 0) < MOVEMENT_EPSILON) {
       this.#resetAnimationState();
       return;
     }
@@ -105,7 +106,7 @@ export class FootstepAudioSystem {
 
     const previousTime = state.previousTime;
     const wrapped = normalizedTime < previousTime;
-    const steps = this.config.animation?.[movement]?.steps;
+    const steps = this.controls.animation?.footsteps?.[movement] ?? this.config.animation?.[movement]?.steps;
     if (!steps) {
       state.previousTime = normalizedTime;
       return;
@@ -127,6 +128,7 @@ export class FootstepAudioSystem {
   }
 
   #resetAnimationState() {
+    this.#stopOneShots();
     this.state.lastAnimation = null;
     this.state.previousTime = null;
     this.state.lastPhase = null;
@@ -269,13 +271,17 @@ export class FootstepAudioSystem {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    this.#stopOneShots();
+    this.buffers.clear();
+    this.terrainBlendPixels = null;
+  }
+
+  #stopOneShots() {
     for (const [audio, timer] of this.oneShots) {
       window.clearTimeout(timer);
       if (audio.isPlaying) audio.stop();
       audio.disconnect();
     }
     this.oneShots.clear();
-    this.buffers.clear();
-    this.terrainBlendPixels = null;
   }
 }

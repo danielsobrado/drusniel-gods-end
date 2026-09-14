@@ -7,6 +7,14 @@ import { ExplorationSpeedMode } from './player/ExplorationSpeedMode.js';
 import { RendererRecovery } from './rendering/RendererRecovery.js';
 import { resolveRendererRequest } from './rendering/RendererSession.js';
 import { SurfaceAnisotropyController } from './rendering/SurfaceAnisotropyController.js';
+import { installMatrixUpdateCache } from './core/matrixUpdateCache.js';
+import { setReflectionMaskCacheEnabled } from './water/reflectionMask.js';
+
+// Debug kill-switches for the frame-loop caches: ?matrixCache=0 and
+// ?reflectionMaskCache=0 restore the unpatched three.js behavior.
+const startupParams = new URLSearchParams(window.location.search);
+if (startupParams.get('matrixCache') !== '0') installMatrixUpdateCache();
+if (startupParams.get('reflectionMaskCache') === '0') setReflectionMaskCacheEnabled(false);
 
 async function bootstrap() {
   const root = document.querySelector('#app');

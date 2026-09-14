@@ -101,15 +101,34 @@ export class CoastalJungleCulling {
       (left, right) => left.center.distanceToSquared(camera.position) - right.center.distanceToSquared(camera.position),
     );
 
+    // Visibility limit and (for non-grass kinds) keep fraction depend only on
+    // the kind, so resolve them once per kind per update instead of per record.
+    const kindInfo = this.kindInfo ??= new Map();
+    kindInfo.clear();
+
     for (const chunk of visibleChunks) {
       for (const entry of chunk.records) {
         const { record } = entry;
         if (!this.frustum.intersectsSphere(record.sphere)) continue;
-        const distance = record.position.distanceTo(camera.position);
-        const limit = coastalJungleVisibilityLimit(record.kind, render, quality);
-        const padding = isCoastalJungleTreeKind(record.kind) ? record.sphere.radius : NON_TREE_DISTANCE_PADDING;
-        if (distance > limit + padding) continue;
-        if (record.stableFraction > coastalJungleKeepFraction(record.kind, distance, render, quality)) continue;
+        let info = kindInfo.get(record.kind);
+        if (info === undefined) {
+          info = {
+            limit: coastalJungleVisibilityLimit(record.kind, render, quality),
+            tree: isCoastalJungleTreeKind(record.kind),
+            grass: record.kind === 'grass',
+            keep: coastalJungleKeepFraction(record.kind, 0, render, quality),
+          };
+          kindInfo.set(record.kind, info);
+        }
+        const padding = info.tree ? record.sphere.radius : NON_TREE_DISTANCE_PADDING;
+        const reach = info.limit + padding;
+        const distanceSquared = record.position.distanceToSquared(camera.position);
+        // Conservative squared early-out; the exact comparison below is unchanged.
+        if (distanceSquared > reach * reach * 1.000001 + 1e-6) continue;
+        const distance = Math.sqrt(distanceSquared);
+        if (distance > reach) continue;
+        const keep = info.grass ? coastalJungleKeepFraction(record.kind, distance, render, quality) : info.keep;
+        if (record.stableFraction > keep) continue;
 
         if (entry.batch) {
           this.matrix.fromArray(record.matrix);

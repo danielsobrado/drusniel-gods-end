@@ -91,6 +91,7 @@ Saved implementation plans and review evidence:
 - [Coast fixes](plans/coast-fixes.md) — shared swash and wetness, configurable beach materials, sea tiles, sparse ecology, and validation.
 - [Offshore waves](plans/offshore-waves.md) — Windrose-inspired swells, filtered surface detail, whitecaps, transmission, and live sky reflections.
 - [Coast implementation review](improvements/coast-review-2026-09-12.md) — corrected findings, local rendering checks, performance comparison, and validation limits.
+- [Frame-loop CPU performance pass](improvements/frame-cpu-performance-2026-09-14.md) — static matrix cache, reflection-mask cache, grass tile and interaction-map savings, fixed double snow update, before/after captures.
 
 ## Documentation quality contract
 
