@@ -5,6 +5,7 @@ import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 import { fxaa } from 'three/addons/tsl/display/FXAANode.js';
 import { GpuOcclusion } from './GpuOcclusion.js';
 import { createDepthNormals } from './DepthNormals.js';
+import { withSceneWarmup } from './SceneWarmup.js';
 import {
   accountComposite,
   applyCpuMarks,
@@ -56,6 +57,26 @@ export class CinematicPipeline {
       : name === 'balanced' || (this.settings.samples ?? 4) < 2 ? this.smoothedOutput : this.richOutput;
     this.aoStrength.value = this.settings.aoStrength * (name === 'balanced' ? 0.75 : 1);
     this.post.needsUpdate = true;
+  }
+
+  async warmup({ water, signal, nextFrame = () => new Promise(requestAnimationFrame) } = {}) {
+    signal?.throwIfAborted();
+    // PassNode updates once per renderer frame, including during loading.
+    await nextFrame();
+    signal?.throwIfAborted();
+    const started = performance.now();
+    const counts = withSceneWarmup(this.world.scene, () => {
+      const render = () => this.render({ occlusionEnabled: false });
+      if (water) water.withReflectionWarmup(render);
+      else render();
+    });
+    const cpuMs = performance.now() - started;
+    await this.world.renderer.backend?.device?.queue.onSubmittedWorkDone();
+    this.warmupStats = { ...counts, cpuMs, elapsedMs: performance.now() - started };
+    signal?.throwIfAborted();
+    // Allow a real opening-view render to replace the empty preparation pass.
+    await nextFrame();
+    signal?.throwIfAborted();
   }
 
   #installCpuHooks() {

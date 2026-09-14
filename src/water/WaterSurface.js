@@ -169,9 +169,10 @@ export class WaterSurface {
     this.mesh.add(this.planar.target);
     const updateLake = this.planar.reflector.updateBefore.bind(this.planar.reflector);
     this.planar.reflector.updateBefore = (frame) => {
-      if (!this.reflectionInitialized || frame.camera !== camera || this.quality !== 'ultra') return;
-      if (this.#coastDistance(frame.camera.position) > -60) return;
-      if (!this.lakeReflectionBudget.shouldRender(frame.camera, this.quality, performance.now())) return;
+      if (frame.camera !== camera) return;
+      if (!this.warmingReflections && (!this.reflectionInitialized || this.quality !== 'ultra'
+        || this.#coastDistance(frame.camera.position) > -60)) return;
+      if (!this.lakeReflectionBudget.shouldRender(frame.camera, this.warmingReflections ? 'ultra' : this.quality, performance.now())) return;
       withReflectionMask(this.scene, () => {
         const started = performance.now();
         updateLake(frame);
@@ -192,9 +193,10 @@ export class WaterSurface {
     this.mesh.add(this.seaPlanar.target);
     const updateSea = this.seaPlanar.reflector.updateBefore.bind(this.seaPlanar.reflector);
     this.seaPlanar.reflector.updateBefore = (frame) => {
-      if (!this.reflectionInitialized || frame.camera !== camera || this.quality !== 'ultra') return;
-      if (this.#coastDistance(frame.camera.position) < -350) return;
-      if (!this.seaReflectionBudget.shouldRender(frame.camera, this.quality, performance.now())) return;
+      if (frame.camera !== camera) return;
+      if (!this.warmingReflections && (!this.reflectionInitialized || this.quality !== 'ultra'
+        || this.#coastDistance(frame.camera.position) < -350)) return;
+      if (!this.seaReflectionBudget.shouldRender(frame.camera, this.warmingReflections ? 'ultra' : this.quality, performance.now())) return;
       withReflectionMask(this.scene, () => {
         const started = performance.now();
         updateSea(frame);
@@ -213,6 +215,19 @@ export class WaterSurface {
       this.params.sea,
       this.uniforms?.rain?.value ?? 0,
     ).signedCoastDistance;
+  }
+
+  withReflectionWarmup(render) {
+    this.warmingReflections = true;
+    this.lakeReflectionBudget?.reset();
+    this.seaReflectionBudget?.reset();
+    try {
+      return render();
+    } finally {
+      this.warmingReflections = false;
+      this.lakeReflectionBudget?.reset();
+      this.seaReflectionBudget?.reset();
+    }
   }
 
   #replaceSeaTiles(quality) {

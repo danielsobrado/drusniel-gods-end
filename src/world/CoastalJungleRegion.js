@@ -11,9 +11,12 @@ function smoothstep(value, min, max) {
 
 function finiteRegion(region) {
   if (!region) return null;
-  const values = ['zStart', 'zEnd', 'inlandStart', 'inlandEnd'].map((key) => Number(region[key]));
-  if (!values.every(Number.isFinite)) return null;
-  const [zStart, zEnd, inlandStart, inlandEnd] = values;
+  const zStart = Number(region.zStart);
+  const zEnd = Number(region.zEnd);
+  const inlandStart = Number(region.inlandStart);
+  const inlandEnd = Number(region.inlandEnd);
+  if (!Number.isFinite(zStart) || !Number.isFinite(zEnd)
+    || !Number.isFinite(inlandStart) || !Number.isFinite(inlandEnd)) return null;
   if (Math.abs(zEnd - zStart) < MIN_SPAN || Math.abs(inlandEnd - inlandStart) < MIN_SPAN) return null;
   return {
     zMin: Math.min(zStart, zEnd),
@@ -49,6 +52,8 @@ export function coastalJungleRegionRadius(region, sea) {
 export function coastalJungleRegionWeight(x, z, region, sea, edge = 18) {
   const resolved = finiteRegion(region);
   if (!resolved || !sea || !Number.isFinite(x) || !Number.isFinite(z)) return 0;
+  // Most grass samples are outside this strip; avoid coastal trigonometry there.
+  if (z < resolved.zMin || z > resolved.zMax) return 0;
   const inland = coastX(z, sea) - x;
   const fade = Math.max(0, Number(edge) || 0);
   const zFade = Math.min(fade, (resolved.zMax - resolved.zMin) * 0.5);

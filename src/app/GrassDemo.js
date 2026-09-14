@@ -340,7 +340,11 @@ export class GrassDemo {
     this.#resize();
     this.trees.resetLod();
     this.cinematicLighting.activateShadows();
-    await this.world.renderer.compileAsync(this.world.scene, this.world.camera);
+    await this.coastalJungle?.initTask;
+    this.abortController.signal.throwIfAborted();
+    this.#renderFrame();
+    await this.pipeline.warmup({ water: this.water, signal: this.abortController.signal });
+    this.#renderFrame();
     this.abortController.signal.throwIfAborted();
     window.addEventListener('resize', () => this.#resize(), { signal: this.abortController.signal });
     this.#resize();
@@ -520,6 +524,7 @@ export class GrassDemo {
       gpuTiming: capabilities?.gpuTiming ?? false,
       quality: this.grass?.qualityName,
       frames: this.profiler?.summarize() ?? null,
+      warmup: this.pipeline?.warmupStats ?? null,
       grass: this.grass?.stats ?? null,
       occlusion: this.pipeline?.gpuOcclusion.stats ?? null,
       reflections: this.water?.stats ?? null,

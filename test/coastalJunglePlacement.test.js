@@ -73,6 +73,36 @@ test('coastal jungle region weight fades generic ecology at biome edges', () => 
   assert.ok(edge > 0 && edge < 1);
 });
 
+test('coastal jungle skips coast evaluation outside the region and follows edited bounds', () => {
+  const region = { zStart: 250, zEnd: 430, inlandStart: 140, inlandEnd: 270 };
+  const sea = { get shoreX() { throw new Error('unnecessary coast evaluation'); } };
+  assert.equal(coastalJungleRegionWeight(0, 20, region, sea), 0);
+  assert.equal(coastalJungleRegionWeight(0, 500, region, sea), 0);
+  const x = coastX(340, 1000) - 205;
+  assert.equal(coastalJungleRegionWeight(x, 340, region, 1000), 1);
+  region.zStart = 450;
+  assert.equal(coastalJungleRegionWeight(x, 340, region, 1000), 0);
+  region.zStart = '250';
+  assert.equal(coastalJungleRegionWeight(x, 340, region, 1000), 1);
+});
+
+test('coastal jungle preserves reversed bounds, fade corners and inclusive hard edges', () => {
+  for (const region of [
+    { zStart: 100, zEnd: 200, inlandStart: 150, inlandEnd: 250 },
+    { zStart: 200, zEnd: 100, inlandStart: 250, inlandEnd: 150 },
+  ]) {
+    const sample = (z, inland, edge) => coastalJungleRegionWeight(coastX(z, 1000) - inland, z, region, 1000, edge);
+    assert.equal(sample(110, 160, 20), 0.25);
+    assert.equal(sample(190, 240, 20), 0.25);
+    assert.equal(sample(100, 150, 0), 1);
+    assert.equal(sample(200, 250, 0), 1);
+    assert.equal(sample(100, 150, 20), 0);
+    assert.equal(sample(99, 150, 0), 0);
+    assert.equal(sample(150, 200, 1000), 1);
+  }
+  assert.equal(coastalJungleRegionWeight(0, 0, { zStart: NaN }, 1000), 0);
+});
+
 test('coastal jungle rejects existing routes and excessive terrain slope', () => {
   const flatTerrain = {
     contains: () => true,
