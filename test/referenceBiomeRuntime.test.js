@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { BoxGeometry } from 'three';
+import { InstancedBufferGeometry, StorageInstancedBufferAttribute } from 'three/webgpu';
 import { GrassTile } from '../src/grass/GrassTile.js';
 import { commitPresetChange, resolveSafePose } from '../src/biome/presetSwitch.js';
 import { BiomeFootprints } from '../src/biome/BiomePlacement.js';
@@ -95,23 +96,16 @@ test('biome gate fails individual scenarios instead of averaging them away', () 
 
 test('compaction keeps original instanceData.y ranks', async () => {
   const { compactGrassGeometry } = await import('../src/grass/compactGrassGeometry.js');
-  const geometry = {
-    instanceCount: 3,
-    getAttribute(name) {
-      const data = {
-        instancePosition: { itemSize: 3, array: new Float32Array([0, 0, 0, 10, 0, 0, 20, 0, 0]), getX: (i) => [0, 10, 20][i], getZ: () => 0 },
-        instanceRotation: { itemSize: 4, array: new Float32Array(12) },
-        instanceData: { itemSize: 4, array: new Float32Array([0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0]) },
-      };
-      return data[name];
-    },
-    clone() {
-      return { attributes: {}, setAttribute(name, value) { this.attributes[name] = value; }, instanceCount: 0, userData: {} };
-    },
-  };
+  const geometry = new InstancedBufferGeometry();
+  geometry.instanceCount = 3;
+  geometry.setAttribute('instancePosition', new StorageInstancedBufferAttribute(new Float32Array([0, 0, 0, 10, 0, 0, 20, 0, 0]), 3));
+  geometry.setAttribute('instanceRotation', new StorageInstancedBufferAttribute(new Float32Array(6), 2));
+  geometry.setAttribute('instanceData', new StorageInstancedBufferAttribute(new Float32Array([0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0]), 4));
   const compacted = compactGrassGeometry(geometry, 0, 0, (x) => x !== 10);
   assert.equal(compacted.instanceCount, 2);
-  assert.deepEqual([...compacted.attributes.instanceData.array], [0, 0, 0, 0, 0, 2, 0, 0]);
+  assert.deepEqual([...compacted.attributes.instanceData.array.slice(0, compacted.instanceCount * 4)], [0, 0, 0, 0, 0, 2, 0, 0]);
+  compacted.dispose();
+  geometry.dispose();
 });
 
 test('resolveSafePose uses destination solids rather than the tour camera', () => {

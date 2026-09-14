@@ -160,14 +160,19 @@ function waterMetrics(config, x, z, height) {
   };
 }
 
-function applyCoastalJungleEcology(ecology, config, sea, x, z) {
+function coastalJungleVegetationScale(config, sea, x, z) {
   const profile = config.biomes?.coastalJungle;
-  if (!profile?.enabled || !sea?.enabled || !isCoastalJungleRuntimeActive(config)) return ecology;
+  if (!profile?.enabled || !sea?.enabled || !isCoastalJungleRuntimeActive(config)) return 1;
   const settings = profile.ecology ?? {};
   const weight = coastalJungleRegionWeight(x, z, profile.region, sea, settings.edgeFade ?? 18);
-  if (weight <= 0) return ecology;
+  if (weight <= 0) return 1;
   const baseScale = clamp01(settings.baseVegetationScale ?? 0.18);
-  const scale = 1 - weight * (1 - baseScale);
+  return 1 - weight * (1 - baseScale);
+}
+
+function applyCoastalJungleEcology(ecology, config, sea, x, z) {
+  const scale = coastalJungleVegetationScale(config, sea, x, z);
+  if (scale === 1) return ecology;
   return {
     ...ecology,
     density: ecology.density * scale,
@@ -339,10 +344,17 @@ export class ProceduralVegetationField {
     return applyCoastalJungleEcology(ecology, this.config, this.config.water?.sea, x, z);
   }
 
+  sampleDensity(x, z) {
+    if (!this.ready || !this.contains(x, z)) return 0;
+    const u = (x - this.bounds.min.x) / Math.max(this.size.x, 0.0001);
+    const v = (z - this.bounds.min.z) / Math.max(this.size.z, 0.0001);
+    return sampleArrayBilinear(this.data, this.resolution, u, v, DENSITY)
+      * coastalJungleVegetationScale(this.config, this.config.water?.sea, x, z);
+  }
+
   allowsVegetation(x, z) {
-    const sample = this.sampleWorld(x, z);
     const chance = vegetationCoverageChance(
-      sample.density,
+      this.sampleDensity(x, z),
       this.config.vegetation.growthThreshold,
     );
     if (chance <= 0) return false;

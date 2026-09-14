@@ -6,6 +6,7 @@ export class GrassTile {
     this.scene = scene;
     this.cinematic = cinematic;
     this.cache = new Map();
+    this.valid = new Set();
     this.staging = new Map();
     this.layoutRevision = 0;
     this.stagingRevision = -1;
@@ -26,7 +27,10 @@ export class GrassTile {
   }
 
   setPosition(x, z, tileX, tileZ) {
-    if (this.mesh.position.x !== x || this.mesh.position.z !== z) this.invalidate();
+    if (this.mesh.position.x !== x || this.mesh.position.z !== z) {
+      this.valid.clear();
+      this.discardStaging();
+    }
     this.mesh.position.set(x, 0, z);
     this.mesh.userData.tileX = tileX;
     this.mesh.userData.tileZ = tileZ;
@@ -34,15 +38,18 @@ export class GrassTile {
 
   setGeometry(source, lodName, containsGrass, layoutRevision = 0) {
     if (this.layoutRevision !== layoutRevision) {
-      this.invalidate();
+      this.valid.clear();
+      this.discardStaging();
       this.layoutRevision = layoutRevision;
     }
     let geometry = source;
     let compacted = false;
     if (this.cinematic && containsGrass) {
-      if (!this.cache.has(source)) {
+      if (!this.valid.has(source)) {
         const started = performance.now();
-        this.cache.set(source, compactGrassGeometry(source, this.mesh.position.x, this.mesh.position.z, containsGrass));
+        this.cache.set(source, compactGrassGeometry(source, this.mesh.position.x, this.mesh.position.z,
+          containsGrass, this.cache.get(source)));
+        this.valid.add(source);
         this.lastCompactionMs = performance.now() - started;
         compacted = true;
       }
@@ -78,6 +85,7 @@ export class GrassTile {
     this.#disposeMap(this.cache);
     this.cache = this.staging;
     this.staging = new Map();
+    this.valid = new Set(this.cache.keys());
     this.layoutRevision = layoutRevision;
     if (this.stagedLod) this.mesh.userData.currentLOD = this.stagedLod;
     const source = [...this.cache.values()].at(-1);
@@ -95,8 +103,9 @@ export class GrassTile {
   }
 
   invalidate() {
+    this.valid.clear();
     this.#disposeMap(this.cache);
-    this.#disposeMap(this.staging);
+    this.discardStaging();
   }
 
   dispose(scene) {

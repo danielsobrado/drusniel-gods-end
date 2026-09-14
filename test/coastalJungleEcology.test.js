@@ -67,3 +67,21 @@ test('generic ecology is reduced only after the jungle asset becomes active', ()
     setCoastalJungleRuntimeActive(config, false);
   }
 });
+
+test('density sampling matches full ecology across cell edges and jungle activation', () => {
+  const { config, field, x, z } = fieldFixture();
+  field.data[0] = 0.05;
+  field.data[5] = 0.85;
+  field.data[10] = 0.3;
+  field.data[15] = 1;
+  for (const active of [false, true, false]) {
+    setCoastalJungleRuntimeActive(config, active);
+    for (let dx = -12; dx <= 12; dx += 0.75) {
+      for (let dz = -12; dz <= 12; dz += 0.75) {
+        assert.equal(field.sampleDensity(x + dx, z + dz), field.sampleWorld(x + dx, z + dz).density);
+      }
+    }
+  }
+  field.ready = false;
+  assert.equal(field.sampleDensity(x, z), 0);
+});
