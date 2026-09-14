@@ -13,25 +13,26 @@ camera:
 assets:
   # terrain2.glb split by object type; loaded in parallel and reassembled under
   # one root, so every object keeps the name the runtime looks it up by.
-  # Regenerate with `npm run assets:split-terrain`.
+  # Regenerate source splits with `npm run assets:split-terrain`, then build the
+  # active tree/prop derivatives with `npm run assets:fantasy`.
   terrainParts:
     - landscape: Assets/terrain/landscape/landscape.glb
     - zones: Assets/terrain/zones/zones.glb
     - colliders: Assets/terrain/colliders/colliders.glb
     - structures/fence: Assets/terrain/structures/fence.glb
     - structures/sketchfab-world: Assets/terrain/structures/sketchfab-world.glb
-    - props/stone: Assets/terrain/props/free_pack_-_rocks_stylized.glb
-    - props/lantern: Assets/terrain/props/lantern.glb
+    - props/stone: Assets/terrain/fantasy/rocks.glb
+    - props/lantern: Assets/terrain/fantasy/lantern.glb
     - fauna/birds: Assets/terrain/fauna/birds.glb
-    - trees/tree1: Assets/terrain/trees/tree1.glb
-    - trees/tree2: Assets/terrain/trees/tree2.glb
-    - trees/tree3: Assets/terrain/trees/tree3.glb
-    - trees/tree4: Assets/terrain/trees/tree4.glb
-    - trees/tree5: Assets/terrain/trees/tree5.glb
-    - trees/tree6: Assets/terrain/trees/tree6.glb
-    - trees/tree7: Assets/terrain/trees/tree7.glb
-    - trees/tree8: Assets/terrain/trees/tree8.glb
-    - trees/tree9: Assets/terrain/trees/tree9.glb
+    - trees/tree1: Assets/terrain/fantasy/tree1.glb
+    - trees/tree2: Assets/terrain/fantasy/tree2.glb
+    - trees/tree3: Assets/terrain/fantasy/tree3.glb
+    - trees/tree4: Assets/terrain/fantasy/tree4.glb
+    - trees/tree5: Assets/terrain/fantasy/tree5.glb
+    - trees/tree6: Assets/terrain/fantasy/tree6.glb
+    - trees/tree7: Assets/terrain/fantasy/tree7.glb
+    - trees/tree8: Assets/terrain/fantasy/tree8.glb
+    - trees/tree9: Assets/terrain/fantasy/tree9.glb
   player: Assets/Drusniel_Dark_Elf.glb
   environmentHdr: Assets/zwartkops_straight_morning_1k.hdr
   dracoDecoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.7/

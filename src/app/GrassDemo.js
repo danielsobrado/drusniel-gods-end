@@ -418,17 +418,14 @@ export class GrassDemo {
     for (const tree of this.trees.trees) {
       const collider = this.config.trees.types?.[tree.typeIndex]?.collider;
       if (!collider) continue;
+      const size = new THREE.Vector3(collider.width, collider.height, collider.length).multiply(tree.high.scale);
       this.collisions.addBox(
         new THREE.Vector3(
           tree.position.x,
-          tree.position.y + collider.height * TREE_COLLIDER_HEIGHT_FACTOR,
+          tree.position.y + size.y * TREE_COLLIDER_HEIGHT_FACTOR,
           tree.position.z,
         ),
-        new THREE.Vector3(
-          collider.width * tree.scale,
-          collider.height * tree.scale,
-          collider.length * tree.scale,
-        ),
+        size,
       );
     }
   }

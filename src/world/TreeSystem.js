@@ -44,6 +44,14 @@ function hash01(value) {
   return sample - Math.floor(sample);
 }
 
+export function resolveTreeShape(index, position, settings = {}) {
+  if (settings.enabled !== true) return new THREE.Vector3(1, 1, 1);
+  const seed = (index + 1) * 17.137 + position.x * 0.073 + position.z * 0.037;
+  const variation = (amount, phase) => 1 + (hash01(seed + phase) * 2 - 1)
+    * THREE.MathUtils.clamp(Number(amount) || 0, 0, 0.4);
+  return new THREE.Vector3(variation(settings.width, 0), variation(settings.height, 31), variation(settings.depth, 67));
+}
+
 function resolveTreeAppearance(index, position, config) {
   const appearance = config.trees.appearance ?? {};
   const seed = (index + 1) * 12.9898 + position.x * 0.031 + position.z * 0.047;
@@ -290,13 +298,14 @@ export class TreeSystem {
     const appearance = resolveTreeAppearance(index, position, this.config);
     if (!appearance.retained) return;
     const resolvedScale = scale * appearance.scale;
+    const shape = resolveTreeShape(index, position, this.config.trees.shapeVariation);
     const renderAppearance = { tint: appearance.tint, opacity: 1 };
     const high = clone(source.high);
     high.name = `TreeHigh_${index}`;
     high.visible = true;
     high.position.copy(position);
     high.rotation.y = rotation;
-    high.scale.setScalar(resolvedScale);
+    high.scale.copy(shape).multiplyScalar(resolvedScale);
     prepareTreeClone(high, source, this.leafMaterialFactory, renderAppearance, this.barkMaterials);
     this.scene.add(high);
 
@@ -308,6 +317,7 @@ export class TreeSystem {
       position: high.position,
       rotation,
       scale: resolvedScale,
+      shape,
       tint: appearance.tint,
       appearance: renderAppearance,
       highMaterials: collectMaterials(high),
@@ -358,7 +368,7 @@ export class TreeSystem {
         if (tree.typeIndex !== typeIndex) continue;
         transform.position.copy(tree.position);
         transform.rotation.set(0, tree.rotation, 0);
-        transform.scale.setScalar(tree.scale);
+        transform.scale.copy(tree.shape).multiplyScalar(tree.scale);
         transform.updateMatrix();
         group.setMatrixAt(billboardIndex, transform.matrix);
         tint.setXYZ(billboardIndex, tree.tint.r, tree.tint.g, tree.tint.b);

@@ -49,6 +49,12 @@ test('initial tree LOD hides distant geometry before compilation without fading 
     assert.deepEqual(system.trees.map(t => t.high.visible), [true, true, false, false]);
     assert.deepEqual(system.trees.map(t => t.billboardOpacity), [0, 0, 1, 0]);
     assert.equal(system.transitioningTrees.size, 0);
+    const matrix = new THREE.Matrix4(), position = new THREE.Vector3(), rotation = new THREE.Quaternion(), scale = new THREE.Vector3();
+    for (const tree of system.trees) {
+      tree.billboardGroup.getMatrixAt(tree.billboardIndex, matrix);
+      matrix.decompose(position, rotation, scale);
+      assert.ok(scale.distanceTo(tree.high.scale) < 1e-6, 'billboards retain each tree shape across LOD changes');
+    }
   } finally { system.dispose(); }
 });
 

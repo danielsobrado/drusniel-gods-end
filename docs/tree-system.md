@@ -15,6 +15,12 @@ public/tree-rendering.yaml
 
 Falling detached leaves are handled separately by `LeafSystem`.
 
+## Current model upgrades
+
+The active GLBs are `Assets/terrain/fantasy/tree1.glb` through `tree9.glb`, generated offline by `npm run assets:fantasy` from the preserved tree splits. Each high-detail model adds a flared trunk base, seven tapered, curved roots, and a gentle trunk/branch sweep. Roots reuse the bark texture and are merged into the bark primitive, keeping two high-detail meshes and the existing shared materials. The nine GLBs total about 5.08 MB versus 4.85 MB for their sources.
+
+`trees.shapeVariation` in `tree-rendering.yaml` gives each placement stable, independent width, depth and height proportions. This varies meadow crowns without duplicating geometry or shader materials. The same proportions apply to billboard transforms and trunk collider dimensions. The original far billboard images are retained; root detail is only present in the near representation. The asset review page is `/scripts/debug/fantasy-assets.html`.
+
 ## Original placement source
 
 The recovered demo supplies an authored world-data array. Each tree record is:

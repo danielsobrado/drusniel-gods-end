@@ -1,4 +1,9 @@
 trees:
+  shapeVariation:
+    enabled: true
+    width: 0.22
+    depth: 0.18
+    height: 0.08
   highDistance: 170
   billboardDistance: 4000
   highHysteresis: 8

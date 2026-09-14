@@ -15,7 +15,13 @@ public/visual-parity.yaml
 
 The recovered original reads `Stone` and `Lantern` source objects from the terrain scene (now `Assets/terrain/props/stone.glb` and `Assets/terrain/props/lantern.glb`), prepares their mapped textures, clones them using authored transform arrays and adds the clones to the scene.
 
-The current runtime loads `Assets/terrain/props/free_pack_-_rocks_stylized.glb` in place of `stone.glb`. Large pack meshes (`SM_Rocks_01`–`05`, `08`, `09`) replace the recovered Stone clones at the same authored transforms; the four small meshes become meadow path pebbles. The original `Stone` object name remains a fallback if the pack is absent.
+The current runtime loads `Assets/terrain/fantasy/rocks.glb`, derived from the preserved stylized rock pack. Large pack meshes (`SM_Rocks_01`–`05`, `08`, `09`) replace the recovered Stone clones at the same authored transforms; the four small meshes become meadow path pebbles and river details. The original `Stone` object name remains a fallback if the pack is absent.
+
+Variants 10 and 11 originally sampled tiny, flat brown patches of the atlas. Assigning the same material did not fix that UV problem. They now use the painted 06/07 geometry and UV islands, reshaped to the original variant bounds. This retains coherent painted surfaces and one shared texture/material across the pack.
+
+`Assets/terrain/fantasy/lantern.glb` replaces the old lantern with a wrought-iron hooked post, hanging chain, hexagonal cage, brass fittings and emissive amber glass. All 20 placed lanterns in the expanded scene share three material batches; no extra lights or texture downloads are added. The source template is hidden after cloning, so it does not appear as an extra lantern at the origin.
+
+Regenerate these GLBs with `npm run assets:fantasy`. Original assets remain intact. Derivative source records are in `public/Assets/terrain/fantasy/manifest.json`; the interactive review is `/scripts/debug/fantasy-assets.html`.
 
 The recovered arrays contain:
 
