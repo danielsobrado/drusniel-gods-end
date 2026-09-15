@@ -328,8 +328,9 @@ export class GrassDemo {
       config: this.config,
     });
     this.iris = new IrisTransition(this.root);
-    this.ui = new DemoUi(this.root, this.config, this.#createUiActions());
+    // The pipeline owns the post-effect state the settings panel renders.
     this.pipeline = new CinematicPipeline(this.world, this.config);
+    this.ui = new DemoUi(this.root, this.config, this.#createUiActions());
     if (isProfileRequested()) {
       this.profiler = new FrameProfiler();
       this.gpuCreationProbe = new GpuCreationProbe(this.world.renderer);
@@ -386,6 +387,7 @@ export class GrassDemo {
     config.ui.initialPreset = this.environment?.currentPreset ?? config.ui.initialPreset;
     config.ui.initialQuality = this.grass?.qualityName ?? config.ui.initialQuality;
     if (this.grass) config.grass.shape = this.grass.shape;
+    if (this.pipeline && config.cinematic?.post) config.cinematic.post.effects = { ...this.pipeline.effects };
     const characterId = this.character?.id ?? defaultCharacterId(config);
     if (!findCharacter(config, characterId)) throw new Error('Cannot recover unknown character.');
     return {
@@ -493,6 +495,8 @@ export class GrassDemo {
         if (this.iris.running) return this.iris.run(apply, `grassParam:${name}`);
         return apply();
       },
+      getPostEffects: () => (this.pipeline?.enabled ? { ...this.pipeline.effects } : null),
+      setPostEffect: (name, value) => this.pipeline?.setEffect(name, value),
       getPixelRatio: () => this.pixelRatio,
       setPixelRatio: (value) => {
         const cap = this.config.renderer.pixelRatioCap;
@@ -604,6 +608,8 @@ export class GrassDemo {
     this.boundaryBarrier?.update(deltaSeconds, playerPosition);
     time('water', () => this.water.update(deltaSeconds, this.player, this.environment.current.lighting));
     this.world.terrainTarget.material.userData.updateCoast?.(deltaSeconds, this.water.rippleElapsed);
+    // Depth of field focuses on the character at the end of the camera arm.
+    this.pipeline.setFocusDistance(this.player.cameraDistance);
     time('render', () => this.pipeline.render({ occlusionEnabled: true, profiler }));
     this.ui.update(deltaSeconds);
 

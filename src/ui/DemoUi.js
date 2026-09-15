@@ -1,10 +1,10 @@
 import { findCharacter } from '../config/characterRoster.js';
 import { GRASS_SHAPES, grassFamily, resolveGrassShape } from '../grass/grassShapes.js';
+import { POST_EFFECT_TOGGLES, TONEMAPPERS } from '../rendering/postEffects.js';
 
 const DEFAULT_CONTROL_RANGES = Object.freeze({
   windStrength: { min: 0, max: 3, step: 0.1 },
   grassHeight: { min: 0.5, max: 3, step: 0.1 },
-  simulationSpeed: { min: 0, max: 2, step: 0.05 },
   pixelRatio: { min: 0.5, max: 2, step: 0.25 },
 });
 
@@ -77,6 +77,12 @@ export class DemoUi {
       ?? Math.min(window.devicePixelRatio, this.config.renderer.pixelRatioCap);
     const interactionEnabled = this.actions.getInteractionEnabled?.()
       ?? (this.config.grass.interaction.enabled !== false);
+    const postEffects = this.actions.getPostEffects?.();
+    const postControls = postEffects ? `
+        ${choiceControl('tonemapper', 'Tonemapper', TONEMAPPERS, postEffects.tonemapper)}
+        ${POST_EFFECT_TOGGLES.map(({ key, label }) => `
+        <label class="toggle-row"><span>${label}</span><input data-post-effect="${key}" type="checkbox" ${postEffects[key] ? 'checked' : ''}></label>`).join('')}`
+      : '';
 
     overlay.innerHTML = `
       <div class="scene-heading"><span class="scene-eyebrow">DRUSNIEL / EXPLORATION</span><h1>THE WILDS</h1><p>A living landscape</p></div>
@@ -89,9 +95,9 @@ export class DemoUi {
         ${choiceControl('quality', 'Quality', qualityOptions, this.config.ui.initialQuality)}
         <label>Wind Strength${rangeInput('windStrength', initialGrass.windIntensity, range(this.config, 'windStrength'), 'data-grass-param="windIntensity"')}</label>
         <label>Grass Height${rangeInput('grassHeight', initialGrass.bladeHeight, range(this.config, 'grassHeight'), 'data-grass-param="bladeHeight"')}</label>
-        <label>Simulation Speed${rangeInput('simulationSpeed', initialGrass.simulationSpeed, range(this.config, 'simulationSpeed'), 'data-grass-param="simulationSpeed"')}</label>
         <label>Pixel Ratio${rangeInput('pixelRatio', pixelRatio, range(this.config, 'pixelRatio'), 'data-pixel-ratio')}</label>
         <label class="toggle-row"><span>Foot Interaction</span><input data-interaction type="checkbox" ${interactionEnabled ? 'checked' : ''}></label>
+        ${postControls}
       </section>
       <section class="metrics ${this.config.ui.showStats ? '' : 'hidden'}">
         <span>FPS <strong data-fps>0</strong></span>
@@ -180,6 +186,12 @@ export class DemoUi {
     overlay.querySelector('[data-interaction]').addEventListener('change', (event) => {
       this.actions.setInteractionEnabled(event.target.checked);
     }, { signal });
+
+    overlay.querySelectorAll('[data-post-effect]').forEach((input) => {
+      input.addEventListener('change', () => {
+        this.actions.setPostEffect(input.dataset.postEffect, input.checked);
+      }, { signal });
+    });
   }
 
   #toggleChoice(overlay, name) {
@@ -228,6 +240,7 @@ export class DemoUi {
       return;
     }
     if (name === 'quality') this.actions.setQuality(value);
+    if (name === 'tonemapper') this.actions.setPostEffect('tonemapper', value);
   }
 
   #setOutput(overlay, input, value) {
@@ -249,7 +262,6 @@ export class DemoUi {
     const values = {
       windIntensity: grass.windIntensity,
       bladeHeight: grass.bladeHeight,
-      simulationSpeed: grass.simulationSpeed,
     };
 
     for (const [name, value] of Object.entries(values)) {

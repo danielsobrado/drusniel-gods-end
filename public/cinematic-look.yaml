@@ -97,6 +97,19 @@ cinematic:
     highlightDesaturation: 0.35
     vignette: 0.14
     grain: 0.012
+    sharpness: 0.6
+    lightShafts: { samples: 28, decay: 0.95, strength: 0.6 }
+    depthOfField: { focalRange: 28, bokehScale: 1 }
+    # Menu defaults; every entry is switchable at runtime from Scene settings.
+    effects:
+      taa: false
+      bloom: true
+      lightShafts: false
+      depthOfField: false
+      sharpen: false
+      grain: true
+      vignette: true
+      tonemapper: aces
   vegetation:
     count: 3200
     radius: 95

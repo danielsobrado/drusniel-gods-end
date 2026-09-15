@@ -33,11 +33,14 @@ Grass Shape
 Quality
 Wind Strength
 Grass Height
-Simulation Speed
 Pixel Ratio
 Foot Interaction
+Tonemapper
+Temporal AA / Bloom / Light Shafts / Depth of Field / Sharpen / Film Grain / Vignette
 Join Waitlist
 ```
+
+Simulation Speed is no longer on the panel; presets still author `simulationSpeed` per grass family. The post-effect rows come from `src/rendering/postEffects.js` and switch `CinematicPipeline` live; defaults are `cinematic.post.effects`.
 
 The reference does not use native HTML selects for the first three controls. The DOM contains a current value plus a set of button options.
 
@@ -91,12 +94,11 @@ Selecting quality updates both grass quality and environment quality consumers t
 
 ## Live sliders
 
-The public HUD exposes four sliders:
+The public HUD exposes three sliders:
 
 ```text
 Wind Strength
 Grass Height
-Simulation Speed
 Pixel Ratio
 ```
 
@@ -105,7 +107,6 @@ Effective ranges are still configuration-driven:
 ```yaml
 windStrength: { min: 0, max: 3, step: 0.1 }
 grassHeight: { min: 0.5, max: 3, step: 0.1 }
-simulationSpeed: { min: 0, max: 2, step: 0.05 }
 pixelRatio: { min: 0.5, max: 2, step: 0.25 }
 ```
 

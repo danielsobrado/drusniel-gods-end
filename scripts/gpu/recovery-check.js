@@ -17,7 +17,7 @@ export async function checkRendererRecovery({ loseDuringRestart = false, timeout
     input.dispatchEvent(new window.Event(event, { bubbles: true }));
   };
   edit('[data-grass-param="windIntensity"]', 2.1, 'input');
-  edit('[data-grass-param="simulationSpeed"]', 0.7, 'input');
+  edit('[data-post-effect="depthOfField"]', true, 'change');
   edit('[data-pixel-ratio]', 0.75, 'input');
   edit('[data-interaction]', false, 'change');
   initial.player.cameraDistance = initial.player.targetCameraDistance = 14;
@@ -42,8 +42,9 @@ export async function checkRendererRecovery({ loseDuringRestart = false, timeout
         check(JSON.stringify(next.environment.current.grass) === expectedGrass, 'both grass families preserve their settings');
         check(Number(next.ui.element.querySelector('[data-grass-param="windIntensity"]').value) === 2.1,
           'wind control matches the restored simulation');
-        check(Number(next.ui.element.querySelector('[data-grass-param="simulationSpeed"]').value) === 0.7,
-          'speed control matches the restored simulation');
+        check(next.pipeline.effects.depthOfField === true
+          && next.ui.element.querySelector('[data-post-effect="depthOfField"]').checked,
+          'post effect toggle matches the restored pipeline');
         check(Number(next.ui.element.querySelector('[data-pixel-ratio]').value) === 0.75,
           'pixel ratio control matches the restored renderer');
         check(next.grass.interactionMap.enabled === false && !next.ui.element.querySelector('[data-interaction]').checked,
