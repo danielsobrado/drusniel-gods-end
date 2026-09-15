@@ -52,7 +52,11 @@ window.__billboardBaker = (async () => {
       };
       const topLeft = corner(u0, v0);
       const right = corner(u1, v0).sub(topLeft).normalize();
-      const up = topLeft.clone().sub(corner(u0, v1)).normalize();
+      // Pin the card's up axis to world up. Deriving it from the card's UV
+      // layout made the atlas and the rewritten corners self-consistent for
+      // either V convention, but the generators disagree on that convention,
+      // so every billboard type rendered upside down.
+      const up = new THREE.Vector3(0, 1, 0);
       const normal = new THREE.Vector3().crossVectors(right, up).normalize();
       const box = new THREE.Box3().setFromObject(high), corners = [];
       for (const x of [box.min.x,box.max.x]) for (const y of [box.min.y,box.max.y]) for (const z of [box.min.z,box.max.z]) corners.push(new THREE.Vector3(x,y,z));
