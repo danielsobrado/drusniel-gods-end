@@ -15,16 +15,17 @@ try {
   await page.goto(`${process.env.ASSET_PREVIEW_URL ?? 'http://127.0.0.1:5173'}/scripts/debug/bake-tree-billboards.html`);
   for(let type=Number(process.env.TREE_BAKE_START ?? 1);type<=Number(process.env.TREE_BAKE_END ?? 11);type++) {
     const size = await page.evaluate(async type => (await window.__billboardBaker).load(type), type);
-    const images = []; let positions;
+    const images = []; let positions, uvs;
     for (let side=0;side<2;side++) {
       const result = await page.evaluate(async side => (await window.__billboardBaker).render(side), side);
       images.push({input:await page.locator('canvas').screenshot({omitBackground:true}),left:result.left,top:result.top});
       positions = result.positions;
+      uvs = result.uvs;
     }
     const image = await sharp({create:{...size,channels:4,background:{r:0,g:0,b:0,alpha:0}}})
       .composite(images).png({palette:true,colours:128,dither:0}).toBuffer();
     await writeFile(`${TEXTURE_DIRECTORY}/billboard-${type}.png`,image);
-    await writeFile(`${TEXTURE_DIRECTORY}/billboard-${type}.json`,JSON.stringify({sourceHash,positions})+'\n');
+    await writeFile(`${TEXTURE_DIRECTORY}/billboard-${type}.json`,JSON.stringify({sourceHash,positions,uvs})+'\n');
     console.log(`Baked tree ${type}: ${Math.round(image.length/1024)} KiB`);
   }
 } finally {await browser.close();}

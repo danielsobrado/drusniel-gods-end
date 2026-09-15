@@ -66,8 +66,36 @@ export async function applyBakedTreeBillboard(doc, type, textures) {
   const image = await readFile(`${TEXTURE_DIRECTORY}/billboard-${type}.png`);
   low.traverse(node => {
     for (const primitive of node.getMesh()?.listPrimitives() ?? []) {
-      primitive.getAttribute('POSITION').setArray(new Float32Array(baked.positions));
+      const position = primitive.getAttribute('POSITION');
+      const uv = primitive.getAttribute('TEXCOORD_0');
+      // The bake indexes corners in the draco-decoded runtime order, which is
+      // not the authored order, so match each authored corner by its UV.
+      const matched = baked.uvs && uv
+        ? matchBakedCornersByUv(position.getArray(), uv.getArray(), baked)
+        : new Float32Array(baked.positions);
+      position.setArray(matched);
       primitive.getMaterial().getBaseColorTexture().setImage(image).setMimeType('image/png');
     }
   });
+}
+
+function matchBakedCornersByUv(positions, uvs, baked) {
+  const matched = new Float32Array(positions.length);
+  const bakedCount = baked.uvs.length / 2;
+  for (let index = 0; index < uvs.length / 2; index += 1) {
+    const u = uvs[index * 2], v = uvs[index * 2 + 1];
+    const x = positions[index * 3], y = positions[index * 3 + 1], z = positions[index * 3 + 2];
+    let best = 0, bestDistance = Infinity;
+    for (let candidate = 0; candidate < bakedCount; candidate += 1) {
+      // The two cards share their seam UVs; break ties by staying on the
+      // card whose corners lie nearest the authored corner.
+      const uvDistance = Math.hypot(baked.uvs[candidate * 2] - u, baked.uvs[candidate * 2 + 1] - v);
+      const positionDistance = Math.hypot(baked.positions[candidate * 3] - x,
+        baked.positions[candidate * 3 + 1] - y, baked.positions[candidate * 3 + 2] - z);
+      const distance = uvDistance + positionDistance * 1e-4;
+      if (distance < bestDistance) { bestDistance = distance; best = candidate; }
+    }
+    matched.set(baked.positions.slice(best * 3, best * 3 + 3), index * 3);
+  }
+  return matched;
 }

@@ -78,7 +78,9 @@ window.__billboardBaker = (async () => {
       await renderer.compileAsync(scene,camera);
       renderer.render(scene,camera);
       await renderer.backend.device.queue.onSubmittedWorkDone();
-      return {left,top,positions:Array.from(positions)};
+      // UVs travel with the positions so the embed can match corners by UV:
+      // this runtime (draco-decoded) vertex order differs from the authored one.
+      return {left,top,positions:Array.from(positions),uvs:Array.from(uv.array)};
     },
   };
 })();

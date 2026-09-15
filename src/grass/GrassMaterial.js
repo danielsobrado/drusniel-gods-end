@@ -100,7 +100,9 @@ export class GrassMaterial {
     LOD_ORDER.forEach((name, index) => {
       const end = quality.lod[name].distance * quality.maxDistance;
       const previous = index === 0 ? 0 : quality.lod[LOD_ORDER[index - 1]].distance * quality.maxDistance;
-      this.lodBands.array[index].set(end, counts[index], counts[index + 1] ?? 0, Math.min(12, (end - previous) * 0.45));
+      // A wider window lets the extra stems of each band sink into the ground
+      // over ~20 m instead of 12 m, so the density step reads as a gradient.
+      this.lodBands.array[index].set(end, counts[index], counts[index + 1] ?? 0, Math.min(20, (end - previous) * 0.6));
     });
   }
 

@@ -329,7 +329,7 @@ Recovered High/Blade LOD:
 ```yaml
 maxDistance: 140
 high:    { detail: 5, density: 4.5, distance: 0.3 }
-medium:  { detail: 2, density: 3,   distance: 0.5 }
+medium:  { detail: 3, density: 3,   distance: 0.5 }
 low:     { detail: 1, density: 2,   distance: 0.9 }
 veryLow: { detail: 1, density: 1,   distance: 1.0 }
 ```
