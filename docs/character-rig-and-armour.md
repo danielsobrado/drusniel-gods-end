@@ -19,11 +19,11 @@ characters:
     - id: paladin
       model: Assets/Radiant_Paladin.glb
     - id: cleric
-      model: Assets/Devout_Cleric.glb
+      model: Assets/Arcane_Wizard.glb
     - id: serpent
       model: Assets/Serpent_Master.glb
     - id: wizard
-      model: Assets/Arcane_Wizard.glb
+      model: Assets/Devout_Cleric.glb
 ```
 
 `src/config/characterRoster.js` applies the selection by rewriting `assets.player`
@@ -124,7 +124,7 @@ Optional animated helper meshes can be named through `player.influenceObjects`; 
 Two armatures ship. The original is 24 joints, exported in centimetres (`Hips` sits at
 y=97.3) under an `Armature` node scaled 0.01, with its mesh named `char1` and clips
 named `Armature|running|baselayer` and `Armature|walking_man|baselayer`. The re-authored
-skins -- Drusniel, the Cleric, the Serpent Master -- are 28 joints: the same skeleton
+skins -- Drusniel, the Wizard, the Serpent Master -- are 28 joints: the same skeleton
 plus four leaf bones (`LeftHand_End`, `RightHand_End`, `LeftToe_end`, `RightToe_end`),
 exported in metres at `Armature` scale 1, mesh `output_unwrapped`, clips `Running` and
 `Walking`.
@@ -171,7 +171,7 @@ borrowed clip would bind partially; `test/characterRoster.test.js` refuses that.
 Borrowing at runtime costs a whole extra GLB fetch, which is only worth it when the
 clip genuinely lives with another character. No shipped character needs it any more,
 so every roster entry carries an empty `animationSources`. The Serpent Master and the
-Wizard also carry unused extra clips (dances, jumps, gestures) that came with their
+Cleric also carry unused extra clips (dances, jumps, gestures) that came with their
 exports; they cost a few kilobytes each and nothing maps to them.
 
 Each character was authored as a separate GLB per clip, which meant shipping the skin
@@ -190,7 +190,7 @@ Draco geometry and a WebP texture:
 
 The four newest skins arrived with their clips already merged, so the script ran on them
 with no `--clips` at all -- purely for the compression pass. Their bulk was uncompressed
-PNG: the Cleric shipped a 8.1 MB base colour and a 13.4 MB metallic-roughness map, and
+PNG: the Wizard shipped a 8.1 MB base colour and a 13.4 MB metallic-roughness map, and
 the WebP re-encode is most of the 91% saving.
 
 Every asset carries a walk and a run of its own, which is why no roster entry borrows.

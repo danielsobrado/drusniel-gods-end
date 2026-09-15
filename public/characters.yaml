@@ -5,8 +5,8 @@
 # clip names.
 #
 # Two rig generations ship side by side. The older skins (Enanillo, the Paladin,
-# the Wizard) are the 24-joint armature exported in centimetres under an 0.01
-# Armature node; the newer ones (Drusniel, the Cleric, the Serpent Master) are the
+# the Cleric) are the 24-joint armature exported in centimetres under an 0.01
+# Armature node; the newer ones (Drusniel, the Wizard, the Serpent Master) are the
 # same skeleton plus four leaf bones -- LeftHand_End, RightHand_End, LeftToe_end,
 # RightToe_end -- exported in metres at Armature scale 1, and they name their clips
 # `Running`/`Walking` rather than `Armature|running|baselayer`. Both land at the
@@ -58,8 +58,10 @@ characters:
     - id: cleric
       name: Cleric
       title: Devout of the Grove
-      blurb: Robed and deliberate, the heaviest mesh on the roster.
-      model: Assets/Devout_Cleric.glb
+      blurb: Robed and deliberate, on the older armature.
+      # The two asset files carry each other's character: Arcane_Wizard.glb is
+      # the Cleric and Devout_Cleric.glb is the Wizard.
+      model: Assets/Arcane_Wizard.glb
       player:
         targetHeight: 5.0
         animationSources: []
@@ -82,8 +84,8 @@ characters:
     - id: wizard
       name: Wizard
       title: Arcane Wanderer
-      blurb: Staff-bearing and light-footed, on the older armature.
-      model: Assets/Arcane_Wizard.glb
+      blurb: Staff-bearing and light-footed, the heaviest mesh on the roster.
+      model: Assets/Devout_Cleric.glb
       player:
         targetHeight: 5.0
         animationSources: []
