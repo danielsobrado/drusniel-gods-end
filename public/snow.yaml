@@ -54,12 +54,24 @@ ground:
       compressed: 0.52
       berm: 0.94
       variation: 0.07
+    # Snowflow's subsurface lobe and cell glints; see src/world/snowShadingNodes.js.
     lighting:
-      sssStrength: 0.035
-      backscatterPower: 5
-      glintStrength: 0.12
-      glintPower: 96
-      sparkleFrequency: 13
+      sssStrength: 0.12
+      sssRadius: 1
+      glintStrength: 0.9
+      glintGrazing: 0.5
+    # Snow007C detail maps (ambientCG, CC0). worldScale is world metres per
+    # Snowflow metre, so its tiling and pixel-footprint fades match a 5 m rider.
+    detail:
+      worldScale: 2.78
+      strength: 0.55
+      cavity: 0.35
+      colorVariation: 0.6
+      roughnessVariation: 0.3
+    textures:
+      color: Assets/ground/snow/snow007c_color_1k.jpg
+      normal: Assets/ground/snow/snow007c_normal_gl_1k.jpg
+      packed: Assets/ground/snow/snow007c_ao_rough_height_1k.jpg
     deformation:
       enabled: true
       resolution: 512
@@ -108,7 +120,6 @@ ground:
       settleHorizontalRetention: 0.2
       opacity: 0.66
       color: '#dcebf4'
-      textureSize: 64
       seed: 1337
       ambient:
         enabled: true
@@ -135,18 +146,17 @@ ground:
       lifeSeconds: 0.88
       bowLead: 0.55
       maxHeight: 2.4
-      halfWidth: 0.22
       minSpeed: 2.2
       fullSpeed: 4.3
       minCoverage: 0.35
       carveAcceleration: 26
-      transmission: 0.35
+      transmission: 1
       roughness: 0.8
-      color: '#e4eaf4'
+      color: '#f3f6fb'
       spray:
         curtainPerMetre: 88
         driftPerMetre: 7
-        maxPerFrame: 90
+        maxPerFrame: 150
       shake:
         amplitude: 0.05
         loadThreshold: 0.25

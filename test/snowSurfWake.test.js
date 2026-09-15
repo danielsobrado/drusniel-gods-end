@@ -5,7 +5,7 @@ import yaml from 'js-yaml';
 import { validateSnowConfig } from '../src/config/validateSnowConfig.js';
 import { resolveSnowWakeConfig } from '../src/config/resolveSnowWakeConfig.js';
 import { SPINE_ROWS, SnowWakeSpine, readPackedSpine } from '../src/world/snowWakeSpine.js';
-import { wakeCrestParameter, wakeSection } from '../src/world/snowWakeProfile.js';
+import { wakeBaseOffset, wakeSection } from '../src/world/snowWakeProfile.js';
 
 const snowConfig = yaml.load(fs.readFileSync(new URL('../public/snow.yaml', import.meta.url), 'utf8'));
 const wake = resolveSnowWakeConfig(snowConfig.ground.snow.wake);
@@ -17,7 +17,7 @@ function trace(curl) {
 }
 
 // The rider heads toward -z, so the bow sits 0.55 m past the newest sample.
-function packStraightRun(spine, data, { carve = 0, clock }) {
+function packStraightRun(spine, data, { carve = 0, clock, strength = 1 }) {
   return spine.pack(data, {
     clock,
     bowX: 0,
@@ -25,28 +25,29 @@ function packStraightRun(spine, data, { carve = 0, clock }) {
     bowZ: spine.z[spine.head] - 0.55,
     rightX: 1,
     rightZ: 0,
-    strength: 1,
+    strength,
     carve,
     life: wake.lifeSeconds,
     maxHeight: wake.maxHeight,
     scale: 1,
-    step: wake.spineStep,
   });
 }
 
-test('wake section rises to a unit crest and curl turns a heap into an overhanging lip', () => {
+test('wake section is a unit-height wave whose full curl hangs the lip back over the face', () => {
   for (const curl of [0.26, 0.6, 1]) {
     const peak = Math.max(...trace(curl).map((point) => point.y));
-    assert.ok(Math.abs(peak - 1) < 0.06, `curl ${curl} crest ${peak}`);
+    assert.ok(peak > 0.75 && peak < 1.3, `curl ${curl} crest ${peak}`);
   }
-  const overhang = (curl) => {
-    const points = trace(curl);
-    return Math.max(...points.map((point) => point.x)) - points.at(-1).x;
-  };
-  assert.ok(overhang(1) > overhang(0.26) + 0.3);
-  // A full curl finishes below its crest, hanging back over the face.
-  assert.ok(trace(1).at(-1).y < 0.8);
-  assert.ok(wakeCrestParameter(1) < wakeCrestParameter(0.26));
+  // Snowflow: at curl 1 the tip sits near 47% of the crest's lateral offset
+  // and 65% of its height.
+  const plunging = trace(1);
+  const crestX = Math.max(...plunging.map((point) => point.x));
+  const crestY = Math.max(...plunging.map((point) => point.y));
+  assert.ok(plunging.at(-1).x < crestX * 0.6);
+  assert.ok(plunging.at(-1).y < crestY * 0.75);
+  const overhang = (points) => Math.max(...points.map((point) => point.x)) - points.at(-1).x;
+  assert.ok(overhang(plunging) > overhang(trace(0.26)));
+  assert.ok(wakeBaseOffset(3) > wakeBaseOffset(0));
 });
 
 test('spine resamples at a fixed spacing and packs into a 4.6 KB float texture', () => {
@@ -59,8 +60,8 @@ test('spine resamples at a fixed spacing and packs into a 4.6 KB float texture',
   spine.update(0.1, 0, 0, -3.05, 1, 0, 1, 0, wake.spineStep);
   assert.equal(spine.count, 11);
   const layout = packStraightRun(spine, data, { clock: 0.1 });
-  assert.equal(layout.entries, 12);
-  for (let slot = 2; slot < layout.entries; slot += 1) {
+  assert.equal(layout.count, 12);
+  for (let slot = 2; slot < layout.count; slot += 1) {
     const gap = data[slot * 4 + 3] - data[(slot - 1) * 4 + 3];
     assert.ok(Math.abs(gap - wake.spineStep) < 1e-5);
   }
@@ -70,25 +71,28 @@ test('spine resamples at a fixed spacing and packs into a 4.6 KB float texture',
   assert.equal(spine.count, 1);
 });
 
-test('carve loads the outside wall, and the wall collapses at the end of its life', () => {
+test('carve loads the outside wall, and collapsed samples retire from the packed spine', () => {
   const spine = new SnowWakeSpine(wake.capacity);
   const data = new Float32Array(wake.capacity * SPINE_ROWS * 4);
   for (let step = 0; step <= 20; step += 1) spine.update(0, 0, 0, -step * 0.3, 1, 0, 1, 0.8, wake.spineStep);
 
   const layout = packStraightRun(spine, data, { carve: 0.8, clock: 0.2 });
-  const sample = readPackedSpine(data, wake.capacity, layout, 3, {});
+  const sample = readPackedSpine(data, wake.capacity, layout.count, 8, {});
   assert.ok(sample.ampL > sample.ampR * 3, 'right turn piles snow on the left');
   assert.ok(sample.curlL > sample.curlR);
-  assert.ok(sample.ampL <= wake.maxHeight);
+  assert.ok(layout.maxAmp <= wake.maxHeight);
 
-  const collapsed = packStraightRun(spine, data, { carve: 0.8, clock: wake.lifeSeconds + 0.01 });
-  const late = readPackedSpine(data, wake.capacity, collapsed, 3, {});
-  assert.equal(late.ampL, 0);
-  assert.equal(collapsed.live, false);
+  const collapsed = packStraightRun(spine, data, { carve: 0.8, clock: wake.lifeSeconds + 0.01, strength: 0 });
+  assert.equal(collapsed.count, 2, 'the bow plus the first finished sample');
+  assert.equal(collapsed.maxAmp, 0);
 });
 
-test('snow validation rejects an inverted wake speed range', () => {
+test('snow validation rejects an inverted wake speed range and missing detail textures', () => {
   const invalid = structuredClone(snowConfig);
   invalid.ground.snow.wake.fullSpeed = invalid.ground.snow.wake.minSpeed;
   assert.throws(() => validateSnowConfig(invalid), /wake\.fullSpeed/);
+
+  const missingTexture = structuredClone(snowConfig);
+  delete missingTexture.ground.snow.textures.normal;
+  assert.throws(() => validateSnowConfig(missingTexture), /textures\.normal/);
 });

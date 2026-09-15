@@ -118,8 +118,22 @@ export function validateSnowConfig(config) {
     for (const name of ['sssStrength', 'glintStrength']) {
       number(snow.lighting[name], `ground.snow.lighting.${name}`, problems, { min: 0 });
     }
-    for (const name of ['backscatterPower', 'glintPower', 'sparkleFrequency']) {
-      number(snow.lighting[name], `ground.snow.lighting.${name}`, problems, { min: 0, exclusiveMin: true });
+    number(snow.lighting.sssRadius, 'ground.snow.lighting.sssRadius', problems, { min: 0, exclusiveMin: true });
+    number(snow.lighting.glintGrazing, 'ground.snow.lighting.glintGrazing', problems, { min: 0, max: 1 });
+  }
+
+  if (object(snow.detail, 'ground.snow.detail', problems)) {
+    number(snow.detail.worldScale, 'ground.snow.detail.worldScale', problems, { min: 0, exclusiveMin: true });
+    for (const name of ['strength', 'cavity', 'colorVariation', 'roughnessVariation']) {
+      number(snow.detail[name], `ground.snow.detail.${name}`, problems, { min: 0, max: 2 });
+    }
+  }
+
+  if (object(snow.textures, 'ground.snow.textures', problems)) {
+    for (const name of ['color', 'normal', 'packed']) {
+      if (typeof snow.textures[name] !== 'string' || snow.textures[name].length === 0) {
+        problems.push(`ground.snow.textures.${name} must be an asset path`);
+      }
     }
   }
 
@@ -156,7 +170,6 @@ export function validateSnowConfig(config) {
   if (powder && object(powder, 'ground.snow.powder', problems) && powder.enabled !== false) {
     integer(powder.capacity, 'ground.snow.powder.capacity', problems, { min: 1, max: 4096 });
     integer(powder.particlesPerContact, 'ground.snow.powder.particlesPerContact', problems, { min: 1, max: 64 });
-    integer(powder.textureSize, 'ground.snow.powder.textureSize', problems, { min: 16, max: 256 });
     integer(powder.seed, 'ground.snow.powder.seed', problems, { min: 0, max: 4294967295 });
     for (const name of ['runningMultiplier', 'emitDistance', 'contactHeight', 'normalSampleDistance', 'settleFadeMultiplier']) {
       number(powder[name], `ground.snow.powder.${name}`, problems, { min: 0, exclusiveMin: true });

@@ -13,4 +13,6 @@ Future assets must be added intentionally and documented with:
 
 Do not add an asset when its redistribution rights are unclear. Prefer original work, CC0/public-domain material, or permissive licenses compatible with redistribution.
 
+The alpine snow detail maps under `public/Assets/ground/snow/` are ambientCG's Snow007C (CC0), resized for web; that folder's `manifest.json` records the source, packing and import date. The snow shading and surf-wake shaders port code from `Noniv/snowflow_demo`, which is MIT-licensed (copyright Maksymilian Dendura); the ported files credit it in their headers.
+
 The coastal-jungle pack under `public/Assets/terrain/coastal-jungle/` records source, author, rights and import date in that folder's `manifest.json`. The v1 combined scene is the currently active runtime asset; the v2 object kit, textures, and combined scene are staged beside it. `public/coastal-jungle.yaml` remains reference-only composition data. The source repository publishes an MIT LICENSE; do not invent broader rights than that license states.

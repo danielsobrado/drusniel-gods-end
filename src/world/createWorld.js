@@ -16,6 +16,7 @@ import { createCoastalGroundcover, disposeCoastalGroundcover } from './CoastalGr
 import { SnowDeformationField } from './SnowDeformationField.js';
 import { SnowPowderSystem } from './SnowPowderSystem.js';
 import { SnowSurfWake } from './SnowSurfWake.js';
+import { disposeSnowTextures } from './snowTextures.js';
 
 const DEFAULT_SHADOW = {
   mobileBreakpoint: 768,
@@ -180,6 +181,8 @@ export async function createWorld(config, onProgress = () => {}, { signal, rende
       ? new SnowSurfWake({ scene, camera, terrainSampler, config, powder: snowPowder })
       : null;
     if (snowWake) scope.defer(() => snowWake.dispose());
+    // Registered before the ground material, so it is released after it.
+    if (config.ground.snow?.enabled) scope.defer(() => disposeSnowTextures(config));
 
     let groundMaterial;
     try {

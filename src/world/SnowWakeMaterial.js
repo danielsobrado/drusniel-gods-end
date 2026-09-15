@@ -1,31 +1,46 @@
 import * as THREE from 'three/webgpu';
 import {
-  Fn, Loop, attribute, cameraPosition, clamp, color, cross, dot, float, int, ivec2, max, min, mix, normalize,
-  positionWorld, select, sin, smoothstep, textureLoad, time, transformNormalToView, varying, vec2, vec3,
+  Fn, Loop, attribute, cameraPosition, clamp, color, cross, dot, float, fwidth, int, ivec2, max, mix, normalize,
+  positionWorld, select, smoothstep, texture, textureLoad, time, transformNormalToView, varying, vec2, vec3,
 } from 'three/tsl';
 import { foliageLight } from '../rendering/CinematicLighting.js';
+import { noise2 } from './snowNoiseNodes.js';
+import { snowSubsurface } from './snowShadingNodes.js';
 import {
-  WAKE_BASE_ANGLE, WAKE_BASE_DROP, WAKE_CURL_TIP_ANGLE, WAKE_HEAP_TIP_ANGLE, WAKE_LATERAL, WAKE_LUMP,
-  WAKE_SECTION_STEPS, WAKE_SHEAR, WAKE_SINK, WAKE_SPREAD, WAKE_SWEEP_POWER,
+  WAKE_BASE_ANGLE, WAKE_BASE_OFFSET, WAKE_BASE_SPREAD, WAKE_LATERAL, WAKE_LUMP, WAKE_NORM, WAKE_NORMAL_TIP_ANGLE,
+  WAKE_SECTION_STEPS, WAKE_SHEAR, WAKE_SINK, WAKE_SPREAD_END, WAKE_SPREAD_START, WAKE_SWEEP_POWER, WAKE_THINNING,
+  WAKE_TIP_ANGLE, WAKE_TIP_CURL,
 } from './snowWakeProfile.js';
 
-// Every vertex of the wake is placed here from a static (column, row, side)
-// lattice and the spine texture, so the buffer never changes with wake length.
-export function createSnowWakeMaterial({ spineTexture, uniforms, columns, rows, settings, snow }) {
-  const fetch = (index, row) => textureLoad(
-    spineTexture,
-    ivec2(int(clamp(index, 0, uniforms.entries.sub(1))), int(row)),
-  );
+// The snow-surf wake, ported from Snowflow's wake.vertex.wgsl, wake.fragment.wgsl
+// and lib/wake.wgsl (MIT, Maksymilian Dendura). Every vertex is placed here from
+// a static (column, row, side) lattice and the spine texture, so the buffer
+// never changes with wake length.
+export function createSnowWakeMaterial({ spineTexture, uniforms, columns, rows, settings, snow, textures = null }) {
+  const scale = uniforms.scale;
+  const last = max(uniforms.count, 2).sub(1);
+  const fetch = (index, row) => textureLoad(spineTexture, ivec2(int(clamp(index, 0, last)), int(row)));
 
-  const spineIndex = (distance) => select(
-    distance.lessThan(uniforms.bowGap),
-    distance.div(max(uniforms.bowGap, 1e-4)),
-    distance.sub(uniforms.bowGap).div(uniforms.step).add(1),
-  );
+  const wakeSection = Fn(([q, curl]) => {
+    const tip = curl.mul(WAKE_TIP_CURL).add(WAKE_TIP_ANGLE);
+    const point = vec2(0, 0).toVar();
+    const dt = q.div(WAKE_SECTION_STEPS);
+    Loop(WAKE_SECTION_STEPS, ({ i }) => {
+      const t = float(i).add(0.5).mul(dt);
+      const angle = tip.sub(WAKE_BASE_ANGLE).mul(t.pow(WAKE_SWEEP_POWER)).add(WAKE_BASE_ANGLE);
+      point.addAssign(vec2(angle.cos(), angle.sin()).mul(t.mul(-WAKE_THINNING).add(1)).mul(dt));
+    });
+    return vec2(point.x.mul(WAKE_LATERAL), point.y).mul(WAKE_NORM);
+  }).setLayout({
+    name: 'snowWakeSection',
+    type: 'vec2',
+    inputs: [{ name: 'q', type: 'float' }, { name: 'curl', type: 'float' }],
+  });
 
-  // Catmull-Rom through the resampled path; linear interpolation bands visibly
-  // at every sample on a curving wall.
-  const spinePosition = (index) => {
+  // Catmull-Rom for position, smoothstep-weighted scalars: a piecewise-linear
+  // spine bands the differenced normal at exactly the sample pitch.
+  const wakeFrame = (u, side) => {
+    const index = u.clamp(0, 1).mul(last);
     const lower = index.floor();
     const t = index.sub(lower);
     const p0 = fetch(lower.sub(1), 0).xyz;
@@ -34,95 +49,85 @@ export function createSnowWakeMaterial({ spineTexture, uniforms, columns, rows, 
     const p3 = fetch(lower.add(2), 0).xyz;
     const t2 = t.mul(t);
     const t3 = t2.mul(t);
-    return p1.mul(2)
+    const center = p1.mul(2)
       .add(p2.sub(p0).mul(t))
       .add(p0.mul(2).sub(p1.mul(5)).add(p2.mul(4)).sub(p3).mul(t2))
       .add(p0.negate().add(p1.mul(3)).sub(p2.mul(3)).add(p3).mul(t3))
       .mul(0.5);
+    const weight = smoothstep(0, 1, t);
+    const b1 = fetch(lower, 1);
+    const b2 = fetch(lower.add(1), 1);
+    const c1 = fetch(lower, 2);
+    const c2 = fetch(lower.add(1), 2);
+    const left = side.lessThan(0);
+    return {
+      center,
+      amplitude: select(left, mix(b1.z, b2.z, weight), mix(b1.w, b2.w, weight)),
+      curl: select(left, mix(c1.x, c2.x, weight), mix(c1.y, c2.y, weight)),
+      distance: mix(p1Distance(lower), p1Distance(lower.add(1)), weight),
+      age: mix(c1.z, c2.z, weight),
+      right: normalize(vec3(b1.x, 0, b1.y).add(vec3(1e-6, 0, 0))),
+    };
   };
+  const p1Distance = (index) => fetch(index, 0).w;
 
-  const spineRow = (index, row) => {
-    const lower = index.floor();
-    const t = index.sub(lower);
-    return mix(fetch(lower, row), fetch(lower.add(1), row), t.mul(t).mul(float(3).sub(t.mul(2))));
-  };
-
-  const tangentAngle = (s, curl) => {
-    const tip = float(WAKE_HEAP_TIP_ANGLE).add(curl.mul(WAKE_CURL_TIP_ANGLE - WAKE_HEAP_TIP_ANGLE));
-    return float(WAKE_BASE_ANGLE).add(tip.sub(WAKE_BASE_ANGLE).mul(s.pow(WAKE_SWEEP_POWER)));
-  };
-
-  // Mirrors wakeSection() in snowWakeProfile.js step for step.
-  const wakeSection = Fn(([q, curl]) => {
-    const covered = q.mul(WAKE_SECTION_STEPS);
-    const x = float(0).toVar();
-    const y = float(0).toVar();
-    const fullY = float(0).toVar();
-    const peak = float(1e-4).toVar();
-    Loop(WAKE_SECTION_STEPS, ({ i }) => {
-      const step = float(i);
-      const angle = tangentAngle(step.add(0.5).div(WAKE_SECTION_STEPS), curl);
-      const weight = clamp(covered.sub(step), 0, 1);
-      const dy = angle.sin().div(WAKE_SECTION_STEPS);
-      x.addAssign(angle.cos().div(WAKE_SECTION_STEPS).mul(weight));
-      y.addAssign(dy.mul(weight));
-      fullY.addAssign(dy);
-      peak.assign(max(peak, fullY));
-    });
-    return vec2(x, y).div(peak);
-  });
-
-  const scale = uniforms.scale;
-  const wakePoint = (column, q, side) => {
-    const distance = column.mul(uniforms.length);
-    const index = spineIndex(distance);
-    const center = spinePosition(index);
-    const orientation = spineRow(index, 1);
-    const shape = spineRow(index, 2);
-    const right = normalize(vec3(orientation.x, 0, orientation.y).add(vec3(1e-5, 0, 0)));
-    const back = vec3(right.z.negate(), 0, right.x);
-    const rightSide = side.greaterThan(0);
-    const amplitude = select(rightSide, orientation.w, orientation.z);
-    const curl = select(rightSide, shape.y, shape.x);
-    const age = shape.z;
-    const section = wakeSection(q, curl);
-    const along = distance.div(scale);
-    const lump = sin(along.mul(1.7).add(side.mul(3.1))).mul(sin(along.mul(0.63).add(1.3)))
-      .mul(amplitude).mul(q).mul(WAKE_LUMP);
-    const lateral = scale.mul(age.mul(WAKE_SPREAD).add(settings.halfWidth))
-      .add(section.x.mul(amplitude).mul(WAKE_LATERAL))
-      .add(lump);
-    const height = section.y.mul(amplitude).sub(scale.mul(age.mul(age).mul(WAKE_SINK).add(WAKE_BASE_DROP)));
-    const position = center
-      .add(right.mul(side.mul(lateral)))
+  const wakePoint = (u, q, side) => {
+    const frame = wakeFrame(u, side);
+    const section = wakeSection(q, frame.curl);
+    const along = frame.distance.div(scale);
+    const baseOffset = smoothstep(WAKE_SPREAD_START, WAKE_SPREAD_END, along)
+      .mul(WAKE_BASE_SPREAD).add(WAKE_BASE_OFFSET).mul(scale);
+    // Thrown snow is not a ruled surface: two-and-a-bit drifting octaves of
+    // lumps along the section's own normal, weighted toward the free crest.
+    const normalAngle = q.pow(WAKE_SWEEP_POWER)
+      .mul(frame.curl.mul(WAKE_TIP_CURL).add(WAKE_NORMAL_TIP_ANGLE)).add(WAKE_BASE_ANGLE);
+    const sectionNormal = vec2(normalAngle.sin().negate(), normalAngle.cos());
+    const lump = noise2(vec2(along.mul(1.13).add(q.mul(0.9)).add(side.mul(17.3)), q.mul(1.7).add(5.1).add(time.mul(0.3))))
+      .mul(0.55)
+      .add(noise2(vec2(along.mul(3.31).sub(q.mul(1.7)).add(side.mul(31.7)).sub(time.mul(0.45)), q.mul(4.3).add(2.7)))
+        .mul(0.3))
+      .add(noise2(vec2(along.mul(8.7).add(side.mul(5.3)), q.mul(9.1).add(time.mul(0.9)))).mul(0.15))
+      .mul(WAKE_LUMP)
+      .mul(smoothstep(0.12, 0.72, q));
+    const lateral = baseOffset.add(section.x.add(sectionNormal.x.mul(WAKE_LATERAL).mul(lump)).mul(frame.amplitude));
+    const height = section.y.add(sectionNormal.y.mul(lump)).mul(frame.amplitude).sub(scale.mul(WAKE_SINK));
+    // Thrown snow lags the thing that threw it: shear the lip back along the spine.
+    const back = vec3(frame.right.z.negate(), 0, frame.right.x);
+    const position = frame.center
+      .add(frame.right.mul(side.mul(lateral)))
       .add(vec3(0, height, 0))
-      .add(back.mul(section.y.mul(amplitude).mul(WAKE_SHEAR)));
-    return { position, amplitude, curl, age, along, right };
+      .add(back.mul(q.mul(q).mul(WAKE_SHEAR).mul(frame.amplitude)));
+    return { position, frame, sectionNormal };
   };
 
   const lattice = attribute('wake', 'vec3');
-  const column = lattice.x;
+  const u = lattice.x;
   const q = lattice.y;
   const side = lattice.z;
-  const point = wakePoint(column, q, side);
+  const point = wakePoint(u, q, side);
 
-  // Normals are differenced out of the same wakePoint, so they cannot disagree
-  // with the surface they shade.
-  const rowStep = 0.5 / rows;
-  const columnStep = 0.5 / Math.max(columns - 1, 1);
-  const above = wakePoint(column, min(q.add(rowStep), 1), side).position;
-  const below = wakePoint(column, max(q.sub(rowStep), 0), side).position;
-  const ahead = wakePoint(column.add(columnStep), q, side).position;
-  const differenced = normalize(cross(ahead.sub(point.position), above.sub(below)).add(vec3(0, 1e-6, 0)));
-  const angle = tangentAngle(q, point.curl);
-  const concave = point.right.mul(side.mul(angle.sin().negate())).add(vec3(0, angle.cos(), 0));
-  const concaveNormal = differenced.mul(select(dot(differenced, concave).greaterThanEqual(0), float(1), float(-1)));
+  // Normals are differenced out of the same wakePoint. The offsets flip near
+  // either edge so a pair never straddles a clamp and returns a zero tangent.
+  const du = 0.65 / Math.max(columns - 1, 1);
+  const dq = 0.65 / Math.max(rows, 1);
+  const su = select(u.greaterThan(0.5), float(-1), float(1));
+  const sq = select(q.greaterThan(0.5), float(-1), float(1));
+  const alongU = wakePoint(u.add(su.mul(du)), q, side).position.sub(point.position).mul(su);
+  const alongQ = wakePoint(u, q.add(sq.mul(dq)), side).position.sub(point.position).mul(sq);
+  const crossed = cross(alongQ, alongU);
+  const crossedLength = crossed.length();
+  // Mirrored walls reverse handedness, so orient toward the concave side
+  // explicitly: the barrel shading below asks which side the eye is on.
+  const concave = point.frame.right.mul(side.mul(point.sectionNormal.x)).add(vec3(0, point.sectionNormal.y, 0));
+  const oriented = crossed.mul(select(dot(crossed, concave).greaterThanEqual(0), float(1), float(-1)));
+  // Degenerate where the envelope has collapsed the strip onto its spine.
+  const normal = select(crossedLength.greaterThan(1e-7), oriented.div(crossedLength.max(1e-8)), vec3(0, 1, 0));
 
-  const vNormal = varying(concaveNormal, 'vWakeNormal');
+  const vNormal = varying(normal, 'vWakeNormal');
   const vQ = varying(q, 'vWakeQ');
-  const vAge = varying(point.age, 'vWakeAge');
-  const vCurl = varying(point.curl, 'vWakeCurl');
-  const vAlong = varying(point.along, 'vWakeAlong');
+  const vAge = varying(point.frame.age, 'vWakeAge');
+  const vCurl = varying(point.frame.curl, 'vWakeCurl');
+  const vAlong = varying(point.frame.distance.div(scale), 'vWakeAlong');
 
   const material = new THREE.MeshStandardNodeMaterial({
     side: THREE.DoubleSide,
@@ -132,51 +137,73 @@ export function createSnowWakeMaterial({ spineTexture, uniforms, columns, rows, 
   material.name = 'SnowSurfWake';
   material.positionNode = point.position;
 
-  // An open sheet with a curl in it: both faces are seen, so turn the normal
-  // toward the eye. The concave orientation says whether the eye is inside the
-  // barrel, which has to go dark and blue or the wall reads as a cut-out.
+  // An open sheet with a curl in it: turn the normal toward the eye, and
+  // remember whether the eye is inside the barrel.
   const viewDirection = normalize(cameraPosition.sub(positionWorld));
-  const normal = normalize(vNormal);
-  const facing = select(dot(normal, viewDirection).greaterThanEqual(0), float(1), float(-1));
-  material.normalNode = transformNormalToView(normal.mul(facing));
+  const geometric = normalize(vNormal);
+  const facing = select(dot(geometric, viewDirection).greaterThanEqual(0), float(1), float(-1));
+  let shading = geometric.mul(facing);
+  if (textures) {
+    // Broken snow grain from the Snow007C normal map, on two oblique
+    // projections so a near-vertical face does not band, each faded by pixel
+    // footprint the way Snowflow fades its noise octaves.
+    const worldScale = snow.detail.worldScale;
+    const footprint = fwidth(positionWorld).length().mul(0.5).max(1e-4);
+    const projected = vec2(
+      dot(positionWorld, vec3(0.91, 0.23, -0.35)),
+      dot(positionWorld, vec3(0.28, 0.84, 0.46)),
+    );
+    const fine = texture(textures.normal, projected.mul(7.5 / worldScale)).xy.mul(2).sub(1)
+      .mul(smoothstep(0.012 * worldScale, 0.09 * worldScale, footprint).oneMinus().mul(0.5));
+    const coarse = texture(textures.normal, projected.mul(1.7 / worldScale)).xy.mul(2).sub(1)
+      .mul(smoothstep(0.09 * worldScale, 0.55 * worldScale, footprint).oneMinus().mul(0.35));
+    const up = select(shading.y.abs().greaterThan(0.99), vec3(1, 0, 0), vec3(0, 1, 0));
+    const tangent = normalize(cross(up, shading));
+    const bitangent = cross(shading, tangent);
+    const detail = fine.add(coarse).mul(snow.detail.strength / 0.55);
+    shading = normalize(shading.add(tangent.mul(detail.x)).add(bitangent.mul(detail.y)));
+  }
+  material.normalNode = transformNormalToView(shading);
 
+  // Only the inside of the curl darkens, and it goes blue as it does: a broad
+  // neutral darkening under a warm sun lands on tan, not on shaded snow.
   const barrel = select(
     facing.greaterThan(0),
     smoothstep(0.05, 0.75, vQ).mul(vCurl.mul(0.55).add(0.45)),
     float(0),
   );
   const occlusion = mix(float(1), float(0.3), barrel);
-  // Darkening goes blue in proportion: light in a fold of snow has travelled
-  // through snow, and a neutral darkening lands on tan under a warm sun.
   const caveTint = mix(vec3(1), vec3(0.55, 0.72, 1), occlusion.oneMinus().mul(0.95));
-  // Oblique projections so the grain does not band on a near-vertical face.
-  const grain = sin(dot(positionWorld, vec3(0.91, 0.23, -0.35)).mul(9.1))
-    .mul(sin(dot(positionWorld, vec3(0.28, 0.84, 0.46)).mul(7.3)))
-    .mul(0.035);
-  material.colorNode = color(settings.color).mul(caveTint).mul(occlusion).mul(grain.add(1));
+  const albedo = color(settings.color);
+  material.colorNode = albedo.mul(occlusion).mul(caveTint);
 
-  // Thick at the base, thin and glowing at the lip when the sun is behind it.
+  // Thick at the base, thin at the lip: the lip lights up from inside when
+  // the sun is behind it.
   const thickness = mix(float(0.92), float(0.32), smoothstep(0.15, 0.95, vQ));
-  const backlight = dot(viewDirection, foliageLight.direction.negate()).max(0).pow(snow.lighting.backscatterPower);
-  material.emissiveNode = color(snow.colors.shadow)
-    .mul(foliageLight.color)
-    .mul(foliageLight.strength)
-    .mul(backlight)
-    .mul(thickness.oneMinus())
-    .mul(occlusion)
-    .mul(settings.transmission);
+  material.emissiveNode = snowSubsurface({
+    normal: shading,
+    light: foliageLight.direction,
+    view: viewDirection,
+    lightColor: foliageLight.color.mul(foliageLight.strength),
+    thickness,
+    strength: snow.lighting.sssStrength * 0.45 * settings.transmission,
+    radius: 1.5,
+  }).mul(albedo).mul(occlusion).mul(caveTint);
 
-  // Counter-drifting breakup softens the lip and dissolves an ageing wall into
-  // powder instead of letting it shrink as a solid.
-  const drift = time.mul(0.4);
-  // Fine enough to read as crumbling powder rather than holes torn in a sheet;
-  // a young wall stays whole below its lip.
-  const breakup = sin(vAlong.mul(13.3).add(vQ.mul(17.1)).add(drift))
-    .mul(sin(vAlong.mul(5.7).sub(vQ.mul(29.3)).sub(drift.mul(0.75))))
-    .mul(0.5)
-    .add(0.5);
-  const erosion = smoothstep(0.35, 1, vAge).mul(0.95).add(smoothstep(0.85, 1, vQ).mul(0.3));
-  const keep = breakup.sub(erosion).add(0.5);
+  // Erosion does two jobs only: soften the top sixth of the section, and
+  // dissolve the whole wall at the end of its life. Counter-drifting octaves,
+  // sheared off the axes, so the lip boils rather than scrolls.
+  const breakAmount = smoothstep(0.84, 1.06, vQ).mul(mix(float(0.34), float(0.7), vAge))
+    .add(smoothstep(0.68, 1, vAge).mul(0.95));
+  const coarseBreak = noise2(vec2(
+    vAlong.mul(6.9).add(vQ.mul(3.1)).add(time.mul(0.9)),
+    vQ.mul(13).sub(vAlong.mul(2.2)).sub(time.mul(0.6)),
+  )).mul(0.72).add(0.5);
+  const fineBreak = noise2(vec2(
+    vAlong.mul(19).sub(vQ.mul(9)).add(31.7).sub(time.mul(3.1)),
+    vQ.mul(31).add(vAlong.mul(7)).add(time.mul(2.3)),
+  )).mul(0.72).add(0.5);
+  const keep = coarseBreak.mul(0.58).add(fineBreak.mul(0.42)).sub(breakAmount).add(0.5);
   material.opacityNode = keep;
   material.alphaTest = 0.5;
   material.maskShadowNode = Fn(() => keep.greaterThan(0.5))();

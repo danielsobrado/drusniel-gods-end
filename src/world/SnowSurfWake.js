@@ -3,16 +3,26 @@ import { uniform } from 'three/tsl';
 import { resolveSnowWakeConfig } from '../config/resolveSnowWakeConfig.js';
 import { sampleSnowSurfaceCpu } from './SnowDeformationField.js';
 import { createSnowWakeMaterial } from './SnowWakeMaterial.js';
+import { getSnowTextures } from './snowTextures.js';
 import { SPINE_ROWS, SnowWakeSpine, readPackedSpine } from './snowWakeSpine.js';
-import { wakeCrestParameter, wakePointCpu } from './snowWakeProfile.js';
+import { wakeBaseOffset } from './snowWakeProfile.js';
 
 const SURF_ENTER_RATE = 2.6;
 const SURF_EXIT_RATE = 3.4;
-const SURF_EPSILON = 0.01;
 const CARVE_RATE = 9;
 const SURFACE_NORMAL_STEP = 0.5;
+// Snowflow's gates and spans, in reference units.
+const ACTIVE_SURF = 0.06;
+const ACTIVE_SPEED = 1.6;
+const RESTART_SECONDS = 0.25;
+const VISIBLE_AMPLITUDE = 0.01;
+const PLUME_MIN_SURF = 0.15;
+const PLUME_MIN_SPEED = 3;
+const PLUME_SPAN = 15;
+const DRIFT_SPAN = 22;
+const DRIFT_MAX_PER_FRAME = 14;
 const CURTAIN_SHARE = 0.72;
-const CLOD_SHARE = 0.35;
+const CLOD_SHARE = 0.18;
 const _cameraAxis = new THREE.Vector3();
 
 function clamp(value, min, max) {
@@ -21,10 +31,6 @@ function clamp(value, min, max) {
 
 function expDamp(current, target, rate, delta) {
   return target + (current - target) * Math.exp(-rate * delta);
-}
-
-function range(min, max) {
-  return min + (max - min) * Math.random();
 }
 
 function createWakeLatticeGeometry(columns, rows) {
@@ -63,9 +69,10 @@ function createWakeLatticeGeometry(columns, rows) {
   return geometry;
 }
 
-// Snow-surf wake: a swept mesh along the path the rider has taken, two spray
-// populations thrown off its crest, and the speed streak and camera shake
-// signals that go with a loaded edge. Surfing is sprinting on snow.
+// Snow-surf wake after Snowflow's surfWake.js (MIT, Maksymilian Dendura): a
+// swept mesh along the path the rider has taken, two spray populations thrown
+// off its crest, and the speed streak and camera shake signals that go with a
+// loaded edge. Surfing is sprinting on snow.
 export class SnowSurfWake {
   constructor({ scene, camera, terrainSampler, config, powder = null }) {
     this.config = resolveSnowWakeConfig(config.ground.snow.wake);
@@ -76,6 +83,7 @@ export class SnowSurfWake {
     this.clock = 0;
     this.surf = 0;
     this.carve = 0;
+    this.active = false;
     this.previousYaw = null;
     this.trauma = 0;
     this.streak = 0;
@@ -83,11 +91,10 @@ export class SnowSurfWake {
     this.driftOwed = 0;
     this.shakeOffset = new THREE.Vector3();
     this.sample = {};
-    this.crest = {};
-    this.layout = null;
+    this.layout = { count: 0, maxAmp: 0 };
     if (!this.config.enabled) return;
 
-    const { capacity, columns, rows, spineStep } = this.config;
+    const { capacity, columns, rows } = this.config;
     this.spine = new SnowWakeSpine(capacity);
     this.data = new Float32Array(capacity * SPINE_ROWS * 4);
     this.texture = new THREE.DataTexture(this.data, capacity, SPINE_ROWS, THREE.RGBAFormat, THREE.FloatType);
@@ -97,13 +104,7 @@ export class SnowSurfWake {
     this.texture.magFilter = THREE.NearestFilter;
     this.texture.generateMipmaps = false;
     this.texture.needsUpdate = true;
-    this.uniforms = {
-      entries: uniform(1),
-      bowGap: uniform(0),
-      step: uniform(spineStep),
-      length: uniform(0),
-      scale: uniform(1),
-    };
+    this.uniforms = { count: uniform(0), scale: uniform(1) };
     this.geometry = createWakeLatticeGeometry(columns, rows);
     this.material = createSnowWakeMaterial({
       spineTexture: this.texture,
@@ -112,6 +113,7 @@ export class SnowSurfWake {
       rows,
       settings: this.config,
       snow: config.ground.snow,
+      textures: getSnowTextures(config),
     });
     this.mesh = new THREE.Mesh(this.geometry, this.material);
     this.mesh.name = 'SnowSurfWake';
@@ -153,10 +155,12 @@ export class SnowSurfWake {
     // Lateral acceleration is speed times yaw rate. Yaw grows turning left, so
     // a right turn gives positive carve and loads the left (outside) wall.
     const yaw = Number(player.playerYaw) || 0;
-    const turn = this.previousYaw === null ? 0 : Math.atan2(Math.sin(yaw - this.previousYaw), Math.cos(yaw - this.previousYaw));
+    const turn = this.previousYaw === null
+      ? 0
+      : Math.atan2(Math.sin(yaw - this.previousYaw), Math.cos(yaw - this.previousYaw));
     this.previousYaw = yaw;
-    const lateral = -speed * turn / delta;
-    const leanWant = clamp(lateral / (settings.carveAcceleration * scale), -1, 1) * (0.35 + 0.65 * this.surf);
+    const leanWant = clamp(-speed * turn / delta / (settings.carveAcceleration * scale), -1, 1)
+      * (0.35 + 0.65 * this.surf);
     this.carve = expDamp(this.carve, leanWant, CARVE_RATE, delta);
 
     const velocity = player.horizontalVelocity;
@@ -164,12 +168,20 @@ export class SnowSurfWake {
     const forwardZ = speed > 0.05 && velocity ? velocity.z / speed : Math.cos(yaw);
     const rightX = -forwardZ;
     const rightZ = forwardX;
-    const live = this.surf > SURF_EPSILON;
-    const strength = live ? this.surf * speed01 * coverage : 0;
+    const strength = this.surf * speed01 * coverage;
     const groundY = surface?.y ?? position.y - (player.metrics?.rootToFeet ?? 0);
-    const step = settings.spineStep * scale;
 
-    if (live) this.spine.update(this.clock, position.x, groundY, position.z, rightX, rightZ, strength, this.carve, step);
+    // A new run starts a new spine: reconnecting would sweep a wall across
+    // whatever ground lies between where the rider stopped and restarted.
+    const active = this.surf > ACTIVE_SURF && speed / scale > ACTIVE_SPEED;
+    if (active) {
+      if (!this.active && this.spine.count > 0
+        && this.clock - this.spine.laid[this.spine.head] > RESTART_SECONDS) this.spine.reset();
+      this.spine.update(this.clock, position.x, groundY, position.z, rightX, rightZ, strength, this.carve,
+        settings.spineStep * scale);
+    }
+    this.active = active;
+
     this.layout = this.spine.pack(this.data, {
       clock: this.clock,
       bowX: position.x + forwardX * settings.bowLead * scale,
@@ -177,12 +189,11 @@ export class SnowSurfWake {
       bowZ: position.z + forwardZ * settings.bowLead * scale,
       rightX,
       rightZ,
-      strength,
+      strength: active ? strength : 0,
       carve: this.carve,
       life: settings.lifeSeconds,
       maxHeight: settings.maxHeight * scale,
       scale,
-      step,
     });
     this.#updateCameraShake(delta, scale, speed01);
     this.streak = settings.streaks.strength * this.surf * clamp(
@@ -192,92 +203,114 @@ export class SnowSurfWake {
       1,
     );
 
-    if (!live && !this.layout.live) {
-      this.spine.reset();
-      this.mesh.visible = false;
-      return;
+    const visible = this.layout.count >= 2 && this.layout.maxAmp > VISIBLE_AMPLITUDE * scale;
+    this.mesh.visible = visible;
+    if (visible) {
+      this.uniforms.count.value = this.layout.count;
+      this.uniforms.scale.value = scale;
+      this.texture.needsUpdate = true;
     }
-    this.mesh.visible = true;
-    this.uniforms.entries.value = this.layout.entries;
-    this.uniforms.bowGap.value = this.layout.bowGap;
-    this.uniforms.step.value = step;
-    this.uniforms.length.value = this.layout.length;
-    this.uniforms.scale.value = scale;
-    this.texture.needsUpdate = true;
-    if (strength > 0) this.#emitSpray(delta, speed, scale, strength, forwardX, forwardZ);
+    this.#emitSpray(delta, speed, scale, velocity);
   }
 
-  #emitSpray(delta, speed, scale, strength, forwardX, forwardZ) {
-    if (!this.powder?.config.enabled || this.layout.length <= 0) return;
-    const { spray, halfWidth } = this.config;
-    // Owed in reference metres of loaded wall, so a larger rider throws the
-    // same amount of snow per body length rather than per world metre.
-    const travelled = speed * delta / scale * strength;
-    this.sprayOwed += travelled * spray.curtainPerMetre;
-    this.driftOwed += travelled * spray.driftPerMetre;
-    const sprayCount = Math.floor(this.sprayOwed);
-    const driftCount = Math.floor(this.driftOwed);
-    this.sprayOwed -= sprayCount;
-    this.driftOwed -= driftCount;
-    const budget = spray.maxPerFrame;
-    // Velocities follow Froude scaling so arcs keep their shape at any size.
+  // Spray off the lip, emitted from the crest band the mesh draws. Rate is per
+  // metre travelled, so it does not thin out at a higher frame rate.
+  #emitSpray(delta, speed, scale, velocity) {
+    const powder = this.powder;
+    const count = this.layout.count;
+    if (!powder?.config.enabled || count < 3 || this.surf < PLUME_MIN_SURF || speed / scale < PLUME_MIN_SPEED) {
+      this.sprayOwed = 0;
+      return;
+    }
+    const { spray, capacity } = this.config;
+    const travelled = speed * delta / scale;
+    this.sprayOwed += travelled;
+    this.driftOwed += travelled;
+    // Froude scaling: arcs keep their shape for a larger rider.
     const speedScale = Math.sqrt(scale);
-    const boardX = forwardX * speed;
-    const boardZ = forwardZ * speed;
+    // Snowflow sizes are billboard radii; the powder pool takes diameters.
+    const diameter = 2 * scale;
+    const boardX = velocity?.x ?? 0;
+    const boardZ = velocity?.z ?? 0;
 
-    for (let index = 0; index < Math.min(sprayCount, budget); index += 1) {
-      const sample = readPackedSpine(this.data, this.config.capacity, this.layout,
-        Math.min(this.layout.length, scale * range(0.6, 2.4)), this.sample);
-      const total = sample.ampL + sample.ampR;
-      if (total <= 1e-3) continue;
-      const side = Math.random() * total < sample.ampL ? -1 : 1;
-      const curl = side > 0 ? sample.curlR : sample.curlL;
-      const curtain = Math.random() < CURTAIN_SHARE;
-      const crestQ = wakeCrestParameter(curl);
-      const crest = wakePointCpu(sample, curtain ? crestQ * range(0.85, 1) : crestQ, side, scale, halfWidth, this.crest);
-      if (curtain) {
-        // Dense slow sheet hugging the crest.
-        const outward = range(0.4, 1.4) * speedScale;
-        this.powder.emit(
-          crest.x, crest.y, crest.z,
-          crest.outwardX * outward + boardX * 0.25,
-          range(0.8, 2) * speedScale,
-          crest.outwardZ * outward + boardZ * 0.25,
-          range(0.03, 0.08) * scale,
-          range(0.34, 0.74),
-          4.5,
+    let plume = Math.floor(this.sprayOwed * spray.curtainPerMetre);
+    if (plume > 0) {
+      this.sprayOwed -= plume / spray.curtainPerMetre;
+      plume = Math.min(plume, spray.maxPerFrame);
+      // Fractional positions over the live front of the wave, from the bow, so
+      // the plume is a continuous line rather than a row of clumps.
+      const span = Math.min(count - 1, PLUME_SPAN);
+      for (let index = 0; index < plume; index += 1) {
+        const sample = readPackedSpine(this.data, capacity, count, Math.random() * span, this.sample);
+        const total = sample.ampL + sample.ampR;
+        if (total < 0.12 * scale) continue;
+        const side = Math.random() * total < sample.ampL ? -1 : 1;
+        const amplitude = side < 0 ? sample.ampL : sample.ampR;
+        if (amplitude < 0.1 * scale) continue;
+        const rightLength = Math.hypot(sample.rightX, sample.rightZ) || 1;
+        const rx = sample.rightX / rightLength;
+        const rz = sample.rightZ / rightLength;
+        const fx = rz;
+        const fz = -rx;
+        // A band straddling the crest's lateral maximum, weighted toward the lip.
+        const lateral = scale * wakeBaseOffset(sample.distance / scale) + (0.35 + Math.random() * 0.55) * amplitude;
+        const px = sample.x + rx * side * lateral;
+        const py = sample.y + (0.3 + 0.82 * Math.sqrt(Math.random())) * amplitude;
+        const pz = sample.z + rz * side * lateral;
+
+        if (Math.random() < CURTAIN_SHARE) {
+          // Curtain: big, slow, short-lived, high drag.
+          const outward = (0.4 + Math.random() * 1.1) * speedScale;
+          powder.emit(
+            px, py, pz,
+            rx * side * outward + boardX * 0.16,
+            (0.9 + Math.random() * 1.8) * speedScale,
+            rz * side * outward + boardZ * 0.16,
+            (0.055 + Math.random() * 0.085) * diameter,
+            0.34 + Math.random() * 0.4,
+            4.5,
+          );
+          continue;
+        }
+        // Throw: ballistic grains and clods that actually clear the wave.
+        const outward = (1.2 + Math.random() * 2.6) * speedScale;
+        const back = (0.4 + Math.random() * 2.2) * speedScale;
+        const clod = Math.random() < CLOD_SHARE;
+        powder.emit(
+          px, py, pz,
+          rx * side * outward - fx * back + boardX * 0.3,
+          (1.6 + Math.random() * 3.4 + amplitude / scale * 1.5) * speedScale,
+          rz * side * outward - fz * back + boardZ * 0.3,
+          (clod ? 0.02 + Math.random() * 0.022 : 0.045 + Math.random() * 0.055) * diameter,
+          clod ? 0.7 + Math.random() * 0.5 : 0.9 + Math.random() * 1.3,
+          clod ? 0.7 : 1 + Math.random() * 0.8,
         );
-        continue;
       }
-      // Ballistic grains and clods flung clear of the wall.
-      const clod = Math.random() < CLOD_SHARE;
-      const outward = range(2.2, 4.6) * speedScale;
-      this.powder.emit(
-        crest.x, crest.y, crest.z,
-        crest.outwardX * outward + boardX * 0.45,
-        range(2.4, 4.8) * speedScale,
-        crest.outwardZ * outward + boardZ * 0.45,
-        (clod ? range(0.02, 0.042) : range(0.025, 0.055)) * scale,
-        clod ? range(0.7, 1.2) : range(0.9, 2.2),
-        clod ? 0.7 : range(1, 1.8),
-      );
     }
 
-    for (let index = 0; index < Math.min(driftCount, budget); index += 1) {
-      const sample = readPackedSpine(this.data, this.config.capacity, this.layout,
-        Math.min(this.layout.length, scale * range(0, 3)), this.sample);
-      const lateral = range(-1, 1) * halfWidth * scale;
-      this.powder.emit(
-        sample.x + sample.rightX * lateral,
-        sample.y + 0.05 * scale,
-        sample.z + sample.rightZ * lateral,
-        boardX * 0.15,
-        range(0.3, 0.9) * speedScale,
-        boardZ * 0.15,
-        range(0.05, 0.12) * scale,
-        range(0.6, 1.2),
-        6,
-      );
+    // A slower stream of fine powder hanging low over the trench, so the trail
+    // still looks like it is smoking after the lip spray has landed.
+    let drift = Math.floor(this.driftOwed * spray.driftPerMetre);
+    const driftSpan = Math.min(count - 3, DRIFT_SPAN);
+    if (drift > 0 && driftSpan > 0) {
+      this.driftOwed -= drift / spray.driftPerMetre;
+      drift = Math.min(drift, DRIFT_MAX_PER_FRAME);
+      for (let index = 0; index < drift; index += 1) {
+        const sample = readPackedSpine(this.data, capacity, count, 2 + Math.random() * driftSpan, this.sample);
+        const rightLength = Math.hypot(sample.rightX, sample.rightZ) || 1;
+        const lateral = (Math.random() - 0.5) * 1.6 * scale / rightLength;
+        powder.emit(
+          sample.x + sample.rightX * lateral,
+          sample.y + (0.08 + Math.random() * 0.35) * scale,
+          sample.z + sample.rightZ * lateral,
+          (Math.random() - 0.5) * 1.1 * speedScale,
+          (0.25 + Math.random() * 0.9) * speedScale,
+          (Math.random() - 0.5) * 1.1 * speedScale,
+          (0.026 + Math.random() * 0.036) * diameter,
+          1.5 + Math.random() * 1.6,
+          4.5,
+        );
+      }
     }
   }
 

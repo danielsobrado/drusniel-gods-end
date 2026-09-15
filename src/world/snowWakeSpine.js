@@ -1,13 +1,14 @@
 // The wake spine: the path the board has taken, resampled at a fixed spacing
 // into a ring, then packed each frame into a capacity x 3 float texture.
 //
-//   row 0  x, y, z, distance from the bow
+//   row 0  x, y, z, distance behind the bow
 //   row 1  right.x, right.z, left wall height, right wall height
 //   row 2  left curl, right curl, age / life, strength
 //
 // Slot 0 is always the live bow just ahead of the board; slot 1 onward are
-// committed samples from newest to oldest. Heights and curls are resolved here
-// from the carve so the shader only reads them.
+// committed samples from newest to oldest, stopping at the first one that has
+// finished collapsing. Heights and curls are resolved here from the carve so
+// the shader only reads them, as in Snowflow's surfWake.js.
 
 export const SPINE_ROWS = 3;
 const CHANNELS = 4;
@@ -83,18 +84,20 @@ export class SnowWakeSpine {
     this.carve[this.head] = carve;
   }
 
+  // Returns the number of packed slots and the tallest wall anywhere on them.
+  // The shader clamps every fetch to `count - 1`, so slots past it are unread.
   pack(data, {
-    clock, bowX, bowY, bowZ, rightX, rightZ, strength, carve, life, maxHeight, scale, step,
+    clock, bowX, bowY, bowZ, rightX, rightZ, strength, carve, life, maxHeight, scale,
   }) {
     const capacity = this.capacity;
-    const entries = Math.min(this.count + 1, capacity);
+    const available = Math.min(this.count + 1, capacity);
     let distance = 0;
     let previousX = bowX;
     let previousZ = bowZ;
-    let bowGap = 0;
-    let lastLive = 0;
+    let count = 0;
+    let maxAmp = 0;
 
-    for (let slot = 0; slot < entries; slot += 1) {
+    for (let slot = 0; slot < available; slot += 1) {
       const index = (this.head - (slot - 1) + capacity) % capacity;
       const bow = slot === 0;
       const x = bow ? bowX : this.x[index];
@@ -104,17 +107,19 @@ export class SnowWakeSpine {
       distance += Math.hypot(x - previousX, z - previousZ);
       previousX = x;
       previousZ = z;
-      if (slot === 1) bowGap = distance;
 
       const age = bow ? 0 : clamp((clock - this.laid[index]) / life, 0, 1);
-      if (!bow && age < 1) lastLive = slot;
-      // Small at the bow and full by 1.6 m behind it; the quadratic fall takes
-      // the wall to zero at the end of its life so it never ends in a cut edge.
+      // Rise: small at the bow and full a metre and a half behind it. Fall:
+      // quadratic to exactly zero, so the tail degenerates onto its spine
+      // instead of ending in a cut edge.
       const shape = 0.34 + 0.66 * smoothstep01((distance / scale - 0.3) / 1.3);
       const envelope = (1 - age) * (1 - age);
       const base = maxHeight * sampleStrength * shape * envelope;
-      // Positive carve loads the left wall: the outside of a right turn.
+      // Positive carve is a right turn and loads the left (outside) wall.
       const bias = clamp(sampleCarve, -1, 1);
+      const ampL = base * clamp(0.45 + 0.55 * bias, 0.05, 1);
+      const ampR = base * clamp(0.45 - 0.55 * bias, 0.05, 1);
+      maxAmp = Math.max(maxAmp, ampL, ampR);
 
       const row0 = slot * CHANNELS;
       const row1 = (capacity + slot) * CHANNELS;
@@ -125,43 +130,24 @@ export class SnowWakeSpine {
       data[row0 + 3] = distance;
       data[row1] = bow ? rightX : this.rightX[index];
       data[row1 + 1] = bow ? rightZ : this.rightZ[index];
-      data[row1 + 2] = base * clamp(0.45 + 0.55 * bias, 0.05, 1);
-      data[row1 + 3] = base * clamp(0.45 - 0.55 * bias, 0.05, 1);
+      data[row1 + 2] = ampL;
+      data[row1 + 3] = ampR;
+      // A wall that is barely there does not curl; a hard carve hangs its lip
+      // back across its own face.
       data[row2] = clamp(0.42 + 0.58 * bias, 0.26, 1);
       data[row2 + 1] = clamp(0.42 - 0.58 * bias, 0.26, 1);
       data[row2 + 2] = age;
       data[row2 + 3] = sampleStrength;
+      count = slot + 1;
+      if (!bow && age >= 1) break;
     }
-
-    // Unused slots repeat the last entry with no wall, so the shader's clamped
-    // Catmull-Rom fetch past the end sees a flat, finished spine.
-    const last = entries - 1;
-    for (let slot = entries; slot < capacity; slot += 1) {
-      for (let row = 0; row < SPINE_ROWS; row += 1) {
-        const source = (capacity * row + last) * CHANNELS;
-        data.copyWithin((capacity * row + slot) * CHANNELS, source, source + CHANNELS);
-      }
-      data[(capacity + slot) * CHANNELS + 2] = 0;
-      data[(capacity + slot) * CHANNELS + 3] = 0;
-    }
-
-    const end = Math.min(lastLive + 1, last);
-    return {
-      entries,
-      bowGap,
-      step,
-      length: data[end * CHANNELS + 3],
-      live: lastLive > 0,
-    };
+    return { count, maxAmp };
   }
 }
 
-// Linear read of the packed spine at a distance from the bow, for emitters.
-export function readPackedSpine(data, capacity, layout, distance, out) {
-  const fractional = distance < layout.bowGap
-    ? distance / Math.max(layout.bowGap, 1e-4)
-    : 1 + (distance - layout.bowGap) / layout.step;
-  const last = layout.entries - 1;
+// Linear read of the packed spine at a fractional slot, for emitters.
+export function readPackedSpine(data, capacity, count, fractional, out) {
+  const last = Math.max(count - 1, 0);
   const lower = clamp(Math.floor(fractional), 0, last);
   const upper = Math.min(lower + 1, last);
   const t = clamp(fractional - lower, 0, 1);
@@ -170,6 +156,7 @@ export function readPackedSpine(data, capacity, layout, distance, out) {
   out.x = mixed(0, 0);
   out.y = mixed(0, 1);
   out.z = mixed(0, 2);
+  out.distance = mixed(0, 3);
   out.rightX = mixed(1, 0);
   out.rightZ = mixed(1, 1);
   out.ampL = mixed(1, 2);

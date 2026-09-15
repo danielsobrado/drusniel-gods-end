@@ -1,5 +1,10 @@
 import * as THREE from 'three/webgpu';
+import {
+  atan, cameraViewMatrix, color, dot, float, fract, instanceIndex, normalize, uv, vec2, vec3, vec4,
+} from 'three/tsl';
 import { resolveSnowPowderConfig } from '../config/resolveSnowPowderConfig.js';
+import { foliageLight } from '../rendering/CinematicLighting.js';
+import { noise2 } from './snowNoiseNodes.js';
 import { sampleSnowSurfaceCpu } from './SnowDeformationField.js';
 import { advanceSnowPowderVelocity, snowWindVector } from './SnowPowderPhysics.js';
 
@@ -10,27 +15,46 @@ const AMBIENT_MAX_EMISSIONS_PER_FRAME = 8;
 const AMBIENT_HORIZONTAL_JITTER = 0.35;
 const AMBIENT_INITIAL_WIND_FACTOR = 0.25;
 
-function createPowderTexture(size) {
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('Snow powder canvas context is unavailable.');
-  const center = size * 0.5;
-  const gradient = context.createRadialGradient(center, center, 0, center, center, center);
-  gradient.addColorStop(0, 'rgba(255,255,255,0.95)');
-  gradient.addColorStop(0.35, 'rgba(255,255,255,0.72)');
-  gradient.addColorStop(0.72, 'rgba(255,255,255,0.18)');
-  gradient.addColorStop(1, 'rgba(255,255,255,0)');
-  context.fillStyle = gradient;
-  context.fillRect(0, 0, size, size);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.NoColorSpace;
-  texture.generateMipmaps = true;
-  texture.minFilter = THREE.LinearMipmapLinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.needsUpdate = true;
-  return texture;
+const MIE_G = 0.55;
+// Brightest foliageLight.strength; lighting is expressed relative to it.
+const FULL_SUN_STRENGTH = 0.8;
+
+// Airborne snow shaded after Snowflow's spray.fragment.wgsl (MIT, Maksymilian
+// Dendura). The billboard is lit as a sphere, so a puff has a lit and a dark
+// side, and looking toward the sun through it adds a strong warm forward-scatter
+// lobe: the difference between spray catching the light and grey smoke. The
+// disc edge is wobbled per particle so puffs are not perfect circles.
+function createPowderMaterial(config) {
+  const corner = uv().sub(0.5).mul(2);
+  const radius2 = dot(corner, corner);
+  const seed = fract(float(instanceIndex).mul(0.618034));
+  const angle = atan(corner.y, corner.x);
+  const wobble = noise2(vec2(angle.cos(), angle.sin()).mul(2.4).add(seed.mul(37))).mul(0.34).add(1);
+  const radius = radius2.sqrt().div(wobble);
+  const edge = radius.mul(radius).oneMinus().clamp(0, 1).pow(1.6);
+
+  // Billboards face the camera, so the sphere normal is built in view space.
+  const normalView = normalize(vec3(corner.x, corner.y, radius2.oneMinus().max(0).sqrt()));
+  const lightView = normalize(cameraViewMatrix.mul(vec4(foliageLight.direction, 0)).xyz);
+  const sun = foliageLight.color.mul(foliageLight.strength.div(FULL_SUN_STRENGTH));
+  const diffuse = dot(normalView, lightView).add(0.75).div(1.75 * 1.75).max(0).div(1 / 1.75);
+  // Cornette-Shanks phase; mu is 1 looking straight into the sun.
+  const mu = lightView.z.negate();
+  const g2 = MIE_G * MIE_G;
+  const phase = mu.mul(mu).add(1).mul((3 / (8 * Math.PI)) * (1 - g2) / (2 + g2))
+    .div(mu.mul(-2 * MIE_G).add(1 + g2).pow(1.5));
+  const sky = vec3(0.56, 0.64, 0.76);
+
+  const material = new THREE.MeshBasicNodeMaterial({
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  material.name = 'SnowPowder';
+  material.colorNode = color(config.color)
+    .mul(sky.add(sun.mul(diffuse).mul(0.55)).add(sun.mul(phase).mul(0.85 * Math.PI * 0.35)));
+  material.opacityNode = edge.mul(config.opacity);
+  return material;
 }
 
 function smoothFade(value, start) {
@@ -70,17 +94,8 @@ export class SnowPowderSystem {
     this.active = new Uint8Array(capacity);
     this.dummy = new THREE.Object3D();
 
-    this.texture = createPowderTexture(this.config.textureSize);
     this.geometry = new THREE.PlaneGeometry(1, 1);
-    this.material = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(this.config.color),
-      map: this.texture,
-      transparent: true,
-      opacity: this.config.opacity,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-      toneMapped: true,
-    });
+    this.material = createPowderMaterial(this.config);
     this.mesh = new THREE.InstancedMesh(this.geometry, this.material, capacity);
     this.mesh.name = 'SnowPowder';
     this.mesh.count = capacity;
@@ -178,7 +193,8 @@ export class SnowPowderSystem {
   }
 
   // Emits one particle from another system (the surf wake), with its own drag
-  // so a slow crest curtain and ballistic grains share the pool.
+  // so a slow crest curtain and ballistic grains share the pool. `size` is the
+  // billboard diameter in metres.
   emit(x, y, z, vx, vy, vz, size, lifetime, drag = this.config.drag) {
     if (!this.config.enabled) return;
     this.#spawnParticle({ x, y, z }, { x: vx, y: vy, z: vz }, size, lifetime, drag);
@@ -303,6 +319,5 @@ export class SnowPowderSystem {
     this.mesh.removeFromParent();
     this.geometry.dispose();
     this.material.dispose();
-    this.texture.dispose();
   }
 }

@@ -58,7 +58,6 @@ export function resolveSnowWakeConfig(config) {
     lifeSeconds: positive(config, 'lifeSeconds'),
     bowLead: finiteNumber(config.bowLead, `${prefix}.bowLead`, { min: 0 }),
     maxHeight: positive(config, 'maxHeight'),
-    halfWidth: finiteNumber(config.halfWidth, `${prefix}.halfWidth`, { min: 0 }),
     minSpeed,
     fullSpeed,
     minCoverage: unit(config, 'minCoverage'),

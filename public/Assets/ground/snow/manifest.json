@@ -1,0 +1,14 @@
+{
+  "asset": "Snow007C",
+  "source": "https://ambientcg.com/view?id=Snow007C",
+  "author": "ambientCG (Lennart Demes)",
+  "license": "CC0 1.0 Universal",
+  "attribution": "Not required. Credit: Snow007C from ambientCG.com.",
+  "acquired": "2026-09-15",
+  "import": "1K-JPG package resized for web with sharp. Colour JPEG q80; GL normal JPEG q88 4:4:4; ambient occlusion, roughness and displacement packed into R, G and B of one JPEG q88 4:4:4.",
+  "files": {
+    "snow007c_color_1k.jpg": "Snow007C_1K-JPG_Color.jpg",
+    "snow007c_normal_gl_1k.jpg": "Snow007C_1K-JPG_NormalGL.jpg",
+    "snow007c_ao_rough_height_1k.jpg": "R: Snow007C_1K-JPG_AmbientOcclusion.jpg, G: Snow007C_1K-JPG_Roughness.jpg, B: Snow007C_1K-JPG_Displacement.jpg"
+  }
+}

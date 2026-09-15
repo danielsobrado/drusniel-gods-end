@@ -14,3 +14,6 @@ cinematic-*.png
 .cache/
 
 .playwright-mcp/
+
+public/tmp/
+

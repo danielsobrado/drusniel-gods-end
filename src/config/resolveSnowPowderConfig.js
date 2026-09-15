@@ -71,7 +71,6 @@ export function resolveSnowPowderConfig(config) {
     settleHorizontalRetention: finiteNumber(config.settleHorizontalRetention, `${prefix}.settleHorizontalRetention`, { min: 0, max: 1 }),
     opacity: finiteNumber(config.opacity, `${prefix}.opacity`, { min: 0, max: 1 }),
     color: config.color,
-    textureSize: integer(config.textureSize, `${prefix}.textureSize`, { min: 16, max: 256 }),
     seed: integer(config.seed, `${prefix}.seed`, { min: 0, max: UINT32_MAX }) >>> 0,
     ambient: resolveAmbient(config.ambient, prefix),
   };
