@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu';
 import { resolveSnowPowderConfig } from '../config/resolveSnowPowderConfig.js';
-import { sampleSnowCoverageCpu } from './SnowDeformationField.js';
+import { sampleSnowSurfaceCpu } from './SnowDeformationField.js';
 import { advanceSnowPowderVelocity, snowWindVector } from './SnowPowderPhysics.js';
 
 const UINT32_MAX_PLUS_ONE = 4294967296;
@@ -66,6 +66,7 @@ export class SnowPowderSystem {
     this.ages = new Float32Array(capacity);
     this.lifetimes = new Float32Array(capacity);
     this.sizes = new Float32Array(capacity);
+    this.drags = new Float32Array(capacity);
     this.active = new Uint8Array(capacity);
     this.dummy = new THREE.Object3D();
 
@@ -173,21 +174,14 @@ export class SnowPowderSystem {
   }
 
   #sampleSnowSurface(x, z) {
-    const terrainHeight = this.terrainSampler.sampleHeight(x, z);
-    if (!Number.isFinite(terrainHeight)) return null;
-    const step = this.config.normalSampleDistance;
-    const xp = this.terrainSampler.sampleHeight(x + step, z);
-    const xm = this.terrainSampler.sampleHeight(x - step, z);
-    const zp = this.terrainSampler.sampleHeight(x, z + step);
-    const zm = this.terrainSampler.sampleHeight(x, z - step);
-    if (![xp, xm, zp, zm].every(Number.isFinite)) return null;
-    const dx = xp - xm;
-    const dz = zp - zm;
-    const normalY = 1 / Math.sqrt(1 + (dx / (step * 2)) ** 2 + (dz / (step * 2)) ** 2);
-    return {
-      y: terrainHeight,
-      coverage: sampleSnowCoverageCpu(x, terrainHeight, z, normalY, this.rootConfig),
-    };
+    return sampleSnowSurfaceCpu(this.terrainSampler, x, z, this.config.normalSampleDistance, this.rootConfig);
+  }
+
+  // Emits one particle from another system (the surf wake), with its own drag
+  // so a slow crest curtain and ballistic grains share the pool.
+  emit(x, y, z, vx, vy, vz, size, lifetime, drag = this.config.drag) {
+    if (!this.config.enabled) return;
+    this.#spawnParticle({ x, y, z }, { x: vx, y: vy, z: vz }, size, lifetime, drag);
   }
 
   #spawnContact(contact) {
@@ -211,7 +205,7 @@ export class SnowPowderSystem {
     );
   }
 
-  #spawnParticle(position, velocity, size, lifetime) {
+  #spawnParticle(position, velocity, size, lifetime, drag = this.config.drag) {
     const index = this.cursor;
     this.cursor = (this.cursor + 1) % this.config.capacity;
     if (!this.active[index]) this.activeCount += 1;
@@ -219,6 +213,7 @@ export class SnowPowderSystem {
     this.ages[index] = 0;
     this.lifetimes[index] = lifetime;
     this.sizes[index] = size;
+    this.drags[index] = drag;
     const offset = index * 3;
     this.positions[offset] = position.x;
     this.positions[offset + 1] = position.y;
@@ -239,6 +234,7 @@ export class SnowPowderSystem {
         continue;
       }
       const offset = index * 3;
+      this.physics.drag = this.drags[index];
       advanceSnowPowderVelocity(this.velocities, offset, delta, this.physics);
       this.positions[offset] += this.velocities[offset] * delta;
       this.positions[offset + 1] += this.velocities[offset + 1] * delta;

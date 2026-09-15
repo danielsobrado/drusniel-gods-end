@@ -81,7 +81,7 @@ ground:
       recoveryInterval: 0.2
     powder:
       enabled: true
-      capacity: 1400
+      capacity: 3000
       particlesPerContact: 18
       runningMultiplier: 1.5
       emitDistance: 0.12
@@ -122,3 +122,37 @@ ground:
         sizeMax: 0.065
         verticalSpeedMin: 0.03
         verticalSpeedMax: 0.18
+    # Snow-surf wake: sprinting on snow sweeps a breaking wall of snow behind the
+    # rider. Lengths and speeds are for a referenceHeight rider and scale with
+    # the character.
+    wake:
+      enabled: true
+      referenceHeight: 1.8
+      capacity: 96
+      spineStep: 0.3
+      columns: 128
+      rows: 18
+      lifeSeconds: 0.88
+      bowLead: 0.55
+      maxHeight: 2.4
+      halfWidth: 0.22
+      minSpeed: 2.2
+      fullSpeed: 4.3
+      minCoverage: 0.35
+      carveAcceleration: 26
+      transmission: 0.35
+      roughness: 0.8
+      color: '#e4eaf4'
+      spray:
+        curtainPerMetre: 88
+        driftPerMetre: 7
+        maxPerFrame: 90
+      shake:
+        amplitude: 0.05
+        loadThreshold: 0.25
+        gain: 4
+        decay: 1.2
+      streaks:
+        strength: 1
+        startSpeedRatio: 0.6
+        fullSpeedRatio: 2

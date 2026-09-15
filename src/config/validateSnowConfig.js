@@ -1,3 +1,5 @@
+import { resolveSnowWakeConfig } from './resolveSnowWakeConfig.js';
+
 function number(value, path, problems, { min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY, exclusiveMin = false } = {}) {
   const numeric = Number(value);
   const lowerInvalid = exclusiveMin ? !(numeric > min) : numeric < min;
@@ -181,6 +183,14 @@ export function validateSnowConfig(config) {
       orderedRange(ambient, 'lifetimeMin', 'lifetimeMax', 'ground.snow.powder.ambient', problems, { min: 0, exclusiveMin: true });
       orderedRange(ambient, 'sizeMin', 'sizeMax', 'ground.snow.powder.ambient', problems, { min: 0, exclusiveMin: true });
       orderedRange(ambient, 'verticalSpeedMin', 'verticalSpeedMax', 'ground.snow.powder.ambient', problems, { min: 0 });
+    }
+  }
+
+  if (snow.wake) {
+    try {
+      resolveSnowWakeConfig(snow.wake);
+    } catch (error) {
+      problems.push(error.message);
     }
   }
 

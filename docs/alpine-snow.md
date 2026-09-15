@@ -64,7 +64,7 @@ The wind bearing is shared with the sastrugi and accumulation system through `gr
 <!-- effective-config: ground.snow.powder -->
 ```yaml
 enabled: true
-capacity: 1400
+capacity: 3000
 particlesPerContact: 18
 windSpeed: 3.2
 terminalFallSpeed: 1.9
@@ -74,6 +74,28 @@ ambient:
   enabled: true
   particlesPerSecond: 72
   radius: 20
+```
+
+## Snow-surf wake
+
+Sprinting on snow surfs. The wake follows Snowflow's design: it is a swept mesh, not a particle effect. Its spine is the path the rider has taken, resampled every 30 cm (per 1.8 m of rider height) into a 96 x 3 float `DataTexture`. The mesh is a static lattice of (column, row, side), and `SnowWakeMaterial` places every vertex in the vertex shader. A long wake and a short one therefore cost the same buffer and the same 4.6 KB upload each frame.
+
+The cross-section is a breaking wave integrated from a turning tangent. The tangent starts just below horizontal at the base. Its tip angle runs from 40 degrees, a low heaped bank, to 284 degrees, a lip that hangs back across its own face, and one curl parameter sets where between the two it lands. Wall height and curl are resolved per side from the carve, so the outside of a turn takes nearly all the snow. Carve is lateral acceleration, speed times yaw rate. The wall is tallest at a full-speed carve and collapses `lifeSeconds` after it is laid, so wake length is life x speed. Normals are differenced out of the same `wakePoint` the geometry uses. The concave side goes dark and blue inside the barrel, and the thin lip transmits backlight.
+
+Two spray populations come off the same spine and are emitted at fractional positions along it into the shared powder pool. A dense, slow curtain hugs the crest; ballistic grains and clods are flung clear. `snowWakeProfile.js` holds the CPU mirror of the section, so spray leaves the crest the mesh draws. A loaded edge adds camera shake, and speed past the streak threshold adds screen-space speed streaks in the cinematic grade.
+
+All wake lengths, heights and speeds are authored for a `referenceHeight` rider and scaled by the character's height. Spray velocities scale with the square root of that ratio, which keeps their arcs the same shape.
+
+<!-- effective-config: ground.snow.wake -->
+```yaml
+capacity: 96
+spineStep: 0.3
+columns: 128
+rows: 18
+lifeSeconds: 0.88
+maxHeight: 2.4
+minSpeed: 2.2
+fullSpeed: 4.3
 ```
 
 ## Performance

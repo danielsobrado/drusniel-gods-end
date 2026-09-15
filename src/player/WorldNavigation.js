@@ -115,6 +115,8 @@ export class WorldNavigation {
       influencePoints,
       walking,
     );
+    // Before the powder step, so spray thrown this frame is drawn this frame.
+    this.world.snowWake?.update(deltaSeconds, this.player, walkingMode && this.player.grounded);
     this.world.snowPowder?.update(
       deltaSeconds,
       powderFocus,

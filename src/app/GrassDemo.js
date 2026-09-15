@@ -574,6 +574,7 @@ export class GrassDemo {
     }
     const time = profiler ? (name, fn) => profiler.time(name, fn) : (_name, fn) => fn();
 
+    this.world.snowWake?.restoreCamera();
     time('player', () => this.player.update(deltaSeconds));
     this.tour.update(deltaSeconds);
     this.navigation.update(deltaSeconds);
@@ -610,6 +611,7 @@ export class GrassDemo {
     this.world.terrainTarget.material.userData.updateCoast?.(deltaSeconds, this.water.rippleElapsed);
     // Depth of field focuses on the character at the end of the camera arm.
     this.pipeline.setFocusDistance(this.player.cameraDistance);
+    this.pipeline.setSpeedStreaks(this.world.snowWake?.streak ?? 0);
     time('render', () => this.pipeline.render({ occlusionEnabled: true, profiler }));
     this.ui.update(deltaSeconds);
 

@@ -75,6 +75,25 @@ export function sampleSnowCoverageCpu(x, y, z, normalY, config) {
   return THREE.MathUtils.clamp(altitude * slope, 0, 1);
 }
 
+// Terrain height and snow coverage at a point, with the slope taken from a
+// central difference `step` metres wide.
+export function sampleSnowSurfaceCpu(terrainSampler, x, z, step, config) {
+  const terrainHeight = terrainSampler.sampleHeight(x, z);
+  if (!Number.isFinite(terrainHeight)) return null;
+  const xp = terrainSampler.sampleHeight(x + step, z);
+  const xm = terrainSampler.sampleHeight(x - step, z);
+  const zp = terrainSampler.sampleHeight(x, z + step);
+  const zm = terrainSampler.sampleHeight(x, z - step);
+  if (![xp, xm, zp, zm].every(Number.isFinite)) return null;
+  const dx = xp - xm;
+  const dz = zp - zm;
+  const normalY = 1 / Math.sqrt(1 + (dx / (step * 2)) ** 2 + (dz / (step * 2)) ** 2);
+  return {
+    y: terrainHeight,
+    coverage: sampleSnowCoverageCpu(x, terrainHeight, z, normalY, config),
+  };
+}
+
 export class SnowDeformationField {
   constructor(config, terrainSampler) {
     this.config = resolveSnowDeformationConfig(config.ground.snow.deformation);

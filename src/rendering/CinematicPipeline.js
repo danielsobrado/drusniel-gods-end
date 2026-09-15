@@ -3,7 +3,7 @@ import {
 } from 'three/webgpu';
 import {
   pass, rtt, renderOutput, vec4, vec3, vec2, uniform, mix, dot, uv, smoothstep, float, fract, sin, screenCoordinate, time,
-  mrt, output, velocity, Fn, Loop, step, perspectiveDepthToViewZ,
+  mrt, output, velocity, Fn, Loop, step, perspectiveDepthToViewZ, atan,
 } from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
@@ -27,6 +27,7 @@ const _sunPoint = new Vector3();
 const _forward = new Vector3();
 // Toggles that only change a uniform; everything else rebuilds the graph.
 const UNIFORM_EFFECTS = new Set(['grain', 'vignette']);
+const STREAK_LANES = 96;
 
 export class CinematicPipeline {
   constructor(world, config) {
@@ -53,6 +54,7 @@ export class CinematicPipeline {
       highlightDesaturation: uniform(post.highlightDesaturation ?? 0),
       vignette: uniform(0),
       grain: uniform(0),
+      streaks: uniform(0),
     };
     this.clip = { near: uniform(0.1), far: uniform(1000) };
     this.shafts = { uv: uniform(new Vector2(0.5, 0.5)), color: uniform(new Vector3()), intensity: uniform(0) };
@@ -81,7 +83,21 @@ export class CinematicPipeline {
     const vignette = smoothstep(0.18, 0.95, uv().sub(0.5).length()).mul(this.grade.vignette).oneMinus();
     const grain = fract(sin(dot(screenCoordinate.xy, vec2(12.9898, 78.233)).add(time.fract().mul(43758.5453))).mul(43758.5453))
       .sub(0.5).mul(this.grade.grain);
-    return rolled.mul(vignette).add(grain).max(0);
+    // Speed streaks: sparse radial dashes racing outward at the frame edge.
+    const centered = uv().sub(0.5);
+    const radius = centered.length();
+    const lanes = atan(centered.y, centered.x).mul(STREAK_LANES / (Math.PI * 2)).add(STREAK_LANES);
+    const laneSeed = fract(sin(lanes.floor().mul(91.7)).mul(43758.5453));
+    const laneWidth = lanes.fract().sub(0.5).abs().mul(2).oneMinus().pow(6);
+    const dash = fract(radius.mul(2.2).sub(time.mul(2.8)).add(laneSeed.mul(9)));
+    const streak = smoothstep(0.62, 1, laneSeed).mul(laneWidth).mul(smoothstep(0.55, 0.9, dash))
+      .mul(smoothstep(0.24, 0.62, radius)).mul(this.grade.streaks);
+    return rolled.mul(vignette).mul(streak.mul(0.55).add(1)).add(streak.mul(0.05)).add(grain).max(0);
+  }
+
+  setSpeedStreaks(value) {
+    if (!this.enabled) return;
+    this.grade.streaks.value = MathUtils.clamp(Number(value) || 0, 0, 4);
   }
 
   // One scene pass per antialiasing mode, created on first use. TRAA needs a
