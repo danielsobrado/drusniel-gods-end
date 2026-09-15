@@ -195,7 +195,10 @@ export class GrassMaterial {
     if (this.type === 'billboard' && atlasTexture) {
       this.#configureBillboardMaterial(material, atlasTexture, bladeUv, instanceData);
     } else {
-      material.receivedShadowPositionNode = positionNode;
+      // Three expects the shadow-receive position in world space; the deformed
+      // object-space position offset every lookup by the tile position, so
+      // blades never received tree or character shadows.
+      material.receivedShadowPositionNode = modelWorldMatrix.mul(vec4(positionNode, 1)).xyz;
       this.#configureBladeMaterial(material, bladeUv, instanceData);
     }
     return material;

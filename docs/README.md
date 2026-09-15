@@ -92,6 +92,7 @@ Saved implementation plans and review evidence:
 - [Offshore waves](plans/offshore-waves.md) — Windrose-inspired swells, filtered surface detail, whitecaps, transmission, and live sky reflections.
 - [Coast implementation review](improvements/coast-review-2026-09-12.md) — corrected findings, local rendering checks, performance comparison, and validation limits.
 - [Frame-loop CPU performance pass](improvements/frame-cpu-performance-2026-09-14.md) — static matrix cache, reflection-mask cache, grass tile and interaction-map savings, fixed double snow update, before/after captures.
+- [Look-and-feel pass](improvements/look-and-feel-pass-2026-09-14.md) — filmic grade, aerial perspective, grass root shading and soil bleed, cloud shadows, turf-edge dithering, screenshot review, the matrix-cache character regression fix, and the open shadow-receive gap.
 
 ## Documentation quality contract
 

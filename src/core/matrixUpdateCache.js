@@ -5,13 +5,16 @@ import { Object3D } from 'three';
 // of static trees, rocks and props pays a compose plus a 4x4 multiply per object
 // per pass even though nothing moved. This patch remembers the last composed
 // position / quaternion / scale and skips the compose (and the dirty flag) when
-// they are unchanged. Objects whose local transform did change, and every
-// descendant of an object whose world matrix changed, are updated exactly as
-// before, so the resulting matrices are identical.
+// they are unchanged.
 //
-// Re-parenting is the one case where an unchanged local transform still needs a
-// fresh world matrix; add() marks the object dirty so the next pass recomputes
-// it under the new parent. Objects with a pivot bypass the cache.
+// Skipping the dirty flag means the world matrix must be re-derived by other
+// means whenever the parent's world matrix changes. Every world-matrix
+// recompute therefore bumps a per-object version, and updateMatrixWorld()
+// recomputes a child whenever its own transform changed, it was re-parented,
+// its parent's version moved, or the parent manages its world matrix by hand
+// (matrixWorldAutoUpdate === false). Descendants of a recomputed object are
+// forced exactly as in stock three, so the resulting matrices are identical.
+// Objects with a pivot bypass the compose cache.
 
 let installed = false;
 let sceneGraphVersion = 0;
@@ -29,19 +32,10 @@ export function installMatrixUpdateCache() {
 
   const prototype = Object3D.prototype;
   const originalUpdateMatrix = prototype.updateMatrix;
+  const originalUpdateWorldMatrix = prototype.updateWorldMatrix;
   const originalAdd = prototype.add;
   const originalRemove = prototype.remove;
   const originalClear = prototype.clear;
-
-  prototype.remove = function remove() {
-    sceneGraphVersion += 1;
-    return originalRemove.apply(this, arguments);
-  };
-
-  prototype.clear = function clear() {
-    sceneGraphVersion += 1;
-    return originalClear.call(this);
-  };
 
   prototype.updateMatrix = function updateMatrix() {
     const position = this.position;
@@ -70,6 +64,67 @@ export function installMatrixUpdateCache() {
     cache[8] = scale.y;
     cache[9] = scale.z;
     originalUpdateMatrix.call(this);
+  };
+
+  prototype.updateMatrixWorld = function updateMatrixWorld(force) {
+    if (this.matrixAutoUpdate) this.updateMatrix();
+    const parent = this.parent;
+    const parentId = parent === null ? -1 : parent.id;
+    const parentVersion = parent === null ? 0 : (parent.worldVersion ?? 0);
+    if (this.matrixWorldNeedsUpdate || force === true
+      || this.worldParentId !== parentId || this.parentWorldVersion !== parentVersion
+      || (parent !== null && parent.matrixWorldAutoUpdate === false)) {
+      if (this.matrixWorldAutoUpdate === true) {
+        if (parent === null) this.matrixWorld.copy(this.matrix);
+        else this.matrixWorld.multiplyMatrices(parent.matrixWorld, this.matrix);
+      }
+      this.matrixWorldNeedsUpdate = false;
+      this.worldVersion = (this.worldVersion ?? 0) + 1;
+      this.worldParentId = parentId;
+      this.parentWorldVersion = parentVersion;
+      force = true;
+    }
+    const children = this.children;
+    for (let index = 0, length = children.length; index < length; index += 1) {
+      children[index].updateMatrixWorld(force);
+    }
+  };
+
+  // updateWorldMatrix() recomputes matrices outside the traversal (e.g. from
+  // getWorldPosition, every frame for the player and camera). Bump the version
+  // only when the world matrix actually changed, so cached children re-derive
+  // when needed without forcing the whole graph every frame.
+  // The original recurses into parents and children through this wrapper, so
+  // snapshots are pooled per recursion depth.
+  const snapshots = [];
+  let depth = 0;
+  prototype.updateWorldMatrix = function updateWorldMatrix(updateParents, updateChildren) {
+    const previous = snapshots[depth] ??= new Float64Array(16);
+    const elements = this.matrixWorld.elements;
+    for (let index = 0; index < 16; index += 1) previous[index] = elements[index];
+    depth += 1;
+    try {
+      originalUpdateWorldMatrix.call(this, updateParents, updateChildren);
+    } finally {
+      depth -= 1;
+    }
+    for (let index = 0; index < 16; index += 1) {
+      if (previous[index] !== elements[index]) {
+        this.worldVersion = (this.worldVersion ?? 0) + 1;
+        break;
+      }
+    }
+    return this;
+  };
+
+  prototype.remove = function remove() {
+    sceneGraphVersion += 1;
+    return originalRemove.apply(this, arguments);
+  };
+
+  prototype.clear = function clear() {
+    sceneGraphVersion += 1;
+    return originalClear.call(this);
   };
 
   prototype.add = function add(object) {

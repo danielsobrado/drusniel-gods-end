@@ -107,3 +107,59 @@ test('random walk stays bit-identical to explicit composition', () => {
     }
   }
 });
+
+// Regression: a loaded GLTF subtree whose intermediate node has an identity
+// transform (the character Armature) was left at the world origin because the
+// dirty flag only reached the immediate child of add().
+test('identity intermediates re-derive under a re-parented subtree', () => {
+  const scene = new THREE.Scene();
+  const root = new THREE.Group();
+  root.position.set(2, 5, -5);
+  scene.add(root);
+  scene.updateMatrixWorld();
+
+  const model = new THREE.Group();
+  model.position.y = -3;
+  const armature = new THREE.Object3D();
+  const mesh = new THREE.Mesh();
+  model.add(armature);
+  armature.add(mesh);
+  // Loaders and bounds helpers compute the subtree before it is parented.
+  model.updateMatrixWorld();
+  new THREE.Box3().setFromObject(model);
+  assert.deepEqual([...mesh.matrixWorld.elements.slice(12, 15)], [0, -3, 0]);
+
+  root.add(model);
+  scene.updateMatrixWorld();
+  assert.deepEqual([...mesh.matrixWorld.elements.slice(12, 15)], [2, 2, -5]);
+
+  root.position.x = 10;
+  scene.updateMatrixWorld();
+  assert.deepEqual([...mesh.matrixWorld.elements.slice(12, 15)], [10, 2, -5]);
+});
+
+test('getWorldPosition on a moved parent does not strand cached children', () => {
+  const scene = new THREE.Scene();
+  const parent = new THREE.Group();
+  const child = new THREE.Object3D();
+  scene.add(parent);
+  parent.add(child);
+  scene.updateMatrixWorld();
+  parent.position.x = 4;
+  parent.getWorldPosition(new THREE.Vector3());
+  scene.updateMatrixWorld();
+  assert.equal(child.matrixWorld.elements[12], 4);
+});
+
+test('children of a manually managed parent follow its world matrix', () => {
+  const scene = new THREE.Scene();
+  const parent = new THREE.Group();
+  parent.matrixWorldAutoUpdate = false;
+  const child = new THREE.Object3D();
+  scene.add(parent);
+  parent.add(child);
+  scene.updateMatrixWorld();
+  parent.matrixWorld.makeTranslation(7, 0, 0);
+  scene.updateMatrixWorld();
+  assert.equal(child.matrixWorld.elements[12], 7);
+});

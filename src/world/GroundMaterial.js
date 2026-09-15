@@ -232,7 +232,7 @@ export async function createGroundMaterial(config, terrainSampler = null, snowDe
     // Turf sits slightly darker than the blade pigment so it reads as shaded
     // soil beneath the canopy rather than a painted lawn.
     const grassPaint = style?.enabled
-      ? meadowRootColor(world, config).mul(grassSample.g.mul(0.08).add(0.96)).mul(turf.x.mul(0.12).add(1)).mul(0.84)
+      ? meadowRootColor(world, config).mul(grassSample.g.mul(0.08).add(0.96)).mul(turf.x.mul(0.12).add(1)).mul(0.72)
       : grassSample.rgb;
     const pathPaint = style?.enabled
       ? mix(groundSample.rgb, color(style.groundPath).mul(groundSample.r.mul(0.65).add(0.65)), 0.48)

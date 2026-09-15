@@ -6,7 +6,7 @@ import { Fn, dot, float, floor, fract, mix, positionWorld, sin, smoothstep, unif
 // pass. Strength 0 disables it (the multiplier becomes exactly 1).
 export const cloudShadowUniforms = {
   offset: uniform(new Vector2()),
-  scale: uniform(0.0045),
+  scale: uniform(0.008),
   coverage: uniform(0.5),
   strength: uniform(0),
 };

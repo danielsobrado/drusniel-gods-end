@@ -36,9 +36,9 @@ export class CinematicLighting {
     // fog so grey weather stays grey; the horizon picks up sky tint early.
     const towardSun = dot(viewDirection, foliageLight.direction).max(0).pow(3.5);
     const clearWeather = float(1).sub(this.fogDensity.smoothstep(0.001, 0.004));
-    const mistColor = mix(this.fogColor, foliageLight.color.mul(1.15), towardSun.mul(0.42).mul(clearWeather));
+    const mistColor = mix(this.fogColor, foliageLight.color.mul(1.1), towardSun.mul(0.3).mul(clearWeather));
     const farColor = world.sky?.getColorNode(viewDirection) ?? mistColor;
-    world.scene.fogNode = fog(mix(mistColor, farColor, smoothstep(180, 700, distance)), factor);
+    world.scene.fogNode = fog(mix(mistColor, farColor, smoothstep(350, 1000, distance)), factor);
     const backdrop = world.terrain?.getObjectByName('Landscape046');
     if (backdrop?.isMesh && backdrop !== world.terrainTarget) {
       this.backdrop = backdrop;

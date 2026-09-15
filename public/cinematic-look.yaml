@@ -83,7 +83,7 @@ cinematic:
   atmosphere:
     height: 14
     falloff: 0.045
-    density: 0.0016
+    density: 0.001
   post:
     samples: 4
     aoStrength: 0.18
@@ -172,7 +172,7 @@ presets:
       sunHaloColor: '#ffe8ad'
       sunPosition: [-28, 65, -30]
       fogColor: '#a5ced3'
-      fogDensity: 0.0016
+      fogDensity: 0.0011
     cloudCoverage: 0.7
 ground:
   metalness: 0

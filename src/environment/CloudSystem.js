@@ -142,7 +142,7 @@ export class CloudSystem {
       time: this.uniforms.time.value,
       speed: this.uniforms.speed.value,
       coverage: this.uniforms.coverage.value,
-      strength: this.config.shadowStrength ?? 0.32,
+      strength: this.config.shadowStrength ?? 0.4,
     });
     if (this.followCamera && this.camera) {
       this.mesh.position.x = this.camera.position.x;

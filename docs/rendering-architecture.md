@@ -51,7 +51,7 @@ Renderer settings:
 
 ```text
 shadowMap.enabled = true
-shadowMap.type = PCFSoftShadowMap
+shadowMap.type = PCFShadowMap
 toneMapping = ACESFilmicToneMapping
 toneMappingExposure = config.renderer.exposure
 outputColorSpace = SRGBColorSpace
