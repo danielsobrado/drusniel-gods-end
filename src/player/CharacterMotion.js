@@ -31,7 +31,11 @@ export function createLocomotionClips(model) {
         times.push(frame / 32 * duration);
         rotation.toArray(values, values.length);
       }
-      tracks.push(new THREE.QuaternionKeyframeTrack(`${bone.uuid}.quaternion`, times, values));
+      // Key by bone name like the authored clips: the mixer keeps one
+      // accumulator per binding path, so a uuid path and a name path on the
+      // same bone write it independently and fades between authored and
+      // generated clips leave the legs frozen at whichever wrote last.
+      tracks.push(new THREE.QuaternionKeyframeTrack(`${bone.name}.quaternion`, times, values));
     }
     clips.push(new THREE.AnimationClip(`Cinematic_${kind}`, duration, tracks));
   }

@@ -21,6 +21,12 @@ import { foliageLight } from '../rendering/CinematicLighting.js';
 
 const HALF_PI = Math.PI * 0.5;
 const DEFORMATION_NEUTRAL = 128 / 255;
+// Camera distances (world units) over which the fine ripple lattice and the
+// larger sastrugi lattice fade out, so distant slopes read as smooth snow.
+const RIPPLE_FADE_START = 45;
+const RIPPLE_FADE_END = 120;
+const SASTRUGI_FADE_START = 160;
+const SASTRUGI_FADE_END = 420;
 const BREAKUP_START = 0.18;
 const BREAKUP_FULL = 0.82;
 const BREAKUP_MINIMUM = 0.06;
@@ -221,8 +227,13 @@ export function createSnowSurfaceNodes(config, deformationField = null) {
     .mul(snow.ripples.crossFrequency * RIPPLE_CROSS_WARP * snow.ripples.amplitude)
     .mul(rippleEnvelope);
 
-  const grainFade = cameraPosition.distance(positionWorld)
-    .smoothstep(snow.grain.fadeStart, snow.grain.fadeEnd).oneMinus();
+  const viewDistance = cameraPosition.distance(positionWorld);
+  const grainFade = viewDistance.smoothstep(snow.grain.fadeStart, snow.grain.fadeEnd).oneMinus();
+  // The ripple and sastrugi lattices are sine patterns; past their fade
+  // distance they alias into a repetitive moire on far slopes, so they fade
+  // out with distance like the grain does.
+  const rippleFade = viewDistance.smoothstep(RIPPLE_FADE_START, RIPPLE_FADE_END).oneMinus();
+  const sastrugiFade = viewDistance.smoothstep(SASTRUGI_FADE_START, SASTRUGI_FADE_END).oneMinus();
   const grainPhaseX = along.mul(snow.grain.frequencyX)
     .add(across.mul(snow.grain.frequencyZ * SECONDARY_WARP_SCALE));
   const grainPhaseZ = across.mul(snow.grain.frequencyZ)
@@ -250,8 +261,8 @@ export function createSnowSurfaceNodes(config, deformationField = null) {
   const deformGradient = vec2(deform.z.sub(DEFORMATION_NEUTRAL), deform.w.sub(DEFORMATION_NEUTRAL))
     .mul(2).mul(deformInside).mul(snow.deformation.normalStrength);
 
-  const alongGradient = sastrugiDerivative.add(secondaryDerivative).add(rippleAlong);
-  const acrossGradient = sastrugiCrossDerivative.add(rippleAcross);
+  const alongGradient = sastrugiDerivative.add(secondaryDerivative).mul(sastrugiFade).add(rippleAlong.mul(rippleFade));
+  const acrossGradient = sastrugiCrossDerivative.mul(sastrugiFade).add(rippleAcross.mul(rippleFade));
   const gradientX = alongGradient.mul(snow.wind.cos).sub(acrossGradient.mul(snow.wind.sin))
     .add(grainX).add(deformGradient.x);
   const gradientZ = alongGradient.mul(snow.wind.sin).add(acrossGradient.mul(snow.wind.cos))
@@ -268,10 +279,12 @@ export function createSnowSurfaceNodes(config, deformationField = null) {
     .add(sin(secondaryPhase).mul(0.25))
     .add(sastrugiMacro.mul(0.15))
     .add(breakupA.mul(0.1)).mul(0.5).add(0.5).clamp(0, 1);
-  const sastrugiPattern = mix(0.5, rawSastrugiPattern, sastrugiAmplitude.clamp(0, 1));
+  // The tone patterns share the lattices' distance fades; otherwise the colour
+  // contrast alone keeps striping far slopes after the normals have smoothed.
+  const sastrugiPattern = mix(0.5, rawSastrugiPattern, sastrugiAmplitude.clamp(0, 1).mul(sastrugiFade));
   const rawRipplePattern = sin(ripplePhase).mul(0.65)
     .add(rippleMacro.mul(0.35)).mul(0.5).add(0.5).clamp(0, 1);
-  const ripplePattern = mix(0.5, rawRipplePattern, rippleEnvelope.clamp(0, 1));
+  const ripplePattern = mix(0.5, rawRipplePattern, rippleEnvelope.clamp(0, 1).mul(rippleFade));
   const sastrugiTone = mix(
     1 - snow.surfaceTone.sastrugiContrast,
     1 + snow.surfaceTone.sastrugiContrast,
@@ -306,6 +319,9 @@ export function createSnowSurfaceNodes(config, deformationField = null) {
     .mul(sparkle.pow(6))
     .mul(Number(snow.lighting.glintStrength))
     .mul(foliageLight.strength)
+    // Sparkle is a near-field effect; unfaded, its sine product aliases into
+    // a diagonal lattice across distant sun-facing slopes.
+    .mul(grainFade)
     .mul(mask);
   const backscatter = dot(viewDirection, foliageLight.direction.negate()).max(0)
     .pow(Number(snow.lighting.backscatterPower))

@@ -62,7 +62,12 @@ window.__billboardBaker = (async () => {
       for (const x of [box.min.x,box.max.x]) for (const y of [box.min.y,box.max.y]) for (const z of [box.min.z,box.max.z]) corners.push(new THREE.Vector3(x,y,z));
       const r0 = Math.min(...corners.map(p=>p.dot(right))), r1 = Math.max(...corners.map(p=>p.dot(right)));
       const t0 = Math.min(...corners.map(p=>p.dot(up))), t1 = Math.max(...corners.map(p=>p.dot(up)));
-      const w = (r1-r0)*1.02, h = (t1-t0)*1.02;
+      // Leave a transparent gutter inside each card: the two cards share the
+      // u=0.5 seam, and bilinear filtering at the edge otherwise bleeds the
+      // neighbouring card's column in as a vertical line through the tree.
+      const gutter = 3;
+      const cardWidth = Math.round(u1*width)-Math.round(u0*width), cardHeight = Math.round(v1*height)-Math.round(v0*height);
+      const w = (r1-r0)*1.02*cardWidth/(cardWidth-2*gutter), h = (t1-t0)*1.02*cardHeight/(cardHeight-2*gutter);
       const center = right.clone().multiplyScalar((r0+r1)/2).addScaledVector(up,(t0+t1)/2);
       const camera = new THREE.OrthographicCamera(-w/2,w/2,h/2,-h/2,0.1,1000);
       camera.position.copy(center).addScaledVector(normal,300); camera.up.copy(up); camera.lookAt(center);

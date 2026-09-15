@@ -220,7 +220,10 @@ export async function createGroundMaterial(config, terrainSampler = null, snowDe
     const world = positionWorld.xz;
     const macro = sin(world.x.mul(0.037).add(sin(world.y.mul(0.053))))
       .mul(sin(world.y.mul(0.071))).mul(0.5).add(0.5);
-    const flecks = sin(world.x.mul(3.1)).mul(sin(world.y.mul(4.7))).mul(0.5).add(0.5);
+    // Flecks are a 1-2 m sine product: sub-pixel beyond ~60 m, where they
+    // alias into a diagonal beat lattice on distant slopes, so fade them out.
+    const fleckFade = cameraPosition.distance(positionWorld).smoothstep(35, 90).oneMinus();
+    const flecks = mix(0.5, sin(world.x.mul(3.1)).mul(sin(world.y.mul(4.7))).mul(0.5).add(0.5), fleckFade);
     const moss = macro.mul(normalWorld.y.max(0)).mul(blend.oneMinus()).mul(0.22);
     const style = config.cinematic.style;
     const turf = style?.enabled ? groundTurf(world).toVar() : vec3(0);
