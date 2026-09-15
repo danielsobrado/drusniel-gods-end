@@ -114,5 +114,5 @@ test('alpine snow config is loaded after the cinematic terrain defaults', async 
   assert.deepEqual(config.ground.snow.altitude, { start: 84, full: 132 });
   assert.equal(config.ground.snow.deformation.resolution, 512);
   assert.equal(config.ground.snow.deformation.worldSize, 64);
-  assert.equal(config.ground.snow.deformation.maxRadius, 0.42);
+  assert.equal(config.ground.snow.deformation.maxRadius, 0.56);
 });

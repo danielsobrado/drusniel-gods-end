@@ -27,6 +27,12 @@ const RIPPLE_FADE_START = 45;
 const RIPPLE_FADE_END = 120;
 const SASTRUGI_FADE_START = 160;
 const SASTRUGI_FADE_END = 420;
+// Camera distances over which snow switches from the mesh normal to the
+// heightfield normal for its slope mask and colour weights.
+const HEIGHTFIELD_NORMAL_BLEND_START = 60;
+const HEIGHTFIELD_NORMAL_BLEND_END = 140;
+// Brightness of a footprint's interior relative to the snow shadow colour.
+const FOOTPRINT_INTERIOR_SHADE = 0.68;
 const BREAKUP_START = 0.18;
 const BREAKUP_FULL = 0.82;
 const BREAKUP_MINIMUM = 0.06;
@@ -153,10 +159,29 @@ function windCoordinates(world, snow) {
   return { along, across };
 }
 
-export function createSnowSurfaceNodes(config, deformationField = null) {
+export function createSnowSurfaceNodes(config, deformationField = null, terrainSampler = null) {
   const snow = resolveSnowConfig(config.ground.snow);
   const world = positionWorld.xz;
   const { along, across } = windCoordinates(world, snow);
+
+  // The snow slope mask and shadow/base colour weight blend from the mesh normal
+  // near the camera to the smooth heightfield normal far away. Far off, the
+  // mesh normal's regular 4 m triangulation aliases into diagonal beat bands;
+  // up close the mesh resolves steep wall bases more finely than the 1.56 m
+  // heightfield, whose normals would step the snow edge. Outside the
+  // heightfield (the backdrop mesh) the mesh normal is kept.
+  let surfaceUp = normalWorld.y;
+  const normalTexture = terrainSampler?.normalTexture;
+  if (normalTexture && terrainSampler.size?.x > 0 && terrainSampler.size?.z > 0) {
+    const min = terrainSampler.bounds.min;
+    const heightfieldUv = world.sub(vec2(min.x, min.z)).div(vec2(terrainSampler.size.x, terrainSampler.size.z));
+    const inside = heightfieldUv.x.greaterThanEqual(0).and(heightfieldUv.x.lessThanEqual(1))
+      .and(heightfieldUv.y.greaterThanEqual(0)).and(heightfieldUv.y.lessThanEqual(1));
+    const heightfieldUp = texture(normalTexture, heightfieldUv.clamp(0, 1)).xyz.mul(2).sub(1).normalize().y;
+    const farBlend = cameraPosition.distance(positionWorld)
+      .smoothstep(HEIGHTFIELD_NORMAL_BLEND_START, HEIGHTFIELD_NORMAL_BLEND_END);
+    surfaceUp = mix(normalWorld.y, inside.select(heightfieldUp, normalWorld.y), farBlend).toVar();
+  }
 
   const driftPhase = along.mul(snow.wind.driftFrequency)
     .add(sin(across.mul(snow.wind.crossFrequency)).mul(snow.wind.warp));
@@ -167,7 +192,7 @@ export function createSnowSurfaceNodes(config, deformationField = null) {
     .add(drift.mul(snow.wind.driftHeight))
     .sub(exposure.mul(snow.wind.scourStrength));
   const altitude = smoothstep(snow.altitude.start, snow.altitude.full, effectiveHeight);
-  const slope = smoothstep(snow.slope.start, snow.slope.full, normalWorld.y.abs());
+  const slope = smoothstep(snow.slope.start, snow.slope.full, surfaceUp.abs());
   const mask = altitude.mul(slope).clamp(0, 1).toVar();
 
   const sastrugiMacro = sin(along.mul(snow.sastrugi.macroFrequency)
@@ -300,13 +325,18 @@ export function createSnowSurfaceNodes(config, deformationField = null) {
     1 + snow.surfaceTone.exposureContrast,
     exposure,
   );
-  const upward = normalWorld.y.max(0).smoothstep(0.35, 0.95);
-  const baseColor = mix(color(snow.colors.shadow), color(snow.colors.base), upward)
+  const upward = surfaceUp.max(0).smoothstep(0.35, 0.95);
+  const surfaceColor = mix(color(snow.colors.shadow), color(snow.colors.base), upward)
     .mul(driftTone)
     .mul(sastrugiTone)
     .mul(rippleTone)
-    .mul(exposureTone)
-    .mul(depression.mul(snow.deformation.darkenStrength).oneMinus());
+    .mul(exposureTone);
+  // Footprints read through a cool, sky-lit interior. A plain multiply on
+  // bright snow sits in the tonemap shoulder and all but disappears.
+  // The target sits below the snow shadow colour, which is itself bright and
+  // barely distinguishable once tonemapped.
+  const baseColor = mix(surfaceColor, color(snow.colors.shadow).mul(FOOTPRINT_INTERIOR_SHADE),
+    depression.mul(snow.deformation.darkenStrength).clamp(0, 1));
   const snowColor = mix(baseColor, color(snow.colors.sun), berm.mul(snow.deformation.bermLighten).clamp(0, 1));
 
   const viewDirection = normalize(cameraPosition.sub(positionWorld));

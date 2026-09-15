@@ -281,7 +281,7 @@ export async function createGroundMaterial(config, terrainSampler = null, snowDe
 
       const terrainEmissive = (material.emissiveNode ?? vec3(0)).mul(rockSurface.mask.oneMinus());
       if (config.ground.snow?.enabled) {
-        const snow = createSnowSurfaceNodes(config, snowDeformation);
+        const snow = createSnowSurfaceNodes(config, snowDeformation, terrainSampler);
         snowLighting = snow.lighting;
         material.colorNode = mix(material.colorNode, snow.color, snow.mask);
         material.roughnessNode = mix(material.roughnessNode, snow.roughness, snow.mask);

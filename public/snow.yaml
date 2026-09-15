@@ -65,16 +65,16 @@ ground:
       resolution: 512
       worldSize: 64
       paintMinCoverage: 0.35
-      footRadiusScale: 1.2
-      stampSpacingScale: 2.1
+      footRadiusScale: 1.6
+      stampSpacingScale: 1.58
       minRadius: 0.16
-      maxRadius: 0.42
+      maxRadius: 0.56
       contactHeight: 0.75
       recenterDistance: 8
       depressionStrength: 0.95
       bermStrength: 0.55
-      normalStrength: 0.3
-      darkenStrength: 0.24
+      normalStrength: 1.3
+      darkenStrength: 0.62
       bermLighten: 0.12
       decaySeconds: 120
       bermDecaySeconds: 55

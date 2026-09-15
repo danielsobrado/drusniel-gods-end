@@ -42,7 +42,7 @@ enabled: true
 resolution: 512
 worldSize: 64
 minRadius: 0.16
-maxRadius: 0.42
+maxRadius: 0.56
 contactHeight: 0.75
 recenterDistance: 8
 decaySeconds: 120
