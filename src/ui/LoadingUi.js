@@ -155,7 +155,11 @@ export class LoadingUi {
     this.statusLabel.textContent = message;
     this.#animateLogoFill(percent);
 
-    if (percent >= 100) this.element.classList.add('is-ready');
+    if (percent >= 100) {
+      this.element.classList.add('is-ready');
+      // On short phone screens the character cards push Start below the fold.
+      this.startButton?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    }
   }
 
   #beginShaderCompilation(detail = {}) {
