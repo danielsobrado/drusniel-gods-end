@@ -374,7 +374,7 @@ export class GrassDemo {
       } catch (error) {
         logger.warn('Audio context could not start from the start gate.', error);
       }
-      this.player.setPosition(...this.config.player.start);
+      this.player.spawnAtStart();
     });
     this.abortController.signal.throwIfAborted();
     this.started = true;

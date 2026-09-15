@@ -607,7 +607,7 @@ fall reset height  = 20
 10. update the visual target,
 11. step the Rapier world.
 
-If the body falls more than 20 units below the construction-time spawn reference, it resets to `player.start`.
+If the body falls more than 20 units below the construction-time spawn reference, it respawns at `player.start` via `spawnAtStart()`, which ignores the configured height and places the character on the terrain (`sampleHeight + rootToFeet + groundOffset`). A fixed height buried the 5-unit characters about half a unit in the ground at the start, where the Rapier controller treated the surrounding terrain edges as walls and the player ran in place.
 
 ### Model transform
 

@@ -256,7 +256,7 @@ export class PlayerController {
         this.abortController.signal.throwIfAborted();
       }
       this.physics = physics;
-      this.setPosition(...this.config.player.start);
+      this.spawnAtStart();
     } catch (error) {
       this.abortController.signal.throwIfAborted();
       logger.warn('Rapier player physics failed; using terrain-height fallback.', error);
@@ -458,6 +458,20 @@ export class PlayerController {
     this.#fadeToAction(this.animation?.names.idle);
   }
 
+  // `player.start` carries a fixed height that suited one character size. Tall
+  // characters spawned half a metre inside the ground there, and the Rapier
+  // controller treated the surrounding terrain edges as walls, so the player
+  // ran in place. Place the start on the terrain for the loaded character.
+  spawnAtStart() {
+    const [x, , z] = this.config.player.start;
+    this.setPosition(
+      x,
+      this.terrainSampler.sampleHeight(x, z) + this.metrics.rootToFeet + this.metrics.groundOffset,
+      z,
+    );
+    this.verticalVelocity = 0;
+  }
+
   setPosition(x, y, z) {
     if (this.physics) {
       this.physics.setPosition(x, y, z);
@@ -568,8 +582,7 @@ export class PlayerController {
     this.root.quaternion.slerp(this.targetQuaternion, this.config.player.turnSpeed * deltaSeconds);
 
     if (result.position.y < this.spawnPosition.y - FALL_RESET_HEIGHT) {
-      this.setPosition(...this.config.player.start);
-      this.verticalVelocity = 0;
+      this.spawnAtStart();
     }
   }
 
