@@ -177,6 +177,27 @@ function windCoordinates(world, snow) {
   return { along, across };
 }
 
+// Reads the player-following footprint field at a world XZ position. Shared by
+// snow and beach sand. Returns depression and berm in [0, 1] and the signed
+// world-space slope of the print, all zero outside the field's window.
+export function createDeformationNodes(deformationField, world) {
+  let deform = vec4(0, 0, DEFORMATION_NEUTRAL, DEFORMATION_NEUTRAL);
+  let inside = float(0);
+  if (deformationField?.config?.enabled) {
+    const center = uniform(deformationField.center);
+    const deformationUv = world.sub(center).div(deformationField.config.worldSize).add(0.5);
+    const insideX = step(float(0), deformationUv.x).mul(step(deformationUv.x, float(1)));
+    const insideY = step(float(0), deformationUv.y).mul(step(deformationUv.y, float(1)));
+    inside = insideX.mul(insideY);
+    deform = texture(deformationField.texture, deformationUv.clamp(0, 1));
+  }
+  return {
+    depression: deform.x.mul(inside),
+    berm: deform.y.mul(inside),
+    gradient: vec2(deform.z.sub(DEFORMATION_NEUTRAL), deform.w.sub(DEFORMATION_NEUTRAL)).mul(2).mul(inside),
+  };
+}
+
 export function createSnowSurfaceNodes(config, deformationField = null, terrainSampler = null, textures = null) {
   const snow = resolveSnowConfig(config.ground.snow);
   const world = positionWorld.xz;
@@ -288,21 +309,10 @@ export function createSnowSurfaceNodes(config, deformationField = null, terrainS
     .mul(sin(grainPhaseX.mul(SECONDARY_JITTER_SCALE)))
     .mul(snow.grain.amplitude).mul(grainFade);
 
-  let deform = vec4(0, 0, DEFORMATION_NEUTRAL, DEFORMATION_NEUTRAL);
-  let deformInside = float(0);
-  if (deformationField?.config?.enabled) {
-    const center = uniform(deformationField.center);
-    const worldSize = deformationField.config.worldSize;
-    const deformationUv = world.sub(center).div(worldSize).add(0.5);
-    const insideX = step(float(0), deformationUv.x).mul(step(deformationUv.x, float(1)));
-    const insideY = step(float(0), deformationUv.y).mul(step(deformationUv.y, float(1)));
-    deformInside = insideX.mul(insideY);
-    deform = texture(deformationField.texture, deformationUv.clamp(0, 1));
-  }
-  const depression = deform.x.mul(deformInside).mul(mask).toVar();
-  const berm = deform.y.mul(deformInside).mul(mask).toVar();
-  const deformGradient = vec2(deform.z.sub(DEFORMATION_NEUTRAL), deform.w.sub(DEFORMATION_NEUTRAL))
-    .mul(2).mul(deformInside).mul(snow.deformation.normalStrength);
+  const deformation = createDeformationNodes(deformationField, world);
+  const depression = deformation.depression.mul(mask).toVar();
+  const berm = deformation.berm.mul(mask).toVar();
+  const deformGradient = deformation.gradient.mul(snow.deformation.normalStrength);
 
   // World-space size of this pixel; every detail fade below keys off it, as in
   // Snowflow's snow material, so detail only exists where it is resolvable.

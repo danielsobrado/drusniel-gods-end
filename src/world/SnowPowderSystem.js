@@ -1,11 +1,12 @@
 import * as THREE from 'three/webgpu';
 import {
-  atan, cameraViewMatrix, color, dot, float, fract, instanceIndex, normalize, uv, vec2, vec3, vec4,
+  atan, cameraViewMatrix, dot, float, fract, instanceIndex, normalize, uv, vec2, vec3, vec4,
 } from 'three/tsl';
 import { resolveSnowPowderConfig } from '../config/resolveSnowPowderConfig.js';
+import { resolveCoastConfig } from './CoastField.js';
 import { foliageLight } from '../rendering/CinematicLighting.js';
 import { noise2 } from './snowNoiseNodes.js';
-import { sampleSnowSurfaceCpu } from './SnowDeformationField.js';
+import { sampleSurfaceCpu } from './SnowDeformationField.js';
 import { advanceSnowPowderVelocity, snowWindVector } from './SnowPowderPhysics.js';
 
 const UINT32_MAX_PLUS_ONE = 4294967296;
@@ -51,7 +52,8 @@ function createPowderMaterial(config) {
     side: THREE.DoubleSide,
   });
   material.name = 'SnowPowder';
-  material.colorNode = color(config.color)
+  // Albedo comes from the per-instance colour: snow or kicked sand.
+  material.colorNode = vec3(1)
     .mul(sky.add(sun.mul(diffuse).mul(0.55)).add(sun.mul(phase).mul(0.85 * Math.PI * 0.35)));
   material.opacityNode = edge.mul(config.opacity);
   return material;
@@ -93,6 +95,12 @@ export class SnowPowderSystem {
     this.drags = new Float32Array(capacity);
     this.active = new Uint8Array(capacity);
     this.dummy = new THREE.Object3D();
+    this.snowColor = new THREE.Color(this.config.color);
+    // Dry beach sand kicks up through the same pool; see water.sea.coast.sand.
+    const sea = config.water?.sea?.enabled ? resolveCoastConfig(config.water.sea) : null;
+    this.sand = sea?.coast.sand ?? null;
+    this.sandColor = new THREE.Color(this.sand?.kickColor ?? this.config.color);
+    this.colorsDirty = false;
 
     this.geometry = new THREE.PlaneGeometry(1, 1);
     this.material = createPowderMaterial(this.config);
@@ -130,8 +138,8 @@ export class SnowPowderSystem {
     const radius = Math.sqrt(this.#random()) * this.config.ambient.radius;
     const x = Number(focusPosition.x) + Math.cos(angle) * radius;
     const z = Number(focusPosition.z) + Math.sin(angle) * radius;
-    const surface = this.#sampleSnowSurface(x, z);
-    if (!surface || surface.coverage < this.config.minCoverage) return;
+    const surface = this.#sampleSurface(x, z);
+    if (!surface || surface.snow < this.config.minCoverage) return;
 
     const position = {
       x,
@@ -164,7 +172,8 @@ export class SnowPowderSystem {
       const moved = previous ? Math.hypot(contact.x - previous.x, contact.z - previous.z) : this.config.emitDistance;
       if (moved < this.config.emitDistance) continue;
       this.lastContacts[index] = { x: contact.x, z: contact.z };
-      const multiplier = running ? this.config.runningMultiplier : 1;
+      const multiplier = (running ? this.config.runningMultiplier : 1)
+        * (contact.sand ? this.sand.kickMultiplier : 1);
       const count = Math.max(1, Math.round(this.config.particlesPerContact * multiplier * contact.coverage));
       for (let i = 0; i < count; i += 1) this.#spawnContact(contact);
     }
@@ -177,19 +186,23 @@ export class SnowPowderSystem {
     const x = Number(position.x);
     const z = Number(position.z);
     if (!Number.isFinite(x) || !Number.isFinite(z)) return null;
-    const surface = this.#sampleSnowSurface(x, z);
-    if (!surface || surface.coverage < this.config.minCoverage) return null;
+    const surface = this.#sampleSurface(x, z);
+    if (!surface) return null;
+    const drySand = this.sand ? surface.sand * surface.sandDryness : 0;
+    const sand = surface.snow < this.config.minCoverage;
+    const coverage = sand ? drySand : surface.snow;
+    if (coverage < this.config.minCoverage) return null;
     const radius = Number.isFinite(Number(point.radius)) && Number(point.radius) > 0 ? Number(point.radius) : 0;
     if (Number.isFinite(Number(position.y))) {
       const y = Number(position.y);
       if (y - radius > surface.y + this.config.contactHeight
         || y + radius < surface.y - this.config.contactHeight) return null;
     }
-    return { x, y: surface.y + this.config.spawnHeight, z, coverage: surface.coverage };
+    return { x, y: surface.y + this.config.spawnHeight, z, coverage, sand };
   }
 
-  #sampleSnowSurface(x, z) {
-    return sampleSnowSurfaceCpu(this.terrainSampler, x, z, this.config.normalSampleDistance, this.rootConfig);
+  #sampleSurface(x, z) {
+    return sampleSurfaceCpu(this.terrainSampler, x, z, this.config.normalSampleDistance, this.rootConfig);
   }
 
   // Emits one particle from another system (the surf wake), with its own drag
@@ -205,6 +218,9 @@ export class SnowPowderSystem {
     const radial = Math.sqrt(this.#random()) * this.config.spread;
     const speed = this.#range(this.config.horizontalSpeed.min, this.config.horizontalSpeed.max);
     const velocityAngle = angle + (this.#random() - 0.5) * Math.PI;
+    // Sand is heavier than powder snow: a lower, shorter-lived kick.
+    const lift = contact.sand ? this.sand.kickLift : 1;
+    const life = contact.sand ? this.sand.kickLifetime : 1;
     this.#spawnParticle(
       {
         x: contact.x + Math.cos(angle) * radial,
@@ -213,15 +229,23 @@ export class SnowPowderSystem {
       },
       {
         x: Math.cos(velocityAngle) * speed,
-        y: this.#range(this.config.verticalSpeed.min, this.config.verticalSpeed.max),
+        y: this.#range(this.config.verticalSpeed.min, this.config.verticalSpeed.max) * lift,
         z: Math.sin(velocityAngle) * speed,
       },
       this.#range(this.config.size.min, this.config.size.max),
-      this.#range(this.config.lifetime.min, this.config.lifetime.max),
+      this.#range(this.config.lifetime.min, this.config.lifetime.max) * life,
+      this.config.drag,
+      contact.sand ? this.sandColor : this.snowColor,
     );
   }
 
-  #spawnParticle(position, velocity, size, lifetime, drag = this.config.drag) {
+  #spawnParticle(position, velocity, size, lifetime, drag = this.config.drag, tint = this.snowColor) {
+    if (this.tints?.[this.cursor] !== tint) {
+      this.tints ??= [];
+      this.tints[this.cursor] = tint;
+      this.mesh.setColorAt(this.cursor, tint);
+      this.colorsDirty = true;
+    }
     const index = this.cursor;
     this.cursor = (this.cursor + 1) % this.config.capacity;
     if (!this.active[index]) this.activeCount += 1;
@@ -294,16 +318,23 @@ export class SnowPowderSystem {
       this.mesh.setMatrixAt(index, this.dummy.matrix);
     }
     this.mesh.instanceMatrix.needsUpdate = true;
+    if (this.colorsDirty) {
+      this.mesh.instanceColor.needsUpdate = true;
+      this.colorsDirty = false;
+    }
   }
 
   #hideAllInstances() {
     this.dummy.position.set(0, -10000, 0);
     this.dummy.scale.setScalar(0);
     this.dummy.updateMatrix();
+    this.tints = new Array(this.config.capacity).fill(this.snowColor);
     for (let index = 0; index < this.config.capacity; index += 1) {
       this.mesh.setMatrixAt(index, this.dummy.matrix);
+      this.mesh.setColorAt(index, this.snowColor);
     }
     this.mesh.instanceMatrix.needsUpdate = true;
+    this.mesh.instanceColor.needsUpdate = true;
   }
 
   #random() {

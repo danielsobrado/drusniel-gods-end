@@ -83,6 +83,19 @@ export const DEFAULT_COAST = Object.freeze({
     normalStrength: 0.025,
     wetNormalFlattening: 0.7,
     filmNormalFlattening: 0.9,
+    // Interaction shared with the alpine snow: footprints from the snow
+    // deformation field, quartz glints from snowGlints and kicked sand from the
+    // powder pool.
+    footprintDarkening: 0.32,
+    footprintBermLighten: 0.06,
+    footprintNormalStrength: 1,
+    glintStrength: 0.35,
+    glintGrazing: 0.7,
+    glintWorldScale: 2.78,
+    kickColor: '#d9c49e',
+    kickMultiplier: 0.6,
+    kickLift: 0.55,
+    kickLifetime: 0.65,
   }),
   vegetation: Object.freeze({
     grassStart: 45,
@@ -316,6 +329,23 @@ function swashState(distance, z, phase, sea, rain) {
 // swash, moisture and suitability terms.
 export function coastDistanceAt(x, z, seaConfig) {
   return x - coastX(z, resolveCoastConfig(seaConfig));
+}
+
+// CPU beach-sand mask for footprints and kicked sand. `coverage` matches the
+// ground shader's coastal sand blend above the waterline; `dryness` is the
+// inverse of the shoreline's base moisture, so only dry sand throws powder.
+export function sampleSandCoverageCpu(x, y, z, config) {
+  const seaConfig = config.water?.sea;
+  if (!seaConfig?.enabled) return { coverage: 0, dryness: 0 };
+  const sea = resolveCoastConfig(seaConfig);
+  const distance = coastDistanceAt(x, z, sea);
+  const { sand, moisture } = sea.coast;
+  const band = MathUtils.smoothstep(distance, sand.inlandStart, sand.inlandEnd);
+  const aboveWater = MathUtils.smoothstep(y, sea.level - 0.2, sea.level + 0.3);
+  return {
+    coverage: band * aboveWater,
+    dryness: 1 - MathUtils.smoothstep(distance, -moisture.baseReach, 0),
+  };
 }
 
 export function sampleCoastField(x, z, clock, seaConfig, rain = 0) {

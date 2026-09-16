@@ -581,7 +581,12 @@ export class PlayerController {
     this.targetQuaternion.setFromAxisAngle(this.cameraUp, this.playerYaw);
     this.root.quaternion.slerp(this.targetQuaternion, this.config.player.turnSpeed * deltaSeconds);
 
-    if (result.position.y < this.spawnPosition.y - FALL_RESET_HEIGHT) {
+    // Respawn only after falling through the ground under the player. The coast
+    // lowers the terrain itself far below the spawn height, and a check against
+    // that height sent anyone walking onto the beach back to the start.
+    const groundY = this.terrainSampler.sampleHeight(result.position.x, result.position.z);
+    const feetY = result.position.y - this.metrics.halfHeight - this.metrics.radius;
+    if (Number.isFinite(groundY) && feetY < groundY - FALL_RESET_HEIGHT) {
       this.spawnAtStart();
     }
   }

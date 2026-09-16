@@ -8,6 +8,7 @@ import {
   float,
   floor,
   fract,
+  fwidth,
   mix,
   normalMap,
   normalize,
@@ -36,7 +37,8 @@ import { riverField } from '../water/riverNodes.js';
 import { advanceBeachMoisture, createCoastNodes, resolveCoastConfig } from './CoastField.js';
 import { createGroundTextureSamples } from './GroundTextureBlend.js';
 import { createRockSurfaceNodes } from './RockSurface.js';
-import { createSnowSurfaceNodes } from './SnowSurface.js';
+import { createDeformationNodes, createSnowSurfaceNodes } from './SnowSurface.js';
+import { snowGlints } from './snowShadingNodes.js';
 
 const ORIGINAL_ANISOTROPY = 16;
 const ORIGINAL_GRASS_UV_SCALE = 150;
@@ -301,6 +303,7 @@ export async function createGroundMaterial(config, terrainSampler = null, snowDe
       const coastal = coast
         ? coast.distance(world).smoothstep(sandParams.inlandStart, sandParams.inlandEnd)
         : float(0);
+      let sandGlint = vec3(0);
       if (resolvedSea) {
         const sandMacro = sin(world.x.mul(sandParams.macroFrequency)
           .add(sin(world.y.mul(sandParams.macroFrequency * 1.43))))
@@ -331,7 +334,13 @@ export async function createGroundMaterial(config, terrainSampler = null, snowDe
         const foam = coast.foamFront(world).mul(groundHandoff).mul(sandParams.foamStrength);
         const filmColor = mix(saturatedSand, color(sandParams.filmTint), film.mul(sandParams.filmTintStrength));
         const beachColor = mix(filmColor, color(sandParams.foamColor), foam.clamp(0, 1));
-        material.colorNode = mix(material.colorNode, beachColor, coastal);
+        // Footprints come from the same deformation field the snow reads. The
+        // print darkens the sand and the kicked berm dries lighter.
+        const prints = createDeformationNodes(snowDeformation, world);
+        const printedColor = beachColor
+          .mul(prints.depression.mul(sandParams.footprintDarkening).oneMinus())
+          .add(prints.berm.mul(sandParams.footprintBermLighten));
+        material.colorNode = mix(material.colorNode, printedColor, coastal);
         const sandRoughness = mix(
           sandParams.dryRoughness,
           sandParams.wetRoughness,
@@ -352,11 +361,26 @@ export async function createGroundMaterial(config, terrainSampler = null, snowDe
           .mul(wetSand.mul(sandParams.wetNormalFlattening).oneMinus())
           .mul(film.mul(sandParams.filmNormalFlattening).oneMinus())
           .mul(grainFade);
-        const sandNormal = normalize(cameraViewMatrix.mul(vec4(normalWorld.add(sandSlope), 0)).xyz);
+        const printSlope = vec3(prints.gradient.x.negate(), 0, prints.gradient.y.negate())
+          .mul(sandParams.footprintNormalStrength);
+        const sandWorldNormal = normalize(normalWorld.add(sandSlope).add(printSlope));
+        const sandNormal = normalize(cameraViewMatrix.mul(vec4(sandWorldNormal, 0)).xyz);
         baseNormal = normalize(mix(baseNormal, sandNormal, coastal));
         material.normalNode = baseNormal;
+        // Dry quartz sand sparkles the way snow crystals do; wet sand and the
+        // water film stay matte.
+        sandGlint = foliageLight.color.mul(foliageLight.strength).mul(snowGlints({
+          worldXZ: world,
+          normal: sandWorldNormal,
+          view: normalize(cameraPosition.sub(positionWorld)),
+          light: foliageLight.direction,
+          footprint: fwidth(world).length().mul(0.5).max(1e-4),
+          intensity: sandParams.glintStrength,
+          grazing: sandParams.glintGrazing,
+          worldScale: sandParams.glintWorldScale,
+        })).mul(wetSand.oneMinus()).mul(film.oneMinus()).mul(coastal).mul(0.55);
       }
-      material.emissiveNode = (material.emissiveNode ?? vec3(0)).mul(coastal.oneMinus());
+      material.emissiveNode = (material.emissiveNode ?? vec3(0)).mul(coastal.oneMinus()).add(sandGlint);
 
       const inlandY = river.y.lessThan(0).select(river.x, float(config.water.position[1]));
       const surfaceY = coastal.greaterThan(0.5).select(float(resolvedSea?.level ?? -24), inlandY);

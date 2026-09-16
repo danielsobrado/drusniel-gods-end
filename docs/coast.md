@@ -51,6 +51,16 @@ High, Balanced and Performance retain cached reflections. Ultra retains the exis
 
 `BeachScatter` keeps deterministic pebbles, shell-like pieces and twigs while taking its bands, density, seed, sizes, colors and slope threshold from `water.sea.coast.scatter`. Both systems explicitly dispose their geometry and materials with the world.
 
+## Footprints, kicked sand and glints
+
+Beach sand reuses the alpine snow interaction instead of carrying its own copy. `sampleSandCoverageCpu` in `CoastField.js` is the CPU match for the shader's coastal sand band. It covers sand above the waterline, and it reports dryness as the inverse of the shoreline's base moisture.
+
+- **Footprints:** the player-following deformation field paints wherever there is snow or beach sand. The sand shader reads the field through `createDeformationNodes`, the same reader the snow uses. A print darkens the sand, the kicked berm dries a little lighter, and the print's slope bends the sand normal.
+- **Kicked sand:** the powder pool throws sand-coloured puffs from footfalls on dry sand only, so wet sand near the swash stays still. The kick is lower and shorter-lived than snow powder, and ambient spindrift stays snow-only.
+- **Glints:** dry sand reuses the snow's cell glints as quartz sparkle. The wet sand and the water film stay matte.
+
+The tuning lives beside the other sand settings under `water.sea.coast.sand`: `footprint*`, `glint*` and `kick*`.
+
 ## Validation
 
 Node tests cover CoastField configuration and invariants, phase wrapping, wetting/drying, deterministic ecology, sea bounds, tile topology and quality geometry. The real-render sea harness validates CPU/TSL displacement, normals and CoastField outputs, then renders the production water and ground fragment graphs. It also verifies that offshore specular controls do not change lake rendering. CI runs that harness in Chromium WebGL 2 through SwiftShader and attempts WebGPU separately when the runner reports hardware/API support from the application's secure origin. A renderer fallback after a successful adapter probe is a failure, not an unsupported skip.

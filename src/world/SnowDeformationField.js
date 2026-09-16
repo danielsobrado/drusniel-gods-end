@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { sampleSandCoverageCpu } from './CoastField.js';
 
 const CHANNELS = 4;
 const DEPRESSION = 0;
@@ -75,9 +76,9 @@ export function sampleSnowCoverageCpu(x, y, z, normalY, config) {
   return THREE.MathUtils.clamp(altitude * slope, 0, 1);
 }
 
-// Terrain height and snow coverage at a point, with the slope taken from a
-// central difference `step` metres wide.
-export function sampleSnowSurfaceCpu(terrainSampler, x, z, step, config) {
+// Terrain height with snow and beach-sand coverage at a point, the slope taken
+// from a central difference `step` metres wide.
+export function sampleSurfaceCpu(terrainSampler, x, z, step, config) {
   const terrainHeight = terrainSampler.sampleHeight(x, z);
   if (!Number.isFinite(terrainHeight)) return null;
   const xp = terrainSampler.sampleHeight(x + step, z);
@@ -88,10 +89,18 @@ export function sampleSnowSurfaceCpu(terrainSampler, x, z, step, config) {
   const dx = xp - xm;
   const dz = zp - zm;
   const normalY = 1 / Math.sqrt(1 + (dx / (step * 2)) ** 2 + (dz / (step * 2)) ** 2);
+  const sand = sampleSandCoverageCpu(x, terrainHeight, z, config);
   return {
     y: terrainHeight,
-    coverage: sampleSnowCoverageCpu(x, terrainHeight, z, normalY, config),
+    snow: sampleSnowCoverageCpu(x, terrainHeight, z, normalY, config),
+    sand: sand.coverage,
+    sandDryness: sand.dryness,
   };
+}
+
+export function sampleSnowSurfaceCpu(terrainSampler, x, z, step, config) {
+  const surface = sampleSurfaceCpu(terrainSampler, x, z, step, config);
+  return surface && { y: surface.y, coverage: surface.snow };
 }
 
 export class SnowDeformationField {
@@ -221,7 +230,11 @@ export class SnowDeformationField {
     const dz = this.terrainSampler.sampleHeight(x, z + step) - this.terrainSampler.sampleHeight(x, z - step);
     if (!Number.isFinite(dx) || !Number.isFinite(dz)) return null;
     const normalY = 1 / Math.sqrt(1 + (dx / (step * 2)) ** 2 + (dz / (step * 2)) ** 2);
-    const coverage = sampleSnowCoverageCpu(x, terrainHeight, z, normalY, this.rootConfig);
+    // Beach sand takes prints as well as snow.
+    const coverage = Math.max(
+      sampleSnowCoverageCpu(x, terrainHeight, z, normalY, this.rootConfig),
+      sampleSandCoverageCpu(x, terrainHeight, z, this.rootConfig).coverage,
+    );
     if (coverage < this.config.paintMinCoverage) return null;
 
     const centerX = ((x - this.center.x) / this.config.worldSize + 0.5) * this.config.resolution;
