@@ -100,6 +100,24 @@ minSpeed: 2.2
 fullSpeed: 4.3
 ```
 
+## Snowfall
+
+It snows where there is snow on the ground. `SnowfallSystem` is one instanced, GPU-animated flake field that follows the view, built like the rain system, but its intensity is not a weather preset value: each frame it samples the CPU snow coverage under the focus point (the player, or the camera while touring or free-flying) and ramps between `minCoverage` and `fullCoverage`. Walking up into the snow line fades the snowfall in, and the lowlands and the coast stay clear whatever the weather.
+
+The ramp is eased with `fadeRate`, so crossing a bare ridge does not switch the weather on and off. Flakes drift on the same `ground.snow.wind.angleDegrees` the sastrugi, scouring and powder use, each on its own sway phase, and fade out close to the camera so one crossing the lens does not become a white slab. They are lit by the same `foliageLight` uniforms as the rest of the snow, so they go grey at dusk rather than glowing.
+
+<!-- effective-config: ground.snow.snowfall -->
+```yaml
+enabled: true
+count: 9000
+area: 70
+speed: 3.4
+minCoverage: 0.2
+fullCoverage: 0.7
+```
+
+The field is one transparent instanced draw call with no shadow pass, and it is hidden entirely while the intensity is near zero, so it costs nothing outside the alpine region.
+
 ## Performance
 
 The persistent field is one 512 x 512 RGBA8 texture (1 MiB). Recovery runs at the configured interval rather than sweeping the array every render frame, and texture scrolling is amortized across eight metres of player travel. Snow surface rendering adds one local deformation texture sample plus procedural ALU to the ground material. Airborne snow uses one pooled instanced transparent draw call with a fixed capacity, no shadow pass and no per-frame object allocation. The extra terrain tessellation is restricted to the alpine region rather than increasing resolution across the full expanded landscape.

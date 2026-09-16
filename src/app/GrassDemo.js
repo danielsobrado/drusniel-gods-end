@@ -11,6 +11,7 @@ import { IrisTransition } from '../ui/IrisTransition.js';
 import { LoadingUi } from '../ui/LoadingUi.js';
 import { WaterSurface } from '../water/WaterSurface.js';
 import { RainSystem } from '../weather/RainSystem.js';
+import { SnowfallSystem } from '../weather/SnowfallSystem.js';
 import { EnvironmentController } from '../world/EnvironmentController.js';
 import { TreeSystem } from '../world/TreeSystem.js';
 import { WorldPropSystem } from '../world/WorldPropSystem.js';
@@ -233,6 +234,15 @@ export class GrassDemo {
       this.player.getCharacterModel(),
       this.config,
     );
+    // Snowfall is driven by the snow underfoot rather than by the weather
+    // preset, so it belongs to the snow systems rather than to the environment.
+    this.snowfall = this.config.ground.snow?.enabled && this.config.ground.snow.snowfall?.enabled
+      ? new SnowfallSystem({
+        scene: this.world.scene,
+        terrainSampler: this.world.terrainSampler,
+        config: this.config,
+      })
+      : null;
 
     loading.stage('audio');
     this.audio = new AudioSystem({
@@ -600,6 +610,7 @@ export class GrassDemo {
     ));
     const focus = this.navigation.getFocusPosition();
     this.environment.updateSunTarget(focus);
+    this.snowfall?.update(deltaSeconds, focus);
     this.cinematicLighting.update();
     time('meadow', () => this.meadow?.update(deltaSeconds, focus, this.environment.current));
     time('wildGrass', () => this.wildGrass?.update(deltaSeconds, focus, this.environment.current));
@@ -674,7 +685,7 @@ export class GrassDemo {
     this.world?.renderer?.setAnimationLoop(null);
     for (const resource of [this.loading, this.pipeline, this.cinematicLighting,
       this.meadow, this.wildGrass, this.understory, this.biome, this.coastalJungle, this.vegetationJobs, this.ui, this.iris, this.grass, this.trees, this.props,
-      this.collisions, this.navigation, this.player, this.leaves, this.birds, this.rain,
+      this.collisions, this.navigation, this.player, this.leaves, this.birds, this.rain, this.snowfall,
       this.boundaryBarrier, this.water, this.audio, this.environment, this.world]) {
       try { resource?.dispose?.(); } catch (error) { logger.warn('Demo cleanup failed.', error); }
     }

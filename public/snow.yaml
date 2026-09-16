@@ -91,6 +91,30 @@ ground:
       decaySeconds: 120
       bermDecaySeconds: 55
       recoveryInterval: 0.2
+    # Falling snow over snow-covered ground. Intensity follows the snow coverage
+    # under the view, so it snows on the alpine summit and nowhere else.
+    snowfall:
+      enabled: true
+      # Sized for this world's 5 m characters: flake sizes, the column and the
+      # fall speed are the human-scale values times the body scale.
+      count: 9000
+      area: 70
+      top: 45
+      bottom: -10
+      speed: 3.4
+      sizeMin: 0.14
+      sizeMax: 0.45
+      swayRadius: 1.4
+      swayFrequency: 0.6
+      windSpeed: 3.2
+      opacity: 0.95
+      color: '#dae6f6'
+      minCoverage: 0.2
+      fullCoverage: 0.7
+      maxIntensity: 1
+      fadeRate: 1.2
+      nearFade: 1.5
+      sampleDistance: 0.5
     powder:
       enabled: true
       capacity: 3000

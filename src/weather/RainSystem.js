@@ -6,7 +6,7 @@ import {
   hash,
   instanceIndex,
   mix,
-  positionLocal,
+  positionGeometry,
   time,
   uniform,
   vec3,
@@ -73,6 +73,11 @@ export class RainSystem {
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 3;
     this.mesh.visible = false;
+    // Zero-filled instance matrices would collapse every drop onto the origin;
+    // the drops are placed by positionNode, so identity is all that is needed.
+    const identity = new THREE.Matrix4();
+    for (let index = 0; index < this.params.count; index += 1) this.mesh.setMatrixAt(index, identity);
+    this.mesh.instanceMatrix.needsUpdate = true;
 
     this.material = this.#createMaterial();
     this.mesh.material = this.material;
@@ -147,10 +152,10 @@ export class RainSystem {
       0,
       toCamera.x.div(horizontalDistance).negate(),
     );
-    const widthOffset = positionLocal.x.mul(dropWidth);
-    const lengthOffset = positionLocal.y.mul(dropLength);
+    const widthOffset = positionGeometry.x.mul(dropWidth);
+    const lengthOffset = positionGeometry.y.mul(dropLength);
     const windDirection = vec3(wind.direction.x, 0, wind.direction.y);
-    const windTilt = positionLocal.y.add(0.5).mul(windTiltRatio).mul(dropLength);
+    const windTilt = positionGeometry.y.add(0.5).mul(windTiltRatio).mul(dropLength);
 
     const material = new THREE.MeshBasicNodeMaterial();
     material.transparent = true;
@@ -163,7 +168,7 @@ export class RainSystem {
       dropZ.add(cameraRight.z.mul(widthOffset)).add(windDirection.z.mul(windTilt)),
     );
 
-    const localY = positionLocal.y.add(0.5);
+    const localY = positionGeometry.y.add(0.5);
     const profile = localY.mul(float(1).sub(localY)).mul(4).clamp(0, 1);
     const opacityVariation = mix(float(0.5), float(1), randomOpacity);
     const alpha = profile.mul(0.1)

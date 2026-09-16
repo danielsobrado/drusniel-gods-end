@@ -1,4 +1,5 @@
 import { resolveSnowWakeConfig } from './resolveSnowWakeConfig.js';
+import { resolveSnowfallConfig } from './resolveSnowfallConfig.js';
 
 function number(value, path, problems, { min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY, exclusiveMin = false } = {}) {
   const numeric = Number(value);
@@ -202,6 +203,14 @@ export function validateSnowConfig(config) {
   if (snow.wake) {
     try {
       resolveSnowWakeConfig(snow.wake);
+    } catch (error) {
+      problems.push(error.message);
+    }
+  }
+
+  if (snow.snowfall) {
+    try {
+      resolveSnowfallConfig(snow.snowfall);
     } catch (error) {
       problems.push(error.message);
     }
