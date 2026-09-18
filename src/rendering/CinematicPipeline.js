@@ -3,7 +3,7 @@ import {
 } from 'three/webgpu';
 import {
   pass, rtt, renderOutput, vec4, vec3, vec2, uniform, mix, dot, uv, smoothstep, float, fract, sin, screenCoordinate, time,
-  mrt, output, velocity, Fn, Loop, step, perspectiveDepthToViewZ, atan,
+  mrt, output, velocity, Fn, Loop, step, perspectiveDepthToViewZ, atan, interleavedGradientNoise,
 } from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
@@ -31,6 +31,12 @@ const STREAK_LANES = 96;
 // View distances (world units) over which screen-space AO fades out.
 const AO_FADE_START = 120;
 const AO_FADE_END = 260;
+// Light shafts are low-frequency, so both of their passes run at a quarter of
+// the screen's width and height and upsample bilinearly for free.
+const SHAFT_RESOLUTION = 0.25;
+// Offsets, in low-resolution texels, of the depth taps each mask texel takes,
+// so thin silhouettes do not flicker in and out of a single nearest tap.
+const SHAFT_MASK_TAPS = [[-0.25, -0.25], [0.25, -0.25], [-0.25, 0.25], [0.25, 0.25]];
 
 export class CinematicPipeline {
   constructor(world, config) {
@@ -61,7 +67,13 @@ export class CinematicPipeline {
       streaks: uniform(0),
     };
     this.clip = { near: uniform(0.1), far: uniform(1000) };
-    this.shafts = { uv: uniform(new Vector2(0.5, 0.5)), color: uniform(new Vector3()), intensity: uniform(0) };
+    this.shafts = {
+      uv: uniform(new Vector2(0.5, 0.5)),
+      color: uniform(new Vector3()),
+      intensity: uniform(0),
+      aspect: uniform(1),
+      boost: 0,
+    };
     this.focus = {
       distance: uniform(post.depthOfField?.focusDistance ?? 6),
       range: uniform(post.depthOfField?.focalRange ?? 28),
@@ -131,25 +143,55 @@ export class CinematicPipeline {
     return this.stages[key];
   }
 
-  // Screen-space shafts: march from each pixel toward the sun's screen point and
-  // accumulate how much of that ray sees open sky (the sky dome writes no depth).
+  // Screen-space light shafts in two quarter-resolution passes. The first
+  // marks open sky (the sky dome writes no depth), brightest around the sun,
+  // so rays spill from the sun's surroundings rather than from all of the sky.
+  // The second marches each texel toward the sun's screen point over that
+  // mask, jittered to hide banding. Together they cost about two texture reads
+  // per screen pixel. The result is added in scene radiance, ahead of the
+  // tonemapper, so bright shafts roll off with everything else.
   #lightShafts(depth) {
-    const samples = this.settings.lightShafts?.samples ?? 28;
-    const decay = this.settings.lightShafts?.decay ?? 0.95;
+    const samples = this.settings.lightShafts?.samples ?? 32;
+    const decay = this.settings.lightShafts?.decay ?? 0.96;
+    const sourceRadius = this.settings.lightShafts?.sourceRadius ?? 0.45;
     const normalization = (1 - decay) / (1 - decay ** samples);
-    return Fn(() => {
+    const { uv: sunUv, aspect } = this.shafts;
+
+    const mask = this.#track(rtt(Fn(() => {
+      const texel = vec2(1).div(depth.size(0).toVec2().mul(SHAFT_RESOLUTION));
+      const sky = float(0).toVar();
+      for (const [x, y] of SHAFT_MASK_TAPS) {
+        sky.addAssign(step(0.99999, depth.sample(uv().add(texel.mul(vec2(x, y)))).r));
+      }
+      const offset = uv().sub(sunUv).mul(vec2(aspect, 1));
+      const nearSun = offset.length().div(sourceRadius).oneMinus().max(0);
+      return vec4(sky.mul(0.25).mul(nearSun.mul(nearSun)), 0, 0, 1);
+    })()));
+    mask.setResolutionScale(SHAFT_RESOLUTION);
+
+    const march = this.#track(rtt(Fn(() => {
       const coord = uv().toVar();
-      const stepUv = this.shafts.uv.sub(coord).div(samples);
+      const stepUv = sunUv.sub(coord).div(samples);
+      coord.addAssign(stepUv.mul(interleavedGradientNoise(screenCoordinate)));
       const sum = float(0).toVar();
       const weight = float(1).toVar();
       Loop(samples, () => {
         coord.addAssign(stepUv);
-        sum.addAssign(step(0.99999, depth.sample(coord).r).mul(weight));
+        sum.addAssign(mask.sample(coord).r.mul(weight));
         weight.mulAssign(decay);
       });
-      const nearSun = smoothstep(0.85, 0, uv().sub(this.shafts.uv).length());
-      return this.shafts.color.mul(sum.mul(normalization).mul(nearSun).mul(this.shafts.intensity));
-    })();
+      return vec4(sum.mul(normalization), 0, 0, 1);
+    })()));
+    march.setResolutionScale(SHAFT_RESOLUTION);
+
+    return this.shafts.color.mul(march.sample(uv()).r.mul(this.shafts.intensity));
+  }
+
+  // Extra shaft strength over snow country, where the valley mist gives the
+  // light something to catch in. `weight` is the snow-country weight.
+  setShaftAtmosphere(weight) {
+    const value = Number(weight);
+    this.shafts.boost = Number.isFinite(value) ? MathUtils.clamp(value, 0, 1) : 0;
   }
 
   #track(node) {
@@ -238,6 +280,7 @@ export class CinematicPipeline {
     const { camera, sun } = this.world;
     this.clip.near.value = camera.near;
     this.clip.far.value = camera.far;
+    this.shafts.aspect.value = camera.aspect;
     if (!this.effects.lightShafts || !sun) {
       this.shafts.intensity.value = 0;
       return;
@@ -250,7 +293,9 @@ export class CinematicPipeline {
     const elevation = MathUtils.smoothstep(direction.y, -0.02, 0.08) * (1 - MathUtils.smoothstep(direction.y, 0.45, 0.75));
     this.shafts.uv.value.set(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
     this.shafts.color.value.set(sun.color.r, sun.color.g, sun.color.b);
-    this.shafts.intensity.value = facing * onScreen * elevation * (this.settings.lightShafts?.strength ?? 0.6);
+    const shafts = this.settings.lightShafts;
+    const strength = MathUtils.lerp(shafts?.strength ?? 0.6, shafts?.snowStrength ?? shafts?.strength ?? 0.6, this.shafts.boost);
+    this.shafts.intensity.value = facing * onScreen * elevation * strength;
   }
 
   async warmup({ water, signal, nextFrame = () => new Promise(requestAnimationFrame) } = {}) {

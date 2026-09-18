@@ -101,13 +101,16 @@ cinematic:
     vignette: 0.14
     grain: 0.012
     sharpness: 0.6
-    lightShafts: { samples: 28, decay: 0.95, strength: 0.6 }
+    # Quarter-resolution screen-space shafts. sourceRadius is the share of the
+    # screen height around the sun that emits; snowStrength applies in snow
+    # country, where the valley mist gives the light something to catch in.
+    lightShafts: { samples: 32, decay: 0.965, strength: 1, snowStrength: 2.4, sourceRadius: 0.45 }
     depthOfField: { focalRange: 28, bokehScale: 1 }
     # Menu defaults; every entry is switchable at runtime from Scene settings.
     effects:
       taa: false
       bloom: true
-      lightShafts: false
+      lightShafts: true
       depthOfField: false
       sharpen: false
       grain: true

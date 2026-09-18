@@ -628,6 +628,7 @@ export class GrassDemo {
     this.snowfall?.update(deltaSeconds, focus);
     this.cinematicLighting.update(this.environment.exposureScale, this.environment.snowRegionWeight);
     this.pipeline.setOcclusionScale(this.environment.occlusionScale);
+    this.pipeline.setShaftAtmosphere?.(this.environment.snowRegionWeight);
     time('meadow', () => this.meadow?.update(deltaSeconds, focus, this.environment.current));
     time('wildGrass', () => this.wildGrass?.update(deltaSeconds, focus, this.environment.current));
     time('understory', () => this.understory?.update(deltaSeconds, focus, this.environment.current));
