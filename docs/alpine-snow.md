@@ -59,6 +59,16 @@ Snowflow's look rests on a low, warm sun raking across the snow under a cool, ha
 - Fog is desaturated, tinted cold and thickened. The horizon and zenith lose saturation, and the zenith takes some haze.
 - Exposure and screen-space AO are scaled. A snowfield is the worst case for GTAO: open, smooth and bright, so most of what it returns is its own view-dependent bias.
 
+Mist lies in the valleys and gorges (`atmosphere.valleyFog`, `src/rendering/valleyFog.js`). The preset haze thickens evenly with distance, so on its own it washes every wall alike and cannot settle in a gorge. The valley mist is a second absorber in the same fog node. Its density falls off exponentially with height above the local terrain (`height`) and is gone by `ceiling`, so it pools on gorge floors and in the valleys below the view while crests stand clear. Because the terrain under a view ray varies too much for a closed form, the density is marched along the ray in `samples` steps over at most `maxDistance`, reading the terrain heightfield at each step. Drifting noise, carried on the snow wind and sampled in the air rather than on surfaces, gathers it into banks (`pocketStrength`). The first metres of every ray stay clear (`nearClear`), so a wall beside the camera is not washed out. Sunlit mist scatters forward toward the low sun, a Henyey-Greenstein lobe (`scatter`, `sunScatter`), and falls to a cool shade (`shadeColor`) away from it. It scales with the snow-country weight and the march is skipped below it, so the lowlands pay nothing. In the gorge it costs about 0.2 ms of GPU time at 1600 x 780 on an RTX 4080.
+
+<!-- effective-config: ground.snow.atmosphere.valleyFog -->
+```yaml
+density: 0.009
+height: 12
+ceiling: 70
+samples: 6
+```
+
 Everything is relative to the preset, so a moonlit or rainy summit stays moonlit or rainy. The blend eases at `fadeRate` while walking, so climbing to the snow line brings the light down over many seconds; a jump further than `snapDistance`, such as a teleport, snaps instead of sweeping the sun. `EnvironmentController.lighting` exposes the blended light, and the water reads its sun from it.
 
 <!-- effective-config: ground.snow.atmosphere -->

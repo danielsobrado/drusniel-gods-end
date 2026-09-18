@@ -92,6 +92,24 @@ ground:
       exposureScale: 0.95
       # Screen-space AO on open snow is mostly the estimator's own bias.
       occlusionScale: 0.3
+      # Mist lying in the valleys and gorges: density per metre at the terrain,
+      # falling off over `height` metres above it and gone by `ceiling`,
+      # gathered into drifting banks `pocketScale` cycles per metre across.
+      # The first metres (nearClear) stay clear; the march covers maxDistance.
+      valleyFog:
+        enabled: true
+        density: 0.009
+        height: 12
+        ceiling: 70
+        pocketScale: 0.011
+        pocketStrength: 0.75
+        drift: 2.2
+        nearClear: [6, 40]
+        maxDistance: 520
+        samples: 6
+        scatter: 0.4
+        sunScatter: 0.55
+        shadeColor: '#9fb2c8'
     # Snow007C detail maps (ambientCG, CC0). worldScale is world metres per
     # Snowflow metre, so its tiling and pixel-footprint fades match a 5 m rider.
     # Snow007C's normals are shallower than Snowflow's generated grain, hence a

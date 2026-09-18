@@ -3,6 +3,7 @@ import { fog, uniform, positionWorld, positionView, cameraPosition, mix, dot, sm
 import { CSMShadowNode } from 'three/addons/csm/CSMShadowNode.js';
 import { prepareAtmosphereMaterials } from './atmosphereMaterials.js';
 import { coastXNode } from '../world/coast.js';
+import { createValleyFogNodes, resolveValleyFogConfig } from './valleyFog.js';
 
 // Shared by leaves, grass and atmosphere; updated from the active weather preset.
 export const foliageLight = {
@@ -18,6 +19,8 @@ export class CinematicLighting {
     this.config = config;
     this.fogColor = uniform(world.scene.fog.color.clone());
     this.fogDensity = uniform(world.scene.fog.density);
+    // How far into snow country the view is; drives the valley mist.
+    this.snowWeight = uniform(0);
     const settings = config.cinematic;
     if (!settings?.enabled) return;
     const atmosphere = settings.atmosphere;
@@ -38,7 +41,23 @@ export class CinematicLighting {
     const clearWeather = float(1).sub(this.fogDensity.smoothstep(0.001, 0.004));
     const mistColor = mix(this.fogColor, foliageLight.color.mul(1.1), towardSun.mul(0.3).mul(clearWeather));
     const farColor = world.sky?.getColorNode(viewDirection) ?? mistColor;
-    world.scene.fogNode = fog(mix(mistColor, farColor, smoothstep(350, 1000, distance)), factor);
+    const hazeColor = mix(mistColor, farColor, smoothstep(350, 1000, distance));
+    const valley = createValleyFogNodes({
+      settings: resolveValleyFogConfig(config),
+      terrainSampler: world.terrainSampler,
+      weight: this.snowWeight,
+      fogColor: this.fogColor,
+      sunDirection: foliageLight.direction,
+      sunColor: foliageLight.color.mul(foliageLight.strength),
+    });
+    if (valley) {
+      // Two absorbers in series; the colour leans toward whichever did more.
+      const combined = factor.oneMinus().mul(valley.factor.oneMinus()).oneMinus();
+      const share = valley.factor.div(factor.add(valley.factor).max(1e-4));
+      world.scene.fogNode = fog(mix(hazeColor, valley.color, share), combined);
+    } else {
+      world.scene.fogNode = fog(hazeColor, factor);
+    }
     const backdrop = world.terrain?.getObjectByName('Landscape046');
     if (backdrop?.isMesh && backdrop !== world.terrainTarget) {
       this.backdrop = backdrop;
@@ -74,8 +93,10 @@ export class CinematicLighting {
     }
   }
 
-  // `exposureScale` is the regional exposure (snow country sits lower).
-  update(exposureScale = 1) {
+  // `exposureScale` is the regional exposure (snow country sits lower);
+  // `snowWeight` how far into snow country the view is.
+  update(exposureScale = 1, snowWeight = 0) {
+    this.snowWeight.value = snowWeight;
     const { sun, scene } = this.world;
     if (this.config.cinematic?.enabled) {
       this.world.renderer.toneMappingExposure = this.config.cinematic.exposure * exposureScale;
