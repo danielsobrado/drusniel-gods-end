@@ -2,6 +2,9 @@ import { createSeededRandom } from '../core/math.js';
 import { coastX } from '../world/coast.js';
 
 export const MEADOW_CELL_SIZE = 12;
+// Snow coverage above which only stones lie on the ground: no leaf litter,
+// flowers or reeds on snow.
+export const MEADOW_SNOW_LIMIT = 0.3;
 
 export const MEADOW_QUALITY_DENSITY = Object.freeze({
   performance: 3,
@@ -15,6 +18,7 @@ function samplePoint(px, pz, {
   sampleHeight,
   sampleEcology,
   sampleRiverEdge,
+  sampleSnow,
   config,
 }) {
   const sea = config.water?.sea;
@@ -24,6 +28,7 @@ function samplePoint(px, pz, {
     height: py,
     coast: Boolean(sea?.enabled && px > coastX(pz, sea.shoreX) - 50),
     riverEdge: sampleRiverEdge?.(px, pz) ?? 100,
+    snow: sampleSnow?.(px, pz) ?? 0,
     ecology: sampleEcology?.(px, pz) ?? { path: 0, moisture: 0, density: 1, understory: 0, growth: 1 },
   };
 }
@@ -40,6 +45,7 @@ export function* iterateMeadowDetails({
   sampleHeight,
   sampleEcology,
   sampleRiverEdge,
+  sampleSnow,
 } = {}) {
   if (!(radius > 0) || !origin || !config?.vegetation?.details) return;
 
@@ -62,9 +68,9 @@ export function* iterateMeadowDetails({
         if (Math.hypot(px - origin.x, pz - origin.z) > radius) continue;
         const sampled = cache
           ? cache.getOrCompute(px, pz, (x, z) => samplePoint(x, z, {
-            contains, sampleHeight, sampleEcology, sampleRiverEdge, config,
+            contains, sampleHeight, sampleEcology, sampleRiverEdge, sampleSnow, config,
           }))
-          : samplePoint(px, pz, { contains, sampleHeight, sampleEcology, sampleRiverEdge, config });
+          : samplePoint(px, pz, { contains, sampleHeight, sampleEcology, sampleRiverEdge, sampleSnow, config });
         if (!sampled.contains) continue;
         const py = sampled.height;
         if (sampled.coast) continue;
@@ -84,6 +90,7 @@ export function* iterateMeadowDetails({
           if (ecology.density < ecologyConfig.minimumPlantDensity || patch < ecologyConfig.meadowPatchThreshold) continue;
           type = random() < ecologyConfig.flowerChance ? 'flower' : 'seed';
         }
+        if (sampled.snow >= MEADOW_SNOW_LIMIT && type !== 'stone') continue;
         const stoneIndex = type === 'stone' ? Math.floor(random() * Math.max(1, stoneCount)) : 0;
         const yaw = random() * Math.PI * 2;
         const baseScale = ecologyConfig.minScale + random() * (ecologyConfig.maxScale - ecologyConfig.minScale);

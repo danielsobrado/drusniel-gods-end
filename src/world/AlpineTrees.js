@@ -1,5 +1,6 @@
 import { createSeededRandom } from '../core/math.js';
-import { alpineDistance } from './AlpineRegion.js';
+import { ALPINE_CONIFER_SNOW, alpineDistance } from './AlpineRegion.js';
+import { sampleSnowSurfaceCpu } from './SnowDeformationField.js';
 
 export function createAlpineTrees(alpine, terrain, paths) {
   if (!alpine) return [];
@@ -8,7 +9,9 @@ export function createAlpineTrees(alpine, terrain, paths) {
     for (let x = alpine.centerX - alpine.outerRadius; x < alpine.centerX + alpine.outerRadius; x += 23) {
       const px = x + random() * 15, pz = z + random() * 15;
       const distance = alpineDistance(px, pz, alpine), y = terrain.sampleHeight(px, pz);
-      if (distance > alpine.outerBlendStart || y < alpine.treeLine || y > alpine.basinHeight + 28 || random() > 0.65) continue;
+      if (distance > alpine.outerBlendStart || y > alpine.basinHeight + 28 || random() > 0.65) continue;
+      // Conifers stand above the tree line and wherever snow lies below it.
+      if (y < alpine.treeLine && (sampleSnowSurfaceCpu(terrain, px, pz, 2, terrain.config)?.coverage ?? 0) < ALPINE_CONIFER_SNOW) continue;
       const slope = Math.hypot(terrain.sampleHeight(px + 2, pz) - y, terrain.sampleHeight(px, pz + 2) - y) / 2;
       if (!Number.isFinite(y) || slope > 0.55) continue;
       // Keep crowns as well as trunks outside the walking corridor.

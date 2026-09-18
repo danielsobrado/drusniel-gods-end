@@ -25,6 +25,11 @@ const HASH_OFFSETS = Object.freeze({
 // from the snow coverage under the focus point rather than from the weather
 // preset: it snows on the alpine summit and nowhere else, and fades in as the
 // player climbs into the snow line.
+//
+// The field holds several flake populations in contiguous instance ranges,
+// typically fine snow spread wide, medium flakes around the player, and a few
+// large out-of-focus flakes near the lens. All of them ride one gusting wind,
+// each flake swirling across it on its own phase.
 export class SnowfallSystem {
   constructor({ scene, terrainSampler, config }) {
     this.scene = scene;
@@ -68,19 +73,39 @@ export class SnowfallSystem {
     const randomSway = hash(index.add(float(HASH_OFFSETS.sway)));
     const randomOpacity = hash(index.add(float(HASH_OFFSETS.opacity)));
 
-    const area = float(settings.area);
+    // Per-population values, chosen by the flake's instance range.
+    const layers = settings.layers;
+    const byLayer = (pick) => layers.slice(0, -1).reduceRight(
+      (rest, layer) => index.lessThan(float(layer.end)).select(float(pick(layer)), rest),
+      float(pick(layers.at(-1))),
+    );
+    const area = byLayer(layer => layer.area);
     const range = float(settings.top - settings.bottom);
     // Flakes fall slowly and wrap through the column, so the field never empties.
-    const fallSpeed = mix(float(settings.speed * 0.6), float(settings.speed * 1.35), randomSpeed);
+    const fallSpeed = mix(float(settings.speed * 0.6), float(settings.speed * 1.35), randomSpeed)
+      .mul(byLayer(layer => layer.speedScale));
     const y = fract(randomY.sub(time.mul(fallSpeed).div(range))).mul(range).add(float(settings.bottom));
 
-    // The prevailing snow wind drifts the whole column, and each flake swings on
-    // its own phase so they do not fall as a rigid lattice.
-    const driftX = fract(randomX.add(time.mul(this.wind.x).div(area))).sub(0.5).mul(area);
-    const driftZ = fract(randomZ.add(time.mul(this.wind.z).div(area))).sub(0.5).mul(area);
+    // The prevailing snow wind drifts the whole column. Gusts vary its speed;
+    // the drift follows the integral of that speed, so a gust never makes the
+    // wrapped column jump.
+    const gustRate = TWO_PI / settings.gust.period;
+    const gustStrength = settings.gust.strength;
+    const windTime = time
+      .add(sin(time.mul(gustRate)).mul(gustStrength / gustRate))
+      .add(sin(time.mul(gustRate * 2.7).add(1.3)).mul(gustStrength * 0.4 / (gustRate * 2.7)));
+    const driftX = fract(randomX.add(windTime.mul(this.wind.x).div(area))).sub(0.5).mul(area);
+    const driftZ = fract(randomZ.add(windTime.mul(this.wind.z).div(area))).sub(0.5).mul(area);
+    // Each flake swings on its own phase so they do not fall as a rigid
+    // lattice, and eddies swirl it across the wind, varying with height.
     const swayPhase = time.mul(settings.swayFrequency).add(randomSway.mul(TWO_PI));
-    const flakeX = this.center.x.add(driftX).add(sin(swayPhase).mul(settings.swayRadius));
-    const flakeZ = this.center.z.add(driftZ).add(cos(swayPhase.mul(0.83)).mul(settings.swayRadius));
+    const windLength = Math.hypot(this.wind.x, this.wind.z) || 1;
+    const acrossX = -this.wind.z / windLength;
+    const acrossZ = this.wind.x / windLength;
+    const eddy = sin(time.mul(0.9).add(y.mul(0.13)).add(randomSway.mul(TWO_PI * 3)))
+      .mul(settings.turbulence);
+    const flakeX = this.center.x.add(driftX).add(sin(swayPhase).mul(settings.swayRadius)).add(eddy.mul(acrossX));
+    const flakeZ = this.center.z.add(driftZ).add(cos(swayPhase.mul(0.83)).mul(settings.swayRadius)).add(eddy.mul(acrossZ));
     const flakeY = this.center.y.add(y);
 
     // Fully camera-facing. A flake is round from every side; a rain-style
@@ -88,7 +113,7 @@ export class SnowfallSystem {
     // lines over the field.
     const right = cameraWorldMatrix.element(0).xyz;
     const up = cameraWorldMatrix.element(1).xyz;
-    const size = mix(float(settings.sizeMin), float(settings.sizeMax), randomSize);
+    const size = mix(byLayer(layer => layer.sizeMin), byLayer(layer => layer.sizeMax), randomSize);
     const offset = right.mul(positionGeometry.x.mul(size)).add(up.mul(positionGeometry.y.mul(size)));
 
     const material = new THREE.MeshBasicNodeMaterial();
@@ -99,21 +124,25 @@ export class SnowfallSystem {
     material.fog = true;
     material.positionNode = vec3(flakeX, flakeY, flakeZ).add(offset);
 
-    // A round, soft flake, faded out close to the camera so a flake crossing
-    // the lens does not become a white slab.
-    const radial = positionGeometry.xy.length().mul(2).oneMinus().clamp(0, 1).pow(1.4);
-    const nearFade = settings.nearFade > 0
-      ? smoothstep(float(settings.nearFade), float(settings.nearFade * 3), cameraPosition.distance(positionWorld))
-      : float(1);
+    // A round, soft flake, or an out-of-focus disc for the softest population,
+    // faded out close to the camera so a flake crossing the lens does not
+    // become a white slab.
+    const edge = positionGeometry.xy.length().mul(2);
+    const crisp = edge.oneMinus().clamp(0, 1).pow(1.4);
+    const defocused = smoothstep(float(0), float(0.65), edge.oneMinus());
+    const radial = mix(crisp, defocused, byLayer(layer => layer.softness));
+    const fadeStart = byLayer(layer => Math.max(layer.nearFade, 0.001));
+    const nearFade = smoothstep(fadeStart, fadeStart.mul(3), cameraPosition.distance(positionWorld));
     material.opacityNode = radial
       .mul(mix(float(0.55), float(1), randomOpacity))
-      .mul(settings.opacity)
+      .mul(byLayer(layer => layer.opacity))
       .mul(nearFade)
       .mul(this.intensity);
     // Lit by the same cinematic sun uniforms as the rest of the snow, so flakes
     // go grey at dusk instead of glowing.
     material.colorNode = color(settings.color)
-      .mul(foliageLight.color.mul(foliageLight.strength).add(foliageLight.fill).clamp(0, 1.4));
+      .mul(foliageLight.color.mul(foliageLight.strength).add(foliageLight.fill).clamp(0, 1.4))
+      .mul(byLayer(layer => layer.brightness));
     return material;
   }
 

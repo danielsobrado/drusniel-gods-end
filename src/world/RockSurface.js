@@ -150,10 +150,14 @@ export function createRockSurfaceNodes({ config, colorTexture, roughnessTexture,
     .mul(strata)
     .mul(wet.mul(rock.wetDarkening).oneMinus());
 
+  // Gradient noise, not sines: summed sines of two axes print a regular
+  // lattice of dimples down every steep face. Height is folded in so walls
+  // vary down their face, as with the grain.
+  const facet = (frequency, x, z, offset) => noise2(vec2(x, z).mul(frequency).div(Math.PI * 2).add(offset)).mul(1.4);
   const normalDetail = vec3(
-    sin(positionWorld.y.mul(rock.normalFrequency.x).add(positionWorld.z.mul(rock.normalFrequency.z))),
-    sin(positionWorld.x.mul(rock.normalFrequency.y).add(positionWorld.z.mul(rock.normalFrequency.x))).mul(0.35),
-    sin(positionWorld.y.mul(rock.normalFrequency.z).sub(positionWorld.x.mul(rock.normalFrequency.y))),
+    facet(rock.normalFrequency.x, positionWorld.y.add(positionWorld.x.mul(0.3)), positionWorld.z, 0),
+    facet(rock.normalFrequency.y, positionWorld.x, positionWorld.z, 17.3).mul(0.35),
+    facet(rock.normalFrequency.z, positionWorld.y.sub(positionWorld.z.mul(0.3)), positionWorld.x, 41.9),
   ).mul(rock.normalStrength).mul(mask);
   const surfaceNormal = normalize(
     cameraViewMatrix.mul(vec4(normalize(normalWorld.add(normalDetail)), 0)).xyz,

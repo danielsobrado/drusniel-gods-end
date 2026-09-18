@@ -37,7 +37,7 @@ import { riverField } from '../water/riverNodes.js';
 import { advanceBeachMoisture, createCoastNodes, resolveCoastConfig } from './CoastField.js';
 import { createGroundTextureSamples } from './GroundTextureBlend.js';
 import { createRockSurfaceNodes } from './RockSurface.js';
-import { createDeformationNodes, createSnowSurfaceNodes } from './SnowSurface.js';
+import { createDeformationNodes, createSnowIceNodes, createSnowSurfaceNodes } from './SnowSurface.js';
 import { snowGlints } from './snowShadingNodes.js';
 
 const ORIGINAL_ANISOTROPY = 16;
@@ -282,14 +282,17 @@ export async function createGroundMaterial(config, terrainSampler = null, snowDe
         ? mix(rockSurface.color, rockSurface.color.mul(color(config.ground.snow.rockTint)),
           positionWorld.y.smoothstep(config.ground.snow.altitude.start, config.ground.snow.altitude.full))
         : rockSurface.color;
-      material.colorNode = mix(material.colorNode, alpineRock, rockSurface.mask);
-      material.roughnessNode = mix(material.roughnessNode, rockSurface.roughness, rockSurface.mask);
+      const ice = createSnowIceNodes(config.ground.snow);
+      const rockColor = ice ? mix(alpineRock, ice.color, ice.mask) : alpineRock;
+      const rockRoughness = ice ? mix(rockSurface.roughness, ice.roughness, ice.mask) : rockSurface.roughness;
+      material.colorNode = mix(material.colorNode, rockColor, rockSurface.mask);
+      material.roughnessNode = mix(material.roughnessNode, rockRoughness, rockSurface.mask);
       baseNormal = normalize(mix(baseNormal, rockSurface.normal, rockSurface.mask));
       material.normalNode = baseNormal;
 
       const terrainEmissive = (material.emissiveNode ?? vec3(0)).mul(rockSurface.mask.oneMinus());
       if (config.ground.snow?.enabled) {
-        const snow = createSnowSurfaceNodes(config, snowDeformation, terrainSampler, getSnowTextures(config));
+        const snow = createSnowSurfaceNodes(config, snowDeformation, terrainSampler, getSnowTextures(config), blend);
         material.colorNode = mix(material.colorNode, snow.color, snow.mask);
         material.roughnessNode = mix(material.roughnessNode, snow.roughness, snow.mask);
         material.metalnessNode = mix(material.metalnessNode, float(0), snow.mask);

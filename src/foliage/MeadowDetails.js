@@ -4,6 +4,7 @@ import { attribute, positionGeometry, positionLocal, vec3, sin, uniform, smooths
 import { foliageBacklight, foliageLight } from '../rendering/CinematicLighting.js';
 import { iterateMeadowDetails } from './meadowPlacement.js';
 import { VegetationJob, VegetationSampleCache } from './vegetationRebuild.js';
+import { sampleSnowSurfaceCpu } from '../world/SnowDeformationField.js';
 
 function isStoneType(type) {
   return type === 'stone' || String(type).startsWith('stone:');
@@ -155,6 +156,7 @@ export class MeadowDetails {
       sampleHeight: (x, z) => this.terrain.sampleHeight(x, z),
       sampleEcology: (x, z) => this.grass.sampleVegetation(x, z),
       sampleRiverEdge: (x, z) => this.terrain.river?.sample(x, z)?.edge ?? 100,
+      sampleSnow: (x, z) => sampleSnowSurfaceCpu(this.terrain, x, z, 1, this.config)?.coverage ?? 0,
     });
     const publish = () => {
       if (generation !== this.populateGeneration) return;

@@ -14,7 +14,7 @@ The western forest adds deterministic, larger tree clusters around a winding loo
 
 `LandscapePaths` supplies the original River walk, Forest loop, Summit trail, Stone country, Lakeside circuit, Coastal approach and Dune trail. Its shared mask drives ground shading, vegetation exclusion and footstep surface classification. Additional exploration routes are configured under `terrain.expansion.routes` rather than hardcoded into the renderer.
 
-Configured routes can opt into terrain conformation with `walkable: true`, `terrainWidth` and `maxGrade`. Their centerline first samples the natural terrain, then forward/backward grade constraints produce a safe profile. Terrain inside `terrainWidth` blends toward that profile while the narrower route width remains the visible path mask. This keeps paths traversable without flattening large areas of the biome.
+Configured routes can opt into terrain conformation with `walkable: true`, `terrainWidth` and `maxGrade`. Their centerline first samples the natural terrain, then forward/backward grade constraints produce a safe profile. Terrain inside `terrainWidth` blends toward that profile while the narrower route width remains the visible path mask. This keeps paths traversable without flattening large areas of the biome. Where a graded route runs far below steep terrain, that narrow blend becomes a sheer slot, so a route can instead carry a `cut` profile that shapes its cuts as terraced gorges. Snow climb and the alpine cirque route do; see [Route gorges](alpine-snow.md#route-gorges).
 
 The current exploration layout adds three walkable routes:
 

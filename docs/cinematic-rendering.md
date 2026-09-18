@@ -80,7 +80,7 @@ Water uses the same high-resolution, half-float terrain height texture as grass 
 
 The 30-second scenic tour follows a terrain-cleared camera spline from the player's position, through a nearby grove, to a sampled shore. It hides and pauses the character, then restores the saved view. Escape, movement keys, the tour button, or opening the painter ends it. This is a camera tour; it does not teleport the player or add an authored navigation path.
 
-Scene settings start collapsed. H hides/restores the HUD. Settings retain all weather, quality, grass-type, interaction, and painting controls.
+Scene settings start collapsed. H hides/restores the HUD. Its heading and bottom hints sit on margins that grow with the viewport (`--hud-inset-x`, 36 to 72 px, never inside a notch), over soft corner scrims that keep them legible against bright snow and sky. Settings retain all weather, quality, grass-type, interaction, and painting controls.
 
 ## Verification
 

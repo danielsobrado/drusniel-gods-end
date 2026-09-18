@@ -52,6 +52,23 @@ export function validateSnowConfig(config) {
   if (snow.slope) {
     number(snow.slope.start, 'ground.snow.slope.start', problems, { min: 0, max: 1 });
     number(snow.slope.full, 'ground.snow.slope.full', problems, { min: 0, max: 1 });
+    if (snow.slope.noise !== undefined) number(snow.slope.noise, 'ground.snow.slope.noise', problems, { min: 0, max: 0.4 });
+  }
+  if (snow.path !== undefined && object(snow.path, 'ground.snow.path', problems)) {
+    number(snow.path.compaction, 'ground.snow.path.compaction', problems, { min: 0, max: 1 });
+    if (snow.path.color !== undefined && (typeof snow.path.color !== 'string' || snow.path.color.length === 0)) {
+      problems.push('ground.snow.path.color must be a color string');
+    }
+  }
+  if (snow.ice !== undefined && object(snow.ice, 'ground.snow.ice', problems)) {
+    for (const name of ['color', 'thinColor']) {
+      if (typeof snow.ice[name] !== 'string' || snow.ice[name].length === 0) {
+        problems.push(`ground.snow.ice.${name} must be a color string`);
+      }
+    }
+    number(snow.ice.roughness, 'ground.snow.ice.roughness', problems, { min: 0, max: 1 });
+    number(snow.ice.coverage, 'ground.snow.ice.coverage', problems, { min: 0, max: 1 });
+    interval(snow.ice.steepness, 'ground.snow.ice.steepness', problems);
   }
 
   if (object(snow.wind, 'ground.snow.wind', problems)) {

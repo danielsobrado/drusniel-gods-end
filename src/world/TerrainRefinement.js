@@ -37,7 +37,7 @@ export function refineTerrainRegion({ positions, uvs, indices, passes, shouldRef
       const ids = refined.slice(index, index + 3);
       const x = ids.reduce((sum, id) => sum + positions[id * 3], 0) / 3;
       const z = ids.reduce((sum, id) => sum + positions[id * 3 + 2], 0) / 3;
-      if (!shouldRefine(x, z)) continue;
+      if (!shouldRefine(x, z, ids)) continue;
 
       for (let edge = 0; edge < 3; edge += 1) {
         const a = ids[edge];

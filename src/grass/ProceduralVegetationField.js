@@ -3,6 +3,7 @@ import { assetUrl } from '../assets/assetUrl.js';
 import { logger } from '../utils/logger.js';
 import { clamp01, computeVegetationEcology, encodeVegetationShaderExclusion, fractalNoise, hash2d, vegetationCoverageChance } from './vegetationEcology.js';
 import { sampleCoastField } from '../world/CoastField.js';
+import { sampleSnowCoverageCpu } from '../world/SnowDeformationField.js';
 import { coastalJungleRegionWeight } from '../world/CoastalJungleRegion.js';
 import { isCoastalJungleRuntimeActive } from '../biome/CoastalJungleRuntime.js';
 
@@ -268,7 +269,11 @@ export class ProceduralVegetationField {
           detailNoise,
         }, vegetation);
         if (this.config.terrain.expansion?.enabled) {
-          const alpine = 1 - THREE.MathUtils.smoothstep(height, 95, 125);
+          // Nothing grows through lying snow, which drifts well below the
+          // nominal snow line on lee slopes and in the gorges.
+          const snow = sampleSnowCoverageCpu(worldX, height, worldZ, 1 / Math.sqrt(1 + slope * slope), this.config);
+          const alpine = (1 - THREE.MathUtils.smoothstep(height, 95, 125))
+            * (1 - THREE.MathUtils.smoothstep(snow, 0.12, 0.4));
           const rocky = Math.hypot((worldX - 390) / 170, (worldZ + 220) / 160);
           const soil = THREE.MathUtils.lerp(0.08, 1, THREE.MathUtils.smoothstep(rocky, 0.25, 1.1));
           ecology.density *= alpine * soil;

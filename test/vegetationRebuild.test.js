@@ -165,6 +165,14 @@ test('meadow placement is deterministic for the same origin and seed', () => {
   const texturedStones = placeMeadowDetails({ ...pathOptions, stoneHasColor: [false] });
   assert.ok(coloredStones.some((item) => item.type === 'stone'));
   assert.notDeepEqual(coloredStones, texturedStones);
+
+  // Leaf litter, flowers and reeds have no business on snow; stones stay.
+  const snowyPath = placeMeadowDetails({ ...pathOptions, sampleSnow: () => 0.9 });
+  assert.ok(pathOptions.sampleEcology().path > 0 && coloredStones.some((item) => item.type === 'litter'));
+  assert.ok(snowyPath.length > 0);
+  assert.ok(snowyPath.every((item) => item.type === 'stone'));
+  const snowyMeadow = placeMeadowDetails({ ...options, sampleSnow: () => 0.9 });
+  assert.equal(snowyMeadow.length, 0);
 });
 
 test('iterator ticks do not change placed wild-grass results', () => {

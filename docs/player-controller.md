@@ -613,6 +613,10 @@ If the body falls more than 20 units below the construction-time spawn reference
 
 The Warden GLB is a visual child of the player target with scale 1.35 and no local Y offset.
 
+### Contact shadow
+
+`ContactShadow` lays a soft, cool occlusion blob on the terrain under the character, aligned to the terrain normal and wider across the shoulders than toe to heel. The low snow-country sun throws the real shadow long and sideways, or loses it inside a shaded gorge, and a standing character then looks suspended. The blob shrinks and fades as the feet leave the ground (`fadeHeight` of the character's height), so a jump still reads as height above it. It hides with the character. `player.contactShadow` can override `radius`, `fadeHeight`, `opacity` and `color`, or disable it. The opacity is high because bright snow sits deep in HDR: a blob at half opacity still tonemaps to light grey.
+
 ### Implementation rule
 
 When player behavior differs from this document, compare code and effective configuration before changing unrelated world, camera or grass constants. Do not hide collision errors with a terrain-height fallback unless Rapier initialization itself fails.

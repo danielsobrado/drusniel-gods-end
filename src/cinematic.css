@@ -1,4 +1,21 @@
-.cinematic-hud { color: #f0ebdf; }
+/* Side and edge margins grow with the viewport and respect notches, so the
+   tracked-out title never crowds the frame edge on wide screens. */
+.cinematic-hud {
+  --hud-inset-x: max(clamp(36px, 3.4vw, 72px), env(safe-area-inset-left));
+  --hud-inset-y: clamp(30px, 4vh, 52px);
+  color: #f0ebdf;
+}
+/* Soft scrims behind the heading and the bottom hints, so they hold contrast
+   over bright snow and sky without boxing them in. */
+.cinematic-hud::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 44% 30% at 0% 0%, #0a111a66, #0a111a00 72%),
+    radial-gradient(ellipse 40% 22% at 0% 100%, #0a111a5c, #0a111a00 72%);
+}
 .cinematic-loading .loading-logo { font-size: clamp(36px, 6vw, 76px); letter-spacing: .2em; }
 .cinematic-loading .logo-fill { color: #e8dec8; }
 .cinematic-loading .progress-bar { background: #c9b37e; }
@@ -20,7 +37,7 @@
   70%  { box-shadow: 0 0 0 18px #d5bd8600, 0 14px 38px #00000080; }
   100% { box-shadow: 0 0 0 0 #d5bd8600, 0 14px 38px #00000080; }
 }
-.cinematic-hud .scene-heading { position: absolute; top: 34px; left: 38px; text-shadow: 0 2px 22px #101a12b3; }
+.cinematic-hud .scene-heading { position: absolute; top: var(--hud-inset-y); left: var(--hud-inset-x); text-shadow: 0 1px 2px #0a0f14a6, 0 2px 22px #0a0f14b3; }
 .scene-eyebrow { font-size: 9px; font-weight: 600; letter-spacing: .24em; color: #ece5d5ba; }
 .scene-heading h1 { margin: 9px 0 5px; font-size: clamp(25px, 3vw, 42px); font-weight: 350; letter-spacing: .16em; line-height: 1.15; }
 .scene-heading p { margin: 0; font-size: 11px; letter-spacing: .07em; color: #f0ebdfaa; }
@@ -39,19 +56,19 @@
 .cinematic-hud button:hover, .cinematic-hud button.active { color: #ead29c; border-color: #d5bd8680; }
 .cinematic-hud button:focus-visible { outline: 2px solid #ead29c; outline-offset: 3px; }
 .cinematic-hud .metrics { top: auto; bottom: 26px; right: 36px; font-size: 9px; opacity: .65; }
-.cinematic-hud .reference-hud { left: 38px; bottom: 30px; }
+.cinematic-hud .reference-hud { left: var(--hud-inset-x); bottom: clamp(26px, 3.6vh, 44px); text-shadow: 0 1px 3px #000000a6, 0 0 16px #0a0f1499; }
 .cinematic-hud .reference-brand strong { font-size: 13px; font-weight: 450; letter-spacing: .08em; }
 .cinematic-hud .reference-brand span { font-size: 8px; letter-spacing: .16em; margin-top: 7px; opacity: .6; }
 .cinematic-hud .control-hints { margin-top: 20px; gap: 22px; }
-.cinematic-hud .control-hints strong { font-size: 9px; color: #e6dcc5; }
-.cinematic-hud .control-hints span { font-size: 9px; color: #e5e1d2a3; }
+.cinematic-hud .control-hints strong { font-size: 10px; color: #efe6d0; }
+.cinematic-hud .control-hints span { font-size: 10px; color: #ece8dbd9; }
 .cinematic-hud .fly-only-hint { display: none; }
 .cinematic-hud.free-fly-active .fly-only-hint { display: flex; }
 .cinematic-hud.interface-hidden { visibility: hidden; }
 .cinematic-hud.tour-active .control-hints, .cinematic-hud.tour-active .metrics { opacity: 0; }
 @media (max-width: 767px) {
   .cinematic-loading .loading-logo { font-size: clamp(22px, 5.5vw, 36px); letter-spacing: .1em; }
-  .cinematic-hud .scene-heading { top: 22px; left: 22px; }
+  .cinematic-hud { --hud-inset-x: max(22px, env(safe-area-inset-left)); --hud-inset-y: 22px; }
   .scene-heading h1 { font-size: 23px; }
   .scene-eyebrow { font-size: 7px; }
   .scene-heading p { display: none; }
@@ -59,7 +76,7 @@
   .scene-actions button { min-height: 34px; padding: 0 10px; font-size: 10px; }
   .scene-actions button span { display: none; }
   .cinematic-hud .controls { top: 107px; right: 18px; width: min(260px, calc(100vw - 36px)); max-height: calc(100dvh - 135px); }
-  .cinematic-hud .reference-hud { left: 22px; bottom: 20px; }
+  .cinematic-hud .reference-hud { bottom: 20px; }
   .cinematic-hud .control-hints { display: none; }
   .cinematic-hud .metrics { right: 20px; bottom: 15px; font-size: 8px; }
 }

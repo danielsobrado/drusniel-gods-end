@@ -57,6 +57,22 @@ export function resolveSnowDeformationConfig(config) {
   };
 }
 
+// Patches, tens of metres across, over which snow clings to steeper or only
+// gentler ground, so rock breaks through a wall in places instead of along one
+// contour of slope. In [-1, 1]; SnowSurface evaluates the same sines on the GPU.
+export const SNOW_SLOPE_PATCH = Object.freeze({
+  broad: [0.071, 0.037, 2.1, 0.063, 0.029, 1.7],
+  fine: [0.19, 0.13, 0.083, 1.3],
+});
+
+export function snowSlopePatchCpu(x, z) {
+  const [ax, az, aw, bz, bx, bw] = SNOW_SLOPE_PATCH.broad;
+  const [fx, fz, fw, fa] = SNOW_SLOPE_PATCH.fine;
+  const broad = Math.sin(x * ax + Math.sin(z * az) * aw) * Math.sin(z * bz + Math.sin(x * bx) * bw);
+  const fine = Math.sin(x * fx - z * fz + Math.sin(x * fw) * fa);
+  return (broad + fine * 0.5) / 1.5;
+}
+
 export function sampleSnowCoverageCpu(x, y, z, normalY, config) {
   const snow = config.ground?.snow;
   if (!snow?.enabled) return 0;
@@ -72,7 +88,8 @@ export function sampleSnowCoverageCpu(x, y, z, normalY, config) {
     * 0.5 + 0.5;
   const effectiveHeight = y + drift * wind.driftHeight - exposure * wind.scourStrength;
   const altitude = THREE.MathUtils.smoothstep(effectiveHeight, snow.altitude.start, snow.altitude.full);
-  const slope = THREE.MathUtils.smoothstep(Math.abs(normalY), snow.slope.start, snow.slope.full);
+  const shift = snowSlopePatchCpu(x, z) * Number(snow.slope.noise ?? 0);
+  const slope = THREE.MathUtils.smoothstep(Math.abs(normalY), snow.slope.start + shift, snow.slope.full + shift);
   return THREE.MathUtils.clamp(altitude * slope, 0, 1);
 }
 

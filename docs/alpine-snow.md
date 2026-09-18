@@ -10,17 +10,23 @@ The summit is a purpose-built snowy cirque centered on `[-25, -655]`. The centra
 
 `public/alpine.yaml` owns the basin height, rim dimensions, local terrain detail, treeline, route and local refinement budget. The alpine area receives one extra conforming subdivision pass so the steep silhouettes and snow/rock transitions do not expose the coarse five-metre world grid seen in the earlier summit screenshot. High trees are removed inside the configured alpine treeline, while lower forest outside the snow bowl remains intact.
 
-The `Alpine Summit` teleport lands in the central snow basin. `Snow Peak` is placed on the surrounding rim, and the walkable alpine route connects Snow Pass, the basin and that rim point, although the graded route currently cuts deep into the rim there (see [route cuts](#known-limitation-route-cuts)).
+The `Alpine Summit` teleport lands in the central snow basin. `Snow Peak` is placed on the surrounding rim, and the walkable alpine route connects Snow Pass, the basin and that rim point. Where the graded routes cross the rim they run through terraced gorges (see [route gorges](#route-gorges)).
 
 ## Accumulation
 
-Snow coverage combines elevation, slope and prevailing-wind exposure. Lee-side drifts can accumulate lower than the nominal snow line while exposed faces are scoured. Steep faces retain the underlying rock treatment instead of becoming uniformly white.
+Snow coverage combines elevation, slope and prevailing-wind exposure. Lee-side drifts can accumulate lower than the nominal snow line while exposed faces are scoured. Snow lies fully on ground gentler than about 35 degrees and not at all past about 65. `slope.noise` shifts both thresholds in patches tens of metres across (`snowSlopePatchCpu` and its GPU twin in `SnowSurface.js`), so rock breaks through a wall in places rather than along one contour of slope.
 
 <!-- effective-config: ground.snow -->
 ```yaml
 altitude: { start: 84, full: 132 }
-slope: { start: 0.34, full: 0.84 }
+slope: { start: 0.42, full: 0.82, noise: 0.12 }
 ```
+
+Faces too steep to hold snow keep the rock treatment, darkened toward `rockTint` across the snow band. Inside the band, patches of them and streaks down their fall line are glazed with water ice (`ground.snow.ice`): blue where it is thick, grey where thin rock shows through, and much glossier than the rock. The rock's fine normal detail is gradient noise; the product of sines it replaced printed a regular lattice of dimples down every steep face.
+
+Snow on a walked route is packed (`ground.snow.path`): the route mask counts as compression, so the path is darker, bluer, smoother and less grainy than the loose snow beside it, with the same response footprints get.
+
+Nothing grows through lying snow. Grass density, meadow details and broadleaf trees are gated by the CPU coverage rather than by height alone, because drifts reach well below the nominal snow line in the gorges. Path decoration keeps its stones but drops leaf litter on snow, and snow-laden conifers take the place of broadleaf trees on snowy ground below the tree line.
 
 The same accumulation model has a CPU implementation used by the local footprint and powder systems, so interactions cannot appear on low grass or bare cliffs while the shader says there is no snow.
 
@@ -147,10 +153,12 @@ The ramp is eased with `fadeRate`, so crossing a bare ridge does not switch the 
 
 <!-- effective: ground.snow.snowfall.nearFade = 4 -->
 
+The field holds three flake populations in contiguous instance ranges of the one draw call (`snowfall.layers`): fine snow spread over a wide column to fill the distance, medium flakes around the player, and about one flake in a hundred large, dim and out of focus, allowed closer to the lens. All of them ride one wind. Gusts vary its speed (`gust`); the column drifts by the integral of that speed, so a gust never makes the wrapped field jump. Each flake also swirls across the wind with height (`turbulence`), so the fall does not read as a grid of dots sliding sideways.
+
 <!-- effective-config: ground.snow.snowfall -->
 ```yaml
 enabled: true
-count: 9000
+count: 12000
 area: 70
 speed: 3.4
 minCoverage: 0.2
@@ -165,6 +173,17 @@ The persistent field is one 512 x 512 RGBA8 texture (1 MiB). Recovery runs at th
 
 Visual review should cover Snow Pass, Snow Peak and Alpine Summit in sunny, golden-hour and rainy presets, plus WebGL 2. Look toward, across and away from the sun. Verify that the summit reads as a snow basin surrounded by ridges, nearby high-altitude trees are gone, exposed cliffs remain rocky, sastrugi and airborne powder share one coherent wind direction, glints stay subtle, only contacting feet carve the surface, ambient spindrift stays close to snow, and old footprints soften rather than popping away.
 
-## Known limitation: route cuts
+## Route gorges
 
-Walkable routes are graded into the terrain (`maxGrade`), and where the rim is steeper than the grade allows, the route cuts a slot. Measured against the ungraded terrain, Snow climb cuts up to 112 m deep near `[-149, -568]`, and the alpine cirque route cuts 73 m at Snow Pass and 64 m at Snow Peak. Snow Peak therefore sits at the bottom of a trench rather than on the rim. Raising the grade alone does not fix this (still 53 m at a grade of 0.7), because the ridges are steeper than any walkable grade. A real fix needs a saddle in the rim where the route crosses, or a rerouted climb.
+Walkable routes are graded into the terrain (`maxGrade`), and the ridges around the cirque are steeper than any walkable grade. Snow climb runs up to 114 m below the crest near `[-155, -561]`; the alpine cirque route runs 73 m below it at Snow Pass and 64 m at Snow Peak. With the plain `terrainWidth` blend those cuts were sheer slots, their 100 m walls drawn as a few stretched triangles each.
+
+A route with a `cut` profile shapes those cuts as gorges instead (`LandscapePaths`). Past a flat floor of `floorWidth`, the wall rises at a mean `slope` through a quadratic `toe`, never above the natural terrain; where the route runs above the terrain, fill falls away at `fillSlope`. Along the route the mean slope varies by `slopeVariation`. Gullies and spurs, keyed to distance along the route and to the side, push the wall in and out by up to `meander` metres down its fall line. In patches the wall steps into benches about `benchHeight` apart. The benches hold snow and the risers are too steep for it, so the walls alternate snow shelves with rock and ice. Bench height and phase drift with position, so ledges tilt, pinch out at gullies and stop instead of stacking as contours. The rim where a wall meets the natural slope is rounded, and the rounding grows with the wall so the floor stays exact. Each cut segment looks laterally for terrain above its lowest possible wall, and shapes nothing beyond that reach.
+
+<!-- effective-config: terrain.alpine.route.cut -->
+```yaml
+floorWidth: 13
+slope: 1.8
+benchHeight: 10
+```
+
+In the alpine region, triangles spanning more than 4.5 m of height get one extra subdivision after the regular alpine pass, which keeps the risers and crests from turning into sawteeth on the grid. That adds about 24,000 vertices to the terrain.

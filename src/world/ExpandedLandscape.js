@@ -13,8 +13,13 @@ import {
   shapeAlpineHeight,
 } from './AlpineRegion.js';
 import { refineTerrainRegion } from './TerrainRefinement.js';
+import { sampleSnowSurfaceCpu } from './SnowDeformationField.js';
 
 const smooth = (a, b, x) => THREE.MathUtils.smoothstep(x, a, b);
+// Alpine triangles spanning more height than this get one more subdivision:
+// steep faces on the alpine grid otherwise show as sawtooth crests and
+// stretched facets, and the gorge walls are full of them.
+const STEEP_TRIANGLE_RISE = 4.5;
 
 export function mountainHeight(x, z) {
   const peaks = [[10, -685, 95, 95, 110], [-85, -620, 115, 120, 155], [175, -575, 125, 145, 145],
@@ -124,6 +129,22 @@ export function expandLandscape(target, original, config) {
       shouldRefine: (x, z) => alpineDistance(x, z, alpine) <= alpine.refineRadius,
       sampleHeight: baseHeight,
     });
+    refined = refineTerrainRegion({
+      positions,
+      uvs,
+      indices: refined,
+      passes: 1,
+      shouldRefine: (x, z, ids) => {
+        if (alpineDistance(x, z, alpine) > alpine.refineRadius) return false;
+        let low = Infinity, high = -Infinity;
+        for (const id of ids) {
+          low = Math.min(low, positions[id * 3 + 1]);
+          high = Math.max(high, positions[id * 3 + 1]);
+        }
+        return high - low > STEEP_TRIANGLE_RISE;
+      },
+      sampleHeight: baseHeight,
+    });
   }
   if (river) refined = refineCorridor(positions, uvs, refined, river);
   if (river) for (let i = 0; i < positions.length; i += 3) {
@@ -141,7 +162,7 @@ export function expandLandscape(target, original, config) {
   const previous = target.geometry;
   target.geometry = geometry;
   river?.createTexture();
-  return { river, paths, original, baseHeight, alpine, dispose() { target.geometry = previous; geometry.dispose(); river?.dispose(); paths.dispose(); original.texture?.dispose(); } };
+  return { river, paths, original, baseHeight, naturalHeight, alpine, dispose() { target.geometry = previous; geometry.dispose(); river?.dispose(); paths.dispose(); original.texture?.dispose(); } };
 }
 
 export function adaptLandscapeRecords(trees, props, expansion, terrain) {
@@ -153,7 +174,9 @@ export function adaptLandscapeRecords(trees, props, expansion, terrain) {
       record[1] += terrain.sampleHeight(p[0], p[2]) - original.sampleHeight(p[0], p[2]);
       return record;
     });
-  const result = rebase(trees).filter(p => alpineTreeAllowed(p[0], p[1], p[2], alpine));
+  const snowAt = (x, z) => sampleSnowSurfaceCpu(terrain, x, z, 2, terrain.config)?.coverage ?? 0;
+  const allowed = (x, y, z) => alpineTreeAllowed(x, y, z, alpine, snowAt(x, z));
+  const result = rebase(trees).filter(p => allowed(p[0], p[1], p[2]));
   const random = createSeededRandom(29173);
   for (let z = terrain.bounds.min.z + 30; z < terrain.bounds.max.z - 30; z += 28) {
     for (let x = terrain.bounds.min.x + 30; x < terrain.bounds.max.x - 30; x += 28) {
@@ -164,7 +187,7 @@ export function adaptLandscapeRecords(trees, props, expansion, terrain) {
       if (sea?.enabled && sampleCoastField(px, pz, 0, sea).signedCoastDistance > -105) continue;
       const slope = Math.hypot(terrain.sampleHeight(px + 3, pz) - py, terrain.sampleHeight(px, pz + 3) - py) / 3;
       if (py < -15 || py > 100 || slope > 0.65 || random() > 0.55 || (river?.sample(px, pz)?.edge ?? 100) < 9) continue;
-      if (!alpineTreeAllowed(px, py, pz, alpine)) continue;
+      if (!allowed(px, py, pz)) continue;
       result.push([px, py, pz, random() * Math.PI * 2, 0.8 + random() * 0.5, Math.floor(random() * 9)]);
     }
   }
@@ -176,7 +199,7 @@ export function adaptLandscapeRecords(trees, props, expansion, terrain) {
     if (occupied.has(key)) continue;
     occupied.add(key);
     const py = terrain.sampleHeight(px, pz);
-    if (!alpineTreeAllowed(px, py, pz, alpine)) continue;
+    if (!allowed(px, py, pz)) continue;
     result.push([px, py, pz, random() * Math.PI * 2, 1.05 + random() * 0.65, Math.floor(random() * 9)]);
   }
   result.push(...createAlpineTrees(alpine, terrain, expansion.paths));

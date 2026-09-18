@@ -23,8 +23,9 @@ import {
   vec4,
 } from 'three/tsl';
 import { foliageLight } from '../rendering/CinematicLighting.js';
-import { snowFineRelief } from './snowNoiseNodes.js';
+import { noise2, snowFineRelief } from './snowNoiseNodes.js';
 import { snowGlints, snowSubsurface } from './snowShadingNodes.js';
+import { SNOW_SLOPE_PATCH } from './SnowDeformationField.js';
 
 // Linear-light means of the Snow007C colour, roughness and displacement maps,
 // so the detail only varies the surface around its configured tone.
@@ -96,6 +97,10 @@ function interval(value, name) {
   return { start, full };
 }
 
+function optionalNumber(value, fallback, name) {
+  return value === undefined ? fallback : finiteNumber(value, name);
+}
+
 function deformationAppearance(config) {
   if (config?.enabled === false) {
     return { normalStrength: 0, darkenStrength: 0, bermLighten: 0 };
@@ -113,7 +118,15 @@ export function resolveSnowConfig(config) {
   return {
     enabled: config.enabled !== false,
     altitude: interval(config.altitude, 'ground.snow.altitude'),
-    slope: interval(config.slope, 'ground.snow.slope'),
+    slope: {
+      ...interval(config.slope, 'ground.snow.slope'),
+      noise: optionalNumber(config.slope?.noise, 0, 'ground.snow.slope.noise'),
+    },
+    // Snow on a walked route is packed: darker, bluer, smoother and less grainy.
+    path: {
+      compaction: optionalNumber(config.path?.compaction, 0, 'ground.snow.path.compaction'),
+      color: config.path?.color ?? config.colors?.shadow,
+    },
     wind: {
       angle,
       cos: Math.cos(angle),
@@ -197,7 +210,43 @@ function blendReoriented(base, detail) {
   return normalize(t.mul(dot(t, u)).sub(u.mul(t.z)));
 }
 
-export function createSnowSurfaceNodes(config, deformationField = null, terrainSampler = null, textures = null) {
+// Water ice on faces too steep to hold snow: patches of glazed rock and
+// frozen seepage streaking down the fall line, only inside the snow band.
+// Returns null when `ground.snow.ice` is not configured.
+export function createSnowIceNodes(snowConfig) {
+  const ice = snowConfig?.ice;
+  if (!snowConfig?.enabled || !ice) return null;
+  const altitude = interval(snowConfig.altitude, 'ground.snow.altitude');
+  const steepness = interval(ice.steepness, 'ground.snow.ice.steepness');
+  const coverage = finiteNumber(ice.coverage, 'ground.snow.ice.coverage');
+  const roughness = finiteNumber(ice.roughness, 'ground.snow.ice.roughness');
+  const band = positionWorld.y.smoothstep(altitude.start, altitude.full);
+  const steep = normalWorld.y.abs().smoothstep(steepness.start, steepness.full).oneMinus();
+  // Height is folded into the patch coordinates so a wall varies down its face.
+  const patch = noise2(vec2(
+    positionWorld.x.mul(0.031).add(positionWorld.y.mul(0.017)),
+    positionWorld.z.mul(0.031).sub(positionWorld.y.mul(0.013)),
+  )).smoothstep(-0.05, 0.3);
+  const streak = noise2(vec2(positionWorld.x.add(positionWorld.z).mul(0.09), positionWorld.y.mul(0.011)))
+    .smoothstep(0.15, 0.4);
+  const mask = band.mul(steep).mul(patch.max(streak.mul(0.8))).mul(coverage).clamp(0, 1);
+  // Thick ice goes deeper blue; thin glaze shows grey rock through it.
+  const thickness = noise2(positionWorld.xz.mul(0.13).add(positionWorld.y.mul(0.05))).mul(0.5).add(0.5);
+  const iceColor = mix(color(ice.thinColor ?? ice.color), color(ice.color), thickness);
+  return { mask, color: iceColor, roughness: float(roughness) };
+}
+
+// The GPU side of snowSlopePatchCpu.
+function snowSlopePatch(world) {
+  const [ax, az, aw, bz, bx, bw] = SNOW_SLOPE_PATCH.broad;
+  const [fx, fz, fw, fa] = SNOW_SLOPE_PATCH.fine;
+  const broad = sin(world.x.mul(ax).add(sin(world.y.mul(az)).mul(aw)))
+    .mul(sin(world.y.mul(bz).add(sin(world.x.mul(bx)).mul(bw))));
+  const fine = sin(world.x.mul(fx).sub(world.y.mul(fz)).add(sin(world.x.mul(fw)).mul(fa)));
+  return broad.add(fine.mul(0.5)).div(1.5);
+}
+
+export function createSnowSurfaceNodes(config, deformationField = null, terrainSampler = null, textures = null, pathMask = null) {
   const snow = resolveSnowConfig(config.ground.snow);
   const world = positionWorld.xz;
   const { along, across } = windCoordinates(world, snow);
@@ -233,7 +282,8 @@ export function createSnowSurfaceNodes(config, deformationField = null, terrainS
     .add(drift.mul(snow.wind.driftHeight))
     .sub(exposure.mul(snow.wind.scourStrength));
   const altitude = smoothstep(snow.altitude.start, snow.altitude.full, effectiveHeight);
-  const slope = smoothstep(snow.slope.start, snow.slope.full, surfaceUp.abs());
+  const slopeShift = snow.slope.noise ? snowSlopePatch(world).mul(snow.slope.noise) : float(0);
+  const slope = smoothstep(slopeShift.add(snow.slope.start), slopeShift.add(snow.slope.full), surfaceUp.abs());
   const mask = altitude.mul(slope).clamp(0, 1).toVar();
 
   // World-space size of this pixel, as Snowflow's snow material takes it: every
@@ -273,7 +323,10 @@ export function createSnowSurfaceNodes(config, deformationField = null, terrainS
   const deformation = createDeformationNodes(deformationField, world);
   const depression = deformation.depression.mul(mask).toVar();
   const berm = deformation.berm.mul(mask).toVar();
-  const compressed = depression.max(berm.mul(0.2)).clamp(0, 1).toVar();
+  const packed = pathMask && snow.path.compaction > 0
+    ? pathMask.clamp(0, 1).mul(snow.path.compaction).mul(mask)
+    : float(0);
+  const compressed = depression.max(berm.mul(0.2)).max(packed).clamp(0, 1).toVar();
   const deformGradient = deformation.gradient.mul(snow.deformation.normalStrength);
 
   // Landform, relief and carved snow are all heightfield slopes, so they add as
@@ -375,9 +428,11 @@ export function createSnowSurfaceNodes(config, deformationField = null, terrainS
   );
   const reliefTone = relief.x.div(RELIEF_TONE_HEIGHT).clamp(-1, 1).mul(snow.relief.toneContrast).add(1);
   const upward = surfaceUp.max(0).smoothstep(0.35, 0.95);
-  const surfaceColor = mix(color(snow.colors.shadow), color(snow.colors.base), upward)
-    .mul(driftTone)
-    .mul(reliefTone);
+  const surfaceColor = mix(
+    mix(color(snow.colors.shadow), color(snow.colors.base), upward).mul(driftTone).mul(reliefTone),
+    color(snow.path.color),
+    packed,
+  );
   // Footprints read through a cool, sky-lit interior. A plain multiply on
   // bright snow sits in the tonemap shoulder and all but disappears.
   const baseColor = mix(surfaceColor, color(snow.colors.shadow).mul(FOOTPRINT_INTERIOR_SHADE),

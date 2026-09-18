@@ -27,6 +27,8 @@ terrain:
       walkable: true
       terrainWidth: 15
       maxGrade: 0.32
+      # Where the route crosses the rim, the cut is a terraced gorge.
+      cut: { floorWidth: 13, toe: 6, slope: 1.8, slopeVariation: 0.3, fillSlope: 0.9, meander: 6, benchHeight: 10, benchFraction: 0.5, roughness: 2.5 }
       points:
         - [-125, -590]
         - [-92, -618]

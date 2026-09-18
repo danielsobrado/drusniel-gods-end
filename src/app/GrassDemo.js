@@ -27,6 +27,7 @@ import {
 } from '../config/characterRoster.js';
 import { createTrees } from '../world/createTrees.js';
 import { createWorld } from '../world/createWorld.js';
+import { ContactShadow } from '../player/ContactShadow.js';
 import { getRendererPixelRatio } from '../world/getRendererPixelRatio.js';
 import { loadTreeWorldData } from '../world/loadTreeWorldData.js';
 import { loadWorldPropData } from '../world/loadWorldPropData.js';
@@ -101,6 +102,12 @@ export class GrassDemo {
     );
     await this.player.loadModel();
     this.abortController.signal.throwIfAborted();
+    this.contactShadow = new ContactShadow({
+      scene: this.world.scene,
+      player: this.player,
+      terrain: this.world.terrainSampler,
+      config: this.config,
+    });
 
     loading.stage('collision');
     this.collisions = new WorldCollisionSystem({
@@ -594,6 +601,7 @@ export class GrassDemo {
     time('player', () => this.player.update(deltaSeconds));
     this.tour.update(deltaSeconds);
     this.navigation.update(deltaSeconds);
+    this.contactShadow?.update();
     this.world.terrainAnimations?.update(deltaSeconds);
     this.leaves.update(deltaSeconds);
     this.world.clouds?.update?.(deltaSeconds);
@@ -693,7 +701,7 @@ export class GrassDemo {
     this.world?.renderer?.setAnimationLoop(null);
     for (const resource of [this.loading, this.pipeline, this.cinematicLighting,
       this.meadow, this.wildGrass, this.understory, this.biome, this.coastalJungle, this.vegetationJobs, this.ui, this.iris, this.grass, this.trees, this.props,
-      this.collisions, this.navigation, this.player, this.leaves, this.birds, this.rain, this.snowfall,
+      this.collisions, this.navigation, this.contactShadow, this.player, this.leaves, this.birds, this.rain, this.snowfall,
       this.boundaryBarrier, this.water, this.audio, this.environment, this.world]) {
       try { resource?.dispose?.(); } catch (error) { logger.warn('Demo cleanup failed.', error); }
     }

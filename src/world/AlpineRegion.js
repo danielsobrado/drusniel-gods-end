@@ -60,8 +60,11 @@ export function shapeAlpineHeight(x, z, currentHeight, alpine) {
   return currentHeight + (targetHeight - currentHeight) * blend;
 }
 
-export function alpineTreeAllowed(x, y, z, alpine) {
+// Snow coverage above which broadleaf trees give way to snow-laden conifers.
+export const ALPINE_CONIFER_SNOW = 0.35;
+
+export function alpineTreeAllowed(x, y, z, alpine, snow = 0) {
   if (!alpine) return true;
   if (alpineDistance(x, z, alpine) > alpine.treeClearRadius) return true;
-  return y < alpine.treeLine;
+  return y < alpine.treeLine && snow < ALPINE_CONIFER_SNOW;
 }
