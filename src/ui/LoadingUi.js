@@ -19,6 +19,41 @@ function power2Out(value) {
   return 1 - (1 - t) ** 2;
 }
 
+// Small line glyphs for the roster cards, drawn on a 24px grid with currentColor
+// strokes so the palette stays in CSS. Unknown ids fall back to the monogram.
+const CHARACTER_ICONS = {
+  drusniel: '<path d="M5 20 19 4"/><path d="M19 4c-4 1-8 5-9 9"/><path d="M5 20c1-4 5-8 9-9"/><path d="M15 4h4v4"/>',
+  enanillo: '<path d="M14 10 5 19"/><path d="M11 5c3-2 7-1 9 1l-3 3c-1-1-3-2-6-4z"/><path d="M4 18l2 2"/>',
+  paladin: '<path d="M12 3 5 6v5c0 5 3 8 7 10 4-2 7-5 7-10V6z"/><path d="M12 8v8M9 11h6"/>',
+  cleric: '<path d="M12 21V11"/><path d="M12 11C8 11 6 8 6 4c4 0 6 3 6 7z"/><path d="M12 14c3 0 5-2 6-5-3 0-5 2-6 5z"/>',
+  serpent: '<path d="M7 20c-3 0-3-4 0-4h8c3 0 3-4 0-4H9c-3 0-3-4 0-4h6"/><circle cx="17" cy="8" r="2"/>',
+  wizard: '<path d="M12 3 7 17h10z"/><path d="M5 17h14"/><path d="M11 10l1-2 1 2"/><path d="M8 21h8"/>',
+};
+
+function characterIcon(entry) {
+  const paths = CHARACTER_ICONS[entry.id];
+  if (!paths) return null;
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+}
+
+// Wraps each capitalised word initial so the wordmark can shade D, G and E apart.
+function setLogoText(element, text) {
+  element.replaceChildren();
+  const wrapper = document.createElement('span');
+  for (const part of text.split(/(\b\p{Lu})/u)) {
+    if (!part) continue;
+    if (/^\p{Lu}$/u.test(part)) {
+      const initial = document.createElement('span');
+      initial.className = 'logo-initial';
+      initial.textContent = part;
+      wrapper.appendChild(initial);
+    } else {
+      wrapper.appendChild(document.createTextNode(part));
+    }
+  }
+  element.appendChild(wrapper);
+}
+
 function backendLabel(value) {
   if (value === 'webgpu') return 'WebGPU';
   if (value === 'webgl2') return 'WebGL 2';
@@ -54,11 +89,13 @@ export class LoadingUi {
         <div id="status-detail" class="loading-detail"></div>
         <div id="status-tech" class="loading-detail loading-detail-tech"></div>
       </div>
-      <button id="startButton" class="loading-start" type="button">START</button>`;
+      <button id="startButton" class="loading-start" type="button">START</button>
+      <a class="loading-lore-link" href="https://www.drusniel.com/" target="_blank" rel="noopener noreferrer">Read about Drusniel ↗</a>`;
     root.appendChild(this.element);
+    const logoText = presentation?.title ?? 'Drusniel: Gods’ End';
+    this.element.querySelectorAll('.logo-outline, .logo-fill').forEach(element => setLogoText(element, logoText));
     if (presentation) {
       this.element.classList.add('cinematic-loading');
-      this.element.querySelectorAll('.logo-outline, .logo-fill').forEach(element => { element.textContent = presentation.title; });
       this.element.querySelector('.loading-logo').setAttribute('aria-label', presentation.title);
       this.element.querySelector('#startButton').textContent = 'Enter Gods’ End';
     }
@@ -96,11 +133,14 @@ export class LoadingUi {
       card.setAttribute('role', 'radio');
       card.setAttribute('aria-checked', 'false');
       card.innerHTML = '<span class="character-monogram"></span>'
-        + '<span class="character-copy"><strong></strong><em></em><small></small></span>';
-      card.querySelector('.character-monogram').textContent = (entry.name ?? entry.id).slice(0, 1);
+        + '<span class="character-copy"><strong></strong><em></em></span>';
+      const monogram = card.querySelector('.character-monogram');
+      const icon = characterIcon(entry);
+      if (icon) monogram.innerHTML = icon;
+      else monogram.textContent = (entry.name ?? entry.id).slice(0, 1);
       card.querySelector('strong').textContent = entry.name ?? entry.id;
       card.querySelector('em').textContent = entry.title ?? '';
-      card.querySelector('small').textContent = entry.blurb ?? '';
+      if (entry.blurb) card.title = entry.blurb;
       card.addEventListener('click', () => this.#chooseCharacter(entry.id));
       this.characterList.appendChild(card);
     }

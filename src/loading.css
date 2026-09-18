@@ -185,27 +185,29 @@
 }
 
 .character-select {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
-  width: min(720px, 88vw);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+  width: min(640px, 88vw);
   margin-top: 6px;
 }
 
 .character-card {
   display: flex;
-  flex: 1 1 240px;
   align-items: center;
-  gap: 14px;
-  min-width: 220px;
-  max-width: 320px;
-  padding: 14px 16px;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 12px;
   border: 1px solid rgba(238, 244, 232, .16);
   background: rgba(255, 255, 255, .03);
   color: inherit;
   text-align: left;
   transition: border-color .25s, background .25s, opacity .25s;
+}
+
+/* Keep the global lime `button:hover` text colour off the cards. */
+.character-card:hover {
+  color: inherit;
 }
 
 .character-card:hover:not(:disabled) {
@@ -222,39 +224,57 @@
   display: grid;
   flex: 0 0 auto;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 30px;
+  height: 30px;
   border: 1px solid rgba(182, 238, 67, .35);
   border-radius: 50%;
   color: #b6ee43;
-  font-size: 17px;
+  font-size: 13px;
   font-weight: 800;
+}
+
+.character-monogram svg {
+  width: 17px;
+  height: 17px;
 }
 
 .character-copy {
   display: grid;
-  gap: 3px;
+  gap: 2px;
   min-width: 0;
 }
 
 .character-copy strong {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: .06em;
 }
 
 .character-copy em {
+  overflow: hidden;
   color: #b6ee43;
-  font-size: 10px;
+  font-size: 9px;
   font-style: normal;
   letter-spacing: .14em;
+  text-overflow: ellipsis;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
-.character-copy small {
-  color: rgba(238, 244, 232, .58);
-  font-size: 10px;
-  line-height: 1.45;
+.loading-lore-link {
+  color: rgba(238, 244, 232, .6);
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(238, 244, 232, .2);
+  padding-bottom: 2px;
+  transition: color .2s, border-color .2s;
+}
+
+.loading-lore-link:hover,
+.loading-lore-link:focus-visible {
+  color: #eef4e8;
+  border-color: currentColor;
 }
 
 .character-select.is-locked .character-card {

@@ -17,25 +17,31 @@
     radial-gradient(ellipse 40% 22% at 0% 100%, #0a111a5c, #0a111a00 72%);
 }
 .cinematic-loading .loading-logo { font-size: clamp(36px, 6vw, 76px); letter-spacing: .2em; }
-.cinematic-loading .logo-fill { color: #e8dec8; }
-.cinematic-loading .progress-bar { background: #c9b37e; }
-.cinematic-loading .loading-row { color: #d9cfb6; }
-.cinematic-loading .character-card { border-color: #d9c9a12e; background: #ffffff05; }
-.cinematic-loading .character-card:hover:not(:disabled) { border-color: #d5bd8680; background: #d5bd860f; }
-.cinematic-loading .character-card:focus-visible { outline-color: #ead29c; }
-.cinematic-loading .character-monogram { border-color: #d5bd8659; color: #ead29c; font-weight: 500; }
+/* Ash-blue loading palette. The word initials (D, G, E) sit a few steps darker
+   than the rest of the wordmark in both the outline and the fill layer. */
+.cinematic-loading .logo-outline { color: #c3d0db1f; -webkit-text-stroke-color: #a9bccb80; }
+.cinematic-loading .logo-outline .logo-initial { color: #4c627442; -webkit-text-stroke-color: #6f879a99; }
+.cinematic-loading .logo-fill { color: #c8d4de; }
+.cinematic-loading .logo-fill .logo-initial { color: #5f7689; }
+.cinematic-loading .progress-bar { background: #8fa6b8; }
+.cinematic-loading .loading-row { color: #b9c7d2; }
+.cinematic-loading .character-card { border-color: #a9bccb2e; background: #ffffff05; }
+.cinematic-loading .character-card:hover:not(:disabled) { border-color: #9fb4c680; background: #9fb4c60f; }
+.cinematic-loading .character-card:focus-visible { outline-color: #b7c9d8; }
+.cinematic-loading .character-monogram { border-color: #9fb4c659; color: #b7c9d8; font-weight: 500; }
 .cinematic-loading .character-copy strong { font-weight: 450; letter-spacing: .1em; }
-.cinematic-loading .character-copy em { color: #d9cfb6; }
-.cinematic-loading .character-copy small { color: #ece5d580; }
-.cinematic-loading .character-select.is-locked .character-card.is-chosen { border-color: #d5bd8699; background: #d5bd8614; }
-.cinematic-loading .loading-start { color: #e8dec8; border-color: #d9c9a173; font-weight: 450; letter-spacing: .16em; font-size: 17px; }
-.cinematic-loading.is-ready .loading-start { animation: start-rise .75s cubic-bezier(.16, .84, .28, 1) both, start-halo-gold 2.6s ease-out .75s infinite; }
-.cinematic-loading.is-ready .loading-start:hover:not(:disabled) { border-color: #ead29cc4; background: #d5bd8617; color: #f5ecd6; }
+.cinematic-loading .character-copy em { color: #9fb2c1; }
+.cinematic-loading .character-select.is-locked .character-card.is-chosen { border-color: #9fb4c699; background: #9fb4c614; }
+.cinematic-loading .loading-lore-link { color: #a9bccbb3; border-color: #a9bccb40; }
+.cinematic-loading .loading-lore-link:hover, .cinematic-loading .loading-lore-link:focus-visible { color: #dce5ec; border-color: currentColor; }
+.cinematic-loading .loading-start { color: #c8d4de; border-color: #a9bccb73; font-weight: 450; letter-spacing: .16em; font-size: 17px; }
+.cinematic-loading.is-ready .loading-start { animation: start-rise .75s cubic-bezier(.16, .84, .28, 1) both, start-halo-ash 2.6s ease-out .75s infinite; }
+.cinematic-loading.is-ready .loading-start:hover:not(:disabled) { border-color: #b7c9d8c4; background: #9fb4c617; color: #e6edf2; }
 .cinematic-loading.is-ready .loading-start:disabled { animation: none; opacity: .55; transform: none; box-shadow: none; }
-@keyframes start-halo-gold {
-  0%   { box-shadow: 0 0 0 0 #d5bd8666, 0 14px 38px #00000080; }
-  70%  { box-shadow: 0 0 0 18px #d5bd8600, 0 14px 38px #00000080; }
-  100% { box-shadow: 0 0 0 0 #d5bd8600, 0 14px 38px #00000080; }
+@keyframes start-halo-ash {
+  0%   { box-shadow: 0 0 0 0 #9fb4c666, 0 14px 38px #00000080; }
+  70%  { box-shadow: 0 0 0 18px #9fb4c600, 0 14px 38px #00000080; }
+  100% { box-shadow: 0 0 0 0 #9fb4c600, 0 14px 38px #00000080; }
 }
 .cinematic-hud .scene-heading { position: absolute; top: var(--hud-inset-y); left: var(--hud-inset-x); text-shadow: 0 1px 2px #0a0f14a6, 0 2px 22px #0a0f14b3; }
 .scene-eyebrow { font-size: 9px; font-weight: 600; letter-spacing: .24em; color: #ece5d5ba; }
@@ -82,5 +88,5 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .cinematic-hud * { transition: none !important; }
-  .cinematic-loading.is-ready .loading-start { animation: none; opacity: 1; box-shadow: 0 0 0 1px #d5bd8659, 0 14px 38px #00000080; }
+  .cinematic-loading.is-ready .loading-start { animation: none; opacity: 1; box-shadow: 0 0 0 1px #9fb4c659, 0 14px 38px #00000080; }
 }
