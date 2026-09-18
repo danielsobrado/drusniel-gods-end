@@ -92,6 +92,7 @@ export function createCinematicWaterMaterial({
   planar,
   seaPlanar,
   skyColorProvider = null,
+  snowAltitude = null,
 }) {
   const seaPalette = params.sea?.colors ?? {};
   const detail = createWaterDetailTexture();
@@ -120,6 +121,12 @@ export function createCinematicWaterMaterial({
   const lakeHere = positionWorld.x.sub(params.position[0]).abs().lessThan(params.size / 2)
     .and(positionWorld.z.sub(params.position[2]).abs().lessThan(params.size / 2));
   const current = kind.mul(lakeHere.select(level.sub(params.position[1]).smoothstep(0, 2), float(1)));
+  // Snowmelt: up in snow country the river runs cold and dark, and reflects
+  // the sky it runs under rather than the meadow probe captured down at the
+  // lake.
+  const alpine = snowAltitude
+    ? level.smoothstep(snowAltitude.start, snowAltitude.full).mul(kind).toVar()
+    : float(0);
   const detailUv = mix(positionWorld.xz.mul(0.065), currentUv, current);
   const bank = riverField(river).toVar();
   const terrainUv = positionWorld.xz.sub(vec2(terrain.boundsMin.x, terrain.boundsMin.z))
@@ -240,8 +247,9 @@ export function createCinematicWaterMaterial({
       mix(color(seaPalette.sunny?.deep ?? '#073c58'), color(seaPalette.storm?.deep ?? '#032d48'), uniforms.rain),
       ocean.depth(positionWorld.xz).smoothstep(2, 24),
     ).mul(uniforms.sunStrength.mul(0.75).add(0.25));
+    const inlandColor = mix(color('#164e52'), color('#246d70'), uniforms.sunStrength.mul(0.3).clamp(0, 1));
     const waterColor = mix(
-      mix(color('#164e52'), color('#246d70'), uniforms.sunStrength.mul(0.3).clamp(0, 1)),
+      mix(inlandColor, color('#10303d'), alpine),
       seaColor,
       sea,
     );
@@ -251,7 +259,7 @@ export function createCinematicWaterMaterial({
     const fallbackSky = mix(color('#81a8b4'), color('#38658a'), direction.y.smoothstep(0, 0.7))
       .mul(uniforms.sunStrength.mul(0.85).add(0.12));
     const oceanSky = skyColorProvider ? skyColorProvider(direction) : fallbackSky;
-    const reflected = mix(probe, oceanSky, sea).toVar();
+    const reflected = mix(probe, oceanSky, skyColorProvider ? sea.max(alpine) : sea).toVar();
 
     if (planar) {
       const lakeWeight = level.sub(params.position[1]).abs().smoothstep(0.05, 3).oneMinus().mul(uniforms.rich);

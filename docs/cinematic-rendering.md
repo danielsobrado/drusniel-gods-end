@@ -24,6 +24,8 @@ The beauty pass uses four coverage samples (`cinematic.post.samples: 4`) to stab
 
 GTAO consumes a single-sample R32F copy of the beauty depth rather than the multisampled attachment directly. This adds one fullscreen quad and preserves depth precision without drawing scene geometry a second time. It avoids r180's invalid mip-level dimension query on multisampled depth. No temporal history or motion blur is introduced; extremely thin geometry can still alias below the sampling limit.
 
+AO fades out between 120 and 260 units of view distance. Beyond that the depth buffer is too coarse for GTAO, which printed a regular lattice over distant open ground (most visibly over the alpine basin seen from the air). `setOcclusionScale` scales AO regionally; snow country uses it to hold AO at `ground.snow.atmosphere.occlusionScale` (see [Alpine snow](alpine-snow.md)).
+
 Imported static materials receive an explicit `materialColor` node after tree/prop cloning. This preserves their textures, shared identities and controller references while opting into Three r180's node-uniform refresh. Otherwise the material observer can skip all but the first unchanged object sharing a material, leaving later rocks, lanterns or trunks with the previous weather's fog color. Atmospheric preparation is reversed on disposal.
 
 ### Grass visibility and LOD

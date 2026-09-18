@@ -28,6 +28,9 @@ const _forward = new Vector3();
 // Toggles that only change a uniform; everything else rebuilds the graph.
 const UNIFORM_EFFECTS = new Set(['grain', 'vignette']);
 const STREAK_LANES = 96;
+// View distances (world units) over which screen-space AO fades out.
+const AO_FADE_START = 120;
+const AO_FADE_END = 260;
 
 export class CinematicPipeline {
   constructor(world, config) {
@@ -44,6 +47,7 @@ export class CinematicPipeline {
     this.stages = {};
     this.transient = [];
     this.quality = config.ui.initialQuality;
+    this.occlusionScale = 1;
     this.aoStrength = uniform(this.settings.aoStrength);
     const post = this.settings;
     this.grade = {
@@ -162,7 +166,11 @@ export class CinematicPipeline {
     this.stage = stage;
     let lit = stage.beauty.rgb;
     if (!lean) {
-      lit = lit.mul(mix(1, stage.occlusion.r, this.aoStrength));
+      // Past a few hundred metres the depth buffer is too coarse for GTAO,
+      // which then prints a regular lattice over open ground; fade it out.
+      const viewDistance = perspectiveDepthToViewZ(stage.depth.r, this.clip.near, this.clip.far).negate();
+      const aoFade = smoothstep(AO_FADE_END, AO_FADE_START, viewDistance);
+      lit = lit.mul(mix(1, stage.occlusion.r, this.aoStrength.mul(aoFade)));
       if (this.effects.bloom) {
         stage.bloom ??= bloom(stage.beauty, this.settings.bloomStrength, 0.3, this.settings.bloomThreshold);
         lit = lit.add(stage.bloom.rgb);
@@ -193,8 +201,25 @@ export class CinematicPipeline {
   setQuality(name) {
     if (!this.post) return;
     this.quality = name;
-    this.aoStrength.value = this.settings.aoStrength * (name === 'balanced' ? 0.75 : 1);
+    this.#applyOcclusionStrength();
     this.#build();
+  }
+
+  // Regional AO scale. A snowfield is the worst case for screen-space
+  // occlusion: open, smooth and bright, so what GTAO returns there is mostly
+  // its own view-dependent bias sliding across the ground.
+  setOcclusionScale(scale) {
+    const value = Number(scale);
+    const next = Number.isFinite(value) ? MathUtils.clamp(value, 0, 1) : 1;
+    if (next === this.occlusionScale) return;
+    this.occlusionScale = next;
+    this.#applyOcclusionStrength();
+  }
+
+  #applyOcclusionStrength() {
+    if (!this.aoStrength) return;
+    const quality = this.quality === 'balanced' ? 0.75 : 1;
+    this.aoStrength.value = this.settings.aoStrength * quality * (this.occlusionScale ?? 1);
   }
 
   setEffect(name, value) {

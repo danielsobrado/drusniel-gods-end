@@ -1,6 +1,11 @@
 import * as THREE from 'three';
 import { resolvePresetConfig } from '../config/resolvePresetConfig.js';
 import { setPresetAppearance } from '../rendering/PresetAppearance.js';
+import {
+  blendSnowAtmosphere,
+  createSnowAtmosphereState,
+  resolveSnowAtmosphereConfig,
+} from './SnowAtmosphere.js';
 
 const GRASS_TYPES = ['blade', 'billboard'];
 const RAIN_ACTIVE_THRESHOLD = 0.001;
@@ -113,6 +118,11 @@ export class EnvironmentController {
     this.currentPreset = config.ui.initialPreset;
     this.grassOverrides = {};
     this.current = snapshot(resolvePresetConfig(config, config.ui.initialPreset));
+    // The light actually applied: the preset, blended toward snow-country
+    // light while the view is up the mountain. Water reads its sun from here.
+    this.snowAtmosphere = resolveSnowAtmosphereConfig(config);
+    this.snowRegionWeight = 0;
+    this.atmosphere = createSnowAtmosphereState();
     const beachMoisture = this.terrain?.material?.userData?.beachMoisture;
     if (beachMoisture) {
       beachMoisture.value = THREE.MathUtils.clamp(Number(this.current.rainIntensity) || 0, 0, 1);
@@ -154,14 +164,37 @@ export class EnvironmentController {
     this.#apply();
   }
 
+  get lighting() {
+    return this.atmosphere.lighting;
+  }
+
+  get exposureScale() {
+    return this.atmosphere.exposureScale;
+  }
+
+  get occlusionScale() {
+    return this.atmosphere.occlusionScale;
+  }
+
+  // 0 in the lowlands, 1 on the snowfield. Eased by the caller.
+  setSnowRegion(weight) {
+    const next = this.snowAtmosphere ? THREE.MathUtils.clamp(Number(weight) || 0, 0, 1) : 0;
+    if (next === this.snowRegionWeight) return;
+    // Tiny steps are skipped, but the ends of the ramp always land exactly.
+    if (Math.abs(next - this.snowRegionWeight) < 1e-4 && next !== 0 && next !== 1) return;
+    this.snowRegionWeight = next;
+    this.#applyAtmosphere();
+  }
+
   updateSunTarget(playerPosition) {
-    this.sun.position.copy(playerPosition).add(this.current.lighting.position);
+    this.sun.position.copy(playerPosition).add(this.atmosphere.lighting.position);
     this.sun.target.position.copy(playerPosition);
     this.sun.target.updateMatrixWorld();
   }
 
-  #apply() {
-    const lighting = this.current.lighting;
+  #applyAtmosphere() {
+    const atmosphere = blendSnowAtmosphere(this.current, this.snowAtmosphere, this.snowRegionWeight, this.atmosphere);
+    const lighting = atmosphere.lighting;
     this.sun.color.copy(lighting.color);
     this.sun.intensity = lighting.directionalIntensity;
     this.hemisphere.color.copy(lighting.hemisphereSkyColor);
@@ -172,8 +205,19 @@ export class EnvironmentController {
     this.scene.environmentIntensity = lighting.environmentIntensity;
 
     const fogMultiplier = this.config.quality[this.quality].fogMultiplier;
-    this.scene.fog.color.copy(this.current.sky.fogColor);
-    this.scene.fog.density = this.current.sky.fogDensity * fogMultiplier;
+    this.scene.fog.color.copy(atmosphere.fogColor);
+    this.scene.fog.density = atmosphere.fogDensity * fogMultiplier;
+    this.sky?.setPreset({
+      ...this.current.sky,
+      horizonColor: atmosphere.sky.horizonColor,
+      zenithColor: atmosphere.sky.zenithColor,
+      fogColor: atmosphere.sky.fogColor,
+      sunPosition: atmosphere.sky.sunPosition.toArray(),
+    });
+  }
+
+  #apply() {
+    this.#applyAtmosphere();
     this.grass.setPreset({ grass: this.current.grass });
     this.#applyVegetationSimulation();
     this.rain?.setWindStrength(
@@ -182,10 +226,6 @@ export class EnvironmentController {
     this.#applyRainIntensity(this.current.rainIntensity);
     this.#applyRainRoughness(this.current.rainIntensity);
     this.clouds?.setCoverage(this.current.cloudCoverage);
-    this.sky?.setPreset({
-      ...this.current.sky,
-      sunPosition: this.current.sky.sunPosition.toArray(),
-    });
   }
 
   #applyVegetationSimulation() {

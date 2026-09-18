@@ -1,7 +1,7 @@
 import * as THREE from 'three/webgpu';
 import {
-  cameraPosition, color, cos, float, fract, hash, instanceIndex, mix, positionGeometry, positionWorld, sin,
-  smoothstep, time, uniform, vec3,
+  cameraPosition, cameraWorldMatrix, color, cos, float, fract, hash, instanceIndex, mix, positionGeometry,
+  positionWorld, sin, smoothstep, time, uniform, vec3,
 } from 'three/tsl';
 import { resolveSnowfallConfig } from '../config/resolveSnowfallConfig.js';
 import { foliageLight } from '../rendering/CinematicLighting.js';
@@ -10,7 +10,6 @@ import { snowWindVector } from '../world/SnowPowderPhysics.js';
 
 const VISIBILITY_THRESHOLD = 0.002;
 const TWO_PI = Math.PI * 2;
-const MIN_CAMERA_DISTANCE = 0.001;
 const HASH_OFFSETS = Object.freeze({
   x: 13.17,
   z: 87.31,
@@ -84,13 +83,13 @@ export class SnowfallSystem {
     const flakeZ = this.center.z.add(driftZ).add(cos(swayPhase.mul(0.83)).mul(settings.swayRadius));
     const flakeY = this.center.y.add(y);
 
-    // Camera-facing in the horizontal plane, as the rain drops are.
-    const toCamera = cameraPosition.sub(vec3(flakeX, 0, flakeZ));
-    const horizontal = toCamera.xz.length().max(float(MIN_CAMERA_DISTANCE));
-    const right = vec3(toCamera.z.div(horizontal), 0, toCamera.x.div(horizontal).negate());
+    // Fully camera-facing. A flake is round from every side; a rain-style
+    // upright billboard turns edge-on seen from above and draws as a grid of
+    // lines over the field.
+    const right = cameraWorldMatrix.element(0).xyz;
+    const up = cameraWorldMatrix.element(1).xyz;
     const size = mix(float(settings.sizeMin), float(settings.sizeMax), randomSize);
-    const offsetX = positionGeometry.x.mul(size);
-    const offsetY = positionGeometry.y.mul(size);
+    const offset = right.mul(positionGeometry.x.mul(size)).add(up.mul(positionGeometry.y.mul(size)));
 
     const material = new THREE.MeshBasicNodeMaterial();
     material.name = 'Snowfall';
@@ -98,11 +97,7 @@ export class SnowfallSystem {
     material.side = THREE.DoubleSide;
     material.depthWrite = false;
     material.fog = true;
-    material.positionNode = vec3(
-      flakeX.add(right.x.mul(offsetX)),
-      flakeY.add(offsetY),
-      flakeZ.add(right.z.mul(offsetX)),
-    );
+    material.positionNode = vec3(flakeX, flakeY, flakeZ).add(offset);
 
     // A round, soft flake, faded out close to the camera so a flake crossing
     // the lens does not become a white slab.

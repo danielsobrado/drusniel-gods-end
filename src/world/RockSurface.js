@@ -11,6 +11,7 @@ import {
   vec3,
   vec4,
 } from 'three/tsl';
+import { noise2 } from './snowNoiseNodes.js';
 
 function finiteNumber(value, name) {
   const number = Number(value);
@@ -124,9 +125,16 @@ export function createRockSurfaceNodes({ config, colorTexture, roughnessTexture,
   const textureBlend = macro.smoothstep(rock.textureBlendStart, rock.textureBlendEnd);
   const stoneTexture = mix(primaryStone, secondaryStone, textureBlend);
   const roughnessSample = triplanar(roughnessTexture, rock.triplanarScale, weights).r;
-  const grains = sin(world.x.mul(rock.grainFrequencyX)
-    .add(sin(world.y.mul(rock.grainWarpFrequency))))
-    .mul(sin(world.y.mul(rock.grainFrequencyZ)))
+  // Gradient noise at the configured grain frequencies. A product of sines
+  // prints a regular lattice of dots across every cliff face. Height is folded
+  // into both axes so a vertical wall varies down its face instead of
+  // streaking.
+  const grainPoint = vec2(
+    positionWorld.x.add(positionWorld.y.mul(0.62)).mul(rock.grainFrequencyX),
+    positionWorld.z.sub(positionWorld.y.mul(0.47)).mul(rock.grainFrequencyZ),
+  ).div(Math.PI * 2);
+  const grainWarp = sin(world.y.mul(rock.grainWarpFrequency)).mul(0.35);
+  const grains = noise2(grainPoint.add(vec2(grainWarp, 0))).mul(1.4)
     .mul(rock.grainAmplitude).add(1 - rock.grainAmplitude);
   const strata = sin(positionWorld.y.mul(rock.strataFrequency)
     .add(macro.mul(rock.strataMacroInfluence)))

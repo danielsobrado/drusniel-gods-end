@@ -12,6 +12,9 @@ import {
   WAKE_TIP_ANGLE, WAKE_TIP_CURL,
 } from './snowWakeProfile.js';
 
+// The ground detail strength the wake's grain weights were tuned against.
+const WAKE_DETAIL_REFERENCE = 2.4;
+
 // The snow-surf wake, ported from Snowflow's wake.vertex.wgsl, wake.fragment.wgsl
 // and lib/wake.wgsl (MIT, Maksymilian Dendura). Every vertex is placed here from
 // a static (column, row, side) lattice and the spine texture, so the buffer
@@ -160,7 +163,7 @@ export function createSnowWakeMaterial({ spineTexture, uniforms, columns, rows, 
     const up = select(shading.y.abs().greaterThan(0.99), vec3(1, 0, 0), vec3(0, 1, 0));
     const tangent = normalize(cross(up, shading));
     const bitangent = cross(shading, tangent);
-    const detail = fine.add(coarse).mul(snow.detail.strength / 0.55);
+    const detail = fine.add(coarse).mul(snow.detail.strength / WAKE_DETAIL_REFERENCE);
     shading = normalize(shading.add(tangent.mul(detail.x)).add(bitangent.mul(detail.y)));
   }
   material.normalNode = transformNormalToView(shading);

@@ -154,9 +154,13 @@ test('snow validation rejects invalid accumulation, surface, deformation and pow
   invalid.ground.snow.deformation.resolution = 16;
   assert.throws(() => validateSnowConfig(invalid), /Snow configuration is invalid/);
 
-  const invalidSurfaceTone = structuredClone(snowConfig);
-  invalidSurfaceTone.ground.snow.surfaceTone.sastrugiContrast = 0.5;
-  assert.throws(() => validateSnowConfig(invalidSurfaceTone), /sastrugiContrast/);
+  const invalidReliefTone = structuredClone(snowConfig);
+  invalidReliefTone.ground.snow.relief.toneContrast = 0.5;
+  assert.throws(() => validateSnowConfig(invalidReliefTone), /relief\.toneContrast/);
+
+  const invalidRelief = structuredClone(snowConfig);
+  invalidRelief.ground.snow.relief.sastrugi = -1;
+  assert.throws(() => validateSnowConfig(invalidRelief), /relief\.sastrugi/);
 
   const fractionalResolution = structuredClone(snowConfig);
   fractionalResolution.ground.snow.deformation.resolution = 512.5;

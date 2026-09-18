@@ -1,5 +1,6 @@
 import { resolveSnowWakeConfig } from './resolveSnowWakeConfig.js';
 import { resolveSnowfallConfig } from './resolveSnowfallConfig.js';
+import { resolveSnowAtmosphereConfig } from './resolveSnowAtmosphereConfig.js';
 
 function number(value, path, problems, { min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY, exclusiveMin = false } = {}) {
   const numeric = Number(value);
@@ -62,35 +63,12 @@ export function validateSnowConfig(config) {
     }
   }
 
-  if (object(snow.sastrugi, 'ground.snow.sastrugi', problems)) {
-    for (const name of ['frequency', 'crossFrequency', 'macroFrequency', 'macroCrossFrequency', 'secondaryFrequency']) {
-      number(snow.sastrugi[name], `ground.snow.sastrugi.${name}`, problems, { min: 0, exclusiveMin: true });
+  if (object(snow.relief, 'ground.snow.relief', problems)) {
+    for (const name of ['sastrugi', 'ripples', 'grain']) {
+      number(snow.relief[name], `ground.snow.relief.${name}`, problems, { min: 0, max: 3 });
     }
-    for (const name of ['warp', 'macroWarp', 'amplitude', 'secondaryAmplitude']) {
-      number(snow.sastrugi[name], `ground.snow.sastrugi.${name}`, problems);
-    }
-    number(snow.sastrugi.amplitudeVariation, 'ground.snow.sastrugi.amplitudeVariation', problems, { min: 0, max: 1 });
-  }
-
-  if (object(snow.ripples, 'ground.snow.ripples', problems)) {
-    for (const name of ['frequency', 'crossFrequency', 'macroFrequency']) {
-      number(snow.ripples[name], `ground.snow.ripples.${name}`, problems, { min: 0, exclusiveMin: true });
-    }
-    for (const name of ['macroWarp', 'amplitude']) {
-      number(snow.ripples[name], `ground.snow.ripples.${name}`, problems);
-    }
-  }
-
-  if (object(snow.grain, 'ground.snow.grain', problems)) {
-    for (const name of ['frequencyX', 'frequencyZ']) {
-      number(snow.grain[name], `ground.snow.grain.${name}`, problems, { min: 0, exclusiveMin: true });
-    }
-    number(snow.grain.amplitude, 'ground.snow.grain.amplitude', problems);
-    const fadeStart = number(snow.grain.fadeStart, 'ground.snow.grain.fadeStart', problems, { min: 0 });
-    const fadeEnd = number(snow.grain.fadeEnd, 'ground.snow.grain.fadeEnd', problems, { min: 0 });
-    if (Number.isFinite(fadeStart) && Number.isFinite(fadeEnd) && fadeEnd <= fadeStart) {
-      problems.push('ground.snow.grain.fadeEnd must be greater than fadeStart');
-    }
+    number(snow.relief.windward, 'ground.snow.relief.windward', problems, { min: 0, max: 2 });
+    number(snow.relief.toneContrast, 'ground.snow.relief.toneContrast', problems, { min: 0, max: 0.3 });
   }
 
   if (object(snow.colors, 'ground.snow.colors', problems)) {
@@ -101,11 +79,8 @@ export function validateSnowConfig(config) {
     }
     number(snow.colors.driftVariation, 'ground.snow.colors.driftVariation', problems, { min: 0, max: 1 });
   }
-
-  if (object(snow.surfaceTone, 'ground.snow.surfaceTone', problems)) {
-    for (const name of ['sastrugiContrast', 'rippleContrast', 'exposureContrast']) {
-      number(snow.surfaceTone[name], `ground.snow.surfaceTone.${name}`, problems, { min: 0, max: 0.3 });
-    }
+  if (snow.rockTint !== undefined && (typeof snow.rockTint !== 'string' || snow.rockTint.length === 0)) {
+    problems.push('ground.snow.rockTint must be a color string');
   }
 
   if (object(snow.roughness, 'ground.snow.roughness', problems)) {
@@ -125,7 +100,8 @@ export function validateSnowConfig(config) {
 
   if (object(snow.detail, 'ground.snow.detail', problems)) {
     number(snow.detail.worldScale, 'ground.snow.detail.worldScale', problems, { min: 0, exclusiveMin: true });
-    for (const name of ['strength', 'cavity', 'colorVariation', 'roughnessVariation']) {
+    number(snow.detail.strength, 'ground.snow.detail.strength', problems, { min: 0, max: 4 });
+    for (const name of ['cavity', 'colorVariation', 'roughnessVariation']) {
       number(snow.detail[name], `ground.snow.detail.${name}`, problems, { min: 0, max: 2 });
     }
   }
@@ -211,6 +187,14 @@ export function validateSnowConfig(config) {
   if (snow.snowfall) {
     try {
       resolveSnowfallConfig(snow.snowfall);
+    } catch (error) {
+      problems.push(error.message);
+    }
+  }
+
+  if (snow.atmosphere) {
+    try {
+      resolveSnowAtmosphereConfig(config);
     } catch (error) {
       problems.push(error.message);
     }

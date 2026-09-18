@@ -210,3 +210,23 @@ test('environment wind and simulation speed use recovered subsystem multipliers'
     'leaves.simulationSpeed=0.75',
   );
 });
+
+test('snow country lowers the sun and restores the preset light on the way down', () => {
+  const origin = new THREE.Vector3();
+  const { controller, sinks } = build();
+  const preset = config.presets[controller.currentPreset].lighting;
+  const elevation = (v) => Math.atan2(v.y, Math.hypot(v.x, v.z));
+
+  controller.setSnowRegion(1);
+  controller.updateSunTarget(origin);
+  const settings = controller.snowAtmosphere;
+  assert.ok(Math.abs(elevation(sinks.sun.position) - settings.sunElevation) < 1e-6);
+  assert.equal(sinks.sun.intensity, preset.directionalIntensity * settings.sunIntensityScale);
+  assert.equal(controller.exposureScale, settings.exposureScale);
+
+  controller.setSnowRegion(0);
+  controller.updateSunTarget(origin);
+  assert.deepEqual(sinks.sun.position.toArray(), preset.position);
+  assert.equal(sinks.sun.intensity, preset.directionalIntensity);
+  assert.equal(controller.exposureScale, 1);
+});

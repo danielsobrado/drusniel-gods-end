@@ -74,8 +74,12 @@ export class CinematicLighting {
     }
   }
 
-  update() {
+  // `exposureScale` is the regional exposure (snow country sits lower).
+  update(exposureScale = 1) {
     const { sun, scene } = this.world;
+    if (this.config.cinematic?.enabled) {
+      this.world.renderer.toneMappingExposure = this.config.cinematic.exposure * exposureScale;
+    }
     this.fogColor.value.copy(scene.fog.color);
     this.fogDensity.value = scene.fog.density;
     foliageLight.direction.value.copy(sun.position).sub(sun.target.position).normalize();

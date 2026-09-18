@@ -1,10 +1,14 @@
 import {
+  Fn,
+  If,
   cameraPosition,
   cameraViewMatrix,
   color,
+  cross,
+  dFdx,
+  dFdy,
   dot,
   float,
-  fwidth,
   mix,
   normalWorld,
   normalize,
@@ -19,44 +23,58 @@ import {
   vec4,
 } from 'three/tsl';
 import { foliageLight } from '../rendering/CinematicLighting.js';
+import { snowFineRelief } from './snowNoiseNodes.js';
 import { snowGlints, snowSubsurface } from './snowShadingNodes.js';
 
-const HALF_PI = Math.PI * 0.5;
-// Linear-light means of the Snow007C colour luminance and roughness maps, so
-// the detail only varies the surface around its configured tone.
-const DETAIL_COLOR_MEAN_LUMINANCE = 0.721;
+// Linear-light means of the Snow007C colour, roughness and displacement maps,
+// so the detail only varies the surface around its configured tone.
+const DETAIL_COLOR_MEAN = [0.629, 0.737, 0.849];
 const DETAIL_ROUGHNESS_MEAN = 0.714;
+const DETAIL_HEIGHT_MEAN = 0.274;
+const DETAIL_OCCLUSION_MEAN = 0.944;
+// Cavity change per unit of displacement below or above the mean; the map's
+// standard deviation is 0.1, so one deviation is a quarter.
+const HOLLOW_CONTRAST = 2.5;
 const DEFORMATION_NEUTRAL = 128 / 255;
-// Camera distances (world units) over which the fine ripple lattice and the
-// larger sastrugi lattice fade out, so distant slopes read as smooth snow.
-const RIPPLE_FADE_START = 45;
-const RIPPLE_FADE_END = 120;
-const SASTRUGI_FADE_START = 160;
-const SASTRUGI_FADE_END = 420;
-// Camera distances over which snow switches from the mesh normal to the
-// heightfield normal for its slope mask and colour weights.
+// Camera distances (world units) over which snow switches from the mesh normal
+// to the heightfield normal for its slope mask and colour weights.
 const HEIGHTFIELD_NORMAL_BLEND_START = 60;
 const HEIGHTFIELD_NORMAL_BLEND_END = 140;
 // Brightness of a footprint's interior relative to the snow shadow colour.
 const FOOTPRINT_INTERIOR_SHADE = 0.68;
-const BREAKUP_START = 0.18;
-const BREAKUP_FULL = 0.82;
-const BREAKUP_MINIMUM = 0.06;
-const PRIMARY_MACRO_WARP = 0.28;
-const SECONDARY_MACRO_SCALE = 1.73;
-const SECONDARY_CROSS_SCALE = 0.61;
-const BREAKUP_CROSS_SCALE = 2.17;
-const BREAKUP_WARP_SCALE = 0.21;
-const JITTER_ALONG_SCALE = 0.47;
-const JITTER_CROSS_SCALE = 1.31;
-const JITTER_STRENGTH = 0.28;
-const SECONDARY_WARP_SCALE = 0.45;
-const SECONDARY_MACRO_SCALE_FACTOR = 0.37;
-const SECONDARY_JITTER_SCALE = 0.63;
-const RIPPLE_CROSS_WARP = 0.75;
-const RIPPLE_JITTER_SCALE = 0.31;
-const ROUGHNESS_SASTRUGI_WEIGHT = 0.72;
-const ROUGHNESS_RIPPLE_WEIGHT = 1 - ROUGHNESS_SASTRUGI_WEIGHT;
+// Below this coverage the procedural relief is skipped entirely.
+const MASK_EPSILON = 0.002;
+// Snowflow resolves sub-pixel relief with TAA, which is off by default here,
+// so each relief layer fades out at a proportionally smaller pixel footprint.
+const RELIEF_FILTER_SCALE = 1.6;
+// Sastrugi and ripples are carved into lying snow; on a wall a planar
+// projection would only stretch them into vertical streaks. Normal Y range.
+const RELIEF_FLAT_START = 0.62;
+const RELIEF_FLAT_END = 0.88;
+// Slope (1 - normal Y) over which the detail maps go triplanar.
+const TRIPLANAR_START = 0.2;
+const TRIPLANAR_END = 0.55;
+// Relief height, in Snowflow metres, at which the crest/trough tone saturates.
+const RELIEF_TONE_HEIGHT = 0.06;
+// Light reaching into a hollow of snow has scattered through snow on the way.
+const CAVE_TINT = [0.55, 0.72, 1];
+// Snowflow uses 0.95; its ambient is less blue than the sky light here.
+const CAVE_TINT_STRENGTH = 0.7;
+const FLAT_NORMAL = [0, 0, 1];
+
+// Snowflow's three tiling scales of the detail map, in cycles per Snowflow
+// metre, each faded out between two pixel footprints (Snowflow metres).
+const DETAIL_LAYERS = Object.freeze([
+  { frequency: 7.5, fadeStart: 0.004, fadeEnd: 0.02, weight: 1 },
+  { frequency: 1.7, fadeStart: 0.02, fadeEnd: 0.12, weight: 0.85 },
+  { frequency: 0.31, fadeStart: 0.1, fadeEnd: 0.7, weight: 0.6 },
+]);
+// Crevice occlusion from the packed map: the grain scale close up, and the
+// broad scale, where the crust pattern is still legible, further out.
+const CAVITY_LAYERS = Object.freeze([
+  { frequency: 1.7, fadeStart: 0.02, fadeEnd: 0.25, weight: 1 },
+  { frequency: 0.31, fadeStart: 0.12, fadeEnd: 1.1, weight: 0.8 },
+]);
 
 function positiveNumber(value, name) {
   const number = Number(value);
@@ -92,16 +110,12 @@ function deformationAppearance(config) {
 export function resolveSnowConfig(config) {
   if (!config) throw new Error('ground.snow configuration is required.');
   const angle = finiteNumber(config.wind.angleDegrees, 'ground.snow.wind.angleDegrees') * Math.PI / 180;
-  const grainFadeStart = finiteNumber(config.grain.fadeStart, 'ground.snow.grain.fadeStart');
-  const grainFadeEnd = finiteNumber(config.grain.fadeEnd, 'ground.snow.grain.fadeEnd');
-  if (!(grainFadeEnd > grainFadeStart)) {
-    throw new Error('ground.snow.grain.fadeEnd must be greater than ground.snow.grain.fadeStart.');
-  }
   return {
     enabled: config.enabled !== false,
     altitude: interval(config.altitude, 'ground.snow.altitude'),
     slope: interval(config.slope, 'ground.snow.slope'),
     wind: {
+      angle,
       cos: Math.cos(angle),
       sin: Math.sin(angle),
       driftFrequency: positiveNumber(config.wind.driftFrequency, 'ground.snow.wind.driftFrequency'),
@@ -112,38 +126,14 @@ export function resolveSnowConfig(config) {
       driftHeight: finiteNumber(config.wind.driftHeight, 'ground.snow.wind.driftHeight'),
       scourStrength: finiteNumber(config.wind.scourStrength, 'ground.snow.wind.scourStrength'),
     },
-    sastrugi: {
-      frequency: positiveNumber(config.sastrugi.frequency, 'ground.snow.sastrugi.frequency'),
-      crossFrequency: positiveNumber(config.sastrugi.crossFrequency, 'ground.snow.sastrugi.crossFrequency'),
-      warp: finiteNumber(config.sastrugi.warp, 'ground.snow.sastrugi.warp'),
-      macroFrequency: positiveNumber(config.sastrugi.macroFrequency, 'ground.snow.sastrugi.macroFrequency'),
-      macroCrossFrequency: positiveNumber(config.sastrugi.macroCrossFrequency, 'ground.snow.sastrugi.macroCrossFrequency'),
-      macroWarp: finiteNumber(config.sastrugi.macroWarp, 'ground.snow.sastrugi.macroWarp'),
-      amplitudeVariation: finiteNumber(config.sastrugi.amplitudeVariation, 'ground.snow.sastrugi.amplitudeVariation'),
-      amplitude: finiteNumber(config.sastrugi.amplitude, 'ground.snow.sastrugi.amplitude'),
-      secondaryFrequency: positiveNumber(config.sastrugi.secondaryFrequency, 'ground.snow.sastrugi.secondaryFrequency'),
-      secondaryAmplitude: finiteNumber(config.sastrugi.secondaryAmplitude, 'ground.snow.sastrugi.secondaryAmplitude'),
-    },
-    ripples: {
-      frequency: positiveNumber(config.ripples.frequency, 'ground.snow.ripples.frequency'),
-      crossFrequency: positiveNumber(config.ripples.crossFrequency, 'ground.snow.ripples.crossFrequency'),
-      macroFrequency: positiveNumber(config.ripples.macroFrequency, 'ground.snow.ripples.macroFrequency'),
-      macroWarp: finiteNumber(config.ripples.macroWarp, 'ground.snow.ripples.macroWarp'),
-      amplitude: finiteNumber(config.ripples.amplitude, 'ground.snow.ripples.amplitude'),
-    },
-    grain: {
-      frequencyX: positiveNumber(config.grain.frequencyX, 'ground.snow.grain.frequencyX'),
-      frequencyZ: positiveNumber(config.grain.frequencyZ, 'ground.snow.grain.frequencyZ'),
-      amplitude: finiteNumber(config.grain.amplitude, 'ground.snow.grain.amplitude'),
-      fadeStart: grainFadeStart,
-      fadeEnd: grainFadeEnd,
+    relief: {
+      sastrugi: finiteNumber(config.relief.sastrugi, 'ground.snow.relief.sastrugi'),
+      ripples: finiteNumber(config.relief.ripples, 'ground.snow.relief.ripples'),
+      grain: finiteNumber(config.relief.grain, 'ground.snow.relief.grain'),
+      windward: finiteNumber(config.relief.windward, 'ground.snow.relief.windward'),
+      toneContrast: finiteNumber(config.relief.toneContrast, 'ground.snow.relief.toneContrast'),
     },
     colors: config.colors,
-    surfaceTone: {
-      sastrugiContrast: finiteNumber(config.surfaceTone.sastrugiContrast, 'ground.snow.surfaceTone.sastrugiContrast'),
-      rippleContrast: finiteNumber(config.surfaceTone.rippleContrast, 'ground.snow.surfaceTone.rippleContrast'),
-      exposureContrast: finiteNumber(config.surfaceTone.exposureContrast, 'ground.snow.surfaceTone.exposureContrast'),
-    },
     roughness: {
       base: finiteNumber(config.roughness.base, 'ground.snow.roughness.base'),
       compressed: finiteNumber(config.roughness.compressed, 'ground.snow.roughness.compressed'),
@@ -165,10 +155,6 @@ export function resolveSnowConfig(config) {
     },
     deformation: deformationAppearance(config.deformation),
   };
-}
-
-function shiftedCos(phase) {
-  return sin(phase.add(HALF_PI));
 }
 
 function windCoordinates(world, snow) {
@@ -198,10 +184,24 @@ export function createDeformationNodes(deformationField, world) {
   };
 }
 
+function unpackNormal(sample) {
+  const xy = sample.xy.mul(2).sub(1);
+  return vec3(xy, xy.dot(xy).oneMinus().max(0).sqrt());
+}
+
+// Reoriented normal mapping: folds a tangent-space detail normal onto a base
+// one without losing the base's tilt, which a plain add-and-normalise does.
+function blendReoriented(base, detail) {
+  const t = base.add(vec3(0, 0, 1));
+  const u = detail.mul(vec3(-1, -1, 1));
+  return normalize(t.mul(dot(t, u)).sub(u.mul(t.z)));
+}
+
 export function createSnowSurfaceNodes(config, deformationField = null, terrainSampler = null, textures = null) {
   const snow = resolveSnowConfig(config.ground.snow);
   const world = positionWorld.xz;
   const { along, across } = windCoordinates(world, snow);
+  const worldScale = snow.detail.worldScale;
 
   // The snow slope mask and shadow/base colour weight blend from the mesh normal
   // near the camera to the smooth heightfield normal far away. Far off, the
@@ -210,16 +210,18 @@ export function createSnowSurfaceNodes(config, deformationField = null, terrainS
   // heightfield, whose normals would step the snow edge. Outside the
   // heightfield (the backdrop mesh) the mesh normal is kept.
   let surfaceUp = normalWorld.y;
+  let landformSlope = normalWorld.xz;
   const normalTexture = terrainSampler?.normalTexture;
   if (normalTexture && terrainSampler.size?.x > 0 && terrainSampler.size?.z > 0) {
     const min = terrainSampler.bounds.min;
     const heightfieldUv = world.sub(vec2(min.x, min.z)).div(vec2(terrainSampler.size.x, terrainSampler.size.z));
     const inside = heightfieldUv.x.greaterThanEqual(0).and(heightfieldUv.x.lessThanEqual(1))
       .and(heightfieldUv.y.greaterThanEqual(0)).and(heightfieldUv.y.lessThanEqual(1));
-    const heightfieldUp = texture(normalTexture, heightfieldUv.clamp(0, 1)).xyz.mul(2).sub(1).normalize().y;
+    const heightfieldNormal = texture(normalTexture, heightfieldUv.clamp(0, 1)).xyz.mul(2).sub(1).normalize().toVar();
     const farBlend = cameraPosition.distance(positionWorld)
       .smoothstep(HEIGHTFIELD_NORMAL_BLEND_START, HEIGHTFIELD_NORMAL_BLEND_END);
-    surfaceUp = mix(normalWorld.y, inside.select(heightfieldUp, normalWorld.y), farBlend).toVar();
+    surfaceUp = mix(normalWorld.y, inside.select(heightfieldNormal.y, normalWorld.y), farBlend).toVar();
+    landformSlope = inside.select(heightfieldNormal.xz, normalWorld.xz);
   }
 
   const driftPhase = along.mul(snow.wind.driftFrequency)
@@ -234,178 +236,158 @@ export function createSnowSurfaceNodes(config, deformationField = null, terrainS
   const slope = smoothstep(snow.slope.start, snow.slope.full, surfaceUp.abs());
   const mask = altitude.mul(slope).clamp(0, 1).toVar();
 
-  const sastrugiMacro = sin(along.mul(snow.sastrugi.macroFrequency)
-    .add(sin(across.mul(snow.sastrugi.macroCrossFrequency))
-      .mul(snow.sastrugi.macroWarp * PRIMARY_MACRO_WARP)));
-  const breakupA = sin(along.mul(snow.sastrugi.macroFrequency * SECONDARY_MACRO_SCALE)
-    .sub(across.mul(snow.sastrugi.macroCrossFrequency * SECONDARY_CROSS_SCALE))
-    .add(sastrugiMacro));
-  const breakupB = sin(across.mul(snow.sastrugi.macroCrossFrequency * BREAKUP_CROSS_SCALE)
-    .add(along.mul(snow.sastrugi.macroFrequency * JITTER_ALONG_SCALE))
-    .add(sastrugiMacro.mul(snow.sastrugi.macroWarp * BREAKUP_WARP_SCALE)));
-  const breakup = breakupA.mul(breakupB).mul(0.5).add(0.5).clamp(0, 1);
-  const breakupEnvelope = smoothstep(BREAKUP_START, BREAKUP_FULL, breakup);
-  const phaseJitter = breakupB.mul(snow.sastrugi.macroWarp * BREAKUP_WARP_SCALE)
-    .add(sin(along.mul(snow.sastrugi.macroFrequency * JITTER_ALONG_SCALE)
-      .add(across.mul(snow.sastrugi.macroCrossFrequency * JITTER_CROSS_SCALE)))
-      .mul(snow.sastrugi.macroWarp * JITTER_STRENGTH));
+  // World-space size of this pixel, as Snowflow's snow material takes it: every
+  // detail fade below keys off it, so detail only exists where it resolves.
+  const ddx = dFdx(positionWorld).toVar();
+  const ddy = dFdy(positionWorld).toVar();
+  const footprint = vec2(ddx.xz.length(), ddy.xz.length()).length().max(1e-4).toVar();
+  const reliefFootprint = footprint.mul(RELIEF_FILTER_SCALE / worldScale);
+  const flatness = normalWorld.y.smoothstep(RELIEF_FLAT_START, RELIEF_FLAT_END);
 
-  const sastrugiAmplitude = mix(
-    1 - snow.sastrugi.amplitudeVariation,
-    1 + snow.sastrugi.amplitudeVariation,
-    sastrugiMacro.mul(0.5).add(0.5),
-  ).mul(mix(BREAKUP_MINIMUM, 1, breakupEnvelope));
-  const sastrugiPhase = along.mul(snow.sastrugi.frequency)
-    .add(sin(across.mul(snow.sastrugi.crossFrequency)).mul(snow.sastrugi.warp))
-    .add(sastrugiMacro.mul(snow.sastrugi.macroWarp))
-    .add(phaseJitter);
-  const sastrugiDerivative = shiftedCos(sastrugiPhase)
-    .mul(snow.sastrugi.frequency * snow.sastrugi.amplitude)
-    .mul(sastrugiAmplitude);
-  const sastrugiCrossDerivative = shiftedCos(sastrugiPhase)
-    .mul(shiftedCos(across.mul(snow.sastrugi.crossFrequency)))
-    .mul(snow.sastrugi.crossFrequency * snow.sastrugi.warp * snow.sastrugi.amplitude)
-    .mul(sastrugiAmplitude);
-  const secondaryPhase = along.mul(snow.sastrugi.secondaryFrequency)
-    .add(sin(across.mul(snow.sastrugi.crossFrequency * SECONDARY_MACRO_SCALE))
-      .mul(snow.sastrugi.warp * SECONDARY_WARP_SCALE))
-    .sub(sastrugiMacro.mul(snow.sastrugi.macroWarp * SECONDARY_MACRO_SCALE_FACTOR))
-    .sub(phaseJitter.mul(SECONDARY_JITTER_SCALE));
-  const secondaryDerivative = shiftedCos(secondaryPhase)
-    .mul(snow.sastrugi.secondaryFrequency * snow.sastrugi.secondaryAmplitude)
-    .mul(sastrugiAmplitude);
+  // Wind scours faces turned into it and the crests of the large exposure
+  // pattern into hard sastrugi; lee slopes and hollows keep their ripples.
+  const windward = dot(landformSlope, vec2(snow.wind.cos, snow.wind.sin)).negate();
+  const reliefExposure = exposure.sub(0.5).mul(0.6).add(0.5)
+    .add(windward.mul(snow.relief.windward * 2.5))
+    .clamp(0, 1)
+    .toVar();
 
-  const rippleMacro = sin(along.mul(snow.ripples.macroFrequency)
-    .sub(across.mul(snow.ripples.macroFrequency * SECONDARY_CROSS_SCALE))
-    .add(breakupA.mul(snow.ripples.macroWarp * PRIMARY_MACRO_WARP)));
-  const ripplePhase = along.mul(snow.ripples.frequency)
-    .add(sin(across.mul(snow.ripples.crossFrequency)).mul(RIPPLE_CROSS_WARP))
-    .add(rippleMacro.mul(snow.ripples.macroWarp))
-    .add(phaseJitter.mul(RIPPLE_JITTER_SCALE));
-  const rippleEnvelope = mix(BREAKUP_MINIMUM, 1, breakup.oneMinus());
-  const rippleAlong = shiftedCos(ripplePhase)
-    .mul(snow.ripples.frequency * snow.ripples.amplitude)
-    .mul(rippleEnvelope);
-  const rippleAcross = shiftedCos(ripplePhase)
-    .mul(shiftedCos(across.mul(snow.ripples.crossFrequency)))
-    .mul(snow.ripples.crossFrequency * RIPPLE_CROSS_WARP * snow.ripples.amplitude)
-    .mul(rippleEnvelope);
-
-  const viewDistance = cameraPosition.distance(positionWorld);
-  const grainFade = viewDistance.smoothstep(snow.grain.fadeStart, snow.grain.fadeEnd).oneMinus();
-  // The ripple and sastrugi lattices are sine patterns; past their fade
-  // distance they alias into a repetitive moire on far slopes, so they fade
-  // out with distance like the grain does.
-  const rippleFade = viewDistance.smoothstep(RIPPLE_FADE_START, RIPPLE_FADE_END).oneMinus();
-  const sastrugiFade = viewDistance.smoothstep(SASTRUGI_FADE_START, SASTRUGI_FADE_END).oneMinus();
-  const grainPhaseX = along.mul(snow.grain.frequencyX)
-    .add(across.mul(snow.grain.frequencyZ * SECONDARY_WARP_SCALE));
-  const grainPhaseZ = across.mul(snow.grain.frequencyZ)
-    .sub(along.mul(snow.grain.frequencyX * SECONDARY_MACRO_SCALE_FACTOR));
-  const grainX = sin(grainPhaseX)
-    .mul(sin(grainPhaseZ.mul(RIPPLE_CROSS_WARP)))
-    .mul(snow.grain.amplitude).mul(grainFade);
-  const grainZ = sin(grainPhaseZ)
-    .mul(sin(grainPhaseX.mul(SECONDARY_JITTER_SCALE)))
-    .mul(snow.grain.amplitude).mul(grainFade);
+  // Snowflow's analytic fine layer, evaluated in Snowflow metres. It is the
+  // costliest part of the ground shader, so pixels without snow skip it. The
+  // branch condition reads the footprint and exposure, so their derivative and
+  // texture terms are emitted ahead of the branch, in uniform control flow.
+  const relief = Fn(() => {
+    const result = vec3(0).toVar();
+    If(mask.greaterThan(MASK_EPSILON).and(footprint.greaterThan(0)).and(reliefExposure.greaterThanEqual(0)), () => {
+      result.assign(snowFineRelief(
+        world.div(worldScale),
+        float(snow.wind.angle),
+        reliefExposure,
+        reliefFootprint,
+        vec3(snow.relief.sastrugi, snow.relief.ripples, snow.relief.grain).mul(flatness),
+      ));
+    });
+    return result;
+  })().toVar();
 
   const deformation = createDeformationNodes(deformationField, world);
   const depression = deformation.depression.mul(mask).toVar();
   const berm = deformation.berm.mul(mask).toVar();
+  const compressed = depression.max(berm.mul(0.2)).clamp(0, 1).toVar();
   const deformGradient = deformation.gradient.mul(snow.deformation.normalStrength);
 
-  // World-space size of this pixel; every detail fade below keys off it, as in
-  // Snowflow's snow material, so detail only exists where it is resolvable.
-  const worldScale = snow.detail.worldScale;
-  const footprint = fwidth(positionWorld.xz).length().mul(0.5).max(1e-4);
-  let detailX = float(0);
-  let detailZ = float(0);
+  // Landform, relief and carved snow are all heightfield slopes, so they add as
+  // slopes before becoming a normal. Only the detail map is a tangent-space
+  // normal, and it is folded in last.
+  const reliefSlope = relief.yz.add(deformGradient).mul(mask);
+  const shapedNormal = normalize(normalWorld.add(vec3(reliefSlope.x.negate(), 0, reliefSlope.y.negate()))).toVar();
+
+  let snowWorldNormal = shapedNormal;
   let cavity = float(1);
-  let colorVariation = float(1);
+  let colorVariation = vec3(1);
   let roughnessDetail = float(0);
   if (textures) {
-    // Three tiling scales of the Snow007C normal map, each cross-faded out by
-    // footprint. They are added as slopes onto the landform gradient, and
-    // trodden snow keeps less of its grain.
-    const detailNormal = (frequency) => texture(textures.normal, world.mul(frequency / worldScale)).xy.mul(2).sub(1);
-    const fineFade = smoothstep(0.004 * worldScale, 0.02 * worldScale, footprint).oneMinus();
-    const midFade = smoothstep(0.02 * worldScale, 0.12 * worldScale, footprint).oneMinus();
-    const broadFade = smoothstep(0.1 * worldScale, 0.7 * worldScale, footprint).oneMinus();
-    const detail = detailNormal(7.5).mul(fineFade)
-      .add(detailNormal(1.7).mul(midFade.mul(0.85)))
-      .add(detailNormal(0.31).mul(broadFade.mul(0.6)))
-      .mul(depression.mul(-0.55).add(1).mul(snow.detail.strength));
-    detailX = detail.x.negate();
-    detailZ = detail.y.negate();
+    // On steep snow a planar projection stretches the grain down the fall
+    // line, so the coarser layers go triplanar there, as in Snowflow's
+    // detailNormal. The side projections only run on steep pixels, with
+    // explicit gradients taken in uniform control flow above; the branch
+    // condition names them so they are emitted ahead of it.
+    const steep = shapedNormal.y.oneMinus().smoothstep(TRIPLANAR_START, TRIPLANAR_END).toVar();
+    const sideWeights = shapedNormal.abs().pow(4).toVar();
+    const detailNormal = (frequency, triplanar) => Fn(() => {
+      const scale = frequency / worldScale;
+      const sample = vec3(...FLAT_NORMAL).toVar();
+      sample.assign(unpackNormal(texture(textures.normal, world.mul(scale))));
+      if (!triplanar) return sample;
+      If(steep.greaterThan(0.01).and(ddx.x.equal(ddx.x)).and(ddy.x.equal(ddy.x)), () => {
+        const side = (projected, dx, dy) => unpackNormal(
+          texture(textures.normal, projected.mul(scale)).grad(dx.mul(scale), dy.mul(scale)),
+        );
+        const facingZ = side(positionWorld.xy, ddx.xy, ddy.xy);
+        const facingX = side(positionWorld.zy, ddx.zy, ddy.zy);
+        const total = sideWeights.x.add(sideWeights.y).add(sideWeights.z).max(1e-4);
+        const blended = facingZ.mul(sideWeights.z).add(facingX.mul(sideWeights.x)).add(sample.mul(sideWeights.y))
+          .div(total);
+        sample.assign(normalize(mix(sample, blended, steep)));
+      });
+      return sample;
+    })();
 
-    const packed = texture(textures.packed, world.mul(1.7 / worldScale));
-    cavity = mix(float(1), packed.r, smoothstep(0.02 * worldScale, 0.25 * worldScale, footprint).oneMinus()
-      .mul(snow.detail.cavity));
-    roughnessDetail = packed.g.sub(DETAIL_ROUGHNESS_MEAN).mul(snow.detail.roughnessVariation).mul(midFade);
-    const broadColor = texture(textures.color, world.mul(0.31 / worldScale)).rgb;
+    // Three tiling scales of the Snow007C normal map, each cross-faded out by
+    // footprint and blended with reoriented normal mapping, as Snowflow's
+    // snow material does. Trodden snow keeps less of its grain.
+    const flat = vec3(...FLAT_NORMAL);
+    let detail = flat;
+    DETAIL_LAYERS.forEach((layer, index) => {
+      const fade = smoothstep(layer.fadeStart * worldScale, layer.fadeEnd * worldScale, footprint).oneMinus()
+        .mul(layer.weight);
+      detail = blendReoriented(detail, mix(flat, detailNormal(layer.frequency, index > 0), fade));
+    });
+    // The tangent frame follows the planar projection (u along X, v along Z),
+    // so the relief lights up the same way as the crevices baked into the maps.
+    const tangent = normalize(vec3(1, 0, 0).sub(shapedNormal.mul(shapedNormal.x)).add(vec3(0, 0, 1e-5)));
+    const bitangent = normalize(cross(tangent, shapedNormal));
+    const detailStrength = mix(float(1), float(0.45), compressed).mul(snow.detail.strength).mul(mask);
+    snowWorldNormal = normalize(shapedNormal.add(
+      tangent.mul(detail.x).add(bitangent.mul(detail.y)).mul(detailStrength),
+    )).toVar();
+
+    // Crevice occlusion from the ambient-occlusion and displacement channels,
+    // normalised to a mean of one: hollows darken and crests lift, but the
+    // field as a whole does not get darker toward the camera as layers fade in.
+    // Planar only, so it steps back on steep snow rather than streaking.
+    const planarOnly = steep.oneMinus();
+    let occlusion = float(1);
+    for (const layer of CAVITY_LAYERS) {
+      const packed = texture(textures.packed, world.mul(layer.frequency / worldScale));
+      const hollow = packed.b.sub(DETAIL_HEIGHT_MEAN).mul(HOLLOW_CONTRAST).add(1).clamp(0.25, 1.2);
+      const layerCavity = packed.r.div(DETAIL_OCCLUSION_MEAN).mul(hollow);
+      const fade = smoothstep(layer.fadeStart * worldScale, layer.fadeEnd * worldScale, footprint).oneMinus()
+        .mul(layer.weight).mul(planarOnly);
+      occlusion = occlusion.mul(mix(float(1), layerCavity, fade));
+    }
+    cavity = mix(float(1), occlusion, snow.detail.cavity).toVar();
+
+    const grain = texture(textures.packed, world.mul(DETAIL_LAYERS[1].frequency / worldScale));
+    const midFade = smoothstep(DETAIL_LAYERS[1].fadeStart * worldScale, DETAIL_LAYERS[1].fadeEnd * worldScale, footprint)
+      .oneMinus();
+    roughnessDetail = grain.g.sub(DETAIL_ROUGHNESS_MEAN).mul(snow.detail.roughnessVariation).mul(midFade);
+
+    const broadFade = smoothstep(DETAIL_LAYERS[2].fadeStart * worldScale, DETAIL_LAYERS[2].fadeEnd * worldScale, footprint)
+      .oneMinus();
+    const broadColor = texture(textures.color, world.mul(DETAIL_LAYERS[2].frequency / worldScale)).rgb;
     colorVariation = mix(
-      float(1),
-      dot(broadColor, vec3(0.2126, 0.7152, 0.0722)).div(DETAIL_COLOR_MEAN_LUMINANCE).clamp(0.8, 1.2),
-      broadFade.mul(snow.detail.colorVariation),
+      vec3(1),
+      broadColor.div(vec3(...DETAIL_COLOR_MEAN)).clamp(0.75, 1.25),
+      broadFade.mul(planarOnly).mul(snow.detail.colorVariation),
     );
   }
-
-  const alongGradient = sastrugiDerivative.add(secondaryDerivative).mul(sastrugiFade).add(rippleAlong.mul(rippleFade));
-  const acrossGradient = sastrugiCrossDerivative.mul(sastrugiFade).add(rippleAcross.mul(rippleFade));
-  const gradientX = alongGradient.mul(snow.wind.cos).sub(acrossGradient.mul(snow.wind.sin))
-    .add(grainX).add(deformGradient.x).add(detailX);
-  const gradientZ = alongGradient.mul(snow.wind.sin).add(acrossGradient.mul(snow.wind.cos))
-    .add(grainZ).add(deformGradient.y).add(detailZ);
-  const snowWorldNormal = normalize(normalWorld.add(vec3(gradientX.negate(), 0, gradientZ.negate()).mul(mask))).toVar();
   const snowViewNormal = normalize(cameraViewMatrix.mul(vec4(snowWorldNormal, 0)).xyz).toVar();
 
+  // Snow albedo sits in a narrow, high, slightly blue band; the lighting makes
+  // the warm/cool split. Faces turned away from the sky take the shadow tone,
+  // relief crests brighten and troughs darken a little, and the broad drift
+  // pattern keeps a wide field from reading as one flat sheet.
   const driftTone = mix(
     1 - Number(snow.colors.driftVariation),
     1 + Number(snow.colors.driftVariation),
     drift,
   );
-  const rawSastrugiPattern = sin(sastrugiPhase).mul(0.5)
-    .add(sin(secondaryPhase).mul(0.25))
-    .add(sastrugiMacro.mul(0.15))
-    .add(breakupA.mul(0.1)).mul(0.5).add(0.5).clamp(0, 1);
-  // The tone patterns share the lattices' distance fades; otherwise the colour
-  // contrast alone keeps striping far slopes after the normals have smoothed.
-  const sastrugiPattern = mix(0.5, rawSastrugiPattern, sastrugiAmplitude.clamp(0, 1).mul(sastrugiFade));
-  const rawRipplePattern = sin(ripplePhase).mul(0.65)
-    .add(rippleMacro.mul(0.35)).mul(0.5).add(0.5).clamp(0, 1);
-  const ripplePattern = mix(0.5, rawRipplePattern, rippleEnvelope.clamp(0, 1).mul(rippleFade));
-  const sastrugiTone = mix(
-    1 - snow.surfaceTone.sastrugiContrast,
-    1 + snow.surfaceTone.sastrugiContrast,
-    sastrugiPattern,
-  );
-  const rippleTone = mix(
-    1 - snow.surfaceTone.rippleContrast,
-    1 + snow.surfaceTone.rippleContrast,
-    ripplePattern,
-  );
-  const exposureTone = mix(
-    1 - snow.surfaceTone.exposureContrast,
-    1 + snow.surfaceTone.exposureContrast,
-    exposure,
-  );
+  const reliefTone = relief.x.div(RELIEF_TONE_HEIGHT).clamp(-1, 1).mul(snow.relief.toneContrast).add(1);
   const upward = surfaceUp.max(0).smoothstep(0.35, 0.95);
   const surfaceColor = mix(color(snow.colors.shadow), color(snow.colors.base), upward)
     .mul(driftTone)
-    .mul(sastrugiTone)
-    .mul(rippleTone)
-    .mul(exposureTone);
+    .mul(reliefTone);
   // Footprints read through a cool, sky-lit interior. A plain multiply on
   // bright snow sits in the tonemap shoulder and all but disappears.
-  // The target sits below the snow shadow colour, which is itself bright and
-  // barely distinguishable once tonemapped.
   const baseColor = mix(surfaceColor, color(snow.colors.shadow).mul(FOOTPRINT_INTERIOR_SHADE),
     depression.mul(snow.deformation.darkenStrength).clamp(0, 1));
   const bermColor = mix(baseColor, color(snow.colors.sun), berm.mul(snow.deformation.bermLighten).clamp(0, 1));
-  // Grain-crevice occlusion scales the colour and goes blue as it darkens:
-  // light in a hollow of snow has scattered through snow to get there.
-  const caveTint = mix(vec3(1), vec3(0.55, 0.72, 1), cavity.oneMinus().mul(0.95));
-  const snowColor = bermColor.mul(colorVariation).mul(cavity).mul(caveTint);
+  // Occlusion scales the colour and goes blue as it darkens. A neutral
+  // darkening under a warm sun reads as tan, not as shaded snow.
+  const occlusion = cavity.mul(depression.mul(1.9).clamp(0, 1).mul(0.38).oneMinus());
+  const caveTint = mix(vec3(1), vec3(...CAVE_TINT), occlusion.oneMinus().max(0).mul(CAVE_TINT_STRENGTH));
+  const snowColor = bermColor.mul(colorVariation).mul(occlusion).mul(caveTint).toVar();
 
   const viewDirection = normalize(cameraPosition.sub(positionWorld));
   const sunRadiance = foliageLight.color.mul(foliageLight.strength);
@@ -420,7 +402,6 @@ export function createSnowSurfaceNodes(config, deformationField = null, terrainS
     worldScale,
   }).mul(mask);
 
-  const compressed = depression.max(berm.mul(0.2)).clamp(0, 1);
   // Trodden snow is denser and transmits less; open drifts glow when backlit.
   const subsurface = snowSubsurface({
     normal: snowWorldNormal,
@@ -432,13 +413,13 @@ export function createSnowSurfaceNodes(config, deformationField = null, terrainS
     radius: snow.lighting.sssRadius,
   }).mul(snowColor).mul(mask);
   const emissive = sunRadiance.mul(glint).mul(0.55).add(subsurface);
-  const windPattern = sastrugiPattern.mul(ROUGHNESS_SASTRUGI_WEIGHT)
-    .add(ripplePattern.mul(ROUGHNESS_RIPPLE_WEIGHT));
+
+  // Wind-packed crests are a little smoother than the loose snow in troughs.
   const windRoughness = mix(
-    snow.roughness.base - snow.roughness.variation,
     snow.roughness.base + snow.roughness.variation,
-    windPattern,
-  ).clamp(0, 1);
+    snow.roughness.base - snow.roughness.variation,
+    relief.x.div(RELIEF_TONE_HEIGHT).clamp(-1, 1).mul(0.5).add(0.5),
+  );
   const roughness = mix(windRoughness, snow.roughness.compressed, compressed);
   const bermRoughness = mix(roughness, snow.roughness.berm, berm);
 

@@ -9,7 +9,9 @@ ground:
       start: 0.34
       full: 0.84
     wind:
-      angleDegrees: 35
+      # Held well off the preset sun bearings: sastrugi streak along the wind,
+      # and a sun raking straight down the ridges lights both flanks alike.
+      angleDegrees: 150
       driftFrequency: 0.015
       crossFrequency: 0.027
       exposureFrequency: 0.009
@@ -17,56 +19,72 @@ ground:
       warp: 2.6
       driftHeight: 22
       scourStrength: 14
-    sastrugi:
-      frequency: 0.24
-      crossFrequency: 0.15
-      warp: 4.4
-      macroFrequency: 0.018
-      macroCrossFrequency: 0.014
-      macroWarp: 7.2
-      amplitudeVariation: 0.82
-      amplitude: 0.19
-      secondaryFrequency: 0.58
-      secondaryAmplitude: 0.055
-    ripples:
-      frequency: 0.92
-      crossFrequency: 0.47
-      macroFrequency: 0.031
-      macroWarp: 3.6
-      amplitude: 0.032
-    grain:
-      frequencyX: 8.9
-      frequencyZ: 12.7
-      amplitude: 0.014
-      fadeStart: 10
-      fadeEnd: 70
+    # Snowflow's analytic fine relief (lib/terrain.wgsl): ridged sastrugi
+    # streaked along the wind, transverse ripples and grain, at Snowflow's
+    # heights times detail.worldScale. Each entry scales one layer.
+    relief:
+      sastrugi: 1
+      ripples: 1
+      grain: 1
+      # How strongly slopes facing into the wind count as scoured.
+      windward: 0.6
+      # Brightness lift on relief crests and darkening in troughs.
+      toneContrast: 0.06
     colors:
-      shadow: '#849dac'
-      base: '#d0dde1'
-      sun: '#f1f5f4'
-      driftVariation: 0.12
-    surfaceTone:
-      sastrugiContrast: 0.07
-      rippleContrast: 0.022
-      exposureContrast: 0.05
+      shadow: '#b3c2d3'
+      base: '#e4eaf1'
+      sun: '#f4f7fb'
+      driftVariation: 0.06
+    # Multiplies exposed rock colour across the snow altitude band.
+    rockTint: '#9ea7b3'
     roughness:
-      base: 0.86
-      compressed: 0.52
-      berm: 0.94
-      variation: 0.07
+      base: 0.7
+      compressed: 0.4
+      berm: 0.82
+      variation: 0.06
     # Snowflow's subsurface lobe and cell glints; see src/world/snowShadingNodes.js.
     lighting:
       sssStrength: 0.12
       sssRadius: 1
       glintStrength: 0.9
       glintGrazing: 0.5
+    # Regional light over snow country, blended in by the ground height under
+    # the view: a low warm sun raking across the snow, a cool sky, snow bounce
+    # instead of meadow bounce, and more haze. Relative to the active preset.
+    atmosphere:
+      enabled: true
+      startHeight: 95
+      fullHeight: 140
+      fadeRate: 0.6
+      snapDistance: 40
+      sunElevationDegrees: 15
+      sunIntensityScale: 1.7
+      sunWarmth: '#fff0dc'
+      hemisphereIntensityScale: 0.65
+      ambientIntensityScale: 0.4
+      environmentIntensityScale: 0.55
+      skyTint: '#dce6ff'
+      groundBounce: '#e6ecf3'
+      sunBounce: 0.3
+      ambientCooling: 0.8
+      fogTint: '#eaf1ff'
+      fogDesaturation: 0.6
+      fogDensityScale: 1.6
+      horizonDesaturation: 0.5
+      zenithDesaturation: 0.45
+      zenithHaze: 0.2
+      exposureScale: 0.95
+      # Screen-space AO on open snow is mostly the estimator's own bias.
+      occlusionScale: 0.3
     # Snow007C detail maps (ambientCG, CC0). worldScale is world metres per
     # Snowflow metre, so its tiling and pixel-footprint fades match a 5 m rider.
+    # Snow007C's normals are shallower than Snowflow's generated grain, hence a
+    # strength above one.
     detail:
       worldScale: 2.78
-      strength: 0.55
-      cavity: 0.35
-      colorVariation: 0.6
+      strength: 2.4
+      cavity: 0.8
+      colorVariation: 1
       roughnessVariation: 0.3
     textures:
       color: Assets/ground/snow/snow007c_color_1k.jpg
@@ -102,8 +120,8 @@ ground:
       top: 45
       bottom: -10
       speed: 3.4
-      sizeMin: 0.14
-      sizeMax: 0.45
+      sizeMin: 0.1
+      sizeMax: 0.3
       swayRadius: 1.4
       swayFrequency: 0.6
       windSpeed: 3.2
@@ -113,7 +131,9 @@ ground:
       fullCoverage: 0.7
       maxIntensity: 1
       fadeRate: 1.2
-      nearFade: 1.5
+      # Metres from the camera; flakes are gone below this and whole at three
+      # times it, so none swells into a disc in front of the lens.
+      nearFade: 4
       sampleDistance: 0.5
     powder:
       enabled: true

@@ -218,7 +218,6 @@ export async function createGroundMaterial(config, terrainSampler = null, snowDe
 
   const wetness = uniform(0);
   const coastClock = uniform(0), coastRain = uniform(0), beachMoisture = uniform(0);
-  let snowLighting = null;
   if (config.cinematic?.enabled) {
     const world = positionWorld.xz;
     const macro = sin(world.x.mul(0.037).add(sin(world.y.mul(0.053))))
@@ -277,7 +276,13 @@ export async function createGroundMaterial(config, terrainSampler = null, snowDe
         riverBank,
         lakeBed,
       });
-      material.colorNode = mix(material.colorNode, rockSurface.color, rockSurface.mask);
+      // Up in snow country, exposed rock goes dark and cool, the way wet,
+      // lichen-free alpine rock reads against snow.
+      const alpineRock = config.ground.snow?.enabled && config.ground.snow.rockTint
+        ? mix(rockSurface.color, rockSurface.color.mul(color(config.ground.snow.rockTint)),
+          positionWorld.y.smoothstep(config.ground.snow.altitude.start, config.ground.snow.altitude.full))
+        : rockSurface.color;
+      material.colorNode = mix(material.colorNode, alpineRock, rockSurface.mask);
       material.roughnessNode = mix(material.roughnessNode, rockSurface.roughness, rockSurface.mask);
       baseNormal = normalize(mix(baseNormal, rockSurface.normal, rockSurface.mask));
       material.normalNode = baseNormal;
@@ -285,7 +290,6 @@ export async function createGroundMaterial(config, terrainSampler = null, snowDe
       const terrainEmissive = (material.emissiveNode ?? vec3(0)).mul(rockSurface.mask.oneMinus());
       if (config.ground.snow?.enabled) {
         const snow = createSnowSurfaceNodes(config, snowDeformation, terrainSampler, getSnowTextures(config));
-        snowLighting = snow.lighting;
         material.colorNode = mix(material.colorNode, snow.color, snow.mask);
         material.roughnessNode = mix(material.roughnessNode, snow.roughness, snow.mask);
         material.metalnessNode = mix(material.metalnessNode, float(0), snow.mask);
@@ -408,7 +412,6 @@ export async function createGroundMaterial(config, terrainSampler = null, snowDe
       );
     },
     beachMoisture,
-    setSnowLighting: (direction, tint, intensity) => snowLighting?.set(direction, tint, intensity),
     setRainIntensity: (value) => {
       coastRain.value = THREE.MathUtils.clamp(value, 0, 1);
       wetness.value = value * (config.ground.wetness ?? 0.7);

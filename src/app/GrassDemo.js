@@ -13,6 +13,7 @@ import { WaterSurface } from '../water/WaterSurface.js';
 import { RainSystem } from '../weather/RainSystem.js';
 import { SnowfallSystem } from '../weather/SnowfallSystem.js';
 import { EnvironmentController } from '../world/EnvironmentController.js';
+import { SnowRegionTracker } from '../world/SnowAtmosphere.js';
 import { TreeSystem } from '../world/TreeSystem.js';
 import { WorldPropSystem } from '../world/WorldPropSystem.js';
 import { BoundaryBarrier } from '../world/BoundaryBarrier.js';
@@ -274,6 +275,11 @@ export class GrassDemo {
       understory: this.understory,
       config: this.config,
     });
+    // How far up the mountain the view is; the environment leans toward
+    // snow-country light by it.
+    this.snowRegion = this.environment.snowAtmosphere
+      ? new SnowRegionTracker({ terrainSampler: this.world.terrainSampler, settings: this.environment.snowAtmosphere })
+      : null;
     this.biome = new BiomePropSystem({
       scene: this.world.scene,
       camera: this.world.camera,
@@ -609,16 +615,18 @@ export class GrassDemo {
       influencePoints,
     ));
     const focus = this.navigation.getFocusPosition();
+    this.environment.setSnowRegion(this.snowRegion?.update(deltaSeconds, focus) ?? 0);
     this.environment.updateSunTarget(focus);
     this.snowfall?.update(deltaSeconds, focus);
-    this.cinematicLighting.update();
+    this.cinematicLighting.update(this.environment.exposureScale);
+    this.pipeline.setOcclusionScale(this.environment.occlusionScale);
     time('meadow', () => this.meadow?.update(deltaSeconds, focus, this.environment.current));
     time('wildGrass', () => this.wildGrass?.update(deltaSeconds, focus, this.environment.current));
     time('understory', () => this.understory?.update(deltaSeconds, focus, this.environment.current));
     time('biome', () => this.biome?.update(deltaSeconds, this.world.camera, playerPosition));
     time('vegetationJobs', () => this.vegetationJobs?.tick());
     this.boundaryBarrier?.update(deltaSeconds, playerPosition);
-    time('water', () => this.water.update(deltaSeconds, this.player, this.environment.current.lighting));
+    time('water', () => this.water.update(deltaSeconds, this.player, this.environment.lighting));
     this.world.terrainTarget.material.userData.updateCoast?.(deltaSeconds, this.water.rippleElapsed);
     // Depth of field focuses on the character at the end of the camera arm.
     this.pipeline.setFocusDistance(this.player.cameraDistance);

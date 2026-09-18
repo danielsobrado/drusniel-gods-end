@@ -120,6 +120,7 @@ export class WaterSurface {
         planar: this.planar,
         seaPlanar: this.seaPlanar,
         skyColorProvider,
+        snowAltitude: config.ground?.snow?.enabled ? config.ground.snow.altitude : null,
       })
       : createLegacyWaterMaterial(this.mesh, this.params, terrainSampler, this.reflection.texture);
     this.material = this.shader.material;

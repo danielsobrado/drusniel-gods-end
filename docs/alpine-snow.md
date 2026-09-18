@@ -10,7 +10,7 @@ The summit is a purpose-built snowy cirque centered on `[-25, -655]`. The centra
 
 `public/alpine.yaml` owns the basin height, rim dimensions, local terrain detail, treeline, route and local refinement budget. The alpine area receives one extra conforming subdivision pass so the steep silhouettes and snow/rock transitions do not expose the coarse five-metre world grid seen in the earlier summit screenshot. High trees are removed inside the configured alpine treeline, while lower forest outside the snow bowl remains intact.
 
-The `Alpine Summit` teleport lands in the central snow basin. `Snow Peak` now lands on a high point of the surrounding rim, and the walkable alpine route connects Snow Pass, the basin and that rim peak.
+The `Alpine Summit` teleport lands in the central snow basin. `Snow Peak` is placed on the surrounding rim, and the walkable alpine route connects Snow Pass, the basin and that rim point, although the graded route currently cuts deep into the rim there (see [route cuts](#known-limitation-route-cuts)).
 
 ## Accumulation
 
@@ -26,13 +26,52 @@ The same accumulation model has a CPU implementation used by the local footprint
 
 ## Surface detail
 
-The snow normal is assembled from world-space height-gradient style components before it is converted to the view-space normal used by the material. Wind-aligned sastrugi provide the largest local ridges, cross-wind ripples add medium detail, and a distance-faded grain layer handles the fine surface. Because the detail is generated in world space it does not inherit the stretched terrain UVs that would otherwise be visible on steep alpine faces.
+The snow normal is built the way Snowflow's snow material builds it. The landform, the fine relief and carved footprints are all heightfield slopes, so they add as slopes before becoming a normal; only the detail map is a tangent-space normal, folded in last.
 
-The surface also uses restrained tonal modulation from the same sastrugi, ripple and exposure fields. This keeps broad snow from reading as a featureless white sheet under bright daytime lighting while preserving the physical normal response.
+The fine relief is a TSL port of Snowflow's `terrainFineFiltered` (`lib/terrain.wgsl` and `lib/noise.wgsl`, MIT) in `snowNoiseNodes.js`: gradient noise with analytic derivatives, three octaves of ridged noise for the sastrugi, transverse wind ripples and grain. Sastrugi are compressed across the wind so their crests streak along it, and the wind veers across the field so the ridges break into patches instead of reading as corduroy. Slopes facing into the wind, and the crests of the large exposure pattern, are scoured into hard sastrugi; lee slopes and hollows keep their ripples (`relief.windward`). Everything is evaluated in Snowflow metres, so heights scale with `detail.worldScale` and slopes carry over unchanged. Each layer fades out as its wavelength approaches the pixel footprint. The fades start 1.6 times earlier than Snowflow's, because Snowflow resolves the remaining sub-pixel relief with TAA and TAA is off by default here. The relief also fades out on slopes too steep for lying snow, where a planar projection would only smear it into vertical streaks. Pixels without snow skip the relief entirely, so it costs nothing outside snow country.
 
-Close up, the procedural layers are joined by the Snow007C detail maps from ambientCG (CC0), stored web-sized under `public/Assets/ground/snow/`. The normal map is tiled at three scales, following Snowflow's snow material. Each scale fades out by the world-space size of the pixel, so grain exists only where it can be resolved and never shimmers. The layers are added as slopes onto the landform gradient. Trodden snow keeps less of its grain. The ambient-occlusion channel darkens grain crevices and shifts them blue as they darken, because a neutral darkening under a warm sun reads as tan rather than shaded snow. The roughness and colour maps vary the surface only around its configured tone. `ground.snow.detail.worldScale` converts Snowflow's tiling and fade distances to this world, where the rider is about 2.78 times taller.
+Crests brighten and troughs darken slightly with the relief height (`relief.toneContrast`), and wind-packed crests are a little smoother than the loose snow in the troughs.
+
+Close up, the relief is joined by the Snow007C detail maps from ambientCG (CC0), stored web-sized under `public/Assets/ground/snow/`. The normal map is tiled at Snowflow's three scales and combined with reoriented normal mapping, each scale cross-faded out by the pixel footprint so grain only exists where it resolves. Snow007C's normals are much shallower than Snowflow's generated grain map (about 8 degrees of tilt against about 30), so `detail.strength` sits well above one. On steep snow the two coarser scales go triplanar, sampled with explicit gradients so only steep pixels pay for the extra projections. The tangent frame follows the planar projection, so the relief lights up the same way as the crevices baked into the maps. Trodden snow keeps less of its grain.
+
+Crevice occlusion combines the ambient-occlusion and displacement channels at the grain and broad scales. It is normalised to a mean of one, so hollows darken and crests lift without the whole field darkening toward the camera as layers fade in. It darkens toward blue, because a neutral darkening under a warm sun reads as tan rather than shaded snow. The roughness and colour maps vary the surface only around its configured tone. `ground.snow.detail.worldScale` converts Snowflow's tiling and fade distances to this world, where the rider is about 2.78 times taller.
+
+<!-- effective-config: ground.snow -->
+```yaml
+relief: { sastrugi: 1, ripples: 1, grain: 1, windward: 0.6, toneContrast: 0.06 }
+detail: { worldScale: 2.78, strength: 2.4, cavity: 0.8 }
+```
 
 Lighting reuses `foliageLight`, the same cinematic sun direction, colour and strength uniforms that the active environment preset updates. Two terms are ported from Snowflow's `lib/shading.wgsl` (MIT). The first is a back-scatter subsurface lobe: thin edges transmit brightly over a wide angle, deep snow only near straight-through, and trodden snow transmits less. The second is discrete glints: each world-space cell owns one jittered crystal facet, gated to grazing views of a low sun. Because facets are fixed to cells, glints stay in place as the camera moves.
+
+## Snow-country light
+
+Snowflow's look rests on a low, warm sun raking across the snow under a cool, hazy sky. The presets are lit for the meadow, and under their high sun and green ground bounce even strong relief reads as a flat white sheet. `SnowAtmosphere.js` blends the active preset toward snow-country light by the ground height under the view (the player, or the camera while touring or free-flying), between `startHeight` and `fullHeight`:
+
+- The sun is lowered to `sunElevationDegrees` without turning it, and is never raised if the preset's sun is already lower. The sky disc follows it. The sun is warmed slightly (`sunWarmth`) and strengthened (`sunIntensityScale`) against a sky that no longer has meadow under it.
+- The hemisphere ground light becomes snow bounce: the preset's sky light with some of the sun in it (`sunBounce`), rather than green meadow. Sky, ambient and environment light are cooled and reduced so the sun carves the relief.
+- Fog is desaturated, tinted cold and thickened. The horizon and zenith lose saturation, and the zenith takes some haze.
+- Exposure and screen-space AO are scaled. A snowfield is the worst case for GTAO: open, smooth and bright, so most of what it returns is its own view-dependent bias.
+
+Everything is relative to the preset, so a moonlit or rainy summit stays moonlit or rainy. The blend eases at `fadeRate` while walking, so climbing to the snow line brings the light down over many seconds; a jump further than `snapDistance`, such as a teleport, snaps instead of sweeping the sun. `EnvironmentController.lighting` exposes the blended light, and the water reads its sun from it.
+
+<!-- effective-config: ground.snow.atmosphere -->
+```yaml
+enabled: true
+startHeight: 95
+fullHeight: 140
+snapDistance: 40
+sunElevationDegrees: 15
+sunIntensityScale: 1.7
+exposureScale: 0.95
+occlusionScale: 0.3
+```
+
+Sastrugi streak along the wind, and a sun raking straight down the ridges lights both flanks alike, so the relief reads as flat. Snowflow therefore holds the wind 70 to 80 degrees from the sun bearing. `ground.snow.wind.angleDegrees` is 150, about 76 degrees from the goldenHour sun, and well away from most preset suns.
+
+<!-- effective: ground.snow.wind.angleDegrees = 150 -->
+
+Exposed rock across the snow altitude band is multiplied by `ground.snow.rockTint`, so cliffs read as dark, cool alpine rock against the snow rather than warm meadow stone. The rock grain is gradient noise with height folded into both axes; the earlier product of sines printed a lattice of dots down every cliff face. Up in snow country the river reflects the live sky instead of the cube probe captured at the lake, which had put a green meadow in the headwaters, and its colour runs cold.
 
 ## Local footprint field
 
@@ -104,7 +143,9 @@ fullSpeed: 4.3
 
 It snows where there is snow on the ground. `SnowfallSystem` is one instanced, GPU-animated flake field that follows the view, built like the rain system, but its intensity is not a weather preset value: each frame it samples the CPU snow coverage under the focus point (the player, or the camera while touring or free-flying) and ramps between `minCoverage` and `fullCoverage`. Walking up into the snow line fades the snowfall in, and the lowlands and the coast stay clear whatever the weather.
 
-The ramp is eased with `fadeRate`, so crossing a bare ridge does not switch the weather on and off. Flakes drift on the same `ground.snow.wind.angleDegrees` the sastrugi, scouring and powder use, each on its own sway phase, and fade out close to the camera so one crossing the lens does not become a white slab. They are lit by the same `foliageLight` uniforms as the rest of the snow, so they go grey at dusk rather than glowing.
+The ramp is eased with `fadeRate`, so crossing a bare ridge does not switch the weather on and off. Flakes drift on the same `ground.snow.wind.angleDegrees` the sastrugi, scouring and powder use, each on its own sway phase. They fade out within `nearFade` of the camera and are whole at three times that distance, so a flake crossing the lens never swells into a disc. Each flake fully faces the camera; an upright rain-style billboard turns edge-on seen from above. Flakes are lit by the same `foliageLight` uniforms as the rest of the snow, so they go grey at dusk rather than glowing.
+
+<!-- effective: ground.snow.snowfall.nearFade = 4 -->
 
 <!-- effective-config: ground.snow.snowfall -->
 ```yaml
@@ -120,6 +161,10 @@ The field is one transparent instanced draw call with no shadow pass, and it is 
 
 ## Performance
 
-The persistent field is one 512 x 512 RGBA8 texture (1 MiB). Recovery runs at the configured interval rather than sweeping the array every render frame, and texture scrolling is amortized across eight metres of player travel. Snow surface rendering adds one local deformation texture sample plus procedural ALU to the ground material. Airborne snow uses one pooled instanced transparent draw call with a fixed capacity, no shadow pass and no per-frame object allocation. The extra terrain tessellation is restricted to the alpine region rather than increasing resolution across the full expanded landscape.
+The persistent field is one 512 x 512 RGBA8 texture (1 MiB). Recovery runs at the configured interval rather than sweeping the array every render frame, and texture scrolling is amortized across eight metres of player travel. On every ground pixel, snow shading adds one deformation texture sample, six Snow007C samples and the heightfield normal sample. The procedural relief, about seven gradient-noise evaluations, runs only where there is snow. The triplanar detail samples run only on steep snow. Airborne snow uses one pooled instanced transparent draw call with a fixed capacity, no shadow pass and no per-frame object allocation. The extra terrain tessellation is restricted to the alpine region rather than increasing resolution across the full expanded landscape. The snow-country blend runs on the CPU once per frame: a single terrain height sample, and a light update only while the weight changes.
 
-Visual review should cover Snow Pass, Snow Peak and Alpine Summit in sunny, golden-hour and rainy presets, plus WebGL 2. Verify that the summit reads as a snow basin surrounded by ridges, nearby high-altitude trees are gone, exposed cliffs remain rocky, sastrugi and airborne powder share one coherent wind direction, glints stay subtle, only contacting feet carve the surface, ambient spindrift stays close to snow, and old footprints soften rather than popping away.
+Visual review should cover Snow Pass, Snow Peak and Alpine Summit in sunny, golden-hour and rainy presets, plus WebGL 2. Look toward, across and away from the sun. Verify that the summit reads as a snow basin surrounded by ridges, nearby high-altitude trees are gone, exposed cliffs remain rocky, sastrugi and airborne powder share one coherent wind direction, glints stay subtle, only contacting feet carve the surface, ambient spindrift stays close to snow, and old footprints soften rather than popping away.
+
+## Known limitation: route cuts
+
+Walkable routes are graded into the terrain (`maxGrade`), and where the rim is steeper than the grade allows, the route cuts a slot. Measured against the ungraded terrain, Snow climb cuts up to 112 m deep near `[-149, -568]`, and the alpine cirque route cuts 73 m at Snow Pass and 64 m at Snow Peak. Snow Peak therefore sits at the bottom of a trench rather than on the rim. Raising the grade alone does not fix this (still 53 m at a grade of 0.7), because the ridges are steeper than any walkable grade. A real fix needs a saddle in the rim where the route crosses, or a rerouted climb.
