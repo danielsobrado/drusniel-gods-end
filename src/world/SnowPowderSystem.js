@@ -3,11 +3,12 @@ import {
   atan, cameraViewMatrix, dot, float, fract, instanceIndex, normalize, uv, vec2, vec3, vec4,
 } from 'three/tsl';
 import { resolveSnowPowderConfig } from '../config/resolveSnowPowderConfig.js';
-import { resolveCoastConfig } from './CoastField.js';
+import { resolveCoastConfig, sampleSandCoverageCpu } from './CoastField.js';
 import { foliageLight } from '../rendering/CinematicLighting.js';
 import { noise2 } from './snowNoiseNodes.js';
 import { sampleSurfaceCpu } from './SnowDeformationField.js';
 import { advanceSnowPowderVelocity, snowWindVector } from './SnowPowderPhysics.js';
+import { SnowRegionBounds } from './SnowRegionBounds.js';
 
 const UINT32_MAX_PLUS_ONE = 4294967296;
 const LCG_MULTIPLIER = 1664525;
@@ -50,6 +51,7 @@ function createPowderMaterial(config) {
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,
+    forceSinglePass: true,
   });
   material.name = 'SnowPowder';
   // Albedo comes from the per-instance colour: snow or kicked sand.
@@ -72,6 +74,7 @@ export class SnowPowderSystem {
     this.terrainSampler = terrainSampler;
     this.rootConfig = config;
     this.config = resolveSnowPowderConfig(config.ground.snow.powder);
+    this.region = new SnowRegionBounds(terrainSampler, config, (this.config.ambient.radius ?? 0) + this.config.normalSampleDistance);
     this.randomState = this.config.seed || 1;
     this.cursor = 0;
     this.activeCount = 0;
@@ -130,6 +133,11 @@ export class SnowPowderSystem {
     this.ambientAccumulator += delta * this.config.ambient.particlesPerSecond;
     const count = Math.min(Math.floor(this.ambientAccumulator), AMBIENT_MAX_EMISSIONS_PER_FRAME);
     this.ambientAccumulator -= count;
+    if (this.config.minCoverage > 0 && !this.region.contains(focusPosition.x, focusPosition.z)) {
+      // Match the rejected candidates' random sequence without querying terrain.
+      for (let index = 0; index < count * 2; index++) this.#random();
+      return;
+    }
     for (let index = 0; index < count; index += 1) this.#spawnAmbient(focusPosition);
   }
 
@@ -186,6 +194,8 @@ export class SnowPowderSystem {
     const x = Number(position.x);
     const z = Number(position.z);
     if (!Number.isFinite(x) || !Number.isFinite(z)) return null;
+    if (this.config.minCoverage > 0 && !this.region.contains(x, z)
+      && sampleSandCoverageCpu(x, Infinity, z, this.rootConfig).coverage === 0) return null;
     const surface = this.#sampleSurface(x, z);
     if (!surface) return null;
     const drySand = this.sand ? surface.sand * surface.sandDryness : 0;

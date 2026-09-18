@@ -44,16 +44,21 @@ export function createValleyFogNodes({ settings, terrainSampler, weight, fogColo
       const step = length.mul(stepFraction).toVar();
       Loop(samples, ({ i }) => {
         const along = float(i).add(0.5).mul(step);
-        const point = cameraPosition.add(direction.mul(along));
-        const above = point.y.sub(groundAt(point.xz)).max(0);
-        // Ragged tops: height is folded into the pocket coordinates.
-        const cell = point.xz.mul(settings.pocketScale).add(drift).add(vec2(point.y.mul(0.004), 0));
-        const pocket = noise2(cell).add(noise2(cell.mul(2.3).sub(drift.mul(0.6))).mul(0.5));
-        const banks = mix(float(1 - settings.pocketStrength), float(1 + settings.pocketStrength),
-          smoothstep(-0.45, 0.45, pocket));
-        const clear = smoothstep(settings.nearStart, settings.nearEnd, along);
-        const ceiling = smoothstep(settings.ceiling * 0.6, settings.ceiling, above).oneMinus();
-        depth.addAssign(exp(above.div(-settings.height)).mul(banks).mul(clear).mul(ceiling).mul(step));
+        // Keep the same integration points; skip only exactly zero density.
+        If(along.greaterThan(settings.nearStart), () => {
+          const point = cameraPosition.add(direction.mul(along));
+          const above = point.y.sub(groundAt(point.xz)).max(0).toVar();
+          If(above.lessThan(settings.ceiling), () => {
+            // Ragged tops: height is folded into the pocket coordinates.
+            const cell = point.xz.mul(settings.pocketScale).add(drift).add(vec2(point.y.mul(0.004), 0));
+            const pocket = noise2(cell).add(noise2(cell.mul(2.3).sub(drift.mul(0.6))).mul(0.5));
+            const banks = mix(float(1 - settings.pocketStrength), float(1 + settings.pocketStrength),
+              smoothstep(-0.45, 0.45, pocket));
+            const clear = smoothstep(settings.nearStart, settings.nearEnd, along);
+            const ceiling = smoothstep(settings.ceiling * 0.6, settings.ceiling, above).oneMinus();
+            depth.addAssign(exp(above.div(-settings.height)).mul(banks).mul(clear).mul(ceiling).mul(step));
+          });
+        });
       });
     });
     return depth.mul(settings.density).mul(weight);

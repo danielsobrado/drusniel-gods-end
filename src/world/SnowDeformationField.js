@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { sampleSandCoverageCpu } from './CoastField.js';
+import { SnowRegionBounds } from './SnowRegionBounds.js';
 
 const CHANNELS = 4;
 const DEPRESSION = 0;
@@ -125,11 +126,14 @@ export class SnowDeformationField {
     this.config = resolveSnowDeformationConfig(config.ground.snow.deformation);
     this.rootConfig = config;
     this.terrainSampler = terrainSampler;
+    this.region = new SnowRegionBounds(terrainSampler, config);
     this.center = new THREE.Vector2();
     this.centerInitialized = false;
     this.recoveryElapsed = 0;
     this.peak = 0;
     this.lastContacts = [];
+    this.occupied = new Set();
+    this.lastRecoveryPixels = 0;
     const length = this.config.resolution * this.config.resolution * CHANNELS;
     this.pixels = new Uint8Array(length);
     this.scrollPixels = new Uint8Array(length);
@@ -229,6 +233,10 @@ export class SnowDeformationField {
     if (!position) return null;
     const x = position.x;
     const z = position.z;
+    // Infinity gives an upper bound for the sand height mask; keep all coastal
+    // contacts eligible even though the same field is used for alpine snow.
+    if (!this.region.contains(x, z)
+      && sampleSandCoverageCpu(x, Infinity, z, this.rootConfig).coverage === 0) return null;
     const terrainHeight = this.terrainSampler.sampleHeight(x, z);
     if (!Number.isFinite(terrainHeight)) return null;
     const sourceRadius = Number(point.radius);
@@ -280,6 +288,7 @@ export class SnowDeformationField {
             const directionScale = distance > MIN_RADIUS ? depression / BYTE_MAX : 0;
             this.pixels[offset + GRADIENT_X] = Math.round(NEUTRAL_GRADIENT + vx * directionScale * 127);
             this.pixels[offset + GRADIENT_Z] = Math.round(NEUTRAL_GRADIENT + vz * directionScale * 127);
+            this.occupied.add(offset);
             this.peak = Math.max(this.peak, depression);
             changed = true;
           }
@@ -290,6 +299,7 @@ export class SnowDeformationField {
         const berm = Math.round(BYTE_MAX * this.config.bermStrength * coverage * ring);
         if (berm > this.pixels[offset + BERM]) {
           this.pixels[offset + BERM] = berm;
+          this.occupied.add(offset);
           this.peak = Math.max(this.peak, berm);
           changed = true;
         }
@@ -299,6 +309,7 @@ export class SnowDeformationField {
   }
 
   #recover(deltaSeconds) {
+    this.lastRecoveryPixels = 0;
     if (this.peak === 0) return false;
     this.recoveryElapsed += Math.max(0, deltaSeconds);
     if (this.recoveryElapsed < this.config.recoveryInterval) return false;
@@ -307,7 +318,8 @@ export class SnowDeformationField {
     const depressionFactor = Math.exp(-elapsed / this.config.decaySeconds);
     const bermFactor = Math.exp(-elapsed / this.config.bermDecaySeconds);
     let peak = 0;
-    for (let index = 0; index < this.pixels.length; index += CHANNELS) {
+    this.lastRecoveryPixels = this.occupied.size;
+    for (const index of this.occupied) {
       const depression = Math.floor(this.pixels[index + DEPRESSION] * depressionFactor);
       const berm = Math.floor(this.pixels[index + BERM] * bermFactor);
       this.pixels[index + DEPRESSION] = depression;
@@ -324,6 +336,7 @@ export class SnowDeformationField {
         );
       }
       peak = Math.max(peak, depression, berm);
+      if (depression === 0 && berm === 0) this.occupied.delete(index);
     }
     this.peak = peak;
     return true;
@@ -332,23 +345,20 @@ export class SnowDeformationField {
   #scrollPixels(shiftX, shiftY) {
     this.#clear(this.scrollPixels);
     let peak = 0;
-    for (let y = 0; y < this.config.resolution; y += 1) {
-      const sourceY = y + shiftY;
-      if (sourceY < 0 || sourceY >= this.config.resolution) continue;
-      for (let x = 0; x < this.config.resolution; x += 1) {
-        const sourceX = x + shiftX;
-        if (sourceX < 0 || sourceX >= this.config.resolution) continue;
-        const target = (y * this.config.resolution + x) * CHANNELS;
-        const source = (sourceY * this.config.resolution + sourceX) * CHANNELS;
-        const depression = this.pixels[source + DEPRESSION];
-        const berm = this.pixels[source + BERM];
-        this.scrollPixels[target + DEPRESSION] = depression;
-        this.scrollPixels[target + BERM] = berm;
-        this.scrollPixels[target + GRADIENT_X] = this.pixels[source + GRADIENT_X];
-        this.scrollPixels[target + GRADIENT_Z] = this.pixels[source + GRADIENT_Z];
-        peak = Math.max(peak, depression, berm);
+    const occupied = new Set();
+    for (const source of this.occupied) {
+      const pixel = source / CHANNELS;
+      const x = pixel % this.config.resolution - shiftX;
+      const y = Math.floor(pixel / this.config.resolution) - shiftY;
+      if (x < 0 || x >= this.config.resolution || y < 0 || y >= this.config.resolution) continue;
+      const target = (y * this.config.resolution + x) * CHANNELS;
+      for (let channel = 0; channel < CHANNELS; channel += 1) {
+        this.scrollPixels[target + channel] = this.pixels[source + channel];
       }
+      occupied.add(target);
+      peak = Math.max(peak, this.pixels[source + DEPRESSION], this.pixels[source + BERM]);
     }
+    this.occupied = occupied;
     this.pixels.set(this.scrollPixels);
     this.peak = peak;
     if (peak === 0) this.recoveryElapsed = 0;
@@ -364,6 +374,8 @@ export class SnowDeformationField {
   }
 
   clear() {
+    this.occupied.clear();
+    this.lastRecoveryPixels = 0;
     this.#clear(this.pixels);
     this.peak = 0;
     this.recoveryElapsed = 0;

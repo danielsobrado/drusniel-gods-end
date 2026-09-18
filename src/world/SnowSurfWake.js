@@ -6,6 +6,7 @@ import { createSnowWakeMaterial } from './SnowWakeMaterial.js';
 import { getSnowTextures } from './snowTextures.js';
 import { SPINE_ROWS, SnowWakeSpine, readPackedSpine } from './snowWakeSpine.js';
 import { wakeBaseOffset } from './snowWakeProfile.js';
+import { SnowRegionBounds } from './SnowRegionBounds.js';
 
 const SURF_ENTER_RATE = 2.6;
 const SURF_EXIT_RATE = 3.4;
@@ -79,6 +80,7 @@ export class SnowSurfWake {
     this.rootConfig = config;
     this.camera = camera;
     this.terrainSampler = terrainSampler;
+    this.region = new SnowRegionBounds(terrainSampler, config);
     this.powder = powder;
     this.clock = 0;
     this.surf = 0;
@@ -142,7 +144,8 @@ export class SnowSurfWake {
     const scale = player.modelHeight > 0 ? player.modelHeight / settings.referenceHeight : 1;
     const position = player.getPosition();
     const speed = Number(player.speed) || 0;
-    const surface = grounded
+    const wantsSurf = player.running && speed >= settings.minSpeed * scale;
+    const surface = grounded && (wantsSurf || this.surf > 0) && this.region.contains(position.x, position.z)
       ? sampleSnowSurfaceCpu(this.terrainSampler, position.x, position.z, SURFACE_NORMAL_STEP * scale, this.rootConfig)
       : null;
     const coverage = surface ? clamp(surface.coverage, 0, 1) : 0;

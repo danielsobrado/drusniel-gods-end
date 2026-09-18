@@ -1,4 +1,6 @@
 import * as THREE from 'three/webgpu';
+import yaml from 'js-yaml';
+import groundSettings from '../../public/ground-material.yaml?raw';
 import { createCinematicWaterMaterial } from '../../src/water/WaterMaterial.js';
 import { createGroundMaterial } from '../../src/world/GroundMaterial.js';
 import { coastalHeight } from '../../src/world/CoastField.js';
@@ -32,7 +34,7 @@ export async function checkCoastMaterials(renderer) {
   const config = {
     assets: { grassTexture: image, groundBlend: image,
       ground: { color: image, normal: image, roughness: image } },
-    ground: {}, cinematic: { enabled: true, style: { enabled: false } },
+    ground: yaml.load(groundSettings).ground, cinematic: { enabled: true, style: { enabled: false } },
     terrain: { expansion: { enabled: true } },
     water: { size: 640, position: [0, 0, 0], sea },
   };

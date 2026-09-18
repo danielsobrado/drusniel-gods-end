@@ -2,7 +2,7 @@ import * as THREE from 'three/webgpu';
 import { reflector } from 'three/tsl';
 import { createCinematicWaterMaterial } from './WaterMaterial.js';
 import { createLegacyWaterMaterial } from './LegacyWaterMaterial.js';
-import { createWaterGeometry } from './waterGeometry.js';
+import { createWaterGeometry, partitionWaterGeometry } from './waterGeometry.js';
 import { createSeaTileGeometries, seaTileStats } from './seaGeometry.js';
 import { RiverDetails } from './RiverDetails.js';
 import { coastDistanceAt } from '../world/CoastField.js';
@@ -82,6 +82,7 @@ export class WaterSurface {
     this.nearest = new THREE.Vector3();
     this.quality = null;
     this.seaTiles = [];
+    this.inlandTiles = [];
     this.stats = {
       cubeCaptures: 0,
       lakePlanarCaptures: 0,
@@ -99,7 +100,7 @@ export class WaterSurface {
     this.geometry = this.enhanced
       ? createWaterGeometry(this.params, this.river)
       : new THREE.PlaneGeometry(this.params.size, this.params.size, this.params.segments, this.params.segments);
-    this.mesh = new THREE.Mesh(this.geometry);
+    this.mesh = this.enhanced ? new THREE.Group() : new THREE.Mesh(this.geometry);
     if (!this.enhanced) this.mesh.rotation.set(-Math.PI * 0.5, 0, 0);
     this.mesh.position.fromArray(this.params.position);
     this.mesh.name = 'River, lake and sea';
@@ -127,6 +128,18 @@ export class WaterSurface {
     this.uniforms = this.shader.uniforms;
     this.mesh.material = this.material;
     this.mesh.renderOrder = 1;
+    if (this.enhanced) {
+      this.inlandTiles = partitionWaterGeometry(this.geometry).map((geometry, index) => {
+        const tile = new THREE.Mesh(geometry, this.material);
+        tile.name = `Inland water tile ${index}`;
+        tile.renderOrder = 1;
+        tile.userData.occlusionCull = false;
+        this.mesh.add(tile);
+        return tile;
+      });
+      this.geometry.dispose();
+      this.geometry = null;
+    }
     this.setQuality(config.ui.initialQuality);
     scene.add(this.mesh);
 
@@ -155,7 +168,8 @@ export class WaterSurface {
       if (frame.camera !== camera) return;
       if (!this.warmingReflections && (!this.reflectionInitialized || this.quality !== 'ultra'
         || this.#coastDistance(frame.camera.position) > -60)) return;
-      if (!this.lakeReflectionBudget.shouldRender(frame.camera, this.warmingReflections ? 'ultra' : this.quality, performance.now())) return;
+      if (!this.lakeReflectionBudget.shouldRender(frame.camera, this.warmingReflections ? 'ultra' : this.quality,
+        performance.now(), this.warmingReflections || this.#reflectionVisible(frame.camera, false))) return;
       withReflectionMask(this.scene, () => {
         const started = performance.now();
         updateLake(frame);
@@ -179,7 +193,8 @@ export class WaterSurface {
       if (frame.camera !== camera) return;
       if (!this.warmingReflections && (!this.reflectionInitialized || this.quality !== 'ultra'
         || this.#coastDistance(frame.camera.position) < -350)) return;
-      if (!this.seaReflectionBudget.shouldRender(frame.camera, this.warmingReflections ? 'ultra' : this.quality, performance.now())) return;
+      if (!this.seaReflectionBudget.shouldRender(frame.camera, this.warmingReflections ? 'ultra' : this.quality,
+        performance.now(), this.warmingReflections || this.#reflectionVisible(frame.camera, true))) return;
       withReflectionMask(this.scene, () => {
         const started = performance.now();
         updateSea(frame);
@@ -192,6 +207,23 @@ export class WaterSurface {
   #coastDistance(position) {
     if (!this.params.sea?.enabled) return Number.NEGATIVE_INFINITY;
     return coastDistanceAt(position.x, position.z, this.params.sea);
+  }
+
+  #reflectionVisible(camera, sea) {
+    if (!this.mesh.visible) return false;
+    camera.updateWorldMatrix(true, false);
+    this.mesh.updateWorldMatrix(true, true);
+    this.viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    this.frustum.setFromProjectionMatrix(this.viewProjection, camera.coordinateSystem);
+    return (sea ? this.seaTiles : this.inlandTiles).some(tile => {
+      if (!tile.visible) return false;
+      const { waterLevelMin, waterLevelMax } = tile.geometry.userData;
+      // The lake planar weight is exactly zero three metres above/below its
+      // level. Uphill river reaches cannot use this capture.
+      if (!sea && (waterLevelMin >= this.params.position[1] + 3
+        || waterLevelMax <= this.params.position[1] - 3)) return false;
+      return this.frustum.intersectsObject(tile);
+    });
   }
 
   withReflectionWarmup(render) {
@@ -243,7 +275,7 @@ export class WaterSurface {
     }
     camera.updateMatrixWorld();
     this.viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-    this.frustum.setFromProjectionMatrix(this.viewProjection);
+    this.frustum.setFromProjectionMatrix(this.viewProjection, camera.coordinateSystem);
     let tiles = 0, vertices = 0, triangles = 0;
     for (const tile of this.seaTiles) {
       tile.updateMatrixWorld();
@@ -375,6 +407,8 @@ export class WaterSurface {
       tile.geometry.dispose();
     }
     this.seaTiles = [];
+    for (const tile of this.inlandTiles) tile.geometry.dispose();
+    this.inlandTiles = [];
     if (this.shader.dispose) this.shader.dispose();
     else this.material?.dispose?.();
     this.scene?.remove(this.mesh);

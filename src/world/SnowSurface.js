@@ -367,23 +367,37 @@ export function createSnowSurfaceNodes(config, deformationField = null, terrainS
     // condition names them so they are emitted ahead of it.
     const steep = shapedNormal.y.oneMinus().smoothstep(TRIPLANAR_START, TRIPLANAR_END).toVar();
     const sideWeights = shapedNormal.abs().pow(4).toVar();
-    const detailNormal = (frequency, triplanar) => Fn(() => {
+    // These gradients are also used by layers inside a per-pixel activity
+    // branch. Naming them in the condition keeps derivatives outside it.
+    const gradientsReady = ddx.x.equal(ddx.x).and(ddy.x.equal(ddy.x));
+    const detailNormal = (frequency, triplanar, fade) => Fn(() => {
       const scale = frequency / worldScale;
       const sample = vec3(...FLAT_NORMAL).toVar();
-      sample.assign(unpackNormal(texture(textures.normal, world.mul(scale))));
-      if (!triplanar) return sample;
-      If(steep.greaterThan(0.01).and(ddx.x.equal(ddx.x)).and(ddy.x.equal(ddy.x)), () => {
-        const side = (projected, dx, dy) => unpackNormal(
-          texture(textures.normal, projected.mul(scale)).grad(dx.mul(scale), dy.mul(scale)),
-        );
-        const facingZ = side(positionWorld.xy, ddx.xy, ddy.xy);
-        const facingX = side(positionWorld.zy, ddx.zy, ddy.zy);
-        const total = sideWeights.x.add(sideWeights.y).add(sideWeights.z).max(1e-4);
-        const blended = facingZ.mul(sideWeights.z).add(facingX.mul(sideWeights.x)).add(sample.mul(sideWeights.y))
-          .div(total);
-        sample.assign(normalize(mix(sample, blended, steep)));
+      If(fade.greaterThan(0).and(mask.greaterThan(0)).and(gradientsReady).and(steep.greaterThanEqual(0)), () => {
+        sample.assign(unpackNormal(texture(textures.normal, world.mul(scale)).grad(ddx.xz.mul(scale), ddy.xz.mul(scale))));
+        if (triplanar) If(steep.greaterThan(0.01), () => {
+          const side = (projected, dx, dy) => unpackNormal(
+            texture(textures.normal, projected.mul(scale)).grad(dx.mul(scale), dy.mul(scale)),
+          );
+          const facingZ = side(positionWorld.xy, ddx.xy, ddy.xy);
+          const facingX = side(positionWorld.zy, ddx.zy, ddy.zy);
+          const total = sideWeights.x.add(sideWeights.y).add(sideWeights.z).max(1e-4);
+          const blended = facingZ.mul(sideWeights.z).add(facingX.mul(sideWeights.x)).add(sample.mul(sideWeights.y))
+            .div(total);
+          sample.assign(normalize(mix(sample, blended, steep)));
+        });
       });
       return sample;
+    })();
+
+    const fadedDetail = (map, frequency, fade, neutral, transform) => Fn(() => {
+      const result = neutral.toVar();
+      If(fade.greaterThan(0).and(mask.greaterThan(0)).and(gradientsReady), () => {
+        const scale = frequency / worldScale;
+        const sample = texture(map, world.mul(scale)).grad(ddx.xz.mul(scale), ddy.xz.mul(scale));
+        result.assign(mix(neutral, transform(sample), fade));
+      });
+      return result;
     })();
 
     // Three tiling scales of the Snow007C normal map, each cross-faded out by
@@ -394,7 +408,7 @@ export function createSnowSurfaceNodes(config, deformationField = null, terrainS
     DETAIL_LAYERS.forEach((layer, index) => {
       const fade = smoothstep(layer.fadeStart * worldScale, layer.fadeEnd * worldScale, footprint).oneMinus()
         .mul(layer.weight);
-      detail = blendReoriented(detail, mix(flat, detailNormal(layer.frequency, index > 0), fade));
+      detail = blendReoriented(detail, mix(flat, detailNormal(layer.frequency, index > 0, fade), fade));
     });
     // The tangent frame follows the planar projection (u along X, v along Z),
     // so the relief lights up the same way as the crevices baked into the maps.
@@ -412,28 +426,26 @@ export function createSnowSurfaceNodes(config, deformationField = null, terrainS
     const planarOnly = steep.oneMinus();
     let occlusion = float(1);
     for (const layer of CAVITY_LAYERS) {
-      const packed = texture(textures.packed, world.mul(layer.frequency / worldScale));
-      const hollow = packed.b.sub(DETAIL_HEIGHT_MEAN).mul(HOLLOW_CONTRAST).add(1).clamp(0.25, 1.2);
-      const layerCavity = packed.r.div(DETAIL_OCCLUSION_MEAN).mul(hollow);
       const fade = smoothstep(layer.fadeStart * worldScale, layer.fadeEnd * worldScale, footprint).oneMinus()
         .mul(layer.weight).mul(planarOnly);
-      occlusion = occlusion.mul(mix(float(1), layerCavity, fade));
+      const layerCavity = fadedDetail(textures.packed, layer.frequency, fade, float(1), packed => {
+        const hollow = packed.b.sub(DETAIL_HEIGHT_MEAN).mul(HOLLOW_CONTRAST).add(1).clamp(0.25, 1.2);
+        return packed.r.div(DETAIL_OCCLUSION_MEAN).mul(hollow);
+      });
+      occlusion = occlusion.mul(layerCavity);
     }
     cavity = mix(float(1), occlusion, calmDetail.mul(snow.detail.cavity)).toVar();
 
-    const grain = texture(textures.packed, world.mul(DETAIL_LAYERS[1].frequency / worldScale));
     const midFade = smoothstep(DETAIL_LAYERS[1].fadeStart * worldScale, DETAIL_LAYERS[1].fadeEnd * worldScale, footprint)
       .oneMinus();
-    roughnessDetail = grain.g.sub(DETAIL_ROUGHNESS_MEAN).mul(snow.detail.roughnessVariation).mul(midFade);
+    roughnessDetail = fadedDetail(textures.packed, DETAIL_LAYERS[1].frequency, midFade, float(0),
+      grain => grain.g.sub(DETAIL_ROUGHNESS_MEAN).mul(snow.detail.roughnessVariation));
 
     const broadFade = smoothstep(DETAIL_LAYERS[2].fadeStart * worldScale, DETAIL_LAYERS[2].fadeEnd * worldScale, footprint)
       .oneMinus();
-    const broadColor = texture(textures.color, world.mul(DETAIL_LAYERS[2].frequency / worldScale)).rgb;
-    colorVariation = mix(
-      vec3(1),
-      broadColor.div(vec3(...DETAIL_COLOR_MEAN)).clamp(0.75, 1.25),
-      broadFade.mul(planarOnly).mul(calmDetail).mul(snow.detail.colorVariation),
-    );
+    colorVariation = fadedDetail(textures.color, DETAIL_LAYERS[2].frequency,
+      broadFade.mul(planarOnly).mul(calmDetail).mul(snow.detail.colorVariation), vec3(1),
+      broadColor => broadColor.rgb.div(vec3(...DETAIL_COLOR_MEAN)).clamp(0.75, 1.25));
   }
   const snowViewNormal = normalize(cameraViewMatrix.mul(vec4(snowWorldNormal, 0)).xyz).toVar();
 

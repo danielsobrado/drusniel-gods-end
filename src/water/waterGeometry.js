@@ -6,6 +6,53 @@ const OUTLET_BASE_SPEED = 0.7;
 const OUTLET_SPEED_GAIN = 0.65;
 const OUTLET_TAIL_DISTANCE = 2;
 
+// Partition existing triangles, including their original normals, rather than
+// rebuilding surfaces at cell edges. This only changes visibility granularity.
+export function partitionWaterGeometry(geometry, cellSize = 128) {
+  const cells = new Map();
+  const position = geometry.attributes.position;
+  const level = geometry.attributes.waterLevel;
+  const kind = geometry.attributes.waterKind;
+  const index = geometry.index;
+  for (let i = 0; i < index.count; i += 3) {
+    const vertices = [index.getX(i), index.getX(i + 1), index.getX(i + 2)];
+    const x = vertices.reduce((sum, v) => sum + position.getX(v), 0) / 3;
+    const z = vertices.reduce((sum, v) => sum + position.getZ(v), 0) / 3;
+    // Keep the lake and ribbon separate, including where they overlap.
+    const key = `${kind.getX(vertices[0])}:${Math.floor(x / cellSize)}:${Math.floor(z / cellSize)}`;
+    if (!cells.has(key)) cells.set(key, { vertices: [], indices: [], mapping: new Map() });
+    const cell = cells.get(key);
+    for (const vertex of vertices) {
+      if (!cell.mapping.has(vertex)) {
+        cell.mapping.set(vertex, cell.vertices.length);
+        cell.vertices.push(vertex);
+      }
+      cell.indices.push(cell.mapping.get(vertex));
+    }
+  }
+  return [...cells.values()].map(cell => {
+    const chunk = new THREE.BufferGeometry();
+    for (const [name, attribute] of Object.entries(geometry.attributes)) {
+      const data = new attribute.array.constructor(cell.vertices.length * attribute.itemSize);
+      cell.vertices.forEach((vertex, i) => {
+        for (let c = 0; c < attribute.itemSize; c += 1) {
+          data[i * attribute.itemSize + c] = attribute.array[vertex * attribute.itemSize + c];
+        }
+      });
+      chunk.setAttribute(name, new THREE.BufferAttribute(data, attribute.itemSize, attribute.normalized));
+    }
+    chunk.setIndex(cell.indices);
+    chunk.userData.waterLevelMin = Math.min(...cell.vertices.map(v => level.getX(v)));
+    chunk.userData.waterLevelMax = Math.max(...cell.vertices.map(v => level.getX(v)));
+    chunk.computeBoundingBox();
+    chunk.computeBoundingSphere();
+    chunk.boundingBox.min.y -= 1.5;
+    chunk.boundingBox.max.y += 1.5;
+    chunk.boundingSphere.radius += 1.5;
+    return chunk;
+  });
+}
+
 export function createWaterGeometry(params, river) {
   const lake = new THREE.PlaneGeometry(params.size, params.size, params.segments, params.segments);
   lake.rotateX(-Math.PI / 2);

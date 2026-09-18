@@ -10,7 +10,8 @@ export class ReflectionBudget {
 
   reset() { this.lastTime = -Infinity; }
 
-  shouldRender(camera, quality, now) {
+  shouldRender(camera, quality, now, visible = true) {
+    if (!visible) { this.reset(); return false; }
     if (quality !== 'ultra') return false;
     camera.updateWorldMatrix(true, false);
     const viewChanged = !camera.matrixWorld.equals(this.worldMatrix)

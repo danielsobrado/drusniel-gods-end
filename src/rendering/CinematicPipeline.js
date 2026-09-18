@@ -2,8 +2,8 @@ import {
   RenderPipeline, FloatType, RedFormat, NearestFilter, Vector2, Vector3, MathUtils, ACESFilmicToneMapping, AgXToneMapping,
 } from 'three/webgpu';
 import {
-  pass, rtt, renderOutput, vec4, vec3, vec2, uniform, mix, dot, uv, smoothstep, float, fract, sin, screenCoordinate, time,
-  mrt, output, velocity, Fn, Loop, step, perspectiveDepthToViewZ, atan, interleavedGradientNoise,
+  pass, renderOutput, vec4, vec3, vec2, uniform, mix, dot, uv, smoothstep, float, fract, sin, screenCoordinate, time,
+  mrt, output, velocity, Fn, If, Loop, step, perspectiveDepthToViewZ, atan, interleavedGradientNoise,
 } from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
@@ -13,6 +13,7 @@ import { dof } from 'three/addons/tsl/display/DepthOfFieldNode.js';
 import { sharpen } from 'three/addons/tsl/display/SharpenNode.js';
 import { GpuOcclusion } from './GpuOcclusion.js';
 import { createDepthNormals } from './DepthNormals.js';
+import { EffectTarget } from './EffectTarget.js';
 import { withSceneWarmup } from './SceneWarmup.js';
 import { isPostEffect, resolvePostEffects } from './postEffects.js';
 import {
@@ -106,8 +107,14 @@ export class CinematicPipeline {
     const laneSeed = fract(sin(lanes.floor().mul(91.7)).mul(43758.5453));
     const laneWidth = lanes.fract().sub(0.5).abs().mul(2).oneMinus().pow(6);
     const dash = fract(radius.mul(2.2).sub(time.mul(2.8)).add(laneSeed.mul(9)));
-    const streak = smoothstep(0.62, 1, laneSeed).mul(laneWidth).mul(smoothstep(0.55, 0.9, dash))
-      .mul(smoothstep(0.24, 0.62, radius)).mul(this.grade.streaks);
+    const streak = Fn(() => {
+      const value = float(0).toVar();
+      If(this.grade.streaks.greaterThan(0), () => {
+        value.assign(smoothstep(0.62, 1, laneSeed).mul(laneWidth).mul(smoothstep(0.55, 0.9, dash))
+          .mul(smoothstep(0.24, 0.62, radius)).mul(this.grade.streaks));
+      });
+      return value;
+    })();
     return rolled.mul(vignette).mul(streak.mul(0.55).add(1)).add(streak.mul(0.05)).add(grain).max(0);
   }
 
@@ -128,7 +135,7 @@ export class CinematicPipeline {
     const color = scenePass.getTextureNode('output');
     // r185 still issues an invalid mip-level query for multisampled depth in
     // GTAO. Resolve to color and explicitly reconstruct scalar-depth normals.
-    const depth = rtt(scenePass.getTextureNode('depth').r, null, null, {
+    const depth = new EffectTarget(scenePass.getTextureNode('depth').r, {
       type: FloatType, format: RedFormat, minFilter: NearestFilter, magFilter: NearestFilter,
     });
     const normals = createDepthNormals(depth, camera);
@@ -150,14 +157,19 @@ export class CinematicPipeline {
   // mask, jittered to hide banding. Together they cost about two texture reads
   // per screen pixel. The result is added in scene radiance, ahead of the
   // tonemapper, so bright shafts roll off with everything else.
-  #lightShafts(depth) {
+  #lightShafts(stage) {
+    if (stage.shaftOutput) {
+      this.shafts.passes = stage.shaftPasses;
+      return stage.shaftOutput;
+    }
+    const { depth } = stage;
     const samples = this.settings.lightShafts?.samples ?? 32;
     const decay = this.settings.lightShafts?.decay ?? 0.96;
     const sourceRadius = this.settings.lightShafts?.sourceRadius ?? 0.45;
     const normalization = (1 - decay) / (1 - decay ** samples);
     const { uv: sunUv, aspect } = this.shafts;
 
-    const mask = this.#track(rtt(Fn(() => {
+    const mask = new EffectTarget(Fn(() => {
       const texel = vec2(1).div(depth.size(0).toVec2().mul(SHAFT_RESOLUTION));
       const sky = float(0).toVar();
       for (const [x, y] of SHAFT_MASK_TAPS) {
@@ -166,10 +178,10 @@ export class CinematicPipeline {
       const offset = uv().sub(sunUv).mul(vec2(aspect, 1));
       const nearSun = offset.length().div(sourceRadius).oneMinus().max(0);
       return vec4(sky.mul(0.25).mul(nearSun.mul(nearSun)), 0, 0, 1);
-    })()));
+    })());
     mask.setResolutionScale(SHAFT_RESOLUTION);
 
-    const march = this.#track(rtt(Fn(() => {
+    const march = new EffectTarget(Fn(() => {
       const coord = uv().toVar();
       const stepUv = sunUv.sub(coord).div(samples);
       coord.addAssign(stepUv.mul(interleavedGradientNoise(screenCoordinate)));
@@ -181,15 +193,20 @@ export class CinematicPipeline {
         weight.mulAssign(decay);
       });
       return vec4(sum.mul(normalization), 0, 0, 1);
-    })()));
+    })());
     march.setResolutionScale(SHAFT_RESOLUTION);
 
-    return this.shafts.color.mul(march.sample(uv()).r.mul(this.shafts.intensity));
+    stage.shaftPasses = [mask, march];
+    this.shafts.passes = stage.shaftPasses;
+    for (const node of stage.shaftPasses) node.isActive = () => this.warming || this.shafts.intensity.value > 0;
+    stage.shaftOutput = this.shafts.color.mul(march.sample(uv()).r.mul(this.shafts.intensity));
+    return stage.shaftOutput;
   }
 
   // Extra shaft strength over snow country, where the valley mist gives the
   // light something to catch in. `weight` is the snow-country weight.
   setShaftAtmosphere(weight) {
+    if (!this.enabled) return;
     const value = Number(weight);
     this.shafts.boost = Number.isFinite(value) ? MathUtils.clamp(value, 0, 1) : 0;
   }
@@ -217,20 +234,20 @@ export class CinematicPipeline {
         stage.bloom ??= bloom(stage.beauty, this.settings.bloomStrength, 0.3, this.settings.bloomThreshold);
         lit = lit.add(stage.bloom.rgb);
       }
-      if (this.effects.lightShafts) lit = lit.add(this.#lightShafts(stage.depth));
+      if (this.effects.lightShafts) lit = lit.add(this.#lightShafts(stage));
     }
     let hdr = vec4(lit, stage.beauty.a);
     if (!lean && this.effects.depthOfField) {
       const viewZ = perspectiveDepthToViewZ(stage.depth.r, this.clip.near, this.clip.far);
-      hdr = this.#track(dof(hdr, viewZ, this.focus.distance, this.focus.range, this.focus.bokeh));
+      hdr = this.#track(dof(this.#track(new EffectTarget(hdr)), viewZ, this.focus.distance, this.focus.range, this.focus.bokeh));
     }
     const toneMapping = this.effects.tonemapper === 'agx' ? AgXToneMapping : ACESFilmicToneMapping;
     let display = renderOutput(vec4(this.#grade(hdr.rgb), hdr.a), toneMapping);
-    if (this.effects.sharpen) display = this.#track(sharpen(display, this.sharpness));
+    if (this.effects.sharpen) display = this.#track(sharpen(this.#track(new EffectTarget(display)), this.sharpness));
     // High/Ultra already use multisample coverage and TAA resolves its own
     // edges. A second FXAA pass there only softens foliage detail.
     const smoothEdges = !temporal && (lean || this.quality === 'balanced' || (this.settings.samples ?? 4) < 2);
-    if (smoothEdges) display = this.#track(fxaa(display));
+    if (smoothEdges) display = this.#track(fxaa(display.isTextureNode ? display : this.#track(new EffectTarget(display))));
     this.post.outputNode = display;
     this.post.needsUpdate = true;
   }
@@ -305,7 +322,11 @@ export class CinematicPipeline {
     signal?.throwIfAborted();
     const started = performance.now();
     const counts = withSceneWarmup(this.world.scene, () => {
-      const render = () => this.render({ occlusionEnabled: false });
+      const render = () => {
+        this.warming = true;
+        try { this.render({ occlusionEnabled: false }); }
+        finally { this.warming = false; }
+      };
       if (water) water.withReflectionWarmup(render);
       else render();
     });
@@ -361,6 +382,7 @@ export class CinematicPipeline {
       stage.occlusion.dispose();
       stage.resolve?.dispose();
       stage.bloom?.dispose();
+      for (const node of stage.shaftPasses ?? []) node.dispose();
     }
     this.post?.dispose();
   }

@@ -7,6 +7,9 @@ import { CinematicPipeline } from '../src/rendering/CinematicPipeline.js';
 import { SnowfallSystem } from '../src/weather/SnowfallSystem.js';
 import { SnowPowderSystem } from '../src/world/SnowPowderSystem.js';
 import { SnowDeformationField } from '../src/world/SnowDeformationField.js';
+import { SnowRegionBounds } from '../src/world/SnowRegionBounds.js';
+import { EffectTarget } from '../src/rendering/EffectTarget.js';
+import { vec4 } from 'three/tsl';
 
 const snow = yaml.load(fs.readFileSync(new URL('../public/snow.yaml', import.meta.url), 'utf8'));
 const look = yaml.load(fs.readFileSync(new URL('../public/cinematic-look.yaml', import.meta.url), 'utf8'));
@@ -41,6 +44,49 @@ test('post-effect switches retain shaft targets and final disposal releases them
   assert.equal(disposed, 2, 'owned RTT render targets must be explicitly disposed');
 });
 
+test('inactive effect targets initialize once and refresh at current resolution on reactivation', () => {
+  const target = new EffectTarget(vec4(1));
+  let draws = 0, active = false, size = 100, current = null;
+  target._quadMesh.render = () => draws++;
+  target.isActive = () => active;
+  const frame = { renderer: {
+    getRenderTarget: () => current,
+    setRenderTarget: value => { current = value; },
+    getDrawingBufferSize: result => result.set(size, size),
+  } };
+  target.updateBefore(frame);
+  target.updateBefore(frame);
+  assert.equal(draws, 1, 'a dormant effect is prepared once');
+  size = 200;
+  target.updateBefore(frame);
+  assert.equal(draws, 1);
+  active = true;
+  target.updateBefore(frame);
+  assert.equal(draws, 2);
+  assert.equal(target.renderTarget.width, 200);
+  assert.equal(current, null);
+  let disposed = 0;
+  target.renderTarget.addEventListener('dispose', () => disposed++);
+  target._quadMesh.material.addEventListener('dispose', () => disposed++);
+  target.dispose();
+  assert.equal(disposed, 2);
+});
+
+test('snow rejection bounds include emitter edges and the maximum possible wind drift', () => {
+  const config = structuredClone(snow);
+  config.ground.snow.wind.driftHeight = 10;
+  config.ground.snow.wind.scourStrength = -2;
+  let bounds;
+  const region = new SnowRegionBounds({ getHeightRange(box) {
+    bounds = box.clone();
+    return { max: config.ground.snow.altitude.start - 11 };
+  } }, config, 25);
+  assert.equal(region.contains(63.99, -0.01), true);
+  assert.deepEqual([bounds.min.x, bounds.max.x, bounds.min.z, bounds.max.z], [-25, 89, -89, 25]);
+  assert.equal(new SnowRegionBounds({}, config).contains(0, 0), true, 'missing bounds must not reject snow');
+  assert.equal(new SnowRegionBounds({ getHeightRange: () => ({ max: NaN }) }, config).contains(0, 0), true);
+});
+
 function terrain(height = 0) {
   return {
     height, samples: 0, ranges: 0,
@@ -68,13 +114,28 @@ test('ambient snow powder sleeps on bare lowlands and still wakes in snow', () =
   const ground = terrain();
   const powder = new SnowPowderSystem({ scene: new THREE.Scene(), camera: new THREE.PerspectiveCamera(), terrainSampler: ground, config: snow });
   assert.equal(powder.material.forceSinglePass, true);
-  for (let i = 0; i < 60; i++) powder.update(1 / 60, { x: i / 10, y: 3, z: 0 });
+  for (let i = 0; i < 60; i++) {
+    const position = { x: i / 10, y: 0, z: 0 };
+    powder.update(1 / 60, position, [{ position, radius: 0.3 }], true);
+  }
   assert.equal(powder.activeCount, 0);
   assert.equal(ground.samples, 0);
   ground.height = 175;
   powder.update(0.1, { x: 500, y: 178, z: 500 });
   assert.ok(powder.activeCount > 0);
   powder.dispose();
+});
+
+test('footprint contact queries sleep away from snow and sand', () => {
+  const ground = terrain();
+  const field = new SnowDeformationField(snow, ground);
+  for (let i = 0; i < 60; i++) {
+    const position = { x: i / 10, y: 0, z: 0 };
+    field.update(1 / 60, position, [{ position, radius: 0.3 }], true);
+  }
+  assert.equal(ground.samples, 0);
+  assert.equal(field.peak, 0);
+  field.dispose();
 });
 
 test('footprint recovery preserves byte-for-byte decay while visiting only painted pixels', () => {

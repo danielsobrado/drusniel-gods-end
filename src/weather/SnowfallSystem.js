@@ -7,6 +7,7 @@ import { resolveSnowfallConfig } from '../config/resolveSnowfallConfig.js';
 import { foliageLight } from '../rendering/CinematicLighting.js';
 import { sampleSurfaceCpu } from '../world/SnowDeformationField.js';
 import { snowWindVector } from '../world/SnowPowderPhysics.js';
+import { SnowRegionBounds } from '../world/SnowRegionBounds.js';
 
 const VISIBILITY_THRESHOLD = 0.002;
 const TWO_PI = Math.PI * 2;
@@ -39,6 +40,7 @@ export class SnowfallSystem {
     this.intensity = uniform(0);
     this.center = uniform(new THREE.Vector3());
     this.current = 0;
+    this.region = new SnowRegionBounds(terrainSampler, config, this.config.sampleDistance);
     if (!this.config.enabled) return;
 
     const wind = snowWindVector(config.ground.snow.wind.angleDegrees, this.config.windSpeed);
@@ -120,6 +122,7 @@ export class SnowfallSystem {
     material.name = 'Snowfall';
     material.transparent = true;
     material.side = THREE.DoubleSide;
+    material.forceSinglePass = true;
     material.depthWrite = false;
     material.fog = true;
     material.positionNode = vec3(flakeX, flakeY, flakeZ).add(offset);
@@ -158,13 +161,14 @@ export class SnowfallSystem {
   update(deltaSeconds, focusPosition) {
     if (!this.config.enabled || !focusPosition) return;
     const delta = Math.min(Math.max(Number(deltaSeconds) || 0, 0), 0.1);
-    const surface = sampleSurfaceCpu(
+    const possible = this.region.contains(focusPosition.x, focusPosition.z);
+    const surface = possible ? sampleSurfaceCpu(
       this.terrainSampler,
       focusPosition.x,
       focusPosition.z,
       this.config.sampleDistance,
       this.rootConfig,
-    );
+    ) : null;
     const coverage = surface ? surface.snow : 0;
     const target = THREE.MathUtils.smoothstep(coverage, this.config.minCoverage, this.config.fullCoverage)
       * this.config.maxIntensity;

@@ -1,6 +1,7 @@
 import { HalfFloatType, NearestFilter } from 'three/webgpu';
-import { Fn, rtt, uv, uniform, textureSize, textureLoad, ivec2, vec2, vec4,
+import { Fn, uv, uniform, textureSize, textureLoad, ivec2, vec2, vec4,
   getViewPosition, abs, cross, normalize } from 'three/tsl';
+import { EffectTarget } from './EffectTarget.js';
 
 /** Edge-aware depth normals. Explicit scalar loads also support R32F copies.
  * Follows Three.js (MIT) PostProcessingUtils.getNormalFromDepth's stencil.
@@ -36,7 +37,7 @@ export function createDepthNormals(depth, camera) {
     );
     return vec4(normalize(cross(tangentX, tangentY)), 1);
   })();
-  return rtt(normal, null, null, {
+  return new EffectTarget(normal, {
     type: HalfFloatType, minFilter: NearestFilter, magFilter: NearestFilter,
   });
 }
