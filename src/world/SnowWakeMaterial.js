@@ -134,6 +134,9 @@ export function createSnowWakeMaterial({ spineTexture, uniforms, columns, rows, 
 
   const material = new THREE.MeshStandardNodeMaterial({
     side: THREE.DoubleSide,
+    transparent: true,
+    depthWrite: false,
+    forceSinglePass: true,
     roughness: settings.roughness,
     metalness: 0,
   });
@@ -175,7 +178,7 @@ export function createSnowWakeMaterial({ spineTexture, uniforms, columns, rows, 
     smoothstep(0.05, 0.75, vQ).mul(vCurl.mul(0.55).add(0.45)),
     float(0),
   );
-  const occlusion = mix(float(1), float(0.3), barrel);
+  const occlusion = mix(float(1), float(0.65), barrel);
   const caveTint = mix(vec3(1), vec3(0.55, 0.72, 1), occlusion.oneMinus().mul(0.95));
   const albedo = color(settings.color);
   material.colorNode = albedo.mul(occlusion).mul(caveTint);
@@ -207,8 +210,14 @@ export function createSnowWakeMaterial({ spineTexture, uniforms, columns, rows, 
     vQ.mul(31).add(vAlong.mul(7)).add(time.mul(2.3)),
   )).mul(0.72).add(0.5);
   const keep = coarseBreak.mul(0.58).add(fineBreak.mul(0.42)).sub(breakAmount).add(0.5);
-  material.opacityNode = keep;
-  material.alphaTest = 0.5;
-  material.maskShadowNode = Fn(() => keep.greaterThan(0.5))();
+  // Blend the erosion over a finite band, widened for subpixel detail. Fade
+  // every exposed boundary so a translucent sheet never ends in a hard line.
+  const softness = max(float(settings.alphaSoftness), fwidth(keep));
+  const erosion = smoothstep(float(0.5).sub(softness), float(0.5).add(softness), keep);
+  const crest = smoothstep(0.5, 1, vQ).oneMinus();
+  const base = smoothstep(0, 0.14, vQ);
+  const tail = smoothstep(0.3, 1, vAge).oneMinus();
+  const bow = smoothstep(0, 0.35, vAlong);
+  material.opacityNode = erosion.mul(crest).mul(base).mul(tail).mul(bow).mul(settings.opacity);
   return material;
 }

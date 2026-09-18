@@ -120,7 +120,7 @@ export class SnowSurfWake {
     this.mesh = new THREE.Mesh(this.geometry, this.material);
     this.mesh.name = 'SnowSurfWake';
     this.mesh.frustumCulled = false;
-    this.mesh.castShadow = true;
+    this.mesh.castShadow = false;
     this.mesh.receiveShadow = true;
     this.mesh.visible = false;
     this.mesh.userData.excludeFromReflection = true;

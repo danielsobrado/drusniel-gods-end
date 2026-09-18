@@ -190,8 +190,8 @@ ground:
     powder:
       enabled: true
       capacity: 3000
-      particlesPerContact: 18
-      runningMultiplier: 1.5
+      particlesPerContact: 10
+      runningMultiplier: 1.2
       emitDistance: 0.12
       minCoverage: 0.25
       contactHeight: 0.6
@@ -214,7 +214,7 @@ ground:
       terminalFallSpeed: 1.9
       settleFadeMultiplier: 2.5
       settleHorizontalRetention: 0.2
-      opacity: 0.66
+      opacity: 0.42
       color: '#dcebf4'
       seed: 1337
       ambient:
@@ -229,9 +229,8 @@ ground:
         sizeMax: 0.065
         verticalSpeedMin: 0.03
         verticalSpeedMax: 0.18
-    # Snow-surf wake: sprinting on snow sweeps a breaking wall of snow behind the
-    # rider. Lengths and speeds are for a referenceHeight rider and scale with
-    # the character.
+    # Sprinting lifts a low, translucent plume behind the feet. Lengths and
+    # speeds are for a referenceHeight rider and scale with the character.
     wake:
       enabled: true
       referenceHeight: 1.8
@@ -239,26 +238,28 @@ ground:
       spineStep: 0.3
       columns: 128
       rows: 18
-      lifeSeconds: 0.88
+      lifeSeconds: 0.65
       bowLead: 0.55
-      maxHeight: 2.4
+      maxHeight: 0.65
       minSpeed: 2.2
       fullSpeed: 4.3
       minCoverage: 0.35
       carveAcceleration: 26
       transmission: 1
       roughness: 0.8
+      opacity: 0.42
+      alphaSoftness: 0.2
       color: '#f3f6fb'
       spray:
-        curtainPerMetre: 88
-        driftPerMetre: 7
-        maxPerFrame: 150
+        curtainPerMetre: 24
+        driftPerMetre: 3
+        maxPerFrame: 48
       shake:
-        amplitude: 0.05
+        amplitude: 0.012
         loadThreshold: 0.25
         gain: 4
         decay: 1.2
       streaks:
-        strength: 1
+        strength: 0.18
         startSpeedRatio: 0.6
         fullSpeedRatio: 2

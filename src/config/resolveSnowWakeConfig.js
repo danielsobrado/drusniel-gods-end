@@ -64,6 +64,8 @@ export function resolveSnowWakeConfig(config) {
     carveAcceleration: positive(config, 'carveAcceleration'),
     transmission: finiteNumber(config.transmission, `${prefix}.transmission`, { min: 0 }),
     roughness: unit(config, 'roughness'),
+    opacity: unit(config, 'opacity'),
+    alphaSoftness: finiteNumber(config.alphaSoftness, `${prefix}.alphaSoftness`, { min: 0, max: 0.5, exclusiveMin: true }),
     color: config.color,
     spray: {
       curtainPerMetre: finiteNumber(spray.curtainPerMetre, `${prefix}.spray.curtainPerMetre`, { min: 0 }),

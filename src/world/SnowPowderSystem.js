@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu';
 import {
-  atan, cameraViewMatrix, dot, float, fract, instanceIndex, normalize, uv, vec2, vec3, vec4,
+  atan, attribute, cameraViewMatrix, dot, float, fract, instanceIndex, normalize, uv, vec2, vec3, vec4,
 } from 'three/tsl';
 import { resolveSnowPowderConfig } from '../config/resolveSnowPowderConfig.js';
 import { resolveCoastConfig, sampleSandCoverageCpu } from './CoastField.js';
@@ -57,7 +57,7 @@ function createPowderMaterial(config) {
   // Albedo comes from the per-instance colour: snow or kicked sand.
   material.colorNode = vec3(1)
     .mul(sky.add(sun.mul(diffuse).mul(0.55)).add(sun.mul(phase).mul(0.85 * Math.PI * 0.35)));
-  material.opacityNode = edge.mul(config.opacity);
+  material.opacityNode = edge.mul(config.opacity).mul(attribute('powderAlpha', 'float'));
   return material;
 }
 
@@ -106,6 +106,9 @@ export class SnowPowderSystem {
     this.colorsDirty = false;
 
     this.geometry = new THREE.PlaneGeometry(1, 1);
+    this.alpha = new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1);
+    this.alpha.setUsage(THREE.DynamicDrawUsage);
+    this.geometry.setAttribute('powderAlpha', this.alpha);
     this.material = createPowderMaterial(this.config);
     this.mesh = new THREE.InstancedMesh(this.geometry, this.material, capacity);
     this.mesh.name = 'SnowPowder';
@@ -311,12 +314,16 @@ export class SnowPowderSystem {
     for (let index = 0; index < this.config.capacity; index += 1) {
       const offset = index * 3;
       if (!this.active[index]) {
+        this.alpha.setX(index, 0);
         this.dummy.position.set(0, -10000, 0);
         this.dummy.scale.setScalar(0);
       } else {
         const progress = this.ages[index] / this.lifetimes[index];
         const fade = smoothFade(progress, this.config.fadeStart);
-        const size = this.sizes[index] * (1 + progress * this.config.sizeGrowth) * fade;
+        // Ease in over 60 ms; lifetime fading changes alpha, not the footprint.
+        const entering = Math.min(1, this.ages[index] / 0.06);
+        this.alpha.setX(index, entering * entering * (3 - 2 * entering) * fade);
+        const size = this.sizes[index] * (1 + progress * this.config.sizeGrowth);
         this.dummy.position.set(
           this.positions[offset],
           this.positions[offset + 1],
@@ -328,6 +335,7 @@ export class SnowPowderSystem {
       this.mesh.setMatrixAt(index, this.dummy.matrix);
     }
     this.mesh.instanceMatrix.needsUpdate = true;
+    this.alpha.needsUpdate = true;
     if (this.colorsDirty) {
       this.mesh.instanceColor.needsUpdate = true;
       this.colorsDirty = false;
