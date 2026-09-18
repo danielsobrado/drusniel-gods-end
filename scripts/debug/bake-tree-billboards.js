@@ -24,8 +24,9 @@ window.__billboardBaker = (async () => {
       width = image.width; height = image.height;
       high.traverse(o => {
         if (!o.isMesh) return;
+        // The alpine conifers carry their colour in the vertices.
         o.material = new THREE.MeshBasicNodeMaterial({ map: o.material.map, color: o.material.color,
-          side: THREE.DoubleSide, alphaTest: o.material.alphaTest || 0, transparent: false });
+          vertexColors: o.material.vertexColors, side: THREE.DoubleSide, alphaTest: o.material.alphaTest || 0, transparent: false });
       });
       scene = new THREE.Scene(); scene.add(high); scene.updateMatrixWorld(true);
       return { width, height };

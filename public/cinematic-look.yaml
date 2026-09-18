@@ -5,8 +5,10 @@ terrain:
     enabled: true
     size: 1600
     width: 2400
-    depth: 1600
-    center: [400, 0]
+    # Reaches south past the alpine cirque's outer blend (z -930), so the whole
+    # ring of ridges lies inside the world bounds.
+    depth: 1900
+    center: [400, -150]
     routes:
       - name: Snow climb
         width: 5.5
@@ -33,10 +35,10 @@ grass:
   heightResolution: 2048
 collisions:
   worldBounds:
-    - { position: [1570, 80, 0], size: [1, 500, 1540] }
+    - { position: [1570, 80, -95], size: [1, 500, 1730] }
     - { position: [400, 80, 770], size: [2340, 500, 1] }
-    - { position: [400, 80, -770], size: [2340, 500, 1] }
-    - { position: [-770, 80, 0], size: [1, 400, 1540] }
+    - { position: [400, 80, -960], size: [2340, 500, 1] }
+    - { position: [-770, 80, -95], size: [1, 400, 1730] }
 boundaryBarrier:
   enabled: true
   height: 12

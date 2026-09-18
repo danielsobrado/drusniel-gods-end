@@ -42,6 +42,7 @@ after(async () => {
 test('expanded terrain encloses the lake, adds alpine relief, and uses the rendered geometry for collision', async () => {
   const { mesh, sampler, config } = await landscape();
   assert.equal(sampler.bounds.min.x, -800); assert.equal(sampler.bounds.max.z, 800);
+  assert.equal(sampler.bounds.min.z, -1100);
   assert.equal(sampler.bounds.max.x, 1600);
   assert.ok(sampler.bounds.max.y > 190);
   const [x, , z] = config.water.position, half = config.water.size / 2;
@@ -102,7 +103,7 @@ test('corridor subdivision has no unmatched interior edges or inverted triangles
     assert.equal(count, 1);
     const [a, b] = key.split(',').map(Number);
     assert.ok(((p.getX(a) === -800 || p.getX(a) === 1600) && p.getX(a) === p.getX(b))
-      || (Math.abs(p.getZ(a)) === 800 && p.getZ(a) === p.getZ(b)), `open interior edge ${key}`);
+      || ((p.getZ(a) === -1100 || p.getZ(a) === 800) && p.getZ(a) === p.getZ(b)), `open interior edge ${key}`);
   }
 });
 

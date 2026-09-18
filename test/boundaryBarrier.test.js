@@ -19,18 +19,28 @@ const sampler = {
 };
 const config = { collisions: { worldBounds }, boundaryBarrier: { enabled: true } };
 
-test('the expanded map boundary encloses the full lake and mountain terrain', async () => {
+test('the expanded map boundary encloses the full lake, mountain terrain and alpine cirque', async () => {
   const shipped = await loadMergedConfig();
   const geometry = createBoundaryGeometry(shipped.collisions.worldBounds, sampler, shipped.boundaryBarrier);
   try {
     assert.equal(geometry.boundingBox.min.x, -769.5);
     assert.equal(geometry.boundingBox.max.x, 1569.5);
-    assert.equal(geometry.boundingBox.min.z, -769.5);
+    assert.equal(geometry.boundingBox.min.z, -959.5);
     assert.equal(geometry.boundingBox.max.z, 769.5);
     const [x, , z] = shipped.water.position;
     const half = shipped.water.size / 2;
     assert.ok(x - half > geometry.boundingBox.min.x && x + half < geometry.boundingBox.max.x);
     assert.ok(z - half > geometry.boundingBox.min.z && z + half < geometry.boundingBox.max.z);
+    // The whole cirque, out to where it blends into the mountains, lies inside
+    // the barrier and the terrain; a rim cut off by either shows as a torn wall.
+    const [cx, cz] = shipped.terrain.alpine.center;
+    const reach = shipped.terrain.alpine.outerRadius;
+    const { width, depth, center: [tx, tz] } = shipped.terrain.expansion;
+    for (const [bx, bz] of [[cx - reach, cz - reach], [cx + reach, cz + reach]]) {
+      assert.ok(bx > geometry.boundingBox.min.x && bx < geometry.boundingBox.max.x);
+      assert.ok(bz > geometry.boundingBox.min.z && bz < geometry.boundingBox.max.z);
+      assert.ok(Math.abs(bx - tx) < width / 2 && Math.abs(bz - tz) < depth / 2);
+    }
   } finally { geometry.dispose(); }
 });
 

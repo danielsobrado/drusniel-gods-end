@@ -84,7 +84,10 @@ animations: Running, Walking, restpose
 
 `restpose` is the authored bind pose as a clip. Nothing maps to it: `animations.idle`
 stays null, and the controller returns to the static pose by fading the movement
-action out, which is the same thing without a mixer action to keep alive.
+action out, which is the same thing without a mixer action to keep alive. With the
+cinematic look on, the generated `Cinematic_idle` replaces that static pose with the
+walk cycle's mean upper-body pose, so a standing character's arms hang instead of
+holding the bind pose's A (see docs/cinematic-rendering.md).
 
 Skin indices, weights, inverse bind matrices, animation tracks, and bone hierarchy all come from the GLB.
 

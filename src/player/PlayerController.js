@@ -279,7 +279,8 @@ export class PlayerController {
     const mixer = new THREE.AnimationMixer(this.model);
     const requested = { ...this.config.player.animations };
     if (this.config.cinematic?.enabled) {
-      const generated = createLocomotionClips(this.model);
+      const generated = createLocomotionClips(this.model, clips.find(clip => clip.name === requested.walk)
+        ?? clips.find(clip => /walk/i.test(clip.name)));
       clips = [...clips, ...generated];
       const find = pattern => clips.find(clip => pattern.test(clip.name))?.name;
       requested.idle = find(/idle/i) ?? requested.idle;

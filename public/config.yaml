@@ -37,6 +37,8 @@ assets:
     - trees/tree9: Assets/terrain/fantasy/tree9.glb
     - trees/tree10: Assets/terrain/fantasy/tree10.glb
     - trees/tree11: Assets/terrain/fantasy/tree11.glb
+    - trees/tree12: Assets/terrain/fantasy/tree12.glb
+    - trees/tree13: Assets/terrain/fantasy/tree13.glb
   player: Assets/Drusniel_Dark_Elf.glb
   environmentHdr: Assets/zwartkops_straight_morning_1k.hdr
   dracoDecoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.7/
@@ -238,6 +240,8 @@ trees:
     - { high: Tree9_High, low: Tree9_Low, leaves: Mesh_1004, zone: green }
     - { high: Tree10_High, low: Tree10_Low, zone: snow, collider: { width: 1, height: 12, length: 1 } }
     - { high: Tree11_High, low: Tree11_Low, zone: snow, collider: { width: 1, height: 10, length: 1 } }
+    - { high: Tree12_High, low: Tree12_Low, zone: snow, collider: { width: 0.6, height: 7, length: 0.6 } }
+    - { high: Tree13_High, low: Tree13_Low, zone: snow, collider: { width: 1.1, height: 12, length: 1.1 } }
 zones:
   yellow: YellowZone
   green: GreenZone

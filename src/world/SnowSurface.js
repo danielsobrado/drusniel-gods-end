@@ -166,6 +166,13 @@ export function resolveSnowConfig(config) {
       colorVariation: finiteNumber(config.detail.colorVariation, 'ground.snow.detail.colorVariation'),
       roughnessVariation: finiteNumber(config.detail.roughnessVariation, 'ground.snow.detail.roughnessVariation'),
     },
+    // Wind-sheltered powder: broad patches where the surface lies smooth.
+    calm: {
+      scale: optionalNumber(config.calm?.scale, 34, 'ground.snow.calm.scale'),
+      coverage: optionalNumber(config.calm?.coverage, 0, 'ground.snow.calm.coverage'),
+      relief: optionalNumber(config.calm?.relief, 1, 'ground.snow.calm.relief'),
+      detail: optionalNumber(config.calm?.detail, 1, 'ground.snow.calm.detail'),
+    },
     deformation: deformationAppearance(config.deformation),
   };
 }
@@ -302,6 +309,19 @@ export function createSnowSurfaceNodes(config, deformationField = null, terrainS
     .clamp(0, 1)
     .toVar();
 
+  // Wind-sheltered powder lies smooth and even in broad patches tens of metres
+  // across; the wind-worked snow between them keeps its sastrugi, grain and
+  // mottling. Faces turned into the wind are never calm.
+  const calm = snow.calm.coverage > 0
+    ? noise2(world.div(snow.calm.scale)).mul(0.65)
+      .add(noise2(world.div(snow.calm.scale * 0.37).add(vec2(17.3, -4.1))).mul(0.35))
+      .smoothstep((0.5 - snow.calm.coverage) * 0.5 - 0.1, (0.5 - snow.calm.coverage) * 0.5 + 0.1)
+      .mul(reliefExposure.smoothstep(0.7, 0.95).oneMinus())
+      .toVar()
+    : float(0);
+  const calmRelief = mix(float(1), float(snow.calm.relief), calm);
+  const calmDetail = mix(float(1), float(snow.calm.detail), calm);
+
   // Snowflow's analytic fine layer, evaluated in Snowflow metres. It is the
   // costliest part of the ground shader, so pixels without snow skip it. The
   // branch condition reads the footprint and exposure, so their derivative and
@@ -314,7 +334,7 @@ export function createSnowSurfaceNodes(config, deformationField = null, terrainS
         float(snow.wind.angle),
         reliefExposure,
         reliefFootprint,
-        vec3(snow.relief.sastrugi, snow.relief.ripples, snow.relief.grain).mul(flatness),
+        vec3(snow.relief.sastrugi, snow.relief.ripples, snow.relief.grain).mul(flatness).mul(calmRelief),
       ));
     });
     return result;
@@ -380,7 +400,7 @@ export function createSnowSurfaceNodes(config, deformationField = null, terrainS
     // so the relief lights up the same way as the crevices baked into the maps.
     const tangent = normalize(vec3(1, 0, 0).sub(shapedNormal.mul(shapedNormal.x)).add(vec3(0, 0, 1e-5)));
     const bitangent = normalize(cross(tangent, shapedNormal));
-    const detailStrength = mix(float(1), float(0.45), compressed).mul(snow.detail.strength).mul(mask);
+    const detailStrength = mix(float(1), float(0.45), compressed).mul(snow.detail.strength).mul(calmDetail).mul(mask);
     snowWorldNormal = normalize(shapedNormal.add(
       tangent.mul(detail.x).add(bitangent.mul(detail.y)).mul(detailStrength),
     )).toVar();
@@ -399,7 +419,7 @@ export function createSnowSurfaceNodes(config, deformationField = null, terrainS
         .mul(layer.weight).mul(planarOnly);
       occlusion = occlusion.mul(mix(float(1), layerCavity, fade));
     }
-    cavity = mix(float(1), occlusion, snow.detail.cavity).toVar();
+    cavity = mix(float(1), occlusion, calmDetail.mul(snow.detail.cavity)).toVar();
 
     const grain = texture(textures.packed, world.mul(DETAIL_LAYERS[1].frequency / worldScale));
     const midFade = smoothstep(DETAIL_LAYERS[1].fadeStart * worldScale, DETAIL_LAYERS[1].fadeEnd * worldScale, footprint)
@@ -412,7 +432,7 @@ export function createSnowSurfaceNodes(config, deformationField = null, terrainS
     colorVariation = mix(
       vec3(1),
       broadColor.div(vec3(...DETAIL_COLOR_MEAN)).clamp(0.75, 1.25),
-      broadFade.mul(planarOnly).mul(snow.detail.colorVariation),
+      broadFade.mul(planarOnly).mul(calmDetail).mul(snow.detail.colorVariation),
     );
   }
   const snowViewNormal = normalize(cameraViewMatrix.mul(vec4(snowWorldNormal, 0)).xyz).toVar();

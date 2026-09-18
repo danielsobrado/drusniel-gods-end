@@ -202,7 +202,11 @@ export function adaptLandscapeRecords(trees, props, expansion, terrain) {
     if (!allowed(px, py, pz)) continue;
     result.push([px, py, pz, random() * Math.PI * 2, 1.05 + random() * 0.65, Math.floor(random() * 9)]);
   }
-  result.push(...createAlpineTrees(alpine, terrain, expansion.paths));
+  result.push(...createAlpineTrees(alpine, terrain, expansion.paths, {
+    clearings: (terrain.config.navigation?.locations ?? [])
+      .filter(location => location.mode === 'ground').map(location => location.position),
+    windAngleDegrees: terrain.config.ground?.snow?.wind?.angleDegrees,
+  }));
   return { trees: result, props: { stones: rebase(props.stones),
     lanterns: createPathLanternPairs(rebase(props.lanterns), expansion.paths, terrain, river) } };
 }

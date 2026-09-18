@@ -1,20 +1,62 @@
 import * as THREE from 'three';
 
+const UPPER_BODY = /^Spine|^neck$|^Neck$|^Head$|Shoulder$|Arm$|Hand$/;
+
+// The rig's bind pose holds the arms out in an A. Averaged over a whole walk
+// cycle the arm swing cancels, leaving the arms hanging and the spine carried
+// as the character actually walks, which is how it should stand. The legs keep
+// the bind pose: a walk's mean knee bend would lift the soles off the ground.
+function meanUpperBodyPose(model, bones, clip, samples = 24) {
+  if (!clip) return new Map();
+  const saved = new Map([...bones].map(([name, bone]) => [name, [bone.position.clone(), bone.quaternion.clone(), bone.scale.clone()]]));
+  const sums = new Map();
+  const mixer = new THREE.AnimationMixer(model);
+  const action = mixer.clipAction(clip);
+  action.play();
+  for (let i = 0; i < samples; i++) {
+    mixer.setTime(i / samples * clip.duration);
+    for (const [name, bone] of bones) {
+      if (!UPPER_BODY.test(name)) continue;
+      const q = bone.quaternion;
+      const sum = sums.get(name);
+      if (!sum) {
+        sums.set(name, new THREE.Vector4(q.x, q.y, q.z, q.w));
+        continue;
+      }
+      // Keep every sample in the first sample's hemisphere before summing.
+      const sign = sum.x * q.x + sum.y * q.y + sum.z * q.z + sum.w * q.w < 0 ? -1 : 1;
+      sum.x += q.x * sign; sum.y += q.y * sign; sum.z += q.z * sign; sum.w += q.w * sign;
+    }
+  }
+  action.stop();
+  mixer.uncacheRoot(model);
+  for (const [name, [position, quaternion, scale]] of saved) {
+    const bone = bones.get(name);
+    bone.position.copy(position);
+    bone.quaternion.copy(quaternion);
+    bone.scale.copy(scale);
+  }
+  return new Map([...sums].map(([name, sum]) => [name, new THREE.Quaternion(sum.x, sum.y, sum.z, sum.w).normalize()]));
+}
+
 // A rig-local fallback for assets delivered with only a run. Authored idle/walk
-// clips take precedence in PlayerController when present.
-export function createLocomotionClips(model) {
+// clips take precedence in PlayerController when present. `walkClip`, when
+// given, supplies the standing upper-body pose.
+export function createLocomotionClips(model, walkClip = null) {
   const bones = new Map();
   model.traverse(object => { if (object.isBone) bones.set(object.name, object); });
   if (!bones.has('LeftUpLeg') || !bones.has('RightUpLeg')) return [];
+  const stance = meanUpperBodyPose(model, bones, walkClip);
   const clips = [];
   for (const kind of ['idle', 'walk']) {
     const duration = kind === 'idle' ? 4 : 1.1;
     const tracks = [];
     for (const [name, bone] of bones) {
-      if (!/UpLeg|^LeftLeg$|^RightLeg$|^LeftArm$|^RightArm$|ForeArm|^Spine/.test(name)) continue;
+      const standing = kind === 'idle' && stance.get(name);
+      if (!standing && !/UpLeg|^LeftLeg$|^RightLeg$|^LeftArm$|^RightArm$|ForeArm|^Spine/.test(name)) continue;
       const times = [];
       const values = [];
-      const base = bone.quaternion.clone();
+      const base = (standing || bone.quaternion).clone();
       for (let frame = 0; frame <= 32; frame++) {
         const phase = frame / 32 * Math.PI * 2;
         const side = name.startsWith('Left') ? 1 : -1;

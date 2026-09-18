@@ -5,24 +5,31 @@ ground:
     altitude:
       start: 84
       full: 132
-    # Snow lies fully below about 35 degrees and not at all past about 65.
+    # Snow lies fully below about 33 degrees and not at all past about 63.
     # noise shifts both thresholds in patches tens of metres across, so rock
     # breaks through a wall in places rather than along one slope contour.
     slope:
-      start: 0.42
-      full: 0.82
+      start: 0.46
+      full: 0.84
       noise: 0.12
     # Packed snow along walked routes: darker, bluer, smoother, less grainy.
     path:
-      compaction: 0.55
-      color: '#b9c8d9'
+      compaction: 0.85
+      color: '#a3b4c9'
+    # Wind-sheltered powder: patches about `scale` metres across covering
+    # `coverage` of the snow, where relief and detail drop to these fractions.
+    calm:
+      scale: 34
+      coverage: 0.5
+      relief: 0.25
+      detail: 0.45
     # Glazed rock and frozen seepage on faces too steep to hold snow, in the
     # snow band. steepness is the normal-Y range over which faces turn icy.
     ice:
       color: '#5f88aa'
-      thinColor: '#8a98a6'
+      thinColor: '#5d6874'
       roughness: 0.22
-      coverage: 0.75
+      coverage: 0.5
       steepness: { start: 0.3, full: 0.62 }
     wind:
       # Held well off the preset sun bearings: sastrugi streak along the wind,
@@ -40,7 +47,7 @@ ground:
     # heights times detail.worldScale. Each entry scales one layer.
     relief:
       sastrugi: 1
-      ripples: 1
+      ripples: 0.7
       grain: 1
       # How strongly slopes facing into the wind count as scoured.
       windward: 0.6
@@ -52,7 +59,7 @@ ground:
       sun: '#f4f7fb'
       driftVariation: 0.06
     # Multiplies exposed rock colour across the snow altitude band.
-    rockTint: '#6c7684'
+    rockTint: '#454d5a'
     roughness:
       base: 0.7
       compressed: 0.4
@@ -76,20 +83,20 @@ ground:
       sunElevationDegrees: 15
       sunIntensityScale: 1.7
       sunWarmth: '#fff0dc'
-      hemisphereIntensityScale: 0.65
+      hemisphereIntensityScale: 0.55
       ambientIntensityScale: 0.4
       environmentIntensityScale: 0.55
       skyTint: '#dce6ff'
       groundBounce: '#e6ecf3'
       sunBounce: 0.3
       ambientCooling: 0.8
-      fogTint: '#eaf1ff'
+      fogTint: '#d2ddee'
       fogDesaturation: 0.6
-      fogDensityScale: 1.6
+      fogDensityScale: 1.15
       horizonDesaturation: 0.5
       zenithDesaturation: 0.45
       zenithHaze: 0.2
-      exposureScale: 0.95
+      exposureScale: 0.9
       # Screen-space AO on open snow is mostly the estimator's own bias.
       occlusionScale: 0.3
       # Mist lying in the valleys and gorges: density per metre at the terrain,
@@ -98,8 +105,8 @@ ground:
       # The first metres (nearClear) stay clear; the march covers maxDistance.
       valleyFog:
         enabled: true
-        density: 0.009
-        height: 12
+        density: 0.0055
+        height: 9
         ceiling: 70
         pocketScale: 0.011
         pocketStrength: 0.75
@@ -108,7 +115,7 @@ ground:
         maxDistance: 520
         samples: 6
         scatter: 0.4
-        sunScatter: 0.55
+        sunScatter: 0.35
         shadeColor: '#9fb2c8'
     # Snow007C detail maps (ambientCG, CC0). worldScale is world metres per
     # Snowflow metre, so its tiling and pixel-footprint fades match a 5 m rider.

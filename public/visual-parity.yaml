@@ -100,6 +100,8 @@ trees:
     - { high: Tree9_High, low: Tree9_Low, highLeaves: Mesh_1004, zones: [green], collider: { width: 3, height: 10, length: 3 } }
     - { high: Tree10_High, low: Tree10_Low, zones: [snow], collider: { width: 1, height: 12, length: 1 } }
     - { high: Tree11_High, low: Tree11_Low, zones: [snow], collider: { width: 1, height: 10, length: 1 } }
+    - { high: Tree12_High, low: Tree12_Low, zones: [snow], collider: { width: 0.6, height: 7, length: 0.6 } }
+    - { high: Tree13_High, low: Tree13_Low, zones: [snow], collider: { width: 1.1, height: 12, length: 1.1 } }
 leaves:
   windStrengthMultiplier: 1
   spawnInterval: 0.015

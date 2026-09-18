@@ -175,7 +175,10 @@ export const snowFineRelief = Fn(([p, wind, exposure, footprint, strength]) => {
     const along = 2.9 / 0.42;
     const across = 1 / 0.42;
     const ripple = noised(toWind(p, c, s, along, across)).toVar();
-    const amplitude = mix(float(1), float(0.45), exposure).mul(rippleFade).mul(0.024).toVar();
+    // Ripples form in fields (~33 m) rather than corrugating every flat; laid
+    // evenly they read as a repeating corduroy under the camera.
+    const field = smoothstep(-0.15, 0.3, noised(p.mul(0.03).add(vec2(-13.7, 5.3))).x);
+    const amplitude = mix(float(1), float(0.45), exposure).mul(field).mul(rippleFade).mul(0.024).toVar();
     height.addAssign(ripple.x.mul(amplitude));
     slope.addAssign(fromWind(ripple.yz, c, s, along, across).mul(amplitude));
   });
