@@ -74,3 +74,29 @@ test('all four alpine GLBs have rooted trunks, vertex-shaded needles and snow, t
     } });
   }
 });
+
+// Rounded snow has a closed underside as well as a top: open ribbons turn
+// edge-on into thin white stripes. Match positions across Draco seam vertices.
+test('alpine snow caps are closed volumes within the existing triangle budgets', async () => {
+  const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'draco3d.decoder': await draco.createDecoderModule() });
+  const budgets = { 10: 24110, 11: 10118, 12: 13038, 13: 7370 };
+  for (const type of [10, 11, 12, 13]) {
+    const doc = await io.read(`public/Assets/terrain/fantasy/tree${type}.glb`);
+    const high = doc.getRoot().listNodes().find(n => n.getName() === `Tree${type}_High`);
+    const primitives = high.listChildren().flatMap(n => n.getMesh().listPrimitives());
+    const triangles = primitives.reduce((sum, p) => sum + (p.getIndices()?.getCount() ?? p.getAttribute('POSITION').getCount()) / 3, 0);
+    assert.ok(triangles <= budgets[type], `tree ${type}: ${triangles} exceeds ${budgets[type]}`);
+    const snow = primitives[2], positions = snow.getAttribute('POSITION');
+    const keys = Array.from({ length: positions.getCount() }, (_, i) => positions.getElement(i, []).map(v => v.toFixed(5)).join(','));
+    const indices = snow.getIndices()?.getArray() ?? keys.map((_, i) => i);
+    const edges = new Map();
+    for (let i = 0; i < indices.length; i += 3) {
+      const points = [keys[indices[i]], keys[indices[i + 1]], keys[indices[i + 2]]];
+      for (let j = 0; j < 3; j++) {
+        const edge = [points[j], points[(j + 1) % 3]].sort().join('|');
+        edges.set(edge, (edges.get(edge) ?? 0) + 1);
+      }
+    }
+    assert.ok([...edges.values()].every(count => count === 2), `tree ${type}: snow must have no open edges`);
+  }
+});
