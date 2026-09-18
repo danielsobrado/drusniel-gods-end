@@ -32,7 +32,7 @@ const TYPES = Object.keys(ALPINE_SPECIES).map(Number);
 const UP = new THREE.Vector3(0, 1, 0);
 // Closed tapered sprays and snow pillows. The tips are single vertices, so
 // there are no open ends, coincident rings or zero-area triangles. Needles use
-// four sides; snow uses eight for a rounded top and a shaded underside.
+// four sides; snow uses six or eight for a rounded top and shaded underside.
 function bough({ base, direction, length, width, rise, droop, random, segments, colorAt,
   lift = 0, from = 0, to = 1, sides = 4, thickness = 0.42, irregularity = 0.18 }) {
   const side = new THREE.Vector3(-direction.z, 0, direction.x);

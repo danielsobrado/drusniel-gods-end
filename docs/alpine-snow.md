@@ -151,7 +151,7 @@ The wind bearing is shared with the sastrugi and accumulation system through `gr
 ```yaml
 enabled: true
 capacity: 3000
-particlesPerContact: 18
+particlesPerContact: 10
 windSpeed: 3.2
 terminalFallSpeed: 1.9
 drag: 5.2
@@ -164,11 +164,13 @@ ambient:
 
 ## Snow-surf wake
 
-Sprinting on snow surfs. The wake follows Snowflow's design: it is a swept mesh, not a particle effect. Its spine is the path the rider has taken, resampled every 30 cm (per 1.8 m of rider height) into a 96 x 3 float `DataTexture`. The mesh is a static lattice of (column, row, side), and `SnowWakeMaterial` places every vertex in the vertex shader. A long wake and a short one therefore cost the same buffer and the same 4.6 KB upload each frame.
+Sprinting on snow raises a low, translucent powder plume. The wake follows Snowflow's design: it is a swept mesh, not a particle effect. Its spine is the path the rider has taken, resampled every 30 cm (per 1.8 m of rider height) into a 96 x 3 float `DataTexture`. The mesh is a static lattice of (column, row, side), and `SnowWakeMaterial` places every vertex in the vertex shader. A long wake and a short one therefore cost the same buffer and the same 4.6 KB upload each frame.
 
-The cross-section is a breaking wave integrated from a turning tangent. The tangent starts just below horizontal at the base. Its tip angle runs from 40 degrees, a low heaped bank, to 284 degrees, a lip that hangs back across its own face, and one curl parameter sets where between the two it lands. Wall height and curl are resolved per side from the carve, so the outside of a turn takes nearly all the snow. Carve is lateral acceleration, speed times yaw rate. The wall is tallest at a full-speed carve and collapses `lifeSeconds` after it is laid, so wake length is life x speed. The section, wall spread, lumps and erosion are ported from Snowflow's `lib/wake.wgsl` (MIT) into TSL. The two walls start close at the bow and spread behind it. Drifting gradient-noise lumps displace the wall along the section's own normal, weighted toward the free crest, and the lip shears back along the spine. Erosion softens only the top sixth of the section and dissolves the whole wall at the end of its life, so it never tears holes in a young wall. Normals are differenced out of the same `wakePoint` the geometry uses. Inside the barrel the concave side goes dark and blue, the thin lip transmits backlight, and the Snow007C normal map adds grain on two oblique projections.
+The cross-section is a breaking wave integrated from a turning tangent. The tangent starts just below horizontal at the base. Its tip angle runs from 40 degrees, a low heaped bank, to 284 degrees, a lip that hangs back across its own face, and one curl parameter sets where between the two it lands. Wall height and curl are resolved per side from the carve, so the outside of a turn takes nearly all the snow. Carve is lateral acceleration, speed times yaw rate. The wall is tallest at a full-speed carve and collapses `lifeSeconds` after it is laid, so wake length is life x speed. The section, wall spread, lumps and erosion are ported from Snowflow's `lib/wake.wgsl` (MIT) into TSL. The two walls start close at the bow and spread behind it. Drifting gradient-noise lumps displace the wall along the section's own normal, weighted toward the free crest, and the lip shears back along the spine. Erosion blends across a configurable alpha band, widened by pixel derivatives for fine detail. Smooth envelopes fade the base, bow, crest and tail; the sheet blends in one transparent pass with no depth writes or opaque cast shadow. Normals are differenced out of the same `wakePoint` the geometry uses. Inside the barrel the concave side takes a soft blue shade, the thin lip transmits backlight, and the Snow007C normal map adds grain on two oblique projections.
 
-Two spray populations come off the first few metres of the spine, emitted at fractional positions along it into the shared powder pool. A dense, slow curtain hugs the crest; ballistic grains and clods are flung clear, and a slower powder drift hangs over the trench. Emission uses the same wall heights and base spread as the mesh. Airborne snow is shaded after Snowflow's spray shader: each billboard is lit as a sphere, with a warm forward-scatter lobe when looking toward the sun. A loaded edge adds camera shake, and speed past the streak threshold adds screen-space speed streaks in the cinematic grade.
+Two spray populations come off the first few metres of the spine, emitted at fractional positions along it into the shared powder pool. A sparse, slow curtain hugs the low crest; ballistic grains and clods are flung clear, and a slower powder drift hangs over the trench. Emission uses the same wall heights and base spread as the mesh. Airborne snow is shaded after Snowflow's spray shader: each billboard is lit as a sphere, with a warm forward-scatter lobe when looking toward the sun. A loaded edge adds restrained camera shake, and speed past the streak threshold adds faint screen-space speed streaks in the cinematic grade.
+
+Particles ease in over 60 ms and dissipate through per-instance alpha rather than shrinking into solid dots. Their soft radial edges and slow size growth remain visible throughout the fade. The same fade applies to contact snow, ambient spindrift and sand kicks.
 
 All wake lengths, heights and speeds are authored for a `referenceHeight` rider and scaled by the character's height. Spray velocities scale with the square root of that ratio, which keeps their arcs the same shape.
 
@@ -178,8 +180,10 @@ capacity: 96
 spineStep: 0.3
 columns: 128
 rows: 18
-lifeSeconds: 0.88
-maxHeight: 2.4
+lifeSeconds: 0.65
+maxHeight: 0.65
+opacity: 0.42
+alphaSoftness: 0.2
 minSpeed: 2.2
 fullSpeed: 4.3
 ```

@@ -119,7 +119,7 @@ test('snow powder config resolves contact and ambient particle budgets', () => {
   const powder = resolveSnowPowderConfig(snowConfig.ground.snow.powder);
   assert.equal(powder.enabled, true);
   assert.equal(powder.capacity, 3000);
-  assert.equal(powder.particlesPerContact, 18);
+  assert.equal(powder.particlesPerContact, 10);
   assert.equal(powder.ambient.enabled, true);
   assert.equal(powder.ambient.particlesPerSecond, 72);
   assert.ok(powder.lifetime.max >= powder.lifetime.min);

@@ -10,6 +10,7 @@ const DEFAULT_TIMEOUT_MS = 120_000;
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const CHECK_RESULT_GLOBALS = Object.freeze({
   'sea-check': '__seaCheck',
+  'snow-effects-check': '__snowEffectsCheck',
 });
 
 function parseArgs(argv) {
