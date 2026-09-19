@@ -1,9 +1,11 @@
 import {
-  RenderPipeline, FloatType, RedFormat, NearestFilter, Vector2, Vector3, MathUtils, ACESFilmicToneMapping, AgXToneMapping,
+  RenderPipeline, FloatType, RedFormat, NearestFilter, Vector2, Vector3, Matrix4, MathUtils, ACESFilmicToneMapping,
+  AgXToneMapping,
 } from 'three/webgpu';
 import {
-  pass, renderOutput, vec4, vec3, vec2, uniform, mix, dot, uv, smoothstep, float, fract, sin, screenCoordinate, time,
-  mrt, output, velocity, Fn, If, Loop, step, perspectiveDepthToViewZ, atan, interleavedGradientNoise,
+  pass, renderOutput, vec4, vec3, vec2, uniform, mix, dot, uv, smoothstep, float, fract, sin, cos, screenCoordinate,
+  time, mrt, output, velocity, Fn, If, Loop, step, perspectiveDepthToViewZ, atan, interleavedGradientNoise,
+  getViewPosition, exp, mod,
 } from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
@@ -38,6 +40,17 @@ const SHAFT_RESOLUTION = 0.25;
 // Offsets, in low-resolution texels, of the depth taps each mask texel takes,
 // so thin silhouettes do not flicker in and out of a single nearest tap.
 const SHAFT_MASK_TAPS = [[-0.25, -0.25], [0.25, -0.25], [-0.25, 0.25], [0.25, 0.25]];
+// Underwater optics, per metre of water. Red goes first, so distance turns
+// everything green-blue, and the scene fades into the water's own colour.
+const UNDERWATER_EXTINCTION = [0.1, 0.038, 0.045];
+// How much less light reaches a point per metre it lies below the surface.
+const UNDERWATER_DIMMING = [0.11, 0.04, 0.035];
+// Snell's window: rays steeper than the critical angle (48.6 degrees from the
+// vertical, cosine 0.66) leave through the surface; shallower ones mirror the water.
+const SNELL_WINDOW = [0.645, 0.685];
+// Caustic cells repeat every this many metres across the bed.
+const CAUSTIC_TILE = 5.5;
+const _underwaterFade = new Vector3();
 
 export class CinematicPipeline {
   constructor(world, config) {
@@ -81,6 +94,19 @@ export class CinematicPipeline {
       bokeh: uniform(post.depthOfField?.bokehScale ?? 1),
     };
     this.sharpness = uniform(post.sharpness ?? 0.6);
+    this.underwater = {
+      amount: uniform(0),
+      depth: uniform(0),
+      level: uniform(0),
+      sun: uniform(0),
+      eye: uniform(new Vector3()),
+      color: uniform(new Vector3()),
+      sunDirection: uniform(new Vector3(0, 1, 0)),
+      beamU: uniform(new Vector3(1, 0, 0)),
+      beamV: uniform(new Vector3(0, 0, 1)),
+      projectionInverse: uniform(new Matrix4()),
+      cameraWorld: uniform(new Matrix4()),
+    };
     this.#applyUniformEffects();
     this.setQuality(this.quality);
   }
@@ -138,6 +164,8 @@ export class CinematicPipeline {
     const depth = new EffectTarget(scenePass.getTextureNode('depth').r, {
       type: FloatType, format: RedFormat, minFilter: NearestFilter, magFilter: NearestFilter,
     });
+    // Performance mode reads depth only for the underwater look.
+    depth.isActive = () => this.quality !== 'performance' || this.warming || this.underwater.amount.value > 0;
     const normals = createDepthNormals(depth, camera);
     const occlusion = ao(depth, normals, camera);
     occlusion.radius.value = this.settings.aoRadius;
@@ -211,6 +239,131 @@ export class CinematicPipeline {
     this.shafts.boost = Number.isFinite(value) ? MathUtils.clamp(value, 0, 1) : 0;
   }
 
+  // A slow refractive wobble of the whole frame while the camera is under
+  // water; exactly the unwarped coordinate otherwise.
+  #sceneUv() {
+    const { amount } = this.underwater;
+    const coord = uv();
+    const wobble = vec2(
+      sin(coord.y.mul(23).add(time.mul(1.7))).add(sin(coord.x.mul(9).sub(time.mul(1.1))).mul(0.6)),
+      sin(coord.x.mul(19).add(time.mul(1.4))).add(sin(coord.y.mul(7).add(time.mul(0.9))).mul(0.6)),
+    );
+    return coord.add(wobble.mul(amount.mul(0.0016)));
+  }
+
+  // Bright caustic lattice, the classic tileable water-caustic iteration,
+  // scaled so one tile spans CAUSTIC_TILE metres of ground.
+  #caustics(xz) {
+    const tau = Math.PI * 2;
+    const p = mod(xz.mul(tau / CAUSTIC_TILE), tau).sub(250);
+    const clock = time.mul(0.5).add(23);
+    const iterations = 5;
+    let i = p;
+    let sum = float(1);
+    for (let n = 0; n < iterations; n += 1) {
+      const t = clock.mul(1 - 3.5 / (n + 1));
+      i = p.add(vec2(cos(t.sub(i.x)).add(sin(t.add(i.y))), sin(t.sub(i.y)).add(cos(t.add(i.x)))));
+      sum = sum.add(float(1).div(vec2(p.x.div(sin(i.x.add(t)).div(0.005)), p.y.div(cos(i.y.add(t)).div(0.005))).length()));
+    }
+    return float(1.17).sub(sum.div(iterations).pow(1.4)).abs().pow(8);
+  }
+
+  // The view from inside a body of water. Each pixel's ray is rebuilt from
+  // depth: rays that rise to the surface before reaching scene geometry see
+  // its underside, which passes the world above inside Snell's window and
+  // mirrors the water outside it. Everything else is dimmed by how deep it
+  // lies, dappled with caustics, and fades into the water's colour with
+  // distance, red first. Skipped entirely above water.
+  #underwaterView(stage, lit) {
+    const water = this.underwater;
+    const depth = stage.depth.sample(uv()).r;
+    return Fn(() => {
+      const result = lit.toVar();
+      If(water.amount.greaterThan(0), () => {
+        // Direction from the screen position alone; unprojecting the stored
+        // depth near the far plane is too imprecise and speckles the foliage.
+        const viewRay = getViewPosition(uv(), float(0.5), water.projectionInverse).normalize();
+        const viewZ = perspectiveDepthToViewZ(depth, this.clip.near, this.clip.far);
+        const sceneDistance = viewZ.div(viewRay.z.min(-0.0001));
+        const ray = water.cameraWorld.mul(vec4(viewRay, 0)).xyz.normalize();
+        const toSurface = water.depth.max(0).div(ray.y.max(0.0001));
+        const surface = ray.y.greaterThan(0).and(toSurface.lessThan(sceneDistance));
+        const distance = surface.select(toSurface, sceneDistance).min(400);
+
+        const hit = water.eye.xz.add(ray.xz.mul(toSurface.min(400)));
+        const ripple = sin(hit.x.mul(1.7).add(time.mul(1.3))).mul(sin(hit.y.mul(1.3).sub(time.mul(1.1)))).mul(0.02)
+          .add(sin(hit.x.mul(4.1).sub(hit.y.mul(3.3)).add(time.mul(2.2))).mul(0.01));
+        const steepness = ray.y.add(ripple);
+        const inWindow = smoothstep(SNELL_WINDOW[0], SNELL_WINDOW[1], steepness);
+        const rim = smoothstep(SNELL_WINDOW[0] - 0.03, SNELL_WINDOW[0], steepness).mul(inWindow.oneMinus());
+        // Scattered light is brightest looking up toward the surface and
+        // falls off into the dark below.
+        const glow = mix(float(0.5), float(1.45), smoothstep(-0.7, 0.8, ray.y));
+        const murk = water.color.mul(glow);
+        const mirrored = murk.mul(rim.mul(0.9).add(1));
+        const underside = mix(mirrored, lit.mul(vec3(0.8, 0.95, 0.95)), inWindow);
+
+        const point = water.eye.add(ray.mul(distance));
+        const pointDepth = water.level.sub(point.y).max(0);
+        const dimming = exp(vec3(...UNDERWATER_DIMMING).mul(pointDepth.negate()));
+        const causticReach = exp(pointDepth.mul(-0.12)).mul(smoothstep(0, 1, float(45).sub(distance).div(25)))
+          .mul(water.sun).mul(surface.select(float(0), float(1)));
+        const caustics = this.#caustics(point.xz).mul(causticReach).mul(1.4);
+        const bed = lit.mul(dimming).mul(caustics.add(1));
+
+        const transmittance = exp(vec3(...UNDERWATER_EXTINCTION).mul(distance.negate()));
+        const seen = surface.select(underside, bed);
+
+        // Sun shafts: streaks fanning out around the refracted sun's axis,
+        // drifting as the surface above them moves, thickest in long views.
+        const angle = atan(dot(ray, water.beamV), dot(ray, water.beamU));
+        const fan = sin(angle.mul(29).add(sin(angle.mul(7).add(time.mul(0.35))).mul(2.2)).add(time.mul(0.15)))
+          .mul(0.5).add(0.5)
+          .mul(sin(angle.mul(13).sub(time.mul(0.22)).add(1.7)).mul(0.5).add(0.5));
+        const alongSun = dot(ray, water.sunDirection);
+        const beams = fan.pow(3)
+          .mul(mix(float(0.3), float(1), smoothstep(-0.3, 1, alongSun)))
+          .mul(smoothstep(0, 0.02, alongSun.oneMinus()))
+          .mul(transmittance.g.oneMinus()).mul(water.sun);
+        const inWater = mix(murk, seen, transmittance).add(murk.mul(beams).mul(1.1));
+        result.assign(mix(lit, inWater, water.amount));      });
+      return result;
+    })();
+  }
+
+  // `state` is WaterSurface.underwater: the camera's depth below the water
+  // surface over it (negative above water), that surface's level and the
+  // colour of the water around it.
+  setUnderwater(state) {
+    if (!this.enabled) return;
+    const water = this.underwater;
+    const depth = Number(state?.depth);
+    water.amount.value = Number.isFinite(depth) ? MathUtils.smoothstep(depth, -0.04, 0.12) : 0;
+    if (water.amount.value === 0) return;
+    water.depth.value = depth;
+    water.level.value = state.level;
+    water.sun.value = MathUtils.clamp(state.sun ?? 1, 0, 1);
+    // The water itself darkens the deeper the camera goes.
+    _underwaterFade.fromArray(UNDERWATER_DIMMING).multiplyScalar(-Math.max(depth, 0));
+    water.color.value.set(
+      state.color.r * Math.exp(_underwaterFade.x),
+      state.color.g * Math.exp(_underwaterFade.y),
+      state.color.b * Math.exp(_underwaterFade.z),
+    );
+  }
+
+  // The sun as seen from under the surface, bent toward the vertical by
+  // refraction, and two axes across it that the shafts fan around.
+  #updateUnderwaterSun(sun) {
+    const { sunDirection, beamU, beamV } = this.underwater;
+    const direction = _sunDirection.copy(sun.position).sub(sun.target.position).normalize();
+    const horizontal = Math.hypot(direction.x, direction.z) / 1.333;
+    sunDirection.value.set(direction.x / 1.333, Math.sqrt(Math.max(1 - horizontal * horizontal, 0)), direction.z / 1.333)
+      .normalize();
+    beamU.value.set(0, 0, 1).cross(sunDirection.value).normalize();
+    beamV.value.crossVectors(sunDirection.value, beamU.value).normalize();
+  }
+
   #track(node) {
     this.transient.push(node);
     return node;
@@ -223,7 +376,8 @@ export class CinematicPipeline {
     const temporal = this.effects.taa;
     const stage = this.#stage(temporal);
     this.stage = stage;
-    let lit = stage.beauty.rgb;
+    const beauty = stage.beauty.isTextureNode ? stage.beauty : stage.resolve.getTextureNode();
+    let lit = beauty.sample(this.#sceneUv()).rgb;
     if (!lean) {
       // Past a few hundred metres the depth buffer is too coarse for GTAO,
       // which then prints a regular lattice over open ground; fade it out.
@@ -236,7 +390,10 @@ export class CinematicPipeline {
       }
       if (this.effects.lightShafts) lit = lit.add(this.#lightShafts(stage));
     }
-    let hdr = vec4(lit, stage.beauty.a);
+    lit = this.#underwaterView(stage, lit);
+    // Under water every pixel is water, including where foliage left the
+    // beauty pass translucent.
+    let hdr = vec4(lit, mix(stage.beauty.a, 1, this.underwater.amount));
     if (!lean && this.effects.depthOfField) {
       const viewZ = perspectiveDepthToViewZ(stage.depth.r, this.clip.near, this.clip.far);
       hdr = this.#track(dof(this.#track(new EffectTarget(hdr)), viewZ, this.focus.distance, this.focus.range, this.focus.bokeh));
@@ -298,6 +455,13 @@ export class CinematicPipeline {
     this.clip.near.value = camera.near;
     this.clip.far.value = camera.far;
     this.shafts.aspect.value = camera.aspect;
+    if (this.underwater.amount.value > 0) {
+      camera.updateMatrixWorld();
+      this.underwater.eye.value.setFromMatrixPosition(camera.matrixWorld);
+      this.underwater.cameraWorld.value.copy(camera.matrixWorld);
+      this.underwater.projectionInverse.value.copy(camera.projectionMatrixInverse);
+      if (sun) this.#updateUnderwaterSun(sun);
+    }
     if (!this.effects.lightShafts || !sun) {
       this.shafts.intensity.value = 0;
       return;

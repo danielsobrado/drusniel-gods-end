@@ -641,6 +641,7 @@ export class GrassDemo {
     // Depth of field focuses on the character at the end of the camera arm.
     this.pipeline.setFocusDistance(this.player.cameraDistance);
     this.pipeline.setSpeedStreaks(this.world.snowWake?.streak ?? 0);
+    this.pipeline.setUnderwater(this.water.underwater);
     time('render', () => this.pipeline.render({ occlusionEnabled: true, profiler }));
     this.ui.update(deltaSeconds);
 

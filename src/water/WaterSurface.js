@@ -3,7 +3,7 @@ import { reflector } from 'three/tsl';
 import { createCinematicWaterMaterial } from './WaterMaterial.js';
 import { createLegacyWaterMaterial } from './LegacyWaterMaterial.js';
 import { createWaterGeometry, partitionWaterGeometry } from './waterGeometry.js';
-import { resolveLakeShape } from '../world/LakeShape.js';
+import { lakeSignedDistance, resolveLakeShape } from '../world/LakeShape.js';
 import { createSeaTileGeometries, seaTileStats } from './seaGeometry.js';
 import { RiverDetails } from './RiverDetails.js';
 import { WaterfallMist } from './WaterfallMist.js';
@@ -11,10 +11,18 @@ import { coastDistanceAt } from '../world/CoastField.js';
 import { ReflectionBudget } from './ReflectionBudget.js';
 import { createReflectionCapture } from './WaterReflection.js';
 import { withReflectionMask } from './reflectionMask.js';
+import { SKY_GAIN } from './sceneLight.js';
 
 export { createReflectionRenderTarget } from './WaterReflection.js';
 
 const RAIN_THRESHOLD = 0.001;
+// Albedo of the water body's suspended matter: what the scattered sun and sky
+// light looks like from inside it. Linear RGB.
+const UNDERWATER_ALBEDO = Object.freeze({
+  inland: new THREE.Color(0.05, 0.26, 0.24),
+  alpine: new THREE.Color(0.03, 0.14, 0.2),
+  sea: new THREE.Color(0.03, 0.24, 0.32),
+});
 const QUALITY_DETAIL = Object.freeze({ performance: 0.35, balanced: 0.65, high: 0.85, ultra: 1 });
 const QUALITY_REFLECTION = Object.freeze({ performance: 0.25, balanced: 0.4, high: 0.75, ultra: 1 });
 const DEFAULT_WATER = Object.freeze({
@@ -99,8 +107,13 @@ export class WaterSurface {
     this.viewProjection = new THREE.Matrix4();
     this.frustum = new THREE.Frustum();
 
+    this.lakeShape = resolveLakeShape(config);
+    this.snowAltitude = config.ground?.snow?.enabled ? config.ground.snow.altitude : null;
+    // Where the camera is under a water surface, and the colour of the water
+    // it sees there; CinematicPipeline turns this into the underwater look.
+    this.underwater = { depth: -Infinity, level: 0, color: new THREE.Color() };
     this.geometry = this.enhanced
-      ? createWaterGeometry(this.params, this.river, resolveLakeShape(config))
+      ? createWaterGeometry(this.params, this.river, this.lakeShape)
       : new THREE.PlaneGeometry(this.params.size, this.params.size, this.params.segments, this.params.segments);
     this.mesh = this.enhanced ? new THREE.Group() : new THREE.Mesh(this.geometry);
     if (!this.enhanced) this.mesh.rotation.set(-Math.PI * 0.5, 0, 0);
@@ -321,6 +334,7 @@ export class WaterSurface {
     this.uniforms.sunDirection.value.copy(lighting.position).normalize();
     this.uniforms.sunStrength.value = (this.enhanced ? 1 : this.params.sunStrength)
       * Math.min(lighting.directionalIntensity / 3, 1);
+    this.#updateUnderwater(lighting);
     const position = player.getPosition();
     const feetY = position.y - player.metrics.rootToFeet;
     const river = this.river?.sample(position.x, position.z);
@@ -365,6 +379,52 @@ export class WaterSurface {
       camera.removeFromParent();
     }
   }
+
+  // The still-water level over (x, z) where a lake, river or the sea covers
+  // that ground, else null. Wave displacement is left to the caller.
+  surfaceLevelAt(x, z) {
+    if (!this.enhanced) {
+      const { min, max } = this.bounds;
+      return x >= min.x && x <= max.x && z >= min.z && z <= max.z ? this.mesh.position.y : null;
+    }
+    const ground = this.terrain.sampleHeight(x, z);
+    const sea = this.params.sea;
+    if (sea?.enabled && coastDistanceAt(x, z, sea) > -30 && ground <= sea.level) return sea.level;
+    const level = this.mesh.position.y;
+    const lake = this.lakeShape;
+    const inLake = ground < level && (lake
+      ? lakeSignedDistance(x, z, lake) < lake.margin
+      : Math.abs(x - this.mesh.position.x) < this.params.size / 2
+        && Math.abs(z - this.mesh.position.z) < this.params.size / 2);
+    const river = this.river?.sample(x, z);
+    if (river?.edge < 0 && river.y > ground && !(inLake && river.y <= level + 0.05)) return river.y;
+    return inLake ? level : null;
+  }
+
+  #updateUnderwater(lighting) {
+    const state = this.underwater;
+    const camera = this.camera;
+    const level = camera ? this.surfaceLevelAt(camera.position.x, camera.position.z) : null;
+    state.depth = level === null ? -Infinity : level - camera.position.y;
+    if (level === null || state.depth < -1) return;
+    state.level = level;
+    state.sun = Math.min(lighting.directionalIntensity / 3, 1);
+    const sea = this.params.sea?.enabled && level === this.params.sea.level;
+    const alpine = this.snowAltitude
+      ? THREE.MathUtils.smoothstep(level, this.snowAltitude.start, this.snowAltitude.full) : 0;
+    state.color.copy(sea ? UNDERWATER_ALBEDO.sea : UNDERWATER_ALBEDO.inland)
+      .lerp(UNDERWATER_ALBEDO.alpine, sea ? 0 : alpine);
+    // The same sun + sky radiance the foam and mist take (see sceneLight),
+    // with the sun share reduced by its path down through the water.
+    const light = this.shader.light;
+    const sun = light ? light.sun.value : lighting.color;
+    const sky = light ? light.sky.value : lighting.color;
+    state.color.multiply(this.#scratchColor.copy(sun).multiplyScalar(0.55)
+      .add(this.#skyColor.copy(sky).multiplyScalar(SKY_GAIN)));
+  }
+
+  #scratchColor = new THREE.Color();
+  #skyColor = new THREE.Color();
 
   setRainIntensity(value) {
     const intensity = THREE.MathUtils.clamp(Number(value), 0, 1);
