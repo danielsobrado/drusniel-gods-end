@@ -112,6 +112,8 @@ export class DemoUi {
           <div><strong>SHIFT</strong><span>Run / fly fast</span></div>
           <div><strong>F</strong><span>Free fly</span></div>
           <div class="fly-only-hint"><strong>SPACE / CTRL</strong><span>Fly up / down</span></div>
+          <div><strong>1</strong><span>Next location</span></div>
+          <div><strong>2</strong><span>Next preset</span></div>
           <div><strong>H</strong><span>Hide interface</span></div>
         </div>
       </section>`;
@@ -143,6 +145,8 @@ export class DemoUi {
     window.addEventListener('keydown', event => {
       if (event.target.matches?.('input, textarea, select, [contenteditable="true"]')) return;
       if (event.code === 'KeyH') overlay.classList.toggle('interface-hidden');
+      if (!event.repeat && (event.code === 'Digit1' || event.code === 'Numpad1')) this.#cycleChoice(overlay, 'location');
+      if (!event.repeat && (event.code === 'Digit2' || event.code === 'Numpad2')) this.#cycleChoice(overlay, 'preset');
       if (['Escape', 'KeyW', 'KeyA', 'KeyS', 'KeyD'].includes(event.code)) this.actions.stopTour();
       if (event.code === 'Escape') {
         controlsPanel.hidden = true;
@@ -210,6 +214,15 @@ export class DemoUi {
     overlay.querySelectorAll('[data-choice-trigger]').forEach((trigger) => {
       trigger.setAttribute('aria-expanded', 'false');
     });
+  }
+
+  // Keyboard shortcut: advance a choice control to its next option, wrapping.
+  #cycleChoice(overlay, name) {
+    const options = [...overlay.querySelectorAll(`[data-choice-option="${name}"]`)];
+    if (options.length === 0) return;
+    const current = options.findIndex((button) => button.classList.contains('is-active'));
+    const next = options[(current + 1) % options.length];
+    this.#selectChoice(overlay, name, next.dataset.value);
   }
 
   #selectChoice(overlay, name, value) {

@@ -5,16 +5,35 @@ import { BiomeFootprints, findSafeBiomePosition } from './BiomePlacement.js';
 export function resolveSafePose(demo, prepared) {
   const occupied = prepared?.active ? prepared.solids : new BiomeFootprints();
   const player = demo.player;
-  return findSafeBiomePosition({
-    position: player.getPosition(),
-    terrain: demo.world.terrainSampler,
+  const position = player.getPosition();
+  const terrain = demo.world.terrainSampler;
+  const radius = player.metrics.radius;
+  const strict = findSafeBiomePosition({
+    position,
+    terrain,
     ecology: demo.grass.vegetation,
     occupied,
-    radius: player.metrics.radius,
+    radius,
     rootToFeet: player.metrics.rootToFeet,
     groundOffset: player.metrics.groundOffset,
     waterY: (demo.config.water?.position?.[1] ?? 0) - 0.1,
   });
+  if (strict) return strict;
+
+  // The strict search rejects paths, slopes, shores and peaks, which left the
+  // preset unchanged whenever the player stood there. The player only has to
+  // be clear of the new biome's solids: stay put if possible, else step aside.
+  const clear = (x, z) => terrain.contains(x, z) && Number.isFinite(terrain.sampleHeight(x, z))
+    && !occupied.overlaps(x, z, radius);
+  if (clear(position.x, position.z)) return { x: position.x, y: position.y, z: position.z };
+  for (let r = 1; r <= 12; r++) for (let i = 0; i < 16; i++) {
+    const x = position.x + Math.cos(i * Math.PI / 8) * r;
+    const z = position.z + Math.sin(i * Math.PI / 8) * r;
+    if (clear(x, z)) {
+      return { x, z, y: terrain.sampleHeight(x, z) + player.metrics.rootToFeet + player.metrics.groundOffset };
+    }
+  }
+  return null;
 }
 
 export async function preparePresetChange(demo, name, generation) {

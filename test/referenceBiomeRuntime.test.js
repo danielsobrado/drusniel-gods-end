@@ -58,6 +58,35 @@ test('stale and unsafe preset commits never publish a partial world', () => {
   assert.equal(demo.biome.committed, undefined);
 });
 
+test('preset commits when the player stands on ground biome placement rejects', () => {
+  const demo = {
+    presetGeneration: 1,
+    player: {
+      enabled: true,
+      setEnabled(value) { this.enabled = value; },
+      getPosition: () => ({ x: 0, y: 3, z: 0 }),
+      metrics: { radius: 0.7, rootToFeet: 2, groundOffset: 0 },
+      translateRoot(x, y, z) { this.moved = { x, y, z }; },
+    },
+    world: { terrainSampler: { sampleHeight: () => 1, contains: () => true } },
+    // A path everywhere: the strict biome-ground search finds nothing.
+    grass: {
+      vegetation: { sampleWorld: () => ({ path: 1, density: 0.9, growth: 0.8 }) },
+      commitLayout() { this.committed = true; },
+      abortLayout() { this.aborted = true; },
+    },
+    biome: { commit() { this.committed = true; }, setPreset() {} },
+    environment: { setPreset(name) { this.named = name; } },
+    config: { water: { position: [0, -4, 0] } },
+  };
+  const result = commitPresetChange(demo, {
+    generation: 1, name: 'sunny', prepared: { active: true, solids: new BiomeFootprints() }, layout: { revision: 1 },
+  });
+  assert.equal(result.applied, true);
+  assert.equal(demo.environment.named, 'sunny');
+  assert.deepEqual(demo.player.moved, { x: 0, y: 3, z: 0 });
+});
+
 test('appearance uniforms are reused across weather and do not mutate cinematic style', () => {
   const config = {
     cinematic: { enabled: true, style: { grassFill: 0.06, dryRoot: '#111111' } },

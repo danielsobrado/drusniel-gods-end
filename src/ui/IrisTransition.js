@@ -29,17 +29,24 @@ export class IrisTransition {
   run(swap, key = 'default') {
     if (this.disposed) return Promise.resolve();
     this.pendingSwaps.set(key, swap);
-    this.running ??= this.#drain().finally(() => { this.running = null; });
+    this.running ??= this.#drain();
     return this.running;
   }
 
   async #drain() {
     const reducedMotion = this.#prefersReducedMotion();
-    while (this.pendingSwaps.size && !this.disposed) {
-      if (!reducedMotion) await this.close();
-      // Anything queued while the iris was closing gets applied behind it too.
-      while (this.pendingSwaps.size && !this.disposed) await this.#swap();
-      if (!reducedMotion && !this.disposed) await this.open();
+    try {
+      while (this.pendingSwaps.size && !this.disposed) {
+        if (!reducedMotion) await this.close();
+        // Anything queued while the iris was closing gets applied behind it too.
+        while (this.pendingSwaps.size && !this.disposed) await this.#swap();
+        if (!reducedMotion && !this.disposed) await this.open();
+      }
+    } finally {
+      // Cleared in the same tick as the final queue check: a `.finally()` on the
+      // returned promise ran a microtask later, and a swap queued in that gap
+      // was stranded until the next run() call.
+      this.running = null;
     }
   }
 
