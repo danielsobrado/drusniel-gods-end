@@ -6,6 +6,7 @@
   "scripts": {
     "assets:split-terrain": "node scripts/split-terrain-glb.mjs",
     "assets:fantasy": "node scripts/generate-fantasy-assets.mjs",
+    "assets:loading-art": "node scripts/optimize-loading-art.mjs",
     "assets:alpine-trees": "node scripts/generate-alpine-trees.mjs",
     "assets:tree-billboards": "node scripts/bake-tree-billboards.mjs",
     "audio:alts": "node scripts/download-alt-audio.mjs",

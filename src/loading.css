@@ -1,5 +1,6 @@
 .loading-overlay {
   --r: 0vmax;
+  --art-text-shadow: 0 1px 3px rgba(4, 10, 14, .95), 0 0 16px rgba(4, 10, 14, .8);
   position: fixed;
   inset: 0;
   z-index: 20000;
@@ -22,10 +23,96 @@
   mask-image: radial-gradient(circle at 50% 50%, transparent 0 var(--r), #000 calc(var(--r) + 1px));
 }
 
+/* The key art and its ember canvas are the only children that are not part of the
+   centred column, so everything else has to be lifted above them. */
+.loading-overlay > :not(.loading-art) {
+  position: relative;
+  z-index: 1;
+}
+
+/* Fixed rather than absolute: the overlay scrolls on short viewports, and the
+   backdrop sliding out from under the roster cards would give that away. The
+   overlay's own stacking context still keeps this inside the iris reveal mask. */
+.loading-art {
+  --art-opacity: .72;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.loading-art-lqip,
+.loading-art-image,
+.loading-art-fx {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* A 24px inline thumbnail, so the first paint is already the scene rather than a
+   bare gradient. Upscaling is the blur; a filter here would cost a layer. */
+.loading-art-lqip {
+  background-position: center;
+  background-size: cover;
+  opacity: var(--art-opacity);
+  transition: opacity .5s ease;
+  /* The shipped WebP carries a matching alpha ramp, so the handoff between the
+     two is invisible. This approximates it in one mask layer. */
+  -webkit-mask-image: radial-gradient(ellipse 80% 76% at 50% 44%, #000 34%, transparent 100%);
+  mask-image: radial-gradient(ellipse 80% 76% at 50% 44%, #000 34%, transparent 100%);
+}
+
+.loading-art-image {
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity .6s ease;
+}
+
+.loading-art.is-loaded .loading-art-image {
+  opacity: var(--art-opacity);
+}
+
+/* If the WebP never arrives this class is never set, so the placeholder stays up
+   as the backdrop rather than the screen falling back to a bare gradient. */
+.loading-art.is-loaded .loading-art-lqip {
+  opacity: 0;
+}
+
+/* Darkest where the wordmark, the bar and the roster sit, opening up towards the
+   edges where the braziers are. The bottom band carries the START button. */
+.loading-art-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 57% 53% at 50% 45%, rgba(7, 16, 21, .88), rgba(7, 16, 21, .42) 60%, rgba(7, 16, 21, 0) 100%),
+    linear-gradient(to bottom, rgba(7, 16, 21, .58), rgba(7, 16, 21, .12) 26%, rgba(7, 16, 21, .44) 70%, rgba(7, 16, 21, .88));
+}
+
+/* The overlay's text used to sit on a flat gradient and needed no help. Over a
+   painted hall it does: the wordmark in particular crosses the mage's white hair,
+   where an ash-blue fill on its own disappears. */
+.loading-row,
+.loading-detail,
+.character-prompt,
+.character-hint,
+.loading-links {
+  text-shadow: var(--art-text-shadow);
+}
+
+/* Screen so the embers and the brazier haloes brighten the paint underneath
+   instead of laying grey over it. The overlay is a stacking context, so this
+   blends only with the art below it and never with the 3D scene behind. */
+.loading-art-fx {
+  mix-blend-mode: screen;
+}
+
 .loading-logo {
   position: relative;
   width: min(1120px, 94vw);
   height: clamp(30px, 5vw, 52px);
+  text-shadow: 0 2px 6px rgba(4, 10, 14, .95), 0 0 34px rgba(4, 10, 14, .85);
   font-family: "Inter Display", Inter, ui-sans-serif, system-ui, sans-serif;
   font-size: clamp(21px, 4.4vw, 44px);
   font-weight: 900;
@@ -238,7 +325,9 @@
   padding: 14px 18px;
   border: 1px solid rgba(238, 244, 232, .28);
   border-radius: 8px;
-  background: rgba(255, 255, 255, .05);
+  /* Dark rather than the old white wash: the cards now sit over the key art, and
+     a lightening fill let the orc's shoulder read straight through the labels. */
+  background: rgba(7, 16, 21, .52);
   color: inherit;
   text-align: left;
   cursor: pointer;

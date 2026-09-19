@@ -25,7 +25,7 @@
 .cinematic-loading .logo-fill .logo-initial { color: #5f7689; }
 .cinematic-loading .progress-bar { background: #8fa6b8; }
 .cinematic-loading .loading-row { color: #b9c7d2; }
-.cinematic-loading .character-card { border-color: #a9bccb2e; background: #ffffff05; }
+.cinematic-loading .character-card { border-color: #a9bccb4a; background: #0710158c; }
 .cinematic-loading .character-card:hover:not(:disabled) { border-color: #9fb4c680; background: #9fb4c60f; }
 .cinematic-loading .character-card:focus-visible { outline-color: #b7c9d8; }
 .cinematic-loading .character-monogram { border-color: #9fb4c659; color: #b7c9d8; font-weight: 500; }

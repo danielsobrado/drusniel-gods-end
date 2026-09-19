@@ -6,6 +6,10 @@
     <meta name="theme-color" content="#0b1115" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preload" href="/Assets/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin />
+    <!-- The loading screen's backdrop. Starting it at HTML parse rather than when
+         the module graph reaches LoadingArt.js is what makes it arrive with the
+         first paint instead of after it. -->
+    <link rel="preload" href="/Assets/GameLoad.webp" as="image" type="image/webp" fetchpriority="high" />
     <title>Drusniel: Gods’ End</title>
   </head>
   <body>

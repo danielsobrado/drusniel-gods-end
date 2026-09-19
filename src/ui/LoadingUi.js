@@ -4,6 +4,7 @@ import {
   SHADER_COMPILE_END_EVENT,
   SHADER_COMPILE_START_EVENT,
 } from '../rendering/ShaderCompileDiagnostics.js';
+import { LoadingArt } from './LoadingArt.js';
 import {
   LOADING_REVEAL_RADIUS_VMAX,
   LOADING_REVEAL_SECONDS,
@@ -95,6 +96,10 @@ export class LoadingUi {
         <a class="loading-lore-link" href="https://discord.gg/pNfJPWprgB" target="_blank" rel="noopener noreferrer">Come to Discord, get the source code ↗</a>
       </div>`;
     root.appendChild(this.element);
+    // Constructed after the markup so the picture is the last thing inserted but
+    // the first thing painted -- its fetch starts inside the constructor.
+    this.art = new LoadingArt();
+    this.art.mount(this.element);
     const logoText = presentation?.title ?? 'Drusniel: Gods’ End';
     this.element.querySelectorAll('.logo-outline, .logo-fill').forEach(element => setLogoText(element, logoText));
     if (presentation) {
@@ -304,6 +309,9 @@ export class LoadingUi {
           await onStart?.();
           if (this.element) await this.#revealScene();
         } finally {
+          // Stops the ember loop before the frame budget belongs to the scene.
+          this.art?.dispose();
+          this.art = null;
           this.element?.remove();
           this.resolveStart = null;
           resolve();
@@ -347,6 +355,8 @@ export class LoadingUi {
     globalThis.removeEventListener?.(SHADER_COMPILE_END_EVENT, this.onShaderCompileEnd);
     if (this.logoAnimationFrame !== null) cancelAnimationFrame(this.logoAnimationFrame);
     if (this.revealAnimationFrame !== null) cancelAnimationFrame(this.revealAnimationFrame);
+    this.art?.dispose();
+    this.art = null;
     this.element?.remove();
     this.element = null;
   }
