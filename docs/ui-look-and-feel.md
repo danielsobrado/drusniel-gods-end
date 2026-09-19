@@ -19,7 +19,10 @@ The current live reference page exposes the control structure and labels clearly
 src/ui/DemoUi.js
 src/ui/GrassPainterUi.js
 src/ui/LoadingUi.js
+src/ui/Minimap.js
+src/ui/minimapBake.js
 src/styles.css
+src/minimap.css
 ```
 
 ## Public reference control structure
@@ -210,6 +213,18 @@ footer right: 28px
 ```
 
 These CSS measurements describe current reconstruction behavior. They are not claimed as recovered original CSS constants.
+
+## Minimap and world map
+
+The minimap has no counterpart in the live reference; it is an exploration aid for the expanded landscape.
+
+`Minimap` puts a circular map in the lower-right corner of the cinematic HUD, turned so the camera's view points up. An `N` badge rides the rim toward north (-Z, where the alpine massif stands), a pale arrow and view cone mark the player (or the free-fly/tour camera) at the centre, and navigation locations show as gold pins. A pill on the dial's lower rim names the biome underfoot. On desktop the mouse wheel over the dial zooms between 90 m and 720 m of radius.
+
+Clicking or tapping the dial, or pressing `M`, opens the world map: the whole terrain north-up, with every location labelled, the player arrow and a biome legend. Selecting a pin or its label travels there through `WorldNavigation.teleport`. `M`, `Esc`, the close button or a click outside the panel closes it. It lives in the HUD overlay, so `H` hides it along with the rest of the interface.
+
+`minimapBake.js` builds the image once, 2.5 m per pixel, from the same CPU queries the world uses: terrain height and hillshade, sea and lake levels, the river course, snow and sand coverage, the western forest weight, the coastal-jungle region, slope- and altitude-based rock, and the landscape paths, with faint 20 m contours and a dark dot per placed tree. Each pixel also records its biome id, which is what the rim label reads. The bake is a generator stepped in 8 ms slices on timers, so it finishes during loading without blocking it; the dial appears once it is done. A dial redraw is a single rotated `drawImage` and is skipped while the view is still.
+
+Sizing follows the shorter screen side: `clamp(84px, 19vmin, 184px)`, capped at 112px on touch screens so the dial stays below the mobile `RUN` button (150px above the corner). Below 768px wide or 500px tall the dial moves to a 16px/20px safe-area inset and the metrics line moves above it; on desktop the metrics sit to the dial's left.
 
 ## Mobile behavior
 

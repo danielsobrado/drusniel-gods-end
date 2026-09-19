@@ -1,6 +1,7 @@
 import './styles.css';
 import './loading.css';
 import './cinematic.css';
+import './minimap.css';
 import { GrassDemo } from './app/GrassDemo.js';
 import { loadConfig } from './config/loadConfig.js';
 import { ExplorationSpeedMode } from './player/ExplorationSpeedMode.js';

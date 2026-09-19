@@ -1,0 +1,173 @@
+/* Circular minimap, lower-right. Its size follows the shorter screen side, so a
+   phone in either orientation gets a small dial and a desktop a larger one. On
+   touch screens it is capped lower still: the RUN button sits 150px above the
+   bottom-right corner (src/player/MobileControls.js) and must stay clear. */
+.cinematic-hud {
+  --minimap-size: clamp(84px, 19vmin, 184px);
+  --minimap-right: 36px;
+  --minimap-bottom: clamp(26px, 3.6vh, 44px);
+}
+@media (pointer: coarse) {
+  .cinematic-hud { --minimap-size: clamp(80px, 19vmin, 112px); }
+}
+/* The stats line used to own this corner; it now sits beside the dial, or
+   above it where the screen is too narrow for both along the bottom. */
+.cinematic-hud .metrics { right: calc(var(--minimap-right) + var(--minimap-size) + 18px); }
+@media (max-width: 767px), (max-height: 500px) {
+  .cinematic-hud {
+    --minimap-right: max(16px, env(safe-area-inset-right));
+    --minimap-bottom: max(20px, env(safe-area-inset-bottom));
+  }
+  .cinematic-hud .metrics { right: var(--minimap-right); bottom: calc(var(--minimap-bottom) + var(--minimap-size) + 14px); }
+}
+
+.minimap {
+  position: absolute;
+  right: var(--minimap-right);
+  bottom: var(--minimap-bottom);
+  width: var(--minimap-size);
+  height: var(--minimap-size);
+  pointer-events: none;
+  animation: minimap-in .6s ease both;
+}
+.minimap[hidden] { display: none; }
+@keyframes minimap-in { from { opacity: 0; transform: translateY(6px); } }
+
+.cinematic-hud .minimap-dial {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 1px solid #e9e0cb59;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #0d1a22;
+  box-shadow: 0 0 0 3px #13211987, 0 10px 30px #0008, inset 0 0 18px #0006;
+  pointer-events: auto;
+  cursor: zoom-in;
+  touch-action: manipulation;
+}
+.cinematic-hud .minimap-dial:hover { border-color: #d5bd86b3; }
+.minimap-canvas { width: 100%; height: 100%; display: block; border-radius: 50%; }
+/* Vignette so the map edge melts into the ring. */
+.minimap-dial::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, transparent 62%, #0a111a73 100%);
+}
+.minimap-north {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #13211de0;
+  color: #ead29c;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+}
+/* The biome name rides the dial's lower rim instead of taking a row of its own. */
+.minimap-biome {
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  z-index: 1;
+  transform: translateX(-50%);
+  max-width: calc(var(--minimap-size) + 40px);
+  padding: 3px 9px;
+  border: 1px solid #e9e0cb38;
+  border-radius: 999px;
+  background: #132119e0;
+  color: #f0ebdf;
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+.minimap-biome:empty { display: none; }
+
+/* Full world map, north up. */
+.world-map {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: #060b0fb8;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: auto;
+  animation: world-map-in .22s ease both;
+}
+.world-map[hidden] { display: none; }
+@keyframes world-map-in { from { opacity: 0; } }
+.world-map-frame {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  width: min(1100px, 100%);
+  max-height: 100%;
+  padding: 14px;
+  border: 1px solid #ddd2b526;
+  border-radius: 8px;
+  background: #142019f0;
+  box-shadow: 0 20px 60px #0006;
+}
+.world-map-header { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.world-map-header strong { font-size: 13px; font-weight: 500; letter-spacing: .08em; color: #eee6d4; }
+.world-map-hint { flex: 1; min-width: 0; font-size: 10px; color: #ddd9cb9e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.world-map-hint kbd { margin: 0 3px; padding: 1px 5px; border: 1px solid #e9e0cb38; border-radius: 3px; font: inherit; font-size: 9px; }
+.cinematic-hud .world-map-close { width: 32px; height: 32px; padding: 0; border-radius: 50%; font-size: 12px; }
+.world-map-stage {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+  /* The map's own proportions (set once baked), capped by the viewport. */
+  aspect-ratio: var(--world-map-aspect, 1.25);
+  max-height: calc(100dvh - 150px);
+}
+.world-map-canvas { width: auto; height: auto; border-radius: 4px; box-shadow: 0 0 0 1px #e9e0cb26; cursor: pointer; }
+.world-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 10px;
+  color: #ece8dbd9;
+}
+.world-map-legend li { display: flex; align-items: center; gap: 6px; }
+.world-map-legend i { width: 10px; height: 10px; border-radius: 2px; box-shadow: inset 0 0 0 1px #0004; }
+
+/* The tour already frames the world; the dial stays but steps back. */
+.cinematic-hud.tour-active .minimap { opacity: .55; }
+
+@media (max-width: 767px), (max-height: 500px) {
+  .minimap-north { width: 14px; height: 14px; margin: -7px 0 0 -7px; font-size: 7px; }
+  .minimap-biome { font-size: 7px; padding: 2px 7px; letter-spacing: .1em; }
+  .world-map-frame { padding: 10px; gap: 8px; }
+  .world-map-hint { display: none; }
+  .world-map-header { justify-content: space-between; }
+  .world-map-legend { gap: 4px 10px; font-size: 9px; }
+}

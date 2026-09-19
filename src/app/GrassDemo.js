@@ -7,6 +7,7 @@ import { WorldCollisionSystem } from '../physics/WorldCollisionSystem.js';
 import { PlayerController } from '../player/PlayerController.js';
 import { WorldNavigation } from '../player/WorldNavigation.js';
 import { DemoUi } from '../ui/DemoUi.js';
+import { Minimap } from '../ui/Minimap.js';
 import { IrisTransition } from '../ui/IrisTransition.js';
 import { LoadingUi } from '../ui/LoadingUi.js';
 import { WaterSurface } from '../water/WaterSurface.js';
@@ -355,6 +356,14 @@ export class GrassDemo {
     // The pipeline owns the post-effect state the settings panel renders.
     this.pipeline = new CinematicPipeline(this.world, this.config);
     this.ui = new DemoUi(this.root, this.config, this.#createUiActions());
+    this.minimap = new Minimap({
+      root: this.ui.element,
+      terrain: this.world.terrainSampler,
+      config: this.config,
+      trees: this.trees?.trees ?? [],
+      locations: this.navigation.locations,
+      onTravel: (id) => this.navigation.teleport(id),
+    });
     if (isProfileRequested()) {
       this.profiler = new FrameProfiler();
       this.gpuCreationProbe = new GpuCreationProbe(this.world.renderer);
@@ -644,6 +653,7 @@ export class GrassDemo {
     this.pipeline.setUnderwater(this.water.underwater);
     time('render', () => this.pipeline.render({ occlusionEnabled: true, profiler }));
     this.ui.update(deltaSeconds);
+    this.minimap?.update(focus, this.world.camera);
 
     const captures = (this.water?.stats.cubeCaptures ?? 0)
       + (this.water?.stats.lakePlanarCaptures ?? 0)
@@ -703,7 +713,7 @@ export class GrassDemo {
     this.disposed = true;
     this.world?.renderer?.setAnimationLoop(null);
     for (const resource of [this.loading, this.pipeline, this.cinematicLighting,
-      this.meadow, this.wildGrass, this.understory, this.biome, this.coastalJungle, this.vegetationJobs, this.ui, this.iris, this.grass, this.trees, this.props,
+      this.meadow, this.wildGrass, this.understory, this.biome, this.coastalJungle, this.vegetationJobs, this.minimap, this.ui, this.iris, this.grass, this.trees, this.props,
       this.collisions, this.navigation, this.contactShadow, this.player, this.leaves, this.birds, this.rain, this.snowfall,
       this.boundaryBarrier, this.water, this.audio, this.environment, this.world]) {
       try { resource?.dispose?.(); } catch (error) { logger.warn('Demo cleanup failed.', error); }
