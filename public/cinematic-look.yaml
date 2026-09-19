@@ -5,7 +5,7 @@ terrain:
     enabled: true
     size: 1600
     width: 2400
-    # Reaches south past the alpine cirque's outer blend (z -930), so the whole
+    # Reaches north past the alpine cirque's outer blend (z -930), so the whole
     # ring of ridges lies inside the world bounds.
     depth: 1900
     center: [400, -150]
@@ -19,13 +19,13 @@ terrain:
         # steep, irregular valley rather than a sheer slot or benched terraces.
         cut: { floorWidth: 14, toe: 6, slope: 1.25, slopeVariation: 0.4, fillSlope: 0.9, meander: 14, roughness: 5 }
         points: [[-80, -250], [-125, -350], [-60, -440], [-150, -490], [-160, -550], [-125, -590], [-80, -620], [-55, -655], [-15, -710]]
-      - name: Meadow north beach road
+      - name: Meadow south beach road
         width: 5.5
         walkable: true
         terrainWidth: 26
         maxGrade: 0.16
         points: [[2, -5], [-40, 120], [-20, 260], [80, 420], [210, 520], [420, 550], [620, 500], [800, 420], [990, 320]]
-      - name: Foothill south beach trail
+      - name: Foothill north beach trail
         width: 4.8
         walkable: true
         terrainWidth: 24
@@ -34,6 +34,12 @@ terrain:
 grass:
   heightResolution: 2048
 collisions:
+  # The recovered level's WaterCollider walls its old round basin, which this
+  # layout turns into meadow and crosses with the lake's north arm; half of it
+  # stands up to 24 m out of the reshaped ground as invisible walls. The lake
+  # and river beds are walkable, so only the house keeps its mesh collider.
+  trimeshObjects:
+    - HouseCollider
   worldBounds:
     - { position: [1570, 80, -95], size: [1, 500, 1730] }
     - { position: [400, 80, 770], size: [2340, 500, 1] }

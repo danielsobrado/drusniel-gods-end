@@ -10,6 +10,7 @@ import { expandLandscape, mountainHeight } from '../src/world/ExpandedLandscape.
 import { createWaterGeometry } from '../src/water/waterGeometry.js';
 import { createWorldSpacePositions } from '../src/player/terrainColliderGeometry.js';
 import { coastX } from '../src/world/coast.js';
+import { lakeSignedDistance, resolveLakeShape } from '../src/world/LakeShape.js';
 
 let fixture;
 async function landscape() {
@@ -187,4 +188,18 @@ test('coast has dry beach, shallow water and a deep seabed beyond the separate i
     assert.ok(deep < sea.level - 85, `deep sea at ${z}`);
   }
   assert.ok(sampler.sampleHeight(720, 160) > config.water.position[1] + 20, 'dry land separates lake and sea away from the outlet');
+});
+
+// A ground teleport that sits under the lake or sea drops the player on the bed.
+test('ground travel destinations stand above the lake and the sea', async () => {
+  const { sampler, config } = await landscape();
+  const lake = resolveLakeShape(config);
+  for (const location of config.navigation.locations.filter(entry => entry.mode === 'ground')) {
+    const [x, z] = location.position;
+    const ground = sampler.sampleHeight(x, z);
+    if (lake && lakeSignedDistance(x, z, lake) < lake.margin) {
+      assert.ok(ground > lake.level + 0.5, `${location.id} is under the lake`);
+    }
+    if (config.water.sea?.enabled) assert.ok(ground > config.water.sea.level + 0.5, `${location.id} is under the sea`);
+  }
 });

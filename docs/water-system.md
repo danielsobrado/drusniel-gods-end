@@ -26,7 +26,7 @@ depthWrite = false
 name = LakeWater
 ```
 
-`WaterCollider` remains the authored helper used for surface classification and the recovered Rapier collision path. It is not the visible lake.
+`WaterCollider` remains the authored helper used for surface classification. The recovered level also builds a Rapier trimesh from it; the expanded layout does not (see `collisions` in [Config reference](config-reference.md)). It is not the visible lake.
 
 ## Effective reference parameters
 

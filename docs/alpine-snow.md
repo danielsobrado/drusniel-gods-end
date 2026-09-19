@@ -10,7 +10,7 @@ The summit is a purpose-built snowy cirque centered on `[-25, -655]`. The centra
 
 The mountain field outside the cirque (`mountainHeight`) is built the same way. Each peak has a pointed summit and concave flanks, not a Gaussian dome. A domain-warped ridged multifractal (`MountainNoise.js`) cuts the flanks into branching arêtes and gullies. Its finer octaves follow the coarser ridges and are damped where the slope is already steep, so ridges stay crisp and valleys stay smooth.
 
-The whole cirque, out to its outer blend radius (z -930), lies inside the terrain and the world bounds: the expanded terrain reaches z -1100 and the south boundary wall stands at z -960. The terrain used to stop at z -800 and the boundary at z -770, which cut through the south rim. From the basin that showed as a torn black wedge where the Snow Peak gorge ran off the end of the mesh, and the force field drew a cyan band along the rim.
+The whole cirque, out to its outer blend radius (z -930), lies inside the terrain and the world bounds: the expanded terrain reaches z -1100 and the north boundary wall stands at z -960. The terrain used to stop at z -800 and the boundary at z -770, which cut through the north rim. From the basin that showed as a torn black wedge where the Snow Peak gorge ran off the end of the mesh, and the force field drew a cyan band along the rim.
 
 The walls carry geological structure (`terrain.alpine.landform`), none of which reaches the walkable basin floor:
 

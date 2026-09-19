@@ -470,9 +470,10 @@ pebbleMaxSize: 0.8
 activeDistance: 50
 inactiveDistance: 70
 trimeshObjects:
-  - WaterCollider
   - HouseCollider
 ```
+
+The recovered level also lists `WaterCollider`. The expanded layout drops it: the mesh walls the original round basin, which the layout turns into meadow and crosses with the lake's north arm, so it stood out of the reshaped ground as invisible walls. The lake and river beds are walkable.
 
 Collision mapping:
 

@@ -22,16 +22,16 @@ export function createBoundaryGeometry(records, sampler, { height = 12 } = {}) {
   zWalls.sort((a, b) => a.position[2] - b.position[2]);
   const west = xWalls[0].position[0] + xWalls[0].size[0] / 2;
   const east = xWalls[1].position[0] - xWalls[1].size[0] / 2;
-  const south = zWalls[0].position[2] + zWalls[0].size[2] / 2;
-  const north = zWalls[1].position[2] - zWalls[1].size[2] / 2;
+  const north = zWalls[0].position[2] + zWalls[0].size[2] / 2;
+  const south = zWalls[1].position[2] - zWalls[1].size[2] / 2;
   // Authored collider lengths differ slightly. Intersect the inner face lines
   // to close the visual corners rather than reproducing gaps or overhangs.
-  if (east <= west || north <= south) {
+  if (east <= west || south <= north) {
     throw new Error('Boundary collider faces do not enclose a positive area.');
   }
-  const perimeter = 2 * (east - west + north - south);
+  const perimeter = 2 * (east - west + south - north);
   if (perimeter > 100000) throw new Error('Boundary perimeter exceeds the geometry budget.');
-  const corners = [[west, south], [east, south], [east, north], [west, north], [west, south]];
+  const corners = [[west, north], [east, north], [east, south], [west, south], [west, north]];
   const positions = [], uvs = [], indices = [];
   let distance = 0;
   const addColumn = (x, z, u) => {
@@ -50,7 +50,7 @@ export function createBoundaryGeometry(records, sampler, { height = 12 } = {}) {
     }
     distance += length;
   }
-  addColumn(west, south, 1);
+  addColumn(west, north, 1);
   const columns = positions.length / 6;
   for (let i = 0; i < columns - 1; i++) {
     const a = i * 2;

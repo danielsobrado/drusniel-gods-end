@@ -334,7 +334,8 @@ export class WaterSurface {
     this.uniforms.sunDirection.value.copy(lighting.position).normalize();
     this.uniforms.sunStrength.value = (this.enhanced ? 1 : this.params.sunStrength)
       * Math.min(lighting.directionalIntensity / 3, 1);
-    this.#updateUnderwater(lighting);
+    // Without a camera nothing can be under water; `underwater` keeps its default.
+    if (this.camera) this.#updateUnderwater(lighting);
     const position = player.getPosition();
     const feetY = position.y - player.metrics.rootToFeet;
     const river = this.river?.sample(position.x, position.z);

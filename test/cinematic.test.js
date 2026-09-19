@@ -70,13 +70,16 @@ test('foot placement reduces ground error and leaves airborne poses untouched', 
   const root = rig();
   const foot = root.getObjectByName('LeftFoot');
   const position = new THREE.Vector3();
-  const ground = 0.1;
-  const placement = new FootPlacement(root, { sampleHeight: () => ground }, 2);
-  const target = ground + 2 * 0.015;
   const before = foot.getWorldPosition(position).y;
-  placement.update(false, 0);
+  // A planted foot (soles at its bind ankle height below it) over ground 5 cm
+  // lower, as the downhill foot on a slope: the ankle should head for that ground.
+  const placement = new FootPlacement(root, { sampleHeight: () => ground }, 2);
+  const soles = before - placement.ankleHeight;
+  const ground = soles - 0.05;
+  const target = ground + placement.ankleHeight;
+  placement.update(false, soles);
   assert.equal(foot.getWorldPosition(position).y, before);
-  placement.update(true, 0);
+  placement.update(true, soles);
   assert.ok(Math.abs(foot.getWorldPosition(position).y - target) < Math.abs(before - target));
   assert.ok(root.getObjectByName('LeftLeg').quaternion.toArray().every(Number.isFinite));
 });

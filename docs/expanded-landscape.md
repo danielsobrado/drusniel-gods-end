@@ -19,8 +19,8 @@ Configured routes can opt into terrain conformation with `walkable: true`, `terr
 The current exploration layout adds three walkable routes:
 
 - **Snow climb** connects the mountain approach to Snow Pass and Snow Peak.
-- **Meadow north beach road** runs from the central meadow around the north side of the lake to Beach North.
-- **Foothill south beach trail** runs from the mountain foothills below the lake to Beach South.
+- **Meadow south beach road** runs from the central meadow around the south side of the lake to Beach South.
+- **Foothill north beach trail** runs from the mountain foothills north of the lake to Beach North.
 
 All three stay inside the playable collision bounds. Ground teleports resolve their final Y coordinate from the post-conformation terrain sampler, so terrain edits do not require hardcoded teleport heights.
 
@@ -42,7 +42,7 @@ Water quality follows the existing quality setting: Performance uses the inland 
 
 ## Travel and scenic tour
 
-The navigation menu is data-driven from `navigation.locations`. The current destinations are Start, River, Lake, Beach North, Beach South, Snow Pass, Snow Peak, Offshore and Deep Sea. Ground destinations sample terrain at travel time; Offshore and Deep Sea use fly mode and explicit camera targets.
+The navigation menu is data-driven from `navigation.locations`. The current destinations are Start, River, Lake, Beach South, Coastal Jungle, Beach North, Snow Pass, Snow Peak, Offshore and Deep Sea. Ground destinations sample terrain at travel time; Offshore and Deep Sea use fly mode and explicit camera targets.
 
 The scenic tour uses the configured `navigation.scenicTour.riverViews` rather than hardcoded river fractions. The current viewpoints start near the alpine headwaters, follow the river through the inland landscape and lake outlet, and finish near the river mouth before blending the camera target toward the sea. Arc-length traversal, terrain clearance and the eased return to the saved camera remain unchanged.
 
