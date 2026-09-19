@@ -143,6 +143,14 @@ export class FootPlacement {
       ground: 0,
       lift: 0,
     })).filter(chain => chain.foot?.isBone && chain.knee?.isBone && chain.hip?.isBone);
+    // The pose each solved bone had before the solve, and the one it was left
+    // in. No clip keys a standing foot, so without restoring it the next solve
+    // would stack its correction on this one and twist the foot frame by frame.
+    this.solved = this.chains.flatMap(chain => [chain.hip, chain.knee, chain.foot]).map(bone => ({
+      bone,
+      input: bone.quaternion.clone(),
+      output: null,
+    }));
     this.ankleHeight = this.chains.length ? ankleHeightFraction(model, this.chains[0].foot) * height : 0;
     this.hipPosition = new THREE.Vector3();
     this.kneePosition = new THREE.Vector3();
@@ -170,6 +178,12 @@ export class FootPlacement {
 
   update(grounded, solesY, deltaSeconds = 1 / 60) {
     const settle = rate => 1 - Math.exp(-rate * Math.min(deltaSeconds, 0.1));
+    // A bone still holding last frame's solve was not rewritten by a clip:
+    // hand it back its unsolved pose before measuring.
+    for (const entry of this.solved) {
+      if (entry.output?.equals(entry.bone.quaternion)) entry.bone.quaternion.copy(entry.input);
+      else entry.input.copy(entry.bone.quaternion);
+    }
     // Measure the animated feet with the pelvis where the animation put it.
     this.model.position.y = this.baseY;
     this.model.updateMatrixWorld(true);
@@ -236,5 +250,6 @@ export class FootPlacement {
         this.#rotateWorld(chain.foot, this.rotation.setFromAxisAngle(this.axis.normalize(), tilt));
       }
     }
+    for (const entry of this.solved) (entry.output ??= new THREE.Quaternion()).copy(entry.bone.quaternion);
   }
 }

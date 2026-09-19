@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "PowerShell(npx eslint src/ui/LoadingUi.js; $s='F:\\\\drusniel-cache\\\\tmp\\\\claude\\\\f--Development-grass-test\\\\f87563f5-35dd-40a6-91e9-c71ba7918e5f\\\\scratchpad'; node \"$s\\\\shot.mjs\" \"$s\\\\load2\")",
-      "PowerShell(git fetch --all)"
+      "PowerShell(git fetch --all)",
+      "Bash(node --test test/cinematic.test.js)"
     ]
   }
 }

@@ -80,3 +80,18 @@ test('foot placement reduces ground error and leaves airborne poses untouched', 
   assert.ok(Math.abs(foot.getWorldPosition(position).y - target) < Math.abs(before - target));
   assert.ok(root.getObjectByName('LeftLeg').quaternion.toArray().every(Number.isFinite));
 });
+
+// The generated idle keys no Foot track, so nothing but FootPlacement writes the
+// foot while standing; its correction must not compound frame over frame.
+test('foot placement settles on a slope when no clip rewrites the legs', () => {
+  const root = rig();
+  const bones = ['LeftUpLeg', 'LeftLeg', 'LeftFoot'].map(name => root.getObjectByName(name));
+  const rest = bones.map(bone => bone.quaternion.clone());
+  const placement = new FootPlacement(root, { sampleHeight: (x, z) => 0.1 + x * 0.3 + z * 0.2 }, 2);
+  for (let frame = 0; frame < 60; frame++) placement.update(true, 0);
+  // A single frame's tilt is capped at 0.45 rad; a compounding one is not.
+  assert.ok(bones[2].quaternion.angleTo(rest[2]) < 0.5, `foot twisted ${bones[2].quaternion.angleTo(rest[2])} rad`);
+  const settled = bones.map(bone => bone.quaternion.clone());
+  for (let frame = 0; frame < 60; frame++) placement.update(true, 0);
+  bones.forEach((bone, index) => assert.ok(bone.quaternion.angleTo(settled[index]) < 1e-4, bone.name));
+});
