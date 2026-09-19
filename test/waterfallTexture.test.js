@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createWaterfallTexture } from '../src/water/waterfallTexture.js';
+import { createSprayPuffTexture, createWaterfallTexture } from '../src/water/waterfallTexture.js';
 
 test('waterfall detail is deterministic, tiles seamlessly, spreads evenly and streaks down the fall', () => {
   const a = createWaterfallTexture(), b = createWaterfallTexture();
@@ -46,5 +46,32 @@ test('waterfall detail is deterministic, tiles seamlessly, spreads evenly and st
   } finally {
     a.dispose();
     b.dispose();
+  }
+});
+
+test('spray puffs are soft, clear at the quad edge, dense inside and different in each channel', () => {
+  const puffs = createSprayPuffTexture();
+  try {
+    const { data, width: size } = puffs.image;
+    const at = (x, y, channel) => data[(y * size + x) * 4 + channel];
+    const means = [];
+    for (let channel = 0; channel < 4; channel += 1) {
+      let edge = 0, inner = 0, innerCount = 0;
+      for (let y = 0; y < size; y += 1) for (let x = 0; x < size; x += 1) {
+        const radius = Math.hypot((x + 0.5) / size - 0.5, (y + 0.5) / size - 0.5) * 2;
+        const value = at(x, y, channel);
+        if (x === 0 || y === 0 || x === size - 1 || y === size - 1) edge = Math.max(edge, value);
+        if (radius < 0.35) { inner += value; innerCount += 1; }
+      }
+      // A square billboard must never show its outline.
+      assert.equal(edge, 0, `channel ${channel} edge`);
+      means.push(inner / innerCount);
+      assert.ok(means[channel] > 140, `channel ${channel} core ${means[channel].toFixed(0)}`);
+    }
+    let differing = 0;
+    for (let k = 0; k < size * size; k += 1) if (Math.abs(data[k * 4] - data[k * 4 + 1]) > 24) differing += 1;
+    assert.ok(differing > size * size * 0.1, 'variants are distinct shapes');
+  } finally {
+    puffs.dispose();
   }
 });

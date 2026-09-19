@@ -382,8 +382,8 @@ export function createCinematicWaterMaterial({
     // its travel time, so they lengthen as the water accelerates and bunch up
     // at the foot. Slow patches thin and thicken the white, and it frays into
     // separate strands toward the banks. Below a drop two churn layers,
-    // drifting at different speeds, boil in the plunge and trail downstream
-    // as the impact decays.
+    // drifting at different speeds, boil in the plunge and break into foam
+    // patches trailing downstream as the impact decays.
     const steep = surface.z.smoothstep(0.14, 0.75).mul(current);
     const plunge = surface.w.mul(current);
     const fall = vec3(0, 1, 1).toVar(); // foam, fringe opacity, foam shade
@@ -403,8 +403,10 @@ export function createCinematicWaterMaterial({
       const thickness = strands.mul(0.6).add(sheets.mul(0.4));
       const dense = thickness.smoothstep(coverage.oneMinus(), coverage.oneMinus().add(0.2));
       const veil = sheets.smoothstep(0.15, 0.85).mul(coverage).mul(0.55);
-      const settle = plunge.sqrt().mul(steep.mul(0.6).oneMinus()).oneMinus().mul(0.8);
-      const boil = churn.smoothstep(settle, settle.add(0.2)).mul(plunge.mul(4).min(1));
+      // Dense white only right under the drop, breaking into foam patches
+      // with dark water between them within a few metres.
+      const settle = mix(float(0.66), float(0.4), plunge.pow(1.5).mul(steep.mul(0.6).oneMinus()));
+      const boil = churn.smoothstep(settle, settle.add(0.08)).mul(plunge.mul(4).min(1));
       fall.assign(vec3(
         dense.max(veil).max(boil),
         mix(float(1), thickness.smoothstep(0.32, 0.6), steep.mul(inside.oneMinus())),

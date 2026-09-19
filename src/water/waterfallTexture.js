@@ -100,7 +100,10 @@ export function createSprayPuffTexture({ size = 128, seed = 7723 } = {}) {
       // Radius 1 at the square's inscribed circle; the noise pushes the edge in and out.
       const radius = Math.hypot(u - 0.5, v - 0.5) * 2 * (1 - detail * 0.5);
       const falloff = 1 - THREE.MathUtils.smoothstep(radius, 0.2, 0.95);
-      const density = THREE.MathUtils.clamp(falloff * (0.72 + detail * 1.1), 0, 1);
+      // Zero on the border, however far the noise pushes the edge, so the
+      // square billboard never shows its outline.
+      const border = 1 - THREE.MathUtils.smoothstep(Math.max(Math.abs(u - 0.5), Math.abs(v - 0.5)) * 2, 0.84, 0.98);
+      const density = THREE.MathUtils.clamp(falloff * border * (0.72 + detail * 1.1), 0, 1);
       data[(y * size + x) * 4 + channel] = Math.round(density * 255);
     }
   }

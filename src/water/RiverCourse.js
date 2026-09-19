@@ -11,6 +11,25 @@ const DEFAULT_MOUTH_DEPTH = 2.4;
 const FLAT_SPEED = 1.4;
 const FALL_SPEED = 6.5;
 const SPEED_RESPONSE = 4;
+// A river crossing a slope cuts into it instead of standing above its low
+// side: the water settles BANK_FREEBOARD below the lower bank, sampled
+// BANK_PROBES metres past each side of the channel. The carve then leaves the
+// bank standing that high from BANK_CREST_START to BANK_CREST_END metres past
+// the edge, rounding off beyond it where the land falls away.
+const BANK_PROBES = [1, 2.4];
+const BANK_FREEBOARD = 0.3;
+const BANK_CREST_START = 0.6;
+const BANK_CREST_END = 1.6;
+const BANK_ROUNDING = 0.35;
+
+function lowestBank(sampleHeight, p, tangent, width) {
+  let lowest = Infinity;
+  for (const beyond of BANK_PROBES) for (const side of [-1, 1]) {
+    const across = side * (width / 2 + beyond);
+    lowest = Math.min(lowest, sampleHeight(p.x - tangent.z * across, p.z + tangent.x * across));
+  }
+  return lowest;
+}
 
 export function measureRiverSurface(samples) {
   let surfaceDistance = 0, impact = 0, previousSlope = 0, flowSpeed = FLAT_SPEED, travelTime = 0;
@@ -102,7 +121,6 @@ export class RiverCourse {
       const f = t * (points.length - 1) - q;
       const width = THREE.MathUtils.lerp(points[q].width, points[q + 1].width, f)
         * (1 + Math.sin(t * count * 0.12) * 0.065 + Math.sin(t * count * 0.037) * 0.08);
-      const rawY = sampleHeight(p.x, p.z) - 1.15;
       const outletProgress = outlet && t >= outlet.startFraction
         ? clamp((t - outlet.startFraction) / Math.max(0.0001, 1 - outlet.startFraction), 0, 1)
         : 0;
@@ -111,7 +129,8 @@ export class RiverCourse {
         : lakeLevel;
       const y = outletProgress > 0
         ? Math.max(outlet.level, Math.min(previousY, outletTarget))
-        : Math.max(lakeLevel, Math.min(previousY, rawY));
+        : Math.max(lakeLevel, Math.min(previousY, sampleHeight(p.x, p.z) - 1.15,
+          lowestBank(sampleHeight, p, tangent, width) - BANK_FREEBOARD));
       if (i) distance += Math.hypot(p.x - this.samples[i - 1].x, p.z - this.samples[i - 1].z);
       const bankBlend = THREE.MathUtils.lerp(
         DEFAULT_BANK_BLEND,
@@ -200,7 +219,17 @@ export class RiverCourse {
     const cross = clamp(1 + p.edge / (p.width * 0.5), 0, 1);
     const bed = p.y - depth + Math.pow(cross, 3) * depth * 0.72;
     const blend = 1 - ease(-0.1, p.bankBlend, p.edge);
-    return Math.min(original, THREE.MathUtils.lerp(original, bed, blend));
+    const carved = Math.min(original, THREE.MathUtils.lerp(original, bed, blend));
+    // No bank inside the channel, nor on the lake crossing, where the lake's
+    // own basin holds the water.
+    if (p.edge <= 0 || (p.outletProgress <= 0 && p.y <= this.lakeLevel + 0.05)) return carved;
+    // The bank holds the water: past the edge the ground rises to stand
+    // BANK_FREEBOARD above the surface, and rounds off beyond the crest to
+    // meet land that falls away.
+    const past = Math.max(0, p.edge - BANK_CREST_END);
+    const bank = THREE.MathUtils.lerp(bed, p.y + BANK_FREEBOARD, ease(0, BANK_CREST_START, p.edge))
+      - past * past * BANK_ROUNDING;
+    return Math.max(carved, bank);
   }
 
   createTexture() {

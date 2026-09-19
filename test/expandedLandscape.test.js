@@ -84,6 +84,28 @@ test('river descends from snow country through the lake and drains into the sea'
   assert.ok(sampler.sampleHeight(1045, 80) < config.water.sea.level);
 });
 
+test('river banks hold the water: past each channel edge the ground rises above the surface', async () => {
+  const { expansion } = await landscape();
+  const river = expansion.river;
+  // The shaped terrain itself; the mesh places its vertices on this function.
+  const ground = (x, z) => river.carve(x, z, expansion.baseHeight(x, z));
+  const spills = [];
+  for (let i = 0; i < river.samples.length; i += 2) {
+    const p = river.samples[i];
+    if (p.outletProgress <= 0 && p.y <= river.lakeLevel + 0.05) continue; // the lake is its own basin
+    for (const side of [-1, 1]) {
+      // Just past the edge, which erosion moves up to a metre either way.
+      let bank = -Infinity;
+      for (const beyond of [0.8, 1.6, 2.4, 3.2]) {
+        const across = side * (p.width / 2 + beyond);
+        bank = Math.max(bank, ground(p.x - p.dz * across, p.z + p.dx * across));
+      }
+      if (bank < p.y) spills.push(`${i} side ${side}: ${(p.y - bank).toFixed(2)} m`);
+    }
+  }
+  assert.deepEqual(spills.slice(0, 12), [], `${spills.length} bank spills`);
+});
+
 test('corridor subdivision has no unmatched interior edges or inverted triangles', async () => {
   const { mesh } = await landscape();
   const { index, attributes: { position: p } } = mesh.geometry;

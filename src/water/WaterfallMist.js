@@ -4,7 +4,6 @@ import {
   positionGeometry, positionWorld, sin, smoothstep, texture, time, uniform, uv, vec2, vec3, vec4,
 } from 'three/tsl';
 import { createSeededRandom } from '../core/math.js';
-import { foliageLight } from '../rendering/CinematicLighting.js';
 import { findRiverFalls } from './RiverCourse.js';
 import { createSprayPuffTexture } from './waterfallTexture.js';
 
@@ -12,15 +11,23 @@ const MIST_SEED = 6089;
 const QUALITY_SHARE = Object.freeze({ performance: 0.35, balanced: 0.6, high: 0.85, ultra: 1 });
 // Mist beyond this is lost in the haze, so its draw is skipped.
 const DRAW_DISTANCE = 650;
-// Puffs this close to the camera collapse; they fade out over the next few metres.
+// Puffs this close to the camera collapse; they thin out over the next few
+// metres, so walking into the spray does not white out the view.
 const NEAR_COLLAPSE = 1.5;
-const NEAR_FADE = 7;
+const NEAR_FADE = 10;
 // Height over the terrain or water across which a puff fades in, so it never
 // shows the straight line where a billboard cuts into the ground.
 const SOFT_HEIGHT = 0.8;
+// A bigger fall throws more puffs. Past DENSITY_COUNT of them each is thinner,
+// so a big fall's cloud grows more in size than in density.
+const DENSITY_COUNT = 48;
 const MIE_G = 0.6;
-// Brightest foliageLight.strength; sunlight is expressed relative to it.
-const FULL_SUN_STRENGTH = 0.8;
+// Light scattered forward toward a viewer looking into the sun, and the share
+// of skylight: the hemisphere's sky side weighs more than its ground side, and
+// SKY_GAIN stands in for the environment map lighting the rest of the scene.
+const PHASE_GAIN = 0.9;
+const HEMISPHERE_SKY_SHARE = 0.65;
+const SKY_GAIN = 1.4;
 const TWO_PI = Math.PI * 2;
 
 /**
@@ -37,6 +44,7 @@ export function createMistParticles(samples, falls, random = createSeededRandom(
     const foot = samples[fall.foot];
     const strength = THREE.MathUtils.clamp(fall.drop / 25, 0.35, 1.5);
     const count = Math.round(THREE.MathUtils.clamp(12 + fall.drop * 0.9, 12, 64));
+    const thin = Math.min(1, Math.sqrt(DENSITY_COUNT / count));
     const faceStart = Math.round(fall.lip + (fall.foot - fall.lip) * 0.35);
     for (let k = 0; k < count; k += 1) {
       const face = random() < 0.25;
@@ -50,8 +58,8 @@ export function createMistParticles(samples, falls, random = createSeededRandom(
       const lateral = (random() - 0.5) * 0.8;
       const rise = (0.45 + random() * 0.9) * (0.6 + 0.4 * strength) * (face ? 0.6 : 1);
       const lifetime = face ? 2.5 + random() * 2 : 3.5 + random() * 3;
-      const grow = 2.2 + random() * 1.4;
-      const opacity = (0.26 + random() * 0.2) * (0.75 + 0.25 * strength) * (face ? 0.6 : 1);
+      const grow = 2 + random() * 1.2;
+      const opacity = (0.24 + random() * 0.18) * thin * (face ? 0.6 : 1);
       particles.push({
         priority: random(),
         spawn: [p.x - p.dz * across + p.dx * along, p.y + lift, p.z + p.dx * across + p.dz * along, p.y],
@@ -72,8 +80,9 @@ export function createMistParticles(samples, falls, random = createSeededRandom(
 // puff rises and slows as it spreads, drifts downstream, turns slowly and fades
 // in and out over its life. Lit like the snow powder spray (after Snowflow's
 // spray shading, MIT): as a sphere with a lit and a shaded side, plus a strong
-// forward-scattering lobe, so spray glows when seen against the sun.
-function createMistMaterial(puffs, terrain, intensity) {
+// forward-scattering lobe, so spray glows when seen against the sun. The sun
+// and sky terms are the scene's own lights, so the mist dims with the night.
+function createMistMaterial(puffs, terrain, intensity, light) {
   const spawn = attribute('mistSpawn', 'vec4');
   const motion = attribute('mistMotion', 'vec4');
   const shape = attribute('mistShape', 'vec4');
@@ -123,8 +132,7 @@ function createMistMaterial(puffs, terrain, intensity) {
   const facing = vec2(local.x.mul(spin.x).sub(local.y.mul(spin.y)), local.x.mul(spin.y).add(local.y.mul(spin.x)));
   const radius2 = dot(facing, facing);
   const normalView = normalize(vec3(facing.x, facing.y, radius2.oneMinus().max(0).sqrt()));
-  const lightView = normalize(cameraViewMatrix.mul(vec4(foliageLight.direction, 0)).xyz);
-  const sun = foliageLight.color.mul(foliageLight.strength.div(FULL_SUN_STRENGTH));
+  const lightView = normalize(cameraViewMatrix.mul(vec4(light.direction, 0)).xyz);
   const diffuse = dot(normalView, lightView).mul(0.5).add(0.5);
   // Cornette-Shanks phase; mu is 1 looking straight into the sun.
   const mu = lightView.z.negate();
@@ -132,7 +140,7 @@ function createMistMaterial(puffs, terrain, intensity) {
   const phase = mu.mul(mu).add(1).mul((3 / (8 * Math.PI)) * (1 - g2) / (2 + g2))
     .div(mu.mul(-2 * MIE_G).add(1 + g2).pow(1.5));
   material.colorNode = color('#dcebf2')
-    .mul(sun.mul(diffuse.mul(0.6).add(phase.mul(1.2))).add(foliageLight.fill.mul(1.2)));
+    .mul(light.sun.mul(diffuse.mul(0.6).add(phase.mul(PHASE_GAIN))).add(light.sky.mul(SKY_GAIN)));
   return material;
 }
 
@@ -144,6 +152,14 @@ export class WaterfallMist {
     this.sites = particles.sites;
     this.total = particles.count;
     this.intensity = uniform(1);
+    // Radiance a white diffuse surface takes from the sun (facing it) and from
+    // the sky, refreshed from the frame's lighting.
+    this.light = {
+      direction: uniform(new THREE.Vector3(0, 1, 0)),
+      sun: uniform(new THREE.Color(0.8, 0.8, 0.8)),
+      sky: uniform(new THREE.Color(0.15, 0.17, 0.2)),
+    };
+    this.scratch = new THREE.Color();
     this.frustum = new THREE.Frustum();
     this.viewProjection = new THREE.Matrix4();
     this.cameraPosition = new THREE.Vector3();
@@ -154,7 +170,7 @@ export class WaterfallMist {
     this.geometry.setAttribute('mistSpawn', new THREE.InstancedBufferAttribute(particles.spawn, 4));
     this.geometry.setAttribute('mistMotion', new THREE.InstancedBufferAttribute(particles.motion, 4));
     this.geometry.setAttribute('mistShape', new THREE.InstancedBufferAttribute(particles.shape, 4));
-    this.material = createMistMaterial(this.puffs, terrain, this.intensity);
+    this.material = createMistMaterial(this.puffs, terrain, this.intensity, this.light);
     this.mesh = new THREE.InstancedMesh(this.geometry, this.material, this.total);
     this.mesh.name = 'Waterfall mist';
     // Every puff is placed by positionNode, so the instance transforms stay
@@ -184,8 +200,19 @@ export class WaterfallMist {
   }
 
   // Draws only while some fall's mist is near enough and inside the view.
-  update(camera) {
+  // `lighting` is the environment's current light set (see EnvironmentController).
+  update(camera, lighting) {
     if (!this.mesh || !camera) return;
+    if (lighting) {
+      const { direction, sun, sky } = this.light;
+      direction.value.copy(lighting.position).normalize();
+      sun.value.copy(lighting.color).multiplyScalar(lighting.directionalIntensity / Math.PI);
+      sky.value.copy(lighting.hemisphereSkyColor)
+        .lerp(lighting.hemisphereGroundColor, 1 - HEMISPHERE_SKY_SHARE)
+        .multiplyScalar(lighting.hemisphereIntensity)
+        .add(this.scratch.copy(lighting.ambientColor).multiplyScalar(lighting.ambientIntensity))
+        .multiplyScalar(1 / Math.PI);
+    }
     camera.updateMatrixWorld();
     this.viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     this.frustum.setFromProjectionMatrix(this.viewProjection, camera.coordinateSystem);
