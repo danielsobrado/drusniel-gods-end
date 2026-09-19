@@ -13,6 +13,7 @@ export function smoothCoverage(start, end, distance) {
 /** Cumulative intervals share the same noise test: adjacent levels never leave a coverage hole. */
 export function vegetationLodWeights(distance, { centers, blend = 0.15, far, available = [true, true, true, true] }, target = [0, 0, 0, 0]) {
   target.fill(0);
+  if (distance >= far) return target;
   let remaining = 1;
   for (let i = 0; i < centers.length; i++) {
     const after = smoothCoverage(centers[i] * (1 - blend), centers[i] * (1 + blend), distance);

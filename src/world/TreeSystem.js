@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu';
 import {
-  attribute, color, dot, materialColor, mix, positionLocal, reference, smoothstep, texture, uv, vec3, vec4,
+  attribute, color, dot, materialColor, mix, positionGeometry, positionLocal, reference, smoothstep, texture, uv, vec3, vec4,
 } from 'three/tsl';
 import { adventureCanopyColor } from '../rendering/AdventurePalette.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
@@ -221,9 +221,9 @@ export class TreeSystem {
             : new THREE.MeshStandardNodeMaterial().copy(source);
           if (!foliage) {
             material.colorNode = materialColor.mul(attribute('lodTint', 'vec3'));
-            const base = positionLocal, bend = attribute('lodRootBend', 'vec2');
-            material.positionNode = base.add(vec3(0, dot(bend, base.xz)
-              .mul(smoothstep(0, this.rootSettings.conformHeight, base.y).oneMinus()), 0));
+            const base = positionGeometry, bend = attribute('lodRootBend', 'vec2');
+            material.positionNode = positionLocal.add(attribute('lodUp', 'vec3').mul(dot(bend, base.xz)
+              .mul(smoothstep(0, this.rootSettings.conformHeight, base.y).oneMinus())));
           }
           return material;
         },

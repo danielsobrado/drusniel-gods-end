@@ -37,6 +37,7 @@ test('effective config uses the runtime YAML file order', async () => {
     'characters.yaml',
     'reference-biome.yaml',
     'coastal-jungle-runtime.yaml',
+    'vegetation-lod.yaml',
     'visual-refinement.yaml',
   ]);
 

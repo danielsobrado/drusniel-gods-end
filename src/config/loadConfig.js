@@ -22,8 +22,8 @@ export const CONFIG_FILES = [
   'characters.yaml',
   'reference-biome.yaml',
   'coastal-jungle-runtime.yaml',
-  'visual-refinement.yaml',
   'vegetation-lod.yaml',
+  'visual-refinement.yaml',
 ];
 
 function isRecord(value) {

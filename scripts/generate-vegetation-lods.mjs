@@ -2,9 +2,10 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import { cloneDocument, mergeDocuments, prune, weld, simplifyPrimitive, draco, unpartition } from '@gltf-transform/functions';
+import { cloneDocument, mergeDocuments, prune, weld, simplifyPrimitive, draco, unpartition, dedup, textureCompress } from '@gltf-transform/functions';
 import draco3d from 'draco3dgltf';
 import { MeshoptSimplifier } from 'meshoptimizer';
+import sharp from 'sharp';
 
 const directory = 'public/Assets/terrain/vegetation-lods';
 await mkdir(directory, { recursive: true });
@@ -65,6 +66,7 @@ function thinCards(doc, ratio) {
 }
 
 const manifest = { version: 1, variants: {} };
+const bundles = new Map();
 async function generate(source, nodeName, key, tree) {
   const full = cloneDocument(source);
   const root = select(full, nodeName); root.setName(key);
@@ -78,7 +80,9 @@ async function generate(source, nodeName, key, tree) {
       lod.getRoot().listScenes()[0].listChildren()[0].setName(`${key}_${index === 0 ? 'Medium' : 'LowMesh'}`);
       thinCards(lod, ratio);
       for (const mesh of lod.getRoot().listMeshes()) for (const primitive of mesh.listPrimitives()) {
-        if (primitive.getMaterial()?.getAlphaMode() !== 'MASK') simplifyPrimitive(primitive,
+        // Snow caps have coincident seam vertices. Keep their closed source topology;
+        // simplifying disconnected seams independently opens visible cracks.
+        if (primitive.getMaterial()?.getAlphaMode() !== 'MASK' && !/snow/i.test(primitive.getMaterial()?.getName() ?? '')) simplifyPrimitive(primitive,
           { simplifier: MeshoptSimplifier, ratio, error: index === 0 ? 0.003 : 0.01 });
       }
       await lod.transform(prune());
@@ -88,10 +92,11 @@ async function generate(source, nodeName, key, tree) {
     // GLTFLoader reads one scene. Move both levels under it before serialization.
     const scenes = output.getRoot().listScenes();
     for (const scene of scenes.slice(1)) { for (const node of scene.listChildren()) scenes[0].addChild(node); scene.dispose(); }
-    await output.transform(prune(), unpartition(), draco({ quantizePosition: 16, quantizeTexcoord: 14 }));
-    await io.write(`${directory}/${key}.glb`, output);
+    const bundle = key.startsWith('jungle-') ? 'jungle' : 'forest';
+    if (bundles.has(bundle)) mergeDocuments(bundles.get(bundle), output); else bundles.set(bundle, output);
   }
-  manifest.variants[key] = { tree, triangles: counts, mesh: tree ? `${key}.glb` : null, atlas: `${key}.png` };
+  manifest.variants[key] = { tree, triangles: counts, mesh: tree ? `${key.startsWith('jungle-') ? 'jungle' : 'forest'}.glb` : null,
+    medium: `${key}_Medium`, lowMesh: `${key}_LowMesh`, atlas: `${key}.webp` };
   console.log(`${key}: ${counts.join(' → ')} triangles`);
 }
 for (let type = 1; type <= 19; type++) {
@@ -104,5 +109,13 @@ for (const node of jungle.getRoot().listNodes()) {
   const name = node.getName();
   const key = name.replace(/_instances$/, '');
   await generate(jungle, name, `jungle-${key}`, /^(background_tree|tree|palm|ForegroundPalm)/.test(key));
+}
+for (const [name, bundle] of bundles) {
+  const scenes = bundle.getRoot().listScenes();
+  for (const scene of scenes.slice(1)) { for (const node of scene.listChildren()) scenes[0].addChild(node); scene.dispose(); }
+  await bundle.transform(dedup(), prune(), unpartition(),
+    textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [1024, 1024], quality: 82, effort: 100 }),
+    draco({ quantizePosition: 16, quantizeTexcoord: 14 }));
+  await io.write(`${directory}/${name}.glb`, bundle);
 }
 await writeFile(`${directory}/manifest.json`, JSON.stringify(manifest, null, 2) + '\n');

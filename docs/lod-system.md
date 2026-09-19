@@ -10,7 +10,27 @@ The project uses LOD for:
 
 These systems use different strategies because their rendering problems are different.
 
-Grass uses a **camera-centered tile grid with multiple prebuilt geometries**. Trees use **high/low model pairs with distance-based cross-fading and final distance culling**.
+Grass uses a **camera-centered tile grid with four prebuilt mesh levels plus distant clump cards**. Forest, alpine and jungle trees use **full → medium → low mesh → eight-view billboard**. The legacy two-level tree path remains a fallback when the new system is disabled.
+
+## Extended vegetation coverage
+
+`public/vegetation-lod.yaml` configures the extended chain. For a 12-unit tree, transition centers are 80, 160 and 300 units, with ±15% overlap. Distances scale with height and quality (Performance 0.65, Balanced 0.8, High 1, Ultra 1.25). Selection uses the current camera, including reversals and teleports; complementary screen-space coverage is separate from texture alpha testing. Missing intermediate assets fall back to an available mesh.
+
+Main forest billboards retain the 4,000-unit range. Jungle trees end at 600/900/1200/1600 units by quality; the final 10% fades. Jungle grass changes from mesh to card across 14–34 units, and other plants across the final quarter of their mesh range. All levels share placement records. Chunk submissions contain only visible representations, including overlapping levels, with immutable geometry buffers shared across chunks.
+
+The four near grass levels (`high`, `medium`, `low`, `veryLow`) and manual billboard mode remain. Far grass uses broad silhouettes captured from 180 stems per clump, deterministic stratified positions, existing terrain/exclusion masks and shared grass appearance. It overlaps the last 20% of the near range and reaches 300/400/500/600 units by quality, fading over the last 10%. Cards cast no shadows and are excluded from reflections. Texture mipmaps preserve alpha coverage.
+
+Generate mesh derivatives with `npm run assets:vegetation-lods`, then, with Vite running on port 5173, bake atlases using `npm run assets:vegetation-atlases`. Ship the generated `forest.glb`, `jungle.glb`, manifest and WebP atlases. No geometry simplification runs at startup. The manifest's `medium` and `lowMesh` node names are distinct from the existing tree configuration's `low` legacy billboard reference. Leaves are reduced as connected spatial clusters. Closed alpine snow caps retain source topology; silhouette and closure take priority over the nominal 50%/20% triangle targets.
+
+WebP atlases use lossless alpha. The two mesh bundles deduplicate and compress embedded textures. `npm run assets:optimize-vegetation-images` losslessly recompresses source PNGs and produces runtime leaf WebPs; `npm run assets:audit-images` writes the image inventory to `.cache/web-images.json`. Source/reference images are retained for reproducible baking.
+
+`npm run test:vegetation-webgpu` and `npm run test:vegetation-webgl` capture fixed meadow, lake, jungle and alpine routes under `.cache/vegetation-lods/`. They record frame times, draw calls, triangle counts, memory and LOD submissions. Inspect screenshots as well as counts: submissions alone cannot prove correctly positioned, visible billboard pixels. Tree and jungle statistics expose each representation, submitted triangles and culling time; grass statistics include near tile counts and far billboard counts.
+
+The detailed two-level tree descriptions later in this document describe the legacy fallback.
+
+Individual tree definitions may override `mediumMesh` or `lowMesh` with `{ asset: Assets/path.glb, node: NodeName }`; paths are relative to the public asset root. Omitted references use the generated manifest. `low` continues to name the original billboard and is never interpreted as a mesh LOD.
+
+The longer tree chain retains more geometry than the old direct switch at 170 units. Compare whole-scene costs with `node scripts/browser/check-vegetation-lods.mjs --baseline` (the same route with extended LODs disabled), and run measurements sequentially. A lower per-tree triangle budget does not imply unchanged frame time compared with the old billboard-only distance range.
 
 Imported understory uses full plant meshes nearby and two-triangle billboards in the distance. See the understory section below.
 

@@ -18,9 +18,18 @@ export class FarGrassField {
       this.atlases[shape] = atlas;
     }));
     signal?.throwIfAborted();
+    if (this.disposed) return this;
     this.settings = this.config.grass.far;
     this.geometry = createGrassGeometry({ type: 'billboard', shape: 'tufted', detail: 1,
       density: this.settings.density, tileSize: this.settings.chunkSize, bladeHeight: 3, stable: true });
+    // Far clumps need area coverage, not the prefix ordering used by near blade LODs.
+    // Stratified, deterministic jitter avoids the diagonal rows of the shared prefix sequence.
+    const positions = this.geometry.attributes.instancePosition;
+    const side = Math.floor(this.settings.chunkSize * this.settings.density);
+    const random = (i, seed) => { const v = Math.sin(i * 127.1 + seed * 311.7) * 43758.5453; return v - Math.floor(v); };
+    for (let i = 0; i < positions.count; i++) positions.setXYZ(i,
+      ((i % side + random(i, 1)) / side - 0.5) * this.settings.chunkSize, 0,
+      ((Math.floor(i / side) + random(i, 2)) / side - 0.5) * this.settings.chunkSize);
     this.stats = { billboards: 0, triangles: 0, chunks: 0, compactionMs: 0 };
     this.rebuild();
     return this;

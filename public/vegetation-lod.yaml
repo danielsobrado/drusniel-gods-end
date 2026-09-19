@@ -7,14 +7,14 @@ trees:
     distances: [80, 160, 300]
     referenceHeight: 12
     blend: 0.15
-    chunkSize: 100
+    chunkSize: 500
 grass:
   far:
     enabled: true
     chunkSize: 75
-    density: 0.38
-    width: 4.2
-    height: 1.1
+    density: 0.65
+    width: 3.4
+    height: 1.35
     transitionStart: 0.8
     fadeStart: 0.9
     distances: { performance: 300, balanced: 400, high: 500, ultra: 600 }
@@ -22,6 +22,6 @@ biomes:
   coastalJungle:
     lod:
       enabled: true
-      chunkSize: 75
+      chunkSize: 150
       plantDistances: { performance: 300, balanced: 400, high: 500, ultra: 600 }
       treeDistances: { performance: 600, balanced: 900, high: 1200, ultra: 1600 }

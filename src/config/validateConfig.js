@@ -1,3 +1,4 @@
+import { validateVegetationLodConfig } from './validateVegetationLodConfig.js';
 // Fails fast on a merged configuration that is missing a key the runtime
 // dereferences without a guard, so a bad edit surfaces as a named error rather
 // than a TypeError from deep inside a constructor.
@@ -289,6 +290,7 @@ export function validateConfig(config) {
   }
 
   validateTrees(config, problems);
+  validateVegetationLodConfig(config, problems);
   validateNavigation(config, problems);
   validateLandscapeTravel(config, problems);
 

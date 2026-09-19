@@ -424,7 +424,8 @@ export class CoastalJungleSystem {
           return { position: record.position.clone(), matrix: new Float32Array(matrix.elements), sphere: record.sphere,
             fraction: record.stableFraction, height: (bounds.max.y - bounds.min.y) * scale.y };
         });
-        renderer.addVariant({ ...variant, full, records, asset: assets.variants.get(variant.key) });
+        renderer.addVariant({ ...variant, full, records, asset: assets.variants.get(variant.key),
+          excludeFromReflection: true, castShadow: (this.profile.shadowKinds ?? []).includes(variant.kind) });
       }
       for (const variant of variants) for (const part of variant.parts) part.visible = false;
       renderer.setQuality(this.qualityName);

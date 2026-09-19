@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu';
-import { attribute, float, floor, fract, interleavedGradientNoise, mix, positionLocal,
-  screenCoordinate, sin, cos, texture, transformNormalToView, uv, vec2, vec3, vec4 } from 'three/tsl';
+import { attribute, float, floor, fract, interleavedGradientNoise, mix,
+  screenCoordinate, texture, transformNormalToView, uv, vec2, vec3, vec4 } from 'three/tsl';
 import { foliageBacklight } from '../rendering/CinematicLighting.js';
 import { TREE_LOD_DEFAULTS, vegetationLodWeights } from './vegetationLodPolicy.js';
 
@@ -24,9 +24,6 @@ function atlasMaterial(atlas, capture, config) {
   material.emissiveNode = foliageBacklight(rgb, 0.2);
   material.normalNode = transformNormalToView(vec3(0, 1, 0));
   material.alphaToCoverage = Boolean(config.cinematic?.enabled);
-  const right = vec3(cos(angle), 0, sin(angle).negate());
-  material.positionNode = vec3(...capture.center).add(right.mul(positionLocal.x.mul(capture.width)))
-    .add(vec3(0, positionLocal.y.mul(capture.height), 0));
   material.maskNode = coverageMask();
   return material;
 }
@@ -42,7 +39,7 @@ export class VegetationLodRenderer {
     this.quality = 'high'; this.dirty = true; this.weights = [0, 0, 0, 0];
     this.stats = { full: 0, medium: 0, low: 0, billboard: 0, triangles: 0, visibleInstances: 0, visibleChunks: 0, bookkeepingMs: 0, byKind: {} };
   }
-  addVariant({ key, kind = 'tree', full, asset, records }) {
+  addVariant({ key, kind = 'tree', full, asset, records, excludeFromReflection = false, castShadow = true }) {
     if (!records.length) return;
     const levels = [full, asset?.levels[1], asset?.levels[2], null];
     if (asset?.atlas && asset.entry.capture) {
@@ -70,7 +67,7 @@ export class VegetationLodRenderer {
       const cell = `${Math.floor(record.position.x / this.chunkSize)},${Math.floor(record.position.z / this.chunkSize)}`;
       let chunk = groups.get(cell);
       if (!chunk) {
-        chunk = { key, kind, templates, capture: asset?.entry.capture, records: [], bounds: new THREE.Box3(), draws: [null, null, null, null] };
+        chunk = { key, kind, templates, excludeFromReflection, castShadow, capture: asset?.entry.capture, records: [], bounds: new THREE.Box3(), draws: [null, null, null, null] };
         groups.set(cell, chunk);
       }
       record.inverse = new THREE.Matrix4().fromArray(record.matrix).invert();
@@ -88,19 +85,26 @@ export class VegetationLodRenderer {
     const interval = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 2), 2).setUsage(THREE.DynamicDrawUsage);
     const tint = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3).setUsage(THREE.DynamicDrawUsage);
     const bend = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 2), 2).setUsage(THREE.DynamicDrawUsage);
+    const up = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3).setUsage(THREE.DynamicDrawUsage);
     const view = new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1).setUsage(THREE.DynamicDrawUsage);
     const meshes = chunk.templates[level].map(template => {
-      const geometry = template.geometry.clone();
-      for (const [name, attr] of [['lodInterval', interval], ['lodTint', tint], ['lodRootBend', bend], ['lodView', view]]) geometry.setAttribute(name, attr);
+      // Chunk wrappers own instance attributes; immutable vertex/index buffers are shared.
+      const geometry = new THREE.BufferGeometry();
+      for (const [name, attr] of Object.entries(template.geometry.attributes)) geometry.setAttribute(name, attr);
+      // Keep a separate index binding: the WebGL fallback caches it in each VAO.
+      geometry.setIndex(template.geometry.index?.clone() ?? null);
+      for (const group of template.geometry.groups) geometry.addGroup(group.start, group.count, group.materialIndex);
+      for (const [name, attr] of [['lodInterval', interval], ['lodTint', tint], ['lodRootBend', bend], ['lodUp', up], ['lodView', view]]) geometry.setAttribute(name, attr);
       const mesh = new THREE.InstancedMesh(geometry, template.material, capacity);
-      mesh.instanceMatrix = matrices; mesh.count = 0; mesh.frustumCulled = false;
+      mesh.instanceMatrix = matrices; mesh.count = 0; mesh.frustumCulled = level < 3;
+      mesh.boundingSphere = new THREE.Sphere();
       mesh.name = `${chunk.key}:${names[level]}`;
-      mesh.castShadow = level < 2; mesh.receiveShadow = level < 3;
-      mesh.userData.excludeFromReflection = level === 3;
+      mesh.castShadow = chunk.castShadow && level < 2; mesh.receiveShadow = level < 3;
+      mesh.userData.excludeFromReflection = chunk.excludeFromReflection || level === 3;
       mesh.userData.occlusionCull = false;
       this.scene.add(mesh); return mesh;
     });
-    const draw = { meshes, matrices, interval, tint, bend, view, count: 0 };
+    const draw = { meshes, matrices, interval, tint, bend, up, view, bounds: new THREE.Box3(), count: 0 };
     chunk.draws[level] = draw; return draw;
   }
   update(camera, force = false) {
@@ -114,7 +118,7 @@ export class VegetationLodRenderer {
     for (const key of ['full', 'medium', 'low', 'billboard', 'triangles', 'visibleInstances', 'visibleChunks']) stats[key] = 0;
     stats.byKind = {};
     for (const chunk of this.chunks) {
-      for (const draw of chunk.draws) if (draw) { draw.count = 0; for (const mesh of draw.meshes) mesh.visible = false; }
+      for (const draw of chunk.draws) if (draw) { draw.count = 0; draw.bounds.makeEmpty(); for (const mesh of draw.meshes) mesh.visible = false; }
       if (!this.frustum.intersectsBox(chunk.bounds)) continue;
       if (chunk.bounds.distanceToPoint(camera.position) >= this.policy(chunk.records[0], chunk.kind, this.quality).far) continue;
       const available = chunk.templates.map(Boolean);
@@ -124,8 +128,10 @@ export class VegetationLodRenderer {
         const distance = record.position.distanceTo(camera.position);
         const settings = this.policy(record, chunk.kind, this.quality);
         if (distance >= settings.far || record.fraction > (settings.density ?? 1)) continue;
-        const weights = vegetationLodWeights(distance, { ...settings,
-          available: settings.plant ? [true, true, true, true] : available }, this.weights);
+        // Reuse policy records; spreading one object per visible jungle stem creates
+        // tens of thousands of temporary objects each camera update.
+        settings.available = settings.plant ? undefined : available;
+        const weights = vegetationLodWeights(distance, settings, this.weights);
         if (settings.plant) {
           // A plant has only full geometry and a billboard; keep the last slot consistent with trees.
           weights[3] = weights[1]; weights[1] = weights[2] = 0;
@@ -136,14 +142,31 @@ export class VegetationLodRenderer {
           const weight = weights[level];
           if (!(weight > 0) || !available[level]) continue;
           const draw = this.#draw(chunk, level), index = draw.count++;
+          if (level < 3) {
+            const { center, radius } = record.sphere, { min, max } = draw.bounds;
+            min.x = Math.min(min.x, center.x - radius); min.y = Math.min(min.y, center.y - radius); min.z = Math.min(min.z, center.z - radius);
+            max.x = Math.max(max.x, center.x + radius); max.y = Math.max(max.y, center.y + radius); max.z = Math.max(max.z, center.z + radius);
+          }
           draw.matrices.array.set(record.matrix, index * 16);
           draw.interval.setXY(index, total, total + weight); total += weight;
           draw.tint.setXYZ(index, record.tint?.r ?? 1, record.tint?.g ?? 1, record.tint?.b ?? 1);
           draw.bend.setXY(index, record.bend?.x ?? 0, record.bend?.y ?? 0);
+          draw.up.setXYZ(index, record.matrix[4], record.matrix[5], record.matrix[6]);
           if (level === 3) {
             this.localCamera.copy(camera.position).applyMatrix4(record.inverse);
             const center = chunk.capture.center;
-            draw.view.setX(index, Math.atan2(this.localCamera.x - center[0], this.localCamera.z - center[2]));
+            const angle = Math.atan2(this.localCamera.x - center[0], this.localCamera.z - center[2]);
+            draw.view.setX(index, angle);
+            // Compose the card BEFORE instancing. positionLocal already contains the
+            // instance transform in NodeMaterial, so scaling it there stretches world positions.
+            const m = record.matrix, out = draw.matrices.array, offset = index * 16;
+            const c = Math.cos(angle), s = Math.sin(angle), { width, height } = chunk.capture;
+            for (let row = 0; row < 3; row++) {
+              out[offset + row] = (m[row] * c - m[8 + row] * s) * width;
+              out[offset + 4 + row] = m[4 + row] * height;
+              out[offset + 8 + row] = m[row] * s + m[8 + row] * c;
+              out[offset + 12 + row] = m[row] * center[0] + m[4 + row] * center[1] + m[8 + row] * center[2] + m[12 + row];
+            }
           }
           stats[names[level]]++; shown = chunkVisible = true;
         }
@@ -154,11 +177,12 @@ export class VegetationLodRenderer {
         const draw = chunk.draws[level]; if (!draw) continue;
         for (const mesh of draw.meshes) {
           mesh.count = draw.count; mesh.visible = draw.count > 0;
-          mesh.castShadow = level < 2 && this.quality !== 'performance' && this.quality !== 'balanced';
+          if (level < 3 && draw.count) draw.bounds.getBoundingSphere(mesh.boundingSphere);
+          mesh.castShadow = chunk.castShadow && level < 2 && this.quality !== 'performance' && this.quality !== 'balanced';
           stats.triangles += triangles(mesh.geometry) * draw.count;
         }
         if (!draw.count) continue;
-        for (const attr of [draw.matrices, draw.interval, draw.tint, draw.bend, draw.view]) {
+        for (const attr of [draw.matrices, draw.interval, draw.tint, draw.bend, draw.up, draw.view]) {
           attr.clearUpdateRanges(); attr.addUpdateRange(0, draw.count * attr.itemSize); attr.needsUpdate = true;
         }
       }

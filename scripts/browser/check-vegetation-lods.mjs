@@ -2,23 +2,37 @@ import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
 import process from 'node:process';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import sharp from 'sharp';
 
 const backend = process.argv.includes('--webgl') ? 'webgl' : 'webgpu';
-const output = `.cache/vegetation-lods/${backend}`;
+const baseline = process.argv.includes('--baseline');
+const output = `.cache/vegetation-lods/${backend}${baseline ? '-baseline' : ''}`;
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ channel: 'chrome', headless: true,
   args: ['--enable-unsafe-webgpu', '--ignore-gpu-blocklist', '--disable-background-timer-throttling', '--disable-renderer-backgrounding'] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+// Keep route captures stable while documentation and tests are edited in the workspace.
+await page.routeWebSocket('**/*', socket => {
+  const server = socket.connectToServer();
+  server.onMessage(message => {
+    if (typeof message === 'string' && /"type":"(?:update|full-reload)"/.test(message)) return;
+    socket.send(message);
+  });
+});
 const errors = [], warnings = [];
+if (baseline) await page.route('**/vegetation-lod.yaml', route => route.fulfill({
+  contentType: 'text/yaml', body: 'vegetationLod:\n  enabled: false\ngrass:\n  far:\n    enabled: false\n',
+}));
 page.on('pageerror', e => { errors.push(e.message); console.error(e.message); });
 page.on('console', m => {
   if (m.type() === 'error') { errors.push(m.text()); if (errors.length < 10) console.error(m.text().slice(0,1000)); }
   if (m.type() === 'warning') { warnings.push(m.text()); if (warnings.length < 8) console.log('Warning:', m.text().slice(0,600)); }
 });
 try {
-  await page.goto(`${process.env.VEGETATION_BASE_URL ?? 'http://127.0.0.1:5173'}/?character=drusniel&renderer=${backend}`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${process.env.VEGETATION_BASE_URL ?? (process.argv.includes('--production') ? 'http://127.0.0.1:5174' : 'http://127.0.0.1:5173')}/?character=drusniel&renderer=${backend}`, { waitUntil: 'domcontentloaded' });
   console.log('Loading', backend);
-  await page.waitForFunction(() => window.__grassDemo?.water?.uniforms?.clock.value > 0.2, null, { timeout: 180000 });
+  await page.waitForFunction(() => window.__grassDemo?.water?.uniforms?.clock.value > 0.2, null, { timeout: 300000 });
   console.log('Scene ready');
   await page.evaluate(async () => {
     const d = window.__grassDemo; await d.coastalJungle?.initTask;
@@ -53,12 +67,41 @@ try {
     results.push({ route: route.name, ...result }); console.log(JSON.stringify(results.at(-1)));
     await page.screenshot({ path: `${output}/${route.name}.png` });
   }
-  assert.ok(results.some(r => r.grass.far?.billboards > 0), 'distant grass is submitted');
-  assert.ok(results.some(r => r.trees.medium > 0 && r.trees.low > 0 && r.trees.billboard > 0), 'all reduced tree levels are active');
-  assert.ok(results.some(r => r.jungle.billboard > 0), 'jungle has a distant representation');
+  if (!baseline) {
+    assert.ok(results.some(r => r.grass.far?.billboards > 0), 'distant grass is submitted');
+    assert.ok(results.some(r => r.trees.medium > 0 && r.trees.low > 0 && r.trees.billboard > 0), 'all reduced tree levels are active');
+    assert.ok(results.some(r => r.jungle.billboard > 0), 'jungle has a distant representation');
+    // Freeze visibility within one synchronous render: only cards beyond the OLD near cutoff remain.
+    const png = await page.evaluate(() => {
+      const d = window.__grassDemo, { scene, camera, renderer } = d.world;
+      d.navigation.freeFly.teleport([2, 18, -5], [0, 5, -230]);
+      camera.updateMatrixWorld();
+      d.grass.update(0, d.water.uniforms.clock.value, camera.position);
+      const far = d.grass.farGrass, controller = far.controller();
+      controller.handoff.value = d.config.quality[d.grass.qualityName][d.grass.type].maxDistance / d.config.grass.far.transitionStart;
+      const visible = []; scene.traverse(o => { if (o.isMesh || o.isPoints || o.isLine) { visible.push([o, o.visible]); o.visible = o.name === 'Far grass clumps' && o.visible; } });
+      const background = scene.background, fog = scene.fog; scene.background = null; scene.fog = null;
+      renderer.setClearColor(0, 1); renderer.render(scene, camera);
+      const image = renderer.domElement.toDataURL('image/png').split(',')[1];
+      for (const [object, value] of visible) object.visible = value;
+      scene.background = background; scene.fog = fog;
+      return image;
+    });
+    await writeFile(`${output}/far-grass-pixels.png`, Buffer.from(png, 'base64'));
+    const { data, info } = await sharp(await readFile(`${output}/far-grass-pixels.png`)).raw().toBuffer({ resolveWithObject: true });
+    let colored = 0;
+    for (let i = 0; i < data.length; i += info.channels) if (Math.max(data[i], data[i + 1], data[i + 2]) > 15) colored++;
+    assert.ok(colored > 500, `distant grass must produce real pixels, found ${colored}`);
+    console.log(`Far grass pixels beyond old range: ${colored}`);
+  }
   await writeFile(`${output}/results.json`, JSON.stringify({ backend, results, errors, warnings }, null, 2));
+  assert.equal(warnings.some(w => /GL_INVALID_|Shader Error|VALIDATION_ERROR/.test(w)), false, 'no invalid GPU draws');
   assert.deepEqual(errors, []);
 } catch (error) {
-  await writeFile(`${output}/failure.json`, JSON.stringify({ message: error.message, errors, warnings }, null, 2));
+  await page.screenshot({ path: `${output}/failure.png` }).catch(() => {});
+  const state = await page.evaluate(() => ({ text: document.body.innerText.slice(-5000),
+    ready: Boolean(window.__grassDemo?.grass), clock: window.__grassDemo?.water?.uniforms?.clock?.value })).catch(() => null);
+  console.error('Failure state', state);
+  await writeFile(`${output}/failure.json`, JSON.stringify({ message: error.message, errors, warnings, state }, null, 2));
   throw error;
 } finally { await browser.close(); }

@@ -55,9 +55,9 @@ assets:
     normal: Assets/ground/ground_0109_normal_directx_1k.jpg
     roughness: Assets/ground/ground_0109_roughness_1k.jpg
   leaves:
-    yellow: Assets/leaf-yellow.png
-    green: Assets/leaf-green.png
-    white: Assets/leaf-whites.png
+    yellow: Assets/leaf-yellow.webp
+    green: Assets/leaf-green.webp
+    white: Assets/leaf-whites.webp
   audio:
     wind: Assets/Audio/wind-loop2_alt.mp3
     rain: Assets/Audio/rain.mp3

@@ -5,7 +5,7 @@ import yaml from 'js-yaml';
 const CONFIG_PATH = path.resolve('public/config.yaml');
 const PUBLIC_DIR = path.resolve('public');
 const OUTPUT_PATH = path.resolve('src/generated/leafVariants.js');
-const LEAF_FILE_PATTERN = /^leaf-(green|yellow|whites?)(?:[-_](\d+))?\.png$/i;
+const LEAF_FILE_PATTERN = /^leaf-(green|yellow|whites?)(?:[-_](\d+))?\.(?:png|webp)$/i;
 const ZONE_ALIASES = {
   green: 'green',
   yellow: 'yellow',
@@ -69,7 +69,8 @@ async function main() {
   const config = yaml.load(await fs.readFile(CONFIG_PATH, 'utf8'));
   const assetDirectory = getLeafDirectory(config);
   const fileDirectory = path.join(PUBLIC_DIR, assetDirectory);
-  const groups = groupLeafFiles(await fs.readdir(fileDirectory));
+  const files = await fs.readdir(fileDirectory);
+  const groups = groupLeafFiles(files.filter(name => !name.endsWith('.png') || !files.includes(name.replace(/\.png$/, '.webp'))));
   const manifest = {};
 
   for (const zone of Object.keys(config.assets.leaves)) {

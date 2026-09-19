@@ -9,8 +9,10 @@ import {
   smoothstep,
   uniform,
   uniformArray,
+  transformNormalToView,
   uv,
   vec2,
+  vec3,
   vec4,
 } from 'three/tsl';
 import { Vector4 } from 'three';
@@ -40,6 +42,7 @@ export class GrassMaterial {
     this.config = config;
     this.type = type;
     this.far = Boolean(options.far);
+    this.farAvailable = true;
     this.handoff = uniform(1e9);
     this.windConfig = resolveWindConfig(config);
     const cinematicWind = this.windConfig.model === CINEMATIC_MODEL;
@@ -81,6 +84,7 @@ export class GrassMaterial {
       },
     );
     this.material = this.recovered.material;
+    if (this.far) this.material.normalNode = transformNormalToView(vec3(0, 1, 0));
     this.uniforms = this.recovered.uniforms;
     this.shaderFeatures = this.recovered.shaderFeatures;
     if (this.cinematic) this.uniforms.windIntensity.value = 0;
@@ -221,7 +225,7 @@ export class GrassMaterial {
 
   setMaxDistance(value) {
     this.recovered.setMaxDistance(value);
-    if (!this.far) this.handoff.value = value;
+    if (!this.far) this.handoff.value = this.farAvailable ? value : 1e9;
   }
 
   setInteractionCenter(center) {

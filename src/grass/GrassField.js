@@ -110,6 +110,10 @@ export class GrassField {
       try { await this.farGrass.init(signal); }
       catch (error) {
         this.farGrass.dispose(); this.farGrass = null;
+        for (const controller of Object.values(this.materialControllers)) {
+          controller.farAvailable = false;
+          controller.handoff.value = 1e9;
+        }
         if (signal?.aborted) throw error;
         logger.warn('Distant grass atlas unavailable; retaining near grass.', error);
       }
@@ -310,6 +314,7 @@ export class GrassField {
   }
 
   remapEmptyTiles() {
+    if (this.farGrass) this.farGrass.revision = -1;
     for (const tile of this.tiles) tile.invalidate();
     this.emptyGrassTiles = this.vegetation.createEmptyTileSet(
       this.terrainSampler.size.x,
