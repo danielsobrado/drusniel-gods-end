@@ -95,6 +95,7 @@ function createTileGeometry(sea, across, along, rootPosition, displacement) {
   geometry.setAttribute('waterLevel', new THREE.BufferAttribute(levels, 1));
   geometry.setAttribute('waterFlow', new THREE.BufferAttribute(flows, 4));
   geometry.setAttribute('riverSurface', new THREE.BufferAttribute(surfaces, 4));
+  geometry.setAttribute('lakeMask', new THREE.BufferAttribute(new Float32Array(count), 1));
   geometry.setIndex(indices);
   geometry.computeBoundingBox();
   geometry.computeBoundingSphere();

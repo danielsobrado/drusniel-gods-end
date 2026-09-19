@@ -87,8 +87,14 @@ test('slope noise moves the snow line on steep ground in patches', () => {
 test('broadleaf trees give way to conifers on snow below the tree line', () => {
   const alpine = resolveAlpineConfig(alpineConfig);
   const { centerX: x, centerZ: z } = alpine;
-  assert.ok(alpineTreeAllowed(x, alpine.treeLine - 10, z, alpine, 0));
-  assert.equal(alpineTreeAllowed(x, alpine.treeLine - 10, z, alpine, ALPINE_CONIFER_SNOW + 0.1), false);
+  assert.ok(alpineTreeAllowed(x, alpine.treeLine - 31, z, alpine, 0));
+  assert.equal(alpineTreeAllowed(x, alpine.treeLine - 31, z, alpine, ALPINE_CONIFER_SNOW + 0.1), false);
+  // No broadleaf tree stands in lying snow, and they thin out gradually
+  // below the tree line rather than stopping at one contour.
+  assert.equal(alpineTreeAllowed(x, alpine.treeLine - 31, z, alpine, 0.07), false);
+  const share = y => Array.from({ length: 400 }, (_, i) => alpineTreeAllowed(x + i * 0.37, y, z, alpine, 0)).filter(Boolean).length / 400;
+  assert.ok(share(alpine.treeLine - 25) > share(alpine.treeLine - 8));
+  assert.ok(share(alpine.treeLine - 8) > 0.1 && share(alpine.treeLine - 25) < 0.95);
   assert.equal(alpineTreeAllowed(x, alpine.treeLine + 10, z, alpine, 0), false);
   assert.ok(alpineTreeAllowed(x + alpine.treeClearRadius + 5, 150, z, alpine, 1));
 });

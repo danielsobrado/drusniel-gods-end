@@ -256,6 +256,7 @@ export class TreeSystem {
         position: new THREE.Vector3(Number(record[0]), Number(record[1]), Number(record[2])),
         rotation: Number(record[3]),
         scale: Number(record[4]),
+        lean: Number(record[6]) || 0,
         zone: source.zones?.[0] ?? source.zone ?? null,
       });
     });
@@ -295,7 +296,8 @@ export class TreeSystem {
     markerGroup.visible = false;
   }
 
-  #createTree({ index, typeIndex, source, position, rotation, scale, zone }) {
+  // `lean` tilts the trunk from vertical, toward the tree's own facing.
+  #createTree({ index, typeIndex, source, position, rotation, scale, zone, lean = 0 }) {
     const appearance = resolveTreeAppearance(index, position, this.config);
     if (!appearance.retained) return;
     const resolvedScale = scale * appearance.scale;
@@ -305,7 +307,7 @@ export class TreeSystem {
     high.name = `TreeHigh_${index}`;
     high.visible = true;
     high.position.copy(position);
-    high.rotation.y = rotation;
+    high.rotation.set(lean, rotation, 0, 'YXZ');
     high.scale.copy(shape).multiplyScalar(resolvedScale);
     prepareTreeClone(high, source, this.leafMaterialFactory, renderAppearance, this.barkMaterials);
     this.scene.add(high);
@@ -317,6 +319,7 @@ export class TreeSystem {
       high,
       position: high.position,
       rotation,
+      lean,
       scale: resolvedScale,
       shape,
       tint: appearance.tint,
@@ -368,7 +371,7 @@ export class TreeSystem {
       for (const tree of this.trees) {
         if (tree.typeIndex !== typeIndex) continue;
         transform.position.copy(tree.position);
-        transform.rotation.set(0, tree.rotation, 0);
+        transform.rotation.set(tree.lean, tree.rotation, 0, 'YXZ');
         transform.scale.copy(tree.shape).multiplyScalar(tree.scale);
         transform.updateMatrix();
         group.setMatrixAt(billboardIndex, transform.matrix);

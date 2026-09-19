@@ -1,4 +1,3 @@
-import { coastX } from '../world/CoastField.js';
 export {
   coastalJungleRegionCenter,
   coastalJungleRegionRadius,
@@ -18,16 +17,6 @@ const KIND_ORDER = [
   'vine',
   'climber',
 ];
-
-const MIN_SPAN = 0.001;
-
-function clamp01(value) {
-  return Math.max(0, Math.min(1, value));
-}
-
-function normalize(value, min, max) {
-  return clamp01((value - min) / Math.max(MIN_SPAN, max - min));
-}
 
 function normalizedName(value) {
   return String(value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '_');
@@ -52,33 +41,61 @@ export function classifyCoastalJungleObject(object) {
   return classifyCoastalJungleName(names.join(' '));
 }
 
-export function createCoastalJungleSourceBounds(points) {
-  let minX = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let minZ = Number.POSITIVE_INFINITY;
-  let maxZ = Number.NEGATIVE_INFINITY;
-  for (const point of points ?? []) {
-    if (!Number.isFinite(point?.x) || !Number.isFinite(point?.z)) continue;
-    minX = Math.min(minX, point.x);
-    maxX = Math.max(maxX, point.x);
-    minZ = Math.min(minZ, point.z);
-    maxZ = Math.max(maxZ, point.z);
-  }
-  if (![minX, maxX, minZ, maxZ].every(Number.isFinite)) return null;
-  return { minX, maxX, minZ, maxZ };
+// The terrain the authored scene was built on (Codex-and-Blender
+// web/forest-world.js elevation()). Every authored plant stands on it, so the
+// height above it is what an instance keeps on the live terrain: vines stay
+// hung from their branches and everything else stays on the ground.
+export function coastalJungleSourceElevation(x, z) {
+  const y = -z;
+  return 0.065 * (y + 10) + 0.36 * Math.sin(x * 0.15) * Math.cos(y * 0.12) + 0.12 * Math.sin(y * 0.3);
 }
 
-export function mapCoastalJungleHorizontal(source, bounds, region, sea) {
-  if (!bounds || !region || !sea) return null;
-  let across = normalize(source.x, bounds.minX, bounds.maxX);
-  let along = normalize(source.z, bounds.minZ, bounds.maxZ);
-  if (region.flipAcross) across = 1 - across;
-  if (region.flipAlong) along = 1 - along;
-  const z = Number(region.zStart) + (Number(region.zEnd) - Number(region.zStart)) * along;
-  const inland = Number(region.inlandStart)
-    + (Number(region.inlandEnd) - Number(region.inlandStart)) * across;
-  if (!Number.isFinite(z) || !Number.isFinite(inland)) return null;
-  return { x: coastX(z, sea) - inland, z, inland };
+// The authored scene keeps its own meters, so its spacing matches the
+// original: it is turned by region.yaw about its origin, which lands on
+// region.origin, and the strip crops it rather than squeezing it in.
+export function resolveCoastalJungleFrame(region) {
+  const x = Number(region?.origin?.[0]);
+  const z = Number(region?.origin?.[1]);
+  const yaw = Number(region?.yaw ?? 0);
+  if (!Number.isFinite(x) || !Number.isFinite(z) || !Number.isFinite(yaw)) return null;
+  return { x, z, yaw, cos: Math.cos(yaw), sin: Math.sin(yaw) };
+}
+
+// The strip can be wider than the authored scene. region.tiles lays further
+// copies of it beside the first, each turned by its own yaw; every copy then
+// keeps only what falls inside its own tileSize square, so they meet without
+// overlapping. The first frame is the authored placement.
+export function resolveCoastalJungleFrames(region) {
+  const primary = resolveCoastalJungleFrame(region);
+  if (!primary) return [];
+  const tiles = (region?.tiles ?? []).map((tile) => resolveCoastalJungleFrame(tile));
+  if (tiles.some((tile) => !tile)) return [];
+  return [primary, ...tiles.map((tile) => ({ ...tile, tile: true }))];
+}
+
+export function coastalJungleTileKeeps(source, tileSize) {
+  const half = Number(tileSize) * 0.5;
+  if (!(half > 0)) return true;
+  return Math.abs(source.x) <= half && Math.abs(source.z) <= half;
+}
+
+// Same rotation as Matrix4.makeRotationY(frame.yaw), so authored instance
+// orientations turn with their positions.
+export function mapCoastalJungleHorizontal(source, frame) {
+  const x = Number(source?.x);
+  const z = Number(source?.z);
+  if (!frame || !Number.isFinite(x) || !Number.isFinite(z)) return null;
+  return {
+    x: frame.x + frame.cos * x + frame.sin * z,
+    z: frame.z - frame.sin * x + frame.cos * z,
+  };
+}
+
+// Across the strip's edge band the jungle thins out as the surrounding biome
+// thins in, so the two overlap only there. `fraction` is a stable per-plant
+// value in [0, 1).
+export function coastalJungleEdgeKeeps(weight, fraction) {
+  return weight >= 1 || fraction < weight;
 }
 
 export function sampleCoastalJungleSlope(terrain, x, z, distance = 2) {
@@ -93,7 +110,7 @@ export function sampleCoastalJungleSlope(terrain, x, z, distance = 2) {
   return Math.hypot(dx, dz);
 }
 
-export function evaluateCoastalJunglePlacement({ x, z, terrain, expansion, settings = {} }) {
+export function evaluateCoastalJunglePlacement({ x, z, terrain, expansion, settings = {}, waterLevel = null }) {
   if (!terrain || !Number.isFinite(x) || !Number.isFinite(z)) {
     return { allowed: false, height: 0, slope: Number.POSITIVE_INFINITY, path: 0, riverEdge: Infinity };
   }
@@ -107,6 +124,8 @@ export function evaluateCoastalJunglePlacement({ x, z, terrain, expansion, setti
   const allowed = Number.isFinite(height)
     && slope <= Number(settings.maxSlope ?? 0.75)
     && path <= Number(settings.routeMaskMax ?? 0.08)
-    && riverEdge >= Number(settings.riverClearance ?? 10);
+    && riverEdge >= Number(settings.riverClearance ?? 10)
+    // Where the strip runs down to the lake, nothing stands in the water.
+    && !(Number.isFinite(waterLevel) && height < waterLevel + Number(settings.waterClearance ?? 0.4));
   return { allowed, height, slope, path, riverEdge };
 }

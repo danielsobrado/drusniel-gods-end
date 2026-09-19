@@ -2,8 +2,26 @@ import { fractalNoise, hash2d, smoothstep } from '../grass/vegetationEcology.js'
 import { ALPINE_CONIFER_SNOW, alpineDistance } from './AlpineRegion.js';
 import { sampleSnowSurfaceCpu } from './SnowDeformationField.js';
 
-// Tree type indices (Tree10..Tree13 in the config's tree types).
-export const ALPINE_TREE_TYPES = Object.freeze({ spruce: 9, pine: 10, young: 11, fir: 12 });
+// Tree type indices (Tree10..Tree19 in the config's tree types).
+export const ALPINE_TREE_TYPES = Object.freeze({
+  spruce: 9, pine: 10, young: 11, fir: 12, spire: 13, broad: 14, pruned: 15, laden: 16, dying: 17, sapling: 18,
+});
+const T = ALPINE_TREE_TYPES;
+// Relative weights of each family in a dense grove core, at a grove's edge and
+// on exposed ground. A dense stand shades out its lower boughs; edges fill with
+// young growth and snow-bowed trees; exposed ground keeps the wind-shaped ones.
+const MIX = Object.freeze({
+  core: [[T.spruce, 26], [T.broad, 18], [T.spire, 20], [T.pruned, 22], [T.dying, 5], [T.young, 6], [T.fir, 3]],
+  edge: [[T.spruce, 20], [T.young, 20], [T.sapling, 14], [T.laden, 22], [T.spire, 10], [T.broad, 6], [T.dying, 4], [T.fir, 4]],
+  exposed: [[T.pine, 32], [T.fir, 20], [T.laden, 14], [T.dying, 14], [T.young, 10], [T.sapling, 6], [T.spruce, 4]],
+});
+// Trunk spacing per family, relative to TRUNK_SPACING: saplings crowd in under
+// their elders, broad trees need room.
+const SPACING = Object.freeze({ [T.sapling]: 0.35, [T.young]: 0.6, [T.laden]: 0.85, [T.broad]: 1.35, [T.spire]: 0.8 });
+// Height scale ranges per family, on top of the grove and exposure scaling.
+const SCALE = Object.freeze({ [T.sapling]: [0.6, 1.3], [T.young]: [0.7, 1.2], [T.broad]: [0.85, 1.15], [T.spire]: [0.8, 1.2] });
+// Families that grow bent: the most a trunk leans, in radians.
+const LEAN = Object.freeze({ [T.pine]: 0.1, [T.fir]: 0.08, [T.dying]: 0.09, [T.sapling]: 0.07, [T.pruned]: 0.05 });
 
 const CELL = 7;
 const SEED = 73019;
@@ -69,8 +87,18 @@ export function createAlpineTrees(alpine, terrain, paths, { clearings = [], wind
     const grove = fractalNoise(px * 0.016, pz * 0.016, SEED, 2) + (fractalNoise(px * 0.09, pz * 0.09, SEED + 7, 1) - 0.5) * 0.12;
     const core = smoothstep(0.52, 0.66, grove);
     let density = core * 0.95;
+    // Glades open inside the larger groves.
+    density *= 1 - 0.85 * core * (1 - smoothstep(0.22, 0.34, fractalNoise(px * 0.035, pz * 0.035, SEED + 23, 2)));
+    // Satellite clumps of a few trees stand off a grove's edge.
+    const edge = smoothstep(0.3, 0.44, grove) * (1 - core);
+    const clump = smoothstep(0.62, 0.7, fractalNoise(px * 0.05, pz * 0.05, SEED + 19, 2));
+    density = Math.max(density, 0.75 * clump * edge);
     // Tree lines along a route, where the ground already leans toward a grove.
     if (nearPath(paths, px, pz, PATH_FRAMING)) density = Math.max(density, 0.5 * smoothstep(0.38, 0.52, grove));
+    // Lanes wind through the groves along a noise contour, so dense forest
+    // always has a walkable way through it.
+    const lane = Math.abs(fractalNoise(px * 0.009, pz * 0.009, SEED + 41, 2) - 0.5);
+    density *= smoothstep(0.018, 0.034, lane);
     // A few stragglers out in the open.
     density = Math.max(density, 0.035);
     // Ground above the basin floor is exposed: it thins the stand and stunts it.
@@ -78,21 +106,38 @@ export function createAlpineTrees(alpine, terrain, paths, { clearings = [], wind
     density *= 1 - 0.45 * exposure;
     if (random(2) > density) continue;
 
-    const pick = random(3);
-    let type = ALPINE_TREE_TYPES.spruce;
-    if (pick < 0.12 + 0.3 * (1 - core)) type = ALPINE_TREE_TYPES.young;
-    else if (exposure > 0.35 && pick < 0.3 + 0.5 * exposure) type = ALPINE_TREE_TYPES.pine;
-    else if (pick > 0.86 - 0.12 * exposure) type = ALPINE_TREE_TYPES.fir;
+    const type = pickFamily(random(3), core, exposure);
+    const [low, high] = SCALE[type] ?? [0.8, 1.35];
     // Grove cores grow the tallest trees; exposed ground stunts them.
-    const scale = (0.8 + random(4) * 0.55) * (0.85 + 0.5 * core) * (1 - 0.3 * exposure);
-    if (!spacingClear(px, pz, scale)) continue;
+    const scale = (low + random(4) * (high - low)) * (0.85 + 0.5 * core) * (1 - 0.3 * exposure);
+    if (!spacingClear(px, pz, scale * (SPACING[type] ?? 1))) continue;
     // Wind-flagged trees all lean their long boughs downwind.
-    const flagged = type === ALPINE_TREE_TYPES.pine || type === ALPINE_TREE_TYPES.fir;
+    const flagged = type === T.pine || type === T.fir || type === T.dying;
     const rotation = flagged ? windRotation + (random(5) - 0.5) * 0.6 : random(5) * Math.PI * 2;
+    // A slight lean for most trees, a marked one for the bent families.
+    const lean = (LEAN[type] ?? 0.025) * (0.3 + random(6) * 0.7) * (1 + exposure);
     const key = `${Math.floor(px / 8)},${Math.floor(pz / 8)}`;
     if (!trunks.has(key)) trunks.set(key, []);
-    trunks.get(key).push([px, pz, scale]);
-    result.push([px, y, pz, rotation, scale, type]);
+    trunks.get(key).push([px, pz, scale * (SPACING[type] ?? 1)]);
+    result.push([px, y, pz, rotation, scale, type, lean]);
   }
   return result;
+}
+
+function pickFamily(pick, core, exposure) {
+  const weights = new Map();
+  const blend = (mix, weight) => {
+    const total = mix.reduce((sum, [, w]) => sum + w, 0);
+    for (const [type, w] of mix) weights.set(type, (weights.get(type) ?? 0) + w / total * weight);
+  };
+  const exposed = smoothstep(0.25, 0.7, exposure);
+  blend(MIX.core, core * (1 - exposed));
+  blend(MIX.edge, (1 - core) * (1 - exposed));
+  blend(MIX.exposed, exposed);
+  let remaining = pick;
+  for (const [type, weight] of weights) {
+    remaining -= weight;
+    if (remaining < 0) return type;
+  }
+  return T.spruce;
 }

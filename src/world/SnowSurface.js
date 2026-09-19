@@ -166,6 +166,15 @@ export function resolveSnowConfig(config) {
       colorVariation: finiteNumber(config.detail.colorVariation, 'ground.snow.detail.colorVariation'),
       roughnessVariation: finiteNumber(config.detail.roughnessVariation, 'ground.snow.detail.roughnessVariation'),
     },
+    // Lee faces and hollows hold snow; windward faces and ridges are scoured.
+    accumulation: config.accumulation ? {
+      lee: optionalNumber(config.accumulation.lee, 0, 'ground.snow.accumulation.lee'),
+      leeHeight: optionalNumber(config.accumulation.leeHeight, 0, 'ground.snow.accumulation.leeHeight'),
+      concavity: optionalNumber(config.accumulation.concavity, 0, 'ground.snow.accumulation.concavity'),
+      concavityHeight: optionalNumber(config.accumulation.concavityHeight, 0, 'ground.snow.accumulation.concavityHeight'),
+      curvatureStep: positiveNumber(config.accumulation.curvatureStep ?? 6, 'ground.snow.accumulation.curvatureStep'),
+      curvatureScale: positiveNumber(config.accumulation.curvatureScale ?? 1, 'ground.snow.accumulation.curvatureScale'),
+    } : null,
     // Wind-sheltered powder: broad patches where the surface lies smooth.
     calm: {
       scale: optionalNumber(config.calm?.scale, 34, 'ground.snow.calm.scale'),
@@ -267,6 +276,7 @@ export function createSnowSurfaceNodes(config, deformationField = null, terrainS
   // heightfield (the backdrop mesh) the mesh normal is kept.
   let surfaceUp = normalWorld.y;
   let landformSlope = normalWorld.xz;
+  let concavity = float(0);
   const normalTexture = terrainSampler?.normalTexture;
   if (normalTexture && terrainSampler.size?.x > 0 && terrainSampler.size?.z > 0) {
     const min = terrainSampler.bounds.min;
@@ -278,6 +288,18 @@ export function createSnowSurfaceNodes(config, deformationField = null, terrainS
       .smoothstep(HEIGHTFIELD_NORMAL_BLEND_START, HEIGHTFIELD_NORMAL_BLEND_END);
     surfaceUp = mix(normalWorld.y, inside.select(heightfieldNormal.y, normalWorld.y), farBlend).toVar();
     landformSlope = inside.select(heightfieldNormal.xz, normalWorld.xz);
+    if (snow.accumulation) {
+      // The divergence of the heightfield normal across curvatureStep metres
+      // is minus the terrain's Laplacian: negative on ridges, positive in
+      // hollows, as sampleSnowLandformCpu measures it.
+      const step = snow.accumulation.curvatureStep;
+      const du = vec2(step / terrainSampler.size.x, 0);
+      const dv = vec2(0, step / terrainSampler.size.z);
+      const normalAt = offset => texture(normalTexture, heightfieldUv.add(offset).clamp(0, 1)).xyz.mul(2).sub(1).normalize();
+      const divergence = normalAt(du).x.sub(normalAt(du.negate()).x)
+        .add(normalAt(dv).z.sub(normalAt(dv.negate()).z)).div(step * 2);
+      concavity = inside.select(divergence.negate(), float(0)).toVar();
+    }
   }
 
   const driftPhase = along.mul(snow.wind.driftFrequency)
@@ -285,11 +307,24 @@ export function createSnowSurfaceNodes(config, deformationField = null, terrainS
   const drift = sin(driftPhase).mul(0.5).add(0.5);
   const exposure = sin(along.mul(snow.wind.exposureFrequency)
     .sub(across.mul(snow.wind.exposureCrossFrequency))).mul(0.5).add(0.5);
+  // Lee faces and hollows hold snow on steeper ground and further down;
+  // windward faces and ridges are scoured. The GPU side of snowAccumulationShift.
+  let accumulationSlope = float(0);
+  let accumulationHeight = float(0);
+  const accumulation = snow.accumulation;
+  if (accumulation) {
+    const aspect = dot(landformSlope, vec2(snow.wind.cos, snow.wind.sin));
+    const hollow = concavity.div(accumulation.curvatureScale).clamp(0, 1);
+    const ridge = concavity.negate().div(accumulation.curvatureScale).clamp(0, 1);
+    accumulationSlope = aspect.mul(-accumulation.lee).sub(hollow.sub(ridge.mul(0.8)).mul(accumulation.concavity));
+    accumulationHeight = aspect.mul(accumulation.leeHeight).add(hollow.sub(ridge).mul(accumulation.concavityHeight));
+  }
   const effectiveHeight = positionWorld.y
     .add(drift.mul(snow.wind.driftHeight))
-    .sub(exposure.mul(snow.wind.scourStrength));
+    .sub(exposure.mul(snow.wind.scourStrength))
+    .add(accumulationHeight);
   const altitude = smoothstep(snow.altitude.start, snow.altitude.full, effectiveHeight);
-  const slopeShift = snow.slope.noise ? snowSlopePatch(world).mul(snow.slope.noise) : float(0);
+  const slopeShift = (snow.slope.noise ? snowSlopePatch(world).mul(snow.slope.noise) : float(0)).add(accumulationSlope);
   const slope = smoothstep(slopeShift.add(snow.slope.start), slopeShift.add(snow.slope.full), surfaceUp.abs());
   const mask = altitude.mul(slope).clamp(0, 1).toVar();
 

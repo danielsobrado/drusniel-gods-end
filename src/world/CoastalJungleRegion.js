@@ -68,3 +68,12 @@ export function coastalJungleRegionWeight(x, z, region, sea, edge = 18) {
     : Number(inland >= resolved.inlandMin && inland <= resolved.inlandMax);
   return Math.max(0, Math.min(1, zWeight * inlandWeight));
 }
+
+// How much of the jungle the configured profile puts at a world position,
+// fading over the ecology edge band; 0 when the biome is off.
+export function coastalJungleProfileWeight(x, z, config) {
+  const profile = config?.biomes?.coastalJungle;
+  const sea = config?.water?.sea;
+  if (!profile?.enabled || !sea?.enabled) return 0;
+  return coastalJungleRegionWeight(x, z, profile.region, sea, profile.ecology?.edgeFade ?? 18);
+}

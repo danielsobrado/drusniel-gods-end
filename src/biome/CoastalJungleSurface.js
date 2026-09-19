@@ -59,9 +59,22 @@ function prepareTransitionMaterial(object, pathSurface) {
   object.renderOrder = pathSurface ? 2 : 1;
 }
 
+// The authored floor spans the whole source scene; drop the triangles the
+// strip crops away so they are not rasterized and discarded around it.
+export function cropCoastalJungleSurfaceIndex(index, alpha) {
+  const kept = [];
+  for (let offset = 0; offset + 2 < index.length; offset += 3) {
+    const a = index[offset];
+    const b = index[offset + 1];
+    const c = index[offset + 2];
+    if (alpha(a) > 0 || alpha(b) > 0 || alpha(c) > 0) kept.push(a, b, c);
+  }
+  return kept;
+}
+
 export async function conformCoastalJungleSurface({
   object,
-  sourceBounds,
+  frame,
   region,
   sea,
   terrain,
@@ -86,7 +99,7 @@ export async function conformCoastalJungleSurface({
 
   for (let index = 0; index < positions.count; index += 1) {
     source.fromBufferAttribute(positions, index).applyMatrix4(sourceWorldMatrix);
-    const mapped = mapCoastalJungleHorizontal(source, sourceBounds, region, sea);
+    const mapped = mapCoastalJungleHorizontal(source, frame);
     if (mapped) {
       const height = terrain.sampleHeight(mapped.x, mapped.z);
       if (Number.isFinite(height)) {
@@ -115,7 +128,15 @@ export async function conformCoastalJungleSurface({
   }
 
   positions.needsUpdate = true;
-  if (transitionColors) object.geometry.setAttribute('color', new THREE.BufferAttribute(transitionColors, 4));
+  if (transitionColors) {
+    object.geometry.setAttribute('color', new THREE.BufferAttribute(transitionColors, 4));
+    const index = object.geometry.getIndex();
+    if (index) {
+      const kept = cropCoastalJungleSurfaceIndex(index.array, (vertex) => transitionColors[vertex * 4 + 3]);
+      object.geometry.setIndex(kept);
+      object.visible = kept.length > 0;
+    }
+  }
   object.geometry.computeVertexNormals();
   object.geometry.computeBoundingBox();
   object.geometry.computeBoundingSphere();

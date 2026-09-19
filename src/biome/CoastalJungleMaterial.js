@@ -13,6 +13,7 @@ import {
   smoothstep,
   texture,
   time,
+  uniform,
   uv,
   vec3,
   vec4,
@@ -37,6 +38,11 @@ const FOLIAGE_KINDS = new Set([
 ]);
 const DEG_TO_RAD = Math.PI / 180;
 const INSTANCE_PHASE = 0.754877666;
+
+// How far inside the jungle the camera stands. There the haze stands in for
+// the original's own fog; from outside only the world fog applies, as it does
+// to the neighbouring forest.
+export const coastalJungleHazePresence = uniform(1);
 
 function numberOr(value, fallback) {
   const number = Number(value);
@@ -114,6 +120,21 @@ function createWindPosition(kind, instanced, settings) {
   ));
 }
 
+// Grass and groundcover are drawn only near the camera, so beyond them the
+// authored soil would read as a clearing; blend it toward the colour of the
+// cover it has lost there.
+function createFloorColor(material, settings) {
+  const cover = settings.floorCover;
+  const sample = texture(material.map, uv());
+  const soil = sample.rgb.mul(materialTint(material));
+  if (!cover || cover.enabled === false) return vec4(soil, sample.a);
+  const start = Math.max(0, numberOr(cover.start, 22));
+  const end = Math.max(start + 0.01, numberOr(cover.end, 48));
+  const amount = smoothstep(start, end, positionWorld.sub(cameraPosition).length())
+    .mul(clamp01(cover.strength ?? 0.85));
+  return vec4(mix(soil, color(cover.color ?? '#4b5a2a'), amount), sample.a);
+}
+
 function createFoliageColor(sample, material, settings) {
   const base = sample.rgb.mul(materialTint(material));
   const haze = settings.haze ?? {};
@@ -121,7 +142,9 @@ function createFoliageColor(sample, material, settings) {
   const start = Math.max(0, numberOr(haze.start, 18));
   const end = Math.max(start + 0.01, numberOr(haze.end, 85));
   const strength = clamp01(haze.strength ?? 0.28);
-  const hazeAmount = smoothstep(start, end, positionWorld.sub(cameraPosition).length()).mul(strength);
+  const hazeAmount = smoothstep(start, end, positionWorld.sub(cameraPosition).length())
+    .mul(strength)
+    .mul(coastalJungleHazePresence);
   return vec4(mix(base, color(haze.color ?? '#91b1b7'), hazeAmount), sample.a);
 }
 
@@ -129,6 +152,7 @@ export function prepareCoastalJungleMaterial(material, {
   kind = null,
   instanced = false,
   surface = false,
+  floor = false,
   settings = {},
   anisotropy = 8,
   cinematic = false,
@@ -142,6 +166,7 @@ export function prepareCoastalJungleMaterial(material, {
       const minimum = Math.max(0, Math.min(1, numberOr(settings.surfaceRoughnessMin, 0.9)));
       material.roughness = Math.max(numberOr(material.roughness, minimum), minimum);
       material.metalness = 0;
+      if (floor && material.map) material.colorNode = createFloorColor(material, settings);
       material.needsUpdate = true;
     }
     return material;

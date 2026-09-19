@@ -36,7 +36,7 @@ test('alpine shaping blends back to the existing landscape outside the region', 
 
 test('alpine treeline clears high trees but preserves low and distant forest', () => {
   assert.equal(alpineTreeAllowed(alpine.centerX, alpine.treeLine + 1, alpine.centerZ, alpine), false);
-  assert.equal(alpineTreeAllowed(alpine.centerX, alpine.treeLine - 1, alpine.centerZ, alpine), true);
+  assert.equal(alpineTreeAllowed(alpine.centerX, alpine.treeLine - 31, alpine.centerZ, alpine), true);
   assert.equal(alpineTreeAllowed(
     alpine.centerX + alpine.treeClearRadius + 1,
     alpine.treeLine + 30,

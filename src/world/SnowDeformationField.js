@@ -74,9 +74,58 @@ export function snowSlopePatchCpu(x, z) {
   return (broad + fine * 0.5) / 1.5;
 }
 
-export function sampleSnowCoverageCpu(x, y, z, normalY, config) {
+// Where snow settles beyond altitude and slope: faces turned downwind and
+// hollows hold it on steeper ground and further down, while faces turned into
+// the wind and convex ridges are scoured. `aspect` is the dot of the landform
+// normal's horizontal part with the wind; `concavity` is the terrain's
+// Laplacian (1/m), positive in hollows. Returns shifts for the slope threshold
+// (negative holds more snow) and for the effective height. SnowSurface
+// evaluates the same terms on the GPU.
+export function snowAccumulationShift(aspect, concavity, accumulation) {
+  if (!accumulation) return { slope: 0, height: 0 };
+  const scale = Number(accumulation.curvatureScale) || 1;
+  const hollow = THREE.MathUtils.clamp(concavity / scale, 0, 1);
+  const ridge = THREE.MathUtils.clamp(-concavity / scale, 0, 1);
+  const lee = Number(accumulation.lee ?? 0);
+  const bowl = Number(accumulation.concavity ?? 0);
+  return {
+    slope: -aspect * lee - (hollow - ridge * 0.8) * bowl,
+    height: aspect * Number(accumulation.leeHeight ?? 0) + (hollow - ridge) * Number(accumulation.concavityHeight ?? 0),
+  };
+}
+
+// The heightfield normal the GPU reads, from the same 0.8 m central difference.
+function landformNormalXz(terrainSampler, x, z) {
+  const s = 0.8;
+  const nx = terrainSampler.sampleHeight(x - s, z) - terrainSampler.sampleHeight(x + s, z);
+  const nz = terrainSampler.sampleHeight(x, z - s) - terrainSampler.sampleHeight(x, z + s);
+  const length = Math.hypot(nx, s * 2, nz) || 1;
+  return [nx / length, nz / length];
+}
+
+// Aspect and concavity at a point, as SnowSurface derives them from the
+// heightfield normal texture.
+export function sampleSnowLandformCpu(terrainSampler, x, z, config) {
+  const snow = config.ground?.snow;
+  const accumulation = snow?.accumulation;
+  if (!accumulation || !snow.enabled) return null;
+  // Ground too low to hold snow under any shift needs no landform.
+  const reach = Number(snow.wind.driftHeight) + Math.abs(Number(accumulation.leeHeight ?? 0))
+    + Math.abs(Number(accumulation.concavityHeight ?? 0));
+  if (terrainSampler.sampleHeight(x, z) + reach < Number(snow.altitude.start)) return null;
+  const step = Number(accumulation.curvatureStep) || 6;
+  const angle = Number(snow.wind.angleDegrees) * Math.PI / 180;
+  const [nx, nz] = landformNormalXz(terrainSampler, x, z);
+  const divergence = (landformNormalXz(terrainSampler, x + step, z)[0] - landformNormalXz(terrainSampler, x - step, z)[0]
+    + landformNormalXz(terrainSampler, x, z + step)[1] - landformNormalXz(terrainSampler, x, z - step)[1]) / (step * 2);
+  if (![nx, nz, divergence].every(Number.isFinite)) return null;
+  return { aspect: nx * Math.cos(angle) + nz * Math.sin(angle), concavity: -divergence };
+}
+
+export function sampleSnowCoverageCpu(x, y, z, normalY, config, landform = null) {
   const snow = config.ground?.snow;
   if (!snow?.enabled) return 0;
+  const shift = snowAccumulationShift(landform?.aspect ?? 0, landform?.concavity ?? 0, landform && snow.accumulation);
   const wind = snow.wind;
   const angle = Number(wind.angleDegrees) * Math.PI / 180;
   const cosAngle = Math.cos(angle);
@@ -87,10 +136,10 @@ export function sampleSnowCoverageCpu(x, y, z, normalY, config) {
     * 0.5 + 0.5;
   const exposure = Math.sin(along * wind.exposureFrequency - across * wind.exposureCrossFrequency)
     * 0.5 + 0.5;
-  const effectiveHeight = y + drift * wind.driftHeight - exposure * wind.scourStrength;
+  const effectiveHeight = y + drift * wind.driftHeight - exposure * wind.scourStrength + shift.height;
   const altitude = THREE.MathUtils.smoothstep(effectiveHeight, snow.altitude.start, snow.altitude.full);
-  const shift = snowSlopePatchCpu(x, z) * Number(snow.slope.noise ?? 0);
-  const slope = THREE.MathUtils.smoothstep(Math.abs(normalY), snow.slope.start + shift, snow.slope.full + shift);
+  const slopeShift = snowSlopePatchCpu(x, z) * Number(snow.slope.noise ?? 0) + shift.slope;
+  const slope = THREE.MathUtils.smoothstep(Math.abs(normalY), snow.slope.start + slopeShift, snow.slope.full + slopeShift);
   return THREE.MathUtils.clamp(altitude * slope, 0, 1);
 }
 
@@ -110,7 +159,7 @@ export function sampleSurfaceCpu(terrainSampler, x, z, step, config) {
   const sand = sampleSandCoverageCpu(x, terrainHeight, z, config);
   return {
     y: terrainHeight,
-    snow: sampleSnowCoverageCpu(x, terrainHeight, z, normalY, config),
+    snow: sampleSnowCoverageCpu(x, terrainHeight, z, normalY, config, sampleSnowLandformCpu(terrainSampler, x, z, config)),
     sand: sand.coverage,
     sandDryness: sand.dryness,
   };

@@ -49,7 +49,7 @@ export async function checkCoastMaterials(renderer) {
   const waterGeometry = new THREE.PlaneGeometry(24, 24, 24, 24);
   waterGeometry.rotateX(-Math.PI / 2);
   const count = waterGeometry.attributes.position.count;
-  for (const name of ['waterKind', 'waterLevel']) {
+  for (const name of ['waterKind', 'waterLevel', 'lakeMask']) {
     waterGeometry.setAttribute(name, new THREE.Float32BufferAttribute(new Float32Array(count), 1));
   }
   for (const name of ['waterFlow', 'riverSurface']) {

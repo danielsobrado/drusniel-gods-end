@@ -1,4 +1,4 @@
-import { fractalNoise, smoothstep } from '../grass/vegetationEcology.js';
+import { fractalNoise, hash2d, smoothstep } from '../grass/vegetationEcology.js';
 
 export function resolveAlpineConfig(config) {
   const alpine = config.terrain?.alpine;
@@ -35,7 +35,7 @@ function resolveLandform(landform = {}) {
   const block = (value, keys) => Object.fromEntries(keys.map(key => [key, Number(value?.[key] ?? 0)]));
   return {
     couloirs: block(landform.couloirs, ['amplitude', 'spacing', 'meander']),
-    strata: block(landform.strata, ['strength', 'bandHeight', 'tilt', 'coverage']),
+    strata: block(landform.strata, ['strength', 'bandHeight', 'tilt', 'coverage', 'faultSpacing', 'faultOffset']),
     crest: block(landform.crest, ['amplitude', 'scale']),
   };
 }
@@ -71,9 +71,21 @@ function alpineLandform(x, z, height, distance, angle, rimProfile, wallHeight, a
     if (wall > 0) {
       // Thick and thin beds alternate around the ring.
       const band = strata.bandHeight * (0.7 + 0.6 * fractalNoise(angle * 1.7 + 3, 0.5, alpine.seed + 17, 2));
-      const phase = (fractalNoise(x * 0.012, z * 0.012, alpine.seed + 13, 2) - 0.5) * strata.tilt * band;
+      let phase = (fractalNoise(x * 0.012, z * 0.012, alpine.seed + 13, 2) - 0.5) * strata.tilt * band;
+      // Faults cut the wall into blocks, each dropped or raised against its
+      // neighbours, so a ledge breaks off instead of ringing the whole cirque.
+      let hardness = 0.5;
+      if (strata.faultSpacing > 0) {
+        const along = angle * alpine.rimRadius / strata.faultSpacing
+          + (fractalNoise(distance * 0.02, angle * 2, alpine.seed + 37, 2) - 0.5) * 1.2;
+        const block = Math.floor(along);
+        phase += (hash2d(block, 7, alpine.seed + 41) - 0.5) * 2 * strata.faultOffset * band;
+        hardness = hash2d(block, 11, alpine.seed + 43);
+      }
       const t = (result + phase) / band;
-      const step = Math.floor(t) + smoothstep(0.55, 0.95, t - Math.floor(t));
+      // Hard beds break in sharp risers; soft ones weather to rounded slopes.
+      const riser = 0.3 + hardness * 0.35;
+      const step = Math.floor(t) + smoothstep(riser, Math.min(0.98, riser + 0.5 - hardness * 0.25), t - Math.floor(t));
       result += (step * band - phase - result) * strata.strength * wall;
     }
   }
@@ -114,9 +126,18 @@ export function shapeAlpineHeight(x, z, currentHeight, alpine) {
 
 // Snow coverage above which broadleaf trees give way to snow-laden conifers.
 export const ALPINE_CONIFER_SNOW = 0.35;
+// Broadleaf trees thin out across this band of snow coverage: each tree gets
+// its own limit in the band, so the last ones straggle up toward the snow
+// instead of stopping at one contour, and none stands in lying snow.
+const BROADLEAF_SNOW_BAND = [0.005, 0.06];
+// Metres below the tree line over which broadleaf trees give way.
+const BROADLEAF_FADE = 30;
 
 export function alpineTreeAllowed(x, y, z, alpine, snow = 0) {
   if (!alpine) return true;
   if (alpineDistance(x, z, alpine) > alpine.treeClearRadius) return true;
-  return y < alpine.treeLine && snow < ALPINE_CONIFER_SNOW;
+  const chance = hash2d(Math.floor(x * 3), Math.floor(z * 3), alpine.seed + 61);
+  const [low, high] = BROADLEAF_SNOW_BAND;
+  const limit = low + (high - low) * chance;
+  return y < alpine.treeLine - BROADLEAF_FADE * chance && snow < limit;
 }

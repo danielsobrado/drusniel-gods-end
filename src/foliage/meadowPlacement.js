@@ -4,7 +4,7 @@ import { coastX } from '../world/coast.js';
 export const MEADOW_CELL_SIZE = 12;
 // Snow coverage above which only stones lie on the ground: no leaf litter,
 // flowers or reeds on snow.
-export const MEADOW_SNOW_LIMIT = 0.3;
+export const MEADOW_SNOW_LIMIT = 0.08;
 
 export const MEADOW_QUALITY_DENSITY = Object.freeze({
   performance: 3,

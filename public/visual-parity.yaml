@@ -102,6 +102,12 @@ trees:
     - { high: Tree11_High, low: Tree11_Low, zones: [snow], collider: { width: 1, height: 10, length: 1 } }
     - { high: Tree12_High, low: Tree12_Low, zones: [snow], collider: { width: 0.6, height: 7, length: 0.6 } }
     - { high: Tree13_High, low: Tree13_Low, zones: [snow], collider: { width: 1.1, height: 12, length: 1.1 } }
+    - { high: Tree14_High, low: Tree14_Low, zones: [snow], collider: { width: 0.9, height: 14, length: 0.9 } }
+    - { high: Tree15_High, low: Tree15_Low, zones: [snow], collider: { width: 1.4, height: 13, length: 1.4 } }
+    - { high: Tree16_High, low: Tree16_Low, zones: [snow], collider: { width: 1, height: 13, length: 1 } }
+    - { high: Tree17_High, low: Tree17_Low, zones: [snow], collider: { width: 0.8, height: 8, length: 0.8 } }
+    - { high: Tree18_High, low: Tree18_Low, zones: [snow], collider: { width: 1, height: 11, length: 1 } }
+    - { high: Tree19_High, low: Tree19_Low, zones: [snow], collider: { width: 0.3, height: 3, length: 0.3 } }
 leaves:
   windStrengthMultiplier: 1
   spawnInterval: 0.015

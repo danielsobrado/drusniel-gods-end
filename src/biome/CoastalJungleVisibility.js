@@ -56,15 +56,26 @@ export function coastalJungleVisibilityLimit(kind, render = {}, quality = {}) {
   return Math.min(kindLimit, qualityLimit);
 }
 
+// Grass keeps its full density near the camera and thins smoothly to
+// grassFarDensity of it at the grass draw distance; other kinds keep their
+// density at every distance. `near` and `far` bound the curve.
+export function coastalJungleKeepCurve(kind, render = {}, quality = {}) {
+  const near = clamp01(quality.density?.[kind] ?? 1);
+  const flat = { near, far: near, start: Number.POSITIVE_INFINITY, span: 1 };
+  if (kind !== 'grass') return flat;
+  const start = Math.max(0, Number(render.grassDenseDistance) || 0);
+  const end = Math.max(start, Number(render.grassDistance) || start);
+  if (end <= start) return flat;
+  return { near, far: near * clamp01(render.grassFarDensity ?? 0.2), start, span: end - start };
+}
+
+export function coastalJungleCurveKeep(curve, distance) {
+  if (!(distance > curve.start)) return curve.near;
+  return curve.near + (curve.far - curve.near) * smoothstep(distance, curve.start, curve.start + curve.span);
+}
+
 export function coastalJungleKeepFraction(kind, distance, render = {}, quality = {}) {
-  const density = clamp01(quality.density?.[kind] ?? 1);
-  if (kind !== 'grass') return density;
-  const denseDistance = Math.max(0, Number(render.grassDenseDistance) || 0);
-  const maxDistance = Math.max(denseDistance, Number(render.grassDistance) || denseDistance);
-  if (distance <= denseDistance || maxDistance <= denseDistance) return density;
-  const minimum = clamp01(render.grassFarDensity ?? 0.2);
-  const fade = smoothstep(distance, denseDistance, maxDistance);
-  return density * (1 + (minimum - 1) * fade);
+  return coastalJungleCurveKeep(coastalJungleKeepCurve(kind, render, quality), distance);
 }
 
 export function coastalJungleShouldKeep(kind, distance, stableFraction, render = {}, quality = {}) {

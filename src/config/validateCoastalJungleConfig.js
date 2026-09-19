@@ -1,5 +1,6 @@
 const QUALITY_NAMES = ['performance', 'balanced', 'high', 'ultra'];
 const REGION_KEYS = ['zStart', 'zEnd', 'inlandStart', 'inlandEnd'];
+const SCATTER_COUNTS = ['grassPerChunk', 'groundcoverPerChunk', 'undergrowthPerChunk'];
 
 function finiteNumber(value) {
   const number = Number(value);
@@ -51,6 +52,20 @@ function validateMaterial(problems, profile) {
     }
   }
 
+  const cover = material.floorCover;
+  if (cover) {
+    if (typeof cover.color !== 'string' || cover.color.trim() === '') {
+      problems.push('biomes.coastalJungle.material.floorCover.color must be a non-empty string');
+    }
+    positive(problems, 'biomes.coastalJungle.material.floorCover.start', cover.start, true);
+    unitInterval(problems, 'biomes.coastalJungle.material.floorCover.strength', cover.strength);
+    const start = finiteNumber(cover.start);
+    const end = finiteNumber(cover.end);
+    if (start === null || end === null || end <= start) {
+      problems.push('biomes.coastalJungle.material.floorCover.end must be greater than floorCover.start');
+    }
+  }
+
   const wind = material.wind;
   if (!wind) return;
   if (wind.enabled !== undefined && typeof wind.enabled !== 'boolean') {
@@ -64,6 +79,22 @@ function validateMaterial(problems, profile) {
   unitInterval(problems, 'biomes.coastalJungle.material.wind.flutterRatio', wind.flutterRatio);
   for (const [kind, scale] of Object.entries(wind.kindScale ?? {})) {
     positive(problems, `biomes.coastalJungle.material.wind.kindScale.${kind}`, scale, true);
+  }
+}
+
+function validateScatter(problems, profile) {
+  const scatter = profile.scatter;
+  if (!scatter) return;
+  if (!Number.isInteger(Number(scatter.seed))) problems.push('biomes.coastalJungle.scatter.seed must be an integer');
+  positive(problems, 'biomes.coastalJungle.scatter.extent', scatter.extent);
+  positive(problems, 'biomes.coastalJungle.scatter.chunkSize', scatter.chunkSize);
+  positive(problems, 'biomes.coastalJungle.scatter.plantExtent', scatter.plantExtent, true);
+  positive(problems, 'biomes.coastalJungle.scatter.pathClearance', scatter.pathClearance, true);
+  for (const key of SCATTER_COUNTS) {
+    const count = Number(scatter[key]);
+    if (!Number.isInteger(count) || count < 0) {
+      problems.push(`biomes.coastalJungle.scatter.${key} must be a non-negative integer`);
+    }
   }
 }
 
@@ -116,11 +147,37 @@ export function validateCoastalJungleConfig(config) {
   if (inlandEnd !== null && inlandEnd < 0) {
     problems.push('biomes.coastalJungle.region.inlandEnd must not be negative');
   }
+  const origin = region.origin;
+  if (!Array.isArray(origin) || origin.length !== 2 || origin.some((value) => finiteNumber(value) === null)) {
+    problems.push('biomes.coastalJungle.region.origin must be a finite [x, z] pair');
+  }
+  for (const [index, tile] of (Array.isArray(region.tiles) ? region.tiles : []).entries()) {
+    const tileOrigin = tile?.origin;
+    if (!Array.isArray(tileOrigin) || tileOrigin.length !== 2 || tileOrigin.some((value) => finiteNumber(value) === null)) {
+      problems.push(`biomes.coastalJungle.region.tiles[${index}].origin must be a finite [x, z] pair`);
+    }
+    if (tile?.yaw !== undefined && finiteNumber(tile.yaw) === null) {
+      problems.push(`biomes.coastalJungle.region.tiles[${index}].yaw must be finite`);
+    }
+  }
+  if (region.tiles !== undefined && !Array.isArray(region.tiles)) {
+    problems.push('biomes.coastalJungle.region.tiles must be a list');
+  }
+  if (region.tileSize !== undefined && !(finiteNumber(region.tileSize) > 0)) {
+    problems.push('biomes.coastalJungle.region.tileSize must be positive');
+  }
+  if (region.yaw !== undefined && finiteNumber(region.yaw) === null) {
+    problems.push('biomes.coastalJungle.region.yaw must be finite');
+  }
 
   positive(problems, 'biomes.coastalJungle.anisotropy', profile.anisotropy);
   validateMaterial(problems, profile);
   positive(problems, 'biomes.coastalJungle.ecology.edgeFade', profile.ecology?.edgeFade, true);
   unitInterval(problems, 'biomes.coastalJungle.ecology.baseVegetationScale', profile.ecology?.baseVegetationScale);
+  if (profile.ecology?.backdropShrubDensity !== undefined) {
+    unitInterval(problems, 'biomes.coastalJungle.ecology.backdropShrubDensity', profile.ecology.backdropShrubDensity);
+  }
+  validateScatter(problems, profile);
   validateRender(problems, profile);
 
   const placement = profile.placement ?? {};

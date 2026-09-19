@@ -27,6 +27,29 @@ export const ALPINE_SPECIES = {
   13: { name: 'Old storm fir', height: 13, trunk: 0.56, crownBase: 2.6, radius: 2.9, whorls: 9, arms: [3, 5],
     profile: h => 1 - h ** 2.6, droop: 0.42, missing: 0.38, sprays: 3, snow: 0.6, wind: 0.2, deadTop: 2.2,
     needles: [0.045, 0.12, 0.1], lean: y => Math.sin(y * 0.13 + 0.6) * 0.3 - 0.2 },
+  // A subalpine spire: a narrow column that sheds its snow down drooping boughs.
+  14: { name: 'Subalpine spire', height: 19, trunk: 0.44, crownBase: 1.1, radius: 2.2, whorls: 19, arms: [4, 6],
+    profile: h => (1 - h ** 1.7) * (1 - h) ** 0.25, droop: 0.55, missing: 0.1, sprays: 2, snow: 0.65, wind: 0,
+    spacing: 0.5, needles: [0.035, 0.105, 0.105], lean: y => Math.sin(y * 0.11 + 1.2) * 0.22 },
+  15: { name: 'Broad old spruce', height: 17, trunk: 0.72, crownBase: 0.9, radius: 5.6, whorls: 15, arms: [6, 8],
+    profile: h => (1 - h) ** 1.08, droop: 0.5, missing: 0.14, sprays: 3, snow: 0.9, wind: 0.1,
+    spacing: 0.45, needles: [0.045, 0.125, 0.095], lean: y => Math.sin(y * 0.09) * 0.25 },
+  // Grown in a dense stand: the shaded lower boughs have died back to stubs.
+  16: { name: 'Self-pruned spruce', height: 16, trunk: 0.5, crownBase: 6.8, radius: 3.1, whorls: 11, arms: [4, 6],
+    profile: h => (1 - h) ** 0.9, droop: 0.3, missing: 0.22, sprays: 3, snow: 0.6, wind: 0, stubs: 14,
+    spacing: 0.55, needles: [0.055, 0.14, 0.1], lean: y => (y / 16) ** 1.3 * 0.7 },
+  // Short, dense and bowed under a heavy load: wide caps over nearly every bough.
+  17: { name: 'Snow-laden spruce', height: 8.8, trunk: 0.36, crownBase: 0.4, radius: 3.4, whorls: 12, arms: [6, 7],
+    profile: h => (1 - h) ** 0.9, droop: 0.62, missing: 0.02, sprays: 3, snow: 1.2, snowWidth: 1.35, wind: 0,
+    spacing: 0.35, needles: [0.05, 0.14, 0.11], lean: () => 0 },
+  // Half the crown died back on the windward side; the rest is thin and faded.
+  18: { name: 'Half-dead spruce', height: 13, trunk: 0.46, crownBase: 1.6, radius: 3.3, whorls: 12, arms: [4, 6],
+    profile: h => (1 - h) ** 0.95, droop: 0.36, missing: 0.2, sprays: 2, snow: 0.45, wind: 0.15, deadTop: 1.6,
+    dead: 0.3, deadSide: 0.55, stubs: 6, spacing: 0.6, needles: [0.075, 0.12, 0.065],
+    lean: y => Math.sin(y * 0.17 + 2) * 0.28 },
+  19: { name: 'Spruce sapling', height: 3.6, trunk: 0.11, crownBase: 0.12, radius: 1.35, whorls: 7, arms: [4, 5],
+    profile: h => (1 - h) ** 0.8, droop: 0.16, missing: 0.05, sprays: 1, snow: 0.9, wind: 0,
+    spacing: 0.4, needles: [0.065, 0.18, 0.12], lean: y => y * 0.04 },
 };
 const TYPES = Object.keys(ALPINE_SPECIES).map(Number);
 const UP = new THREE.Vector3(0, 1, 0);
@@ -118,24 +141,36 @@ function buildConifer(type) {
     return [0.86 - edge * 0.12, 0.92 - edge * 0.07, 0.98 - edge * 0.02];
   };
 
-  const addBough = ({ base, angle, length, width, rise, droop, shade, snowy, sprays }) => {
+  const addBough = ({ base, angle, length, width, rise, droop, shade, snowy, sprays, dead = false }) => {
     const direction = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle));
     const tuft = species.tuft ?? 0;
     const common = { base, direction, length, rise, droop, random };
+    const along = t => base.clone().addScaledVector(direction, length * t)
+      .addScaledVector(UP, length * (rise * t - droop * t * t));
+    if (dead) {
+      // A dead bough keeps its bare branch and a few twigs, and holds no snow.
+      wood([along(0), along(0.5), along(0.85)], Math.max(0.03, width * 0.035));
+      for (let twig = 0; twig < 3; twig++) {
+        const t = 0.3 + twig * 0.2 + random() * 0.08;
+        const side = new THREE.Vector3(-direction.z, 0, direction.x).multiplyScalar((twig % 2 ? 1 : -1) * length * 0.18);
+        wood([along(t), along(t).add(side).addScaledVector(UP, 0.12)], 0.02);
+      }
+      return;
+    }
     // A narrow central spray with paired lateral tufts leaves air between the
     // branches. Their closed diamond sections catch light from below as well.
     add(1, bough({ ...common, width: width * 0.26, segments: 3, from: tuft,
       colorAt: (t, s) => needleColor(shade, t, s) }));
-    const along = t => base.clone().addScaledVector(direction, length * t)
-      .addScaledVector(UP, length * (rise * t - droop * t * t));
     wood([along(0), along(0.45), along(0.94)], Math.max(0.022, width * 0.038));
     if (snowy) {
       // Short pillows settle along the branch rather than painting the entire
       // silhouette white. Tapered ends and a round underside remove cut edges.
-      const from = Math.max(tuft + 0.06, 0.18 + random() * 0.12);
-      const to = 0.72 + random() * 0.16;
-      add(2, bough({ ...common, width: width * (0.26 + random() * 0.08), thickness: 0.48,
-        lift: width * 0.13 + 0.025, segments: 4, sides: 8, from, to,
+      // A heavily loaded tree carries wider, longer pillows.
+      const load = species.snowWidth ?? 1;
+      const from = Math.max(tuft + 0.06, (0.18 + random() * 0.12) / load);
+      const to = Math.min(0.94, (0.72 + random() * 0.16) * load);
+      add(2, bough({ ...common, width: width * (0.26 + random() * 0.08) * load, thickness: 0.48,
+        lift: width * 0.13 * load + 0.025, segments: 4, sides: 8, from, to,
         irregularity: 0.24, colorAt: snowColor }));
     }
     for (let spray = 0; spray < sprays * 2; spray++) {
@@ -169,10 +204,21 @@ function buildConifer(type) {
 
   const top = height - (species.deadTop ?? 0);
   const crown = top - species.crownBase - 0.8;
+  // Dead stubs on a bare lower trunk, where shaded boughs broke off.
+  for (let stub = 0; stub < (species.stubs ?? 0); stub++) {
+    const y = 0.9 + random() * Math.max(0.5, species.crownBase - 1.2);
+    const a = random() * Math.PI * 2;
+    const reach = 0.35 + random() * 0.8;
+    wood([new THREE.Vector3(lean(y), y, 0),
+      new THREE.Vector3(lean(y) + Math.cos(a) * reach, y - 0.1 - random() * 0.25, Math.sin(a) * reach)], 0.03 + random() * 0.02);
+  }
+  // Tiers are unevenly spaced: a whorl sits anywhere within `spacing` of its
+  // slot, and alternate years grow long or short.
+  const slot = crown / Math.max(1, species.whorls - 1);
   for (let whorl = 0; whorl < species.whorls; whorl++) {
     const h = whorl / (species.whorls - 1);
-    const y = species.crownBase + crown * h ** 1.05 + (random() - 0.5) * 0.35;
-    const radius = species.radius * species.profile(h) + 0.5;
+    const y = species.crownBase + crown * h ** 1.05 + (random() - 0.5) * slot * (species.spacing ?? 0.4);
+    const radius = (species.radius * species.profile(h) + 0.5) * (0.86 + random() * 0.28);
     const [low, high] = species.arms;
     const arms = low + Math.floor(random() * (high - low + 1));
     const twist = whorl * 2.4 + random();
@@ -182,6 +228,9 @@ function buildConifer(type) {
       // Downwind boughs reach further on exposed trees; the wind comes from -x.
       const flag = 1 + species.wind * Math.cos(angle);
       const length = radius * (0.72 + random() * 0.42) * flag;
+      // Dieback takes the lower crown first and, on a tree with a dead side,
+      // the boughs facing into the wind.
+      const deadChance = (species.dead ?? 0) * (1.4 - h) + (species.deadSide ?? 0) * Math.max(0, -Math.cos(angle)) * (1 - h * 0.5);
       addBough({
         base: new THREE.Vector3(lean(y), y, 0),
         angle,
@@ -193,10 +242,11 @@ function buildConifer(type) {
         shade: (0.72 + 0.4 * h) * (0.88 + random() * 0.24),
         snowy: random() < species.snow * (0.55 + 0.45 * (1 - h)),
         sprays: h > 0.85 ? 1 : species.sprays,
+        dead: whorl < species.whorls - 3 && random() < deadChance,
       });
     }
     // A short filler bough between whorls keeps the crown from reading as rings.
-    if (whorl < species.whorls - 1 && random() < 0.8) {
+    if (whorl < species.whorls - 1 && random() < 0.8 - (species.dead ?? 0)) {
       const fy = y + crown / species.whorls * 0.5;
       const angle = twist + Math.PI / arms + random();
       const length = radius * 0.55;
@@ -205,12 +255,13 @@ function buildConifer(type) {
     }
   }
   // Leader: a spire of small upturned sprays, or a bare dead spike on the old fir.
+  const leader = Math.min(1, height / 10);
   for (let tip = 0; tip < 5; tip++) {
-    const y = top - 0.9 + tip * 0.22;
+    const y = top - (0.9 - tip * 0.22) * leader;
     for (let arm = 0; arm < 3; arm++) {
       const angle = tip * 1.3 + arm * Math.PI * 2 / 3;
       const direction = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle));
-      const length = 0.75 - tip * 0.12;
+      const length = (0.75 - tip * 0.12) * leader;
       add(1, bough({ base: new THREE.Vector3(lean(y), y, 0), direction, length, width: length * 0.24, rise: 0.8, droop: 0.2,
         random, segments: 3, colorAt: (t, s) => needleColor(1.05, 0.5 + t * 0.5, s) }));
     }

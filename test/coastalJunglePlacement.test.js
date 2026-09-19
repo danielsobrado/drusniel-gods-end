@@ -2,15 +2,21 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CONFIG_FILES } from '../src/config/loadConfig.js';
 import { coastX } from '../src/world/CoastField.js';
+import * as THREE from 'three';
 import {
   classifyCoastalJungleName,
+  coastalJungleEdgeKeeps,
   coastalJungleRegionCenter,
   coastalJungleRegionRadius,
   coastalJungleRegionWeight,
-  createCoastalJungleSourceBounds,
+  coastalJungleSourceElevation,
   evaluateCoastalJunglePlacement,
+  coastalJungleTileKeeps,
   mapCoastalJungleHorizontal,
+  resolveCoastalJungleFrame,
+  resolveCoastalJungleFrames,
 } from '../src/biome/CoastalJunglePlacement.js';
+import { coastalJungleProfileWeight } from '../src/world/CoastalJungleRegion.js';
 
 test('coastal jungle runtime config loads before final visual refinement', () => {
   const jungle = CONFIG_FILES.indexOf('coastal-jungle-runtime.yaml');
@@ -27,21 +33,56 @@ test('coastal jungle recognizes authored forest groups and hero objects', () => 
   assert.equal(classifyCoastalJungleName('ForestPath'), null);
 });
 
-test('coastal jungle remaps authored composition relative to the live coast', () => {
-  const bounds = createCoastalJungleSourceBounds([
-    { x: 0, z: 0 },
-    { x: 10, z: 20 },
-  ]);
-  const region = {
-    zStart: 100,
-    zEnd: 200,
-    inlandStart: 150,
-    inlandEnd: 250,
-  };
-  const mapped = mapCoastalJungleHorizontal({ x: 5, z: 10 }, bounds, region, 1000);
-  assert.equal(mapped.z, 150);
-  assert.equal(mapped.inland, 200);
-  assert.ok(Math.abs(mapped.x - (coastX(150, 1000) - 200)) < 1e-9);
+test('coastal jungle copies the authored scene at its own scale, turned about its origin', () => {
+  const frame = resolveCoastalJungleFrame({ origin: [846, 312], yaw: Math.PI });
+  const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} != ${expected}`);
+  const origin = mapCoastalJungleHorizontal({ x: 0, z: 0 }, frame);
+  close(origin.x, 846);
+  close(origin.z, 312);
+  // The reference camera stands 12 m behind the clearing and looks down -Z.
+  const camera = mapCoastalJungleHorizontal({ x: 0, z: 12 }, frame);
+  close(camera.x, 846);
+  close(camera.z, 300);
+
+  const a = mapCoastalJungleHorizontal({ x: -30, z: 17 }, frame);
+  const b = mapCoastalJungleHorizontal({ x: 41, z: -64 }, frame);
+  close(Math.hypot(a.x - b.x, a.z - b.z), Math.hypot(71, 81));
+
+  // Positions turn exactly as instance orientations do.
+  const turned = new THREE.Vector3(3, 0, -5).applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.7);
+  const quarter = mapCoastalJungleHorizontal({ x: 3, z: -5 }, resolveCoastalJungleFrame({ origin: [0, 0], yaw: 0.7 }));
+  close(quarter.x, turned.x);
+  close(quarter.z, turned.z);
+
+  assert.equal(resolveCoastalJungleFrame({ origin: [846] }), null);
+  assert.equal(mapCoastalJungleHorizontal({ x: 1, z: 1 }, null), null);
+});
+
+test('coastal jungle keeps authored height above the source terrain', () => {
+  assert.ok(Math.abs(coastalJungleSourceElevation(0, 0) - 0.65) < 1e-9);
+  const x = 17.5;
+  const z = -42.25;
+  const y = -z;
+  const expected = 0.065 * (y + 10) + 0.36 * Math.sin(x * 0.15) * Math.cos(y * 0.12) + 0.12 * Math.sin(y * 0.3);
+  assert.ok(Math.abs(coastalJungleSourceElevation(x, z) - expected) < 1e-12);
+});
+
+test('coastal jungle thins across its edge band only', () => {
+  assert.equal(coastalJungleEdgeKeeps(1, 0.999), true);
+  assert.equal(coastalJungleEdgeKeeps(0, 0), false);
+  assert.equal(coastalJungleEdgeKeeps(0.4, 0.3), true);
+  assert.equal(coastalJungleEdgeKeeps(0.4, 0.5), false);
+
+  const sea = { enabled: true, shoreX: 1000 };
+  const region = { zStart: 250, zEnd: 430, inlandStart: 140, inlandEnd: 270 };
+  const config = { water: { sea }, biomes: { coastalJungle: { enabled: true, region, ecology: { edgeFade: 12 } } } };
+  const z = 340;
+  assert.equal(coastalJungleProfileWeight(coastX(z, sea) - 205, z, config), 1);
+  const edge = coastalJungleProfileWeight(coastX(z, sea) - 145, z, config);
+  assert.ok(edge > 0 && edge < 1);
+  assert.equal(coastalJungleProfileWeight(coastX(z, sea) - 139, z, config), 0);
+  config.biomes.coastalJungle.enabled = false;
+  assert.equal(coastalJungleProfileWeight(coastX(z, sea) - 205, z, config), 0);
 });
 
 test('coastal jungle region center and radius cover the curved target strip', () => {
@@ -138,4 +179,32 @@ test('coastal jungle rejects existing routes and excessive terrain slope', () =>
     settings: { maxSlope: 0.75, slopeSampleDistance: 2 },
   });
   assert.equal(steep.allowed, false);
+});
+
+test('scene copies tile the strip without overlapping', () => {
+  const frames = resolveCoastalJungleFrames({ origin: [846, 312], yaw: Math.PI, tiles: [{ origin: [590, 312], yaw: Math.PI / 2 }] });
+  assert.equal(frames.length, 2);
+  assert.equal(frames[0].tile, undefined);
+  assert.equal(frames[1].tile, true);
+  // Each copy keeps only its own 256 m square, so the two squares meet at x = 718.
+  const edge = { x: 127.9, z: 0 };
+  assert.ok(coastalJungleTileKeeps(edge, 256));
+  assert.equal(coastalJungleTileKeeps({ x: 128.1, z: 0 }, 256), false);
+  const first = mapCoastalJungleHorizontal(edge, frames[0]);
+  assert.ok(Math.abs(first.x - 718.1) < 0.01);
+  // A quarter turn maps source z onto world x.
+  const second = mapCoastalJungleHorizontal({ x: 0, z: 127.9 }, frames[1]);
+  assert.ok(Math.abs(second.x - 717.9) < 0.01);
+  assert.deepEqual(resolveCoastalJungleFrames({ origin: [0, 0], tiles: [{ origin: ['x', 0] }] }), []);
+});
+
+test('jungle placement keeps plants out of the lake where the strip meets it', () => {
+  const terrain = { sampleHeight: (x) => (x < 0 ? -20 : -16.8) };
+  const wet = evaluateCoastalJunglePlacement({ x: -5, z: 0, terrain, waterLevel: -17 });
+  const shore = evaluateCoastalJunglePlacement({ x: 5, z: 0, terrain, waterLevel: -17 });
+  const noLake = evaluateCoastalJunglePlacement({ x: -5, z: 0, terrain });
+  assert.equal(wet.allowed, false);
+  assert.equal(noLake.allowed, true);
+  assert.equal(shore.allowed, false, 'within waterClearance of the surface');
+  assert.equal(evaluateCoastalJunglePlacement({ x: 5, z: 0, terrain, waterLevel: -17.5 }).allowed, true);
 });

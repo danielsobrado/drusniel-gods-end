@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { lakeSignedDistance } from '../world/LakeShape.js';
 
 const MIN_RIVER_SPEED = 0.18;
 const OUTLET_BASE_SPEED = 0.7;
@@ -53,10 +54,50 @@ export function partitionWaterGeometry(geometry, cellSize = 128) {
   });
 }
 
-export function createWaterGeometry(params, river) {
-  const lake = new THREE.PlaneGeometry(params.size, params.size, params.segments, params.segments);
-  lake.rotateX(-Math.PI / 2);
-  lake.translate(...params.position);
+// A grid over the lake's outline that keeps only the cells reaching within
+// lake.margin of its shore. The margin runs under the banks, so the surface
+// ends inside the ground instead of at the edge of a square seen side-on.
+// Beyond the shore the river channel is the ribbon's, so the lake stops there.
+export function createShorelineGeometry(lake, river = null, cellSize = 4) {
+  const { minX, minZ, maxX, maxZ } = lake.bounds;
+  const columns = Math.max(1, Math.ceil((maxX - minX) / cellSize));
+  const rows = Math.max(1, Math.ceil((maxZ - minZ) / cellSize));
+  const distances = new Float32Array((columns + 1) * (rows + 1));
+  for (let j = 0; j <= rows; j += 1) for (let i = 0; i <= columns; i += 1) {
+    distances[j * (columns + 1) + i] = lakeSignedDistance(minX + i * cellSize, minZ + j * cellSize, lake);
+  }
+  const positions = [], indices = [], remap = new Map();
+  const vertex = (i, j) => {
+    const key = j * (columns + 1) + i;
+    if (!remap.has(key)) {
+      remap.set(key, positions.length / 3);
+      positions.push(minX + i * cellSize, lake.level, minZ + j * cellSize);
+    }
+    return remap.get(key);
+  };
+  for (let j = 0; j < rows; j += 1) for (let i = 0; i < columns; i += 1) {
+    const corners = [j * (columns + 1) + i, j * (columns + 1) + i + 1, (j + 1) * (columns + 1) + i, (j + 1) * (columns + 1) + i + 1];
+    if (Math.min(...corners.map(k => distances[k])) > lake.margin) continue;
+    const cx = minX + (i + 0.5) * cellSize, cz = minZ + (j + 0.5) * cellSize;
+    if (river && distances[corners[0]] > 0 && distances[corners[3]] > 0 && river.sample(cx, cz)?.edge < 2) continue;
+    const a = vertex(i, j), b = vertex(i + 1, j), c = vertex(i, j + 1), d = vertex(i + 1, j + 1);
+    indices.push(a, c, b, b, c, d);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  return geometry;
+}
+
+export function createWaterGeometry(params, river, shape = null) {
+  let lake;
+  if (shape) {
+    lake = createShorelineGeometry(shape, river);
+  } else {
+    lake = new THREE.PlaneGeometry(params.size, params.size, params.segments, params.segments);
+    lake.rotateX(-Math.PI / 2);
+    lake.translate(...params.position);
+  }
   const count = lake.attributes.position.count;
   lake.deleteAttribute('uv');
   lake.deleteAttribute('normal');
@@ -64,10 +105,16 @@ export function createWaterGeometry(params, river) {
   lake.setAttribute('waterLevel', new THREE.Float32BufferAttribute(new Float32Array(count).fill(params.position[1]), 1));
   lake.setAttribute('waterFlow', new THREE.Float32BufferAttribute(new Float32Array(count * 4), 4));
   lake.setAttribute('riverSurface', new THREE.Float32BufferAttribute(new Float32Array(count * 4), 4));
+  // 1 where the lake's surface lies, so the river ribbon gives way to it there.
+  lake.setAttribute('lakeMask', new THREE.Float32BufferAttribute(new Float32Array(count).fill(1), 1));
 
   let geometry = lake;
   if (river) {
-    const positions = [], kinds = [], levels = [], flows = [], surfaces = [], indices = [];
+    const positions = [], kinds = [], levels = [], flows = [], surfaces = [], masks = [], indices = [];
+    const half = params.size / 2;
+    const inLake = shape
+      ? (x, z) => lakeSignedDistance(x, z, shape) < 0
+      : (x, z) => Math.abs(x - params.position[0]) < half && Math.abs(z - params.position[2]) < half;
     const samples = [...river.samples];
     const first = samples[0], last = samples.at(-1);
     samples.unshift({ ...first, x: first.x - first.dx * first.width, z: first.z - first.dz * first.width });
@@ -87,6 +134,7 @@ export function createWaterGeometry(params, river) {
         const relief = THREE.MathUtils.smoothstep(p.slope ?? slope, 0.2, 0.8)
           * Math.sin(across * 1.3 + p.s * 0.27) * 0.14;
         positions.push(p.x - p.dz * across, p.y + relief, p.z + p.dx * across);
+        masks.push(inLake(p.x - p.dz * across, p.z + p.dx * across) ? 1 : 0);
         kinds.push(1);
         levels.push(p.y);
         flows.push(p.dx, p.dz, speed, p.s);
@@ -103,6 +151,7 @@ export function createWaterGeometry(params, river) {
     ribbon.setAttribute('waterLevel', new THREE.Float32BufferAttribute(levels, 1));
     ribbon.setAttribute('waterFlow', new THREE.Float32BufferAttribute(flows, 4));
     ribbon.setAttribute('riverSurface', new THREE.Float32BufferAttribute(surfaces, 4));
+    ribbon.setAttribute('lakeMask', new THREE.Float32BufferAttribute(masks, 1));
     ribbon.setIndex(indices);
     geometry = mergeGeometries([lake, ribbon]);
     lake.dispose();

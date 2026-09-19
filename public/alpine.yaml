@@ -21,9 +21,11 @@ terrain:
     refinePasses: 1
     # Couloirs and spurs down the flanks, rock bands on the upper walls and a
     # broken crest, so the cirque reads as rock under snow rather than a bowl.
+    # Faults every faultSpacing metres around the ring offset the beds by up to
+    # faultOffset of a band, so ledges break off instead of ringing the wall.
     landform:
       couloirs: { amplitude: 14, spacing: 24, meander: 0.7 }
-      strata: { strength: 0.55, bandHeight: 12, tilt: 1.4, coverage: 0.4 }
+      strata: { strength: 0.55, bandHeight: 12, tilt: 1.4, coverage: 0.4, faultSpacing: 34, faultOffset: 0.5 }
       crest: { amplitude: 9, scale: 0.028 }
     treeLine: 108
     treeClearRadius: 320

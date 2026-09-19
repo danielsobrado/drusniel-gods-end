@@ -503,7 +503,7 @@ export class PlayerController {
     if (this.enabled) this.#updateMovement(deltaSeconds);
     this.#updateAnimation();
     this.animation?.mixer.update(deltaSeconds);
-    this.footPlacement?.update(this.grounded, this.root.position.y - this.metrics.rootToFeet);
+    this.footPlacement?.update(this.grounded, this.root.position.y - this.metrics.rootToFeet, deltaSeconds);
     if (this.enabled) this.#updateCamera(deltaSeconds);
   }
 

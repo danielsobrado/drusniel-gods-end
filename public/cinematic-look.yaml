@@ -397,6 +397,8 @@ water:
       - [202, 97, 26]
       - [350, 110, 30]
       - [500, 118, 34]
+      # Just past the lake's east shore: the river falls from here on.
+      - [530, 119, 34]
       - [610, 120, 38]
       - [690, 118, 42]
       - [770, 112, 46]
@@ -404,6 +406,34 @@ water:
       - [930, 94, 56]
       - [1000, 86, 64]
       - [1045, 80, 72]
+  # A long bent lake replacing the level's round basin. Its north arm holds
+  # the river's crossing (the river points before outletStartIndex lie in it);
+  # its south arm runs along the foot of the jungle plateau. Centreline X, Z
+  # and half-width in metres; the surface follows this outline.
+  lake:
+    points:
+      - [200, 86, 28]
+      - [262, 100, 60]
+      - [362, 118, 70]
+      - [448, 142, 62]
+      - [484, 200, 50]
+      - [490, 272, 50]
+      - [486, 342, 46]
+      - [472, 406, 36]
+      - [452, 458, 22]
+    depth: 7
+    shelf: 26
+    shoreDepth: 0.5
+    # Banks ramp up at bankSlope (under the jungle's maxSlope) until they meet
+    # the ground; bankWidth must cover the ramp up to the plateau beside it.
+    bankWidth: 110
+    bankSlope: 0.42
+    bankSoftness: 4
+    shoreWobble: 5
+    # The water surface reaches this far under the banks.
+    waterMargin: 8
+    # The old basin south and west of the new outline becomes meadow.
+    fill: { bounds: [120, 0, 470, 400], rise: 7, fade: 30 }
   metalness: 0
   roughness: 0.24
   speed: 1.1

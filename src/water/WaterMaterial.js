@@ -120,8 +120,9 @@ export function createCinematicWaterMaterial({
   const surface = attribute('riverSurface', 'vec4');
   const currentUv = vec2(surface.x.mul(0.22), surface.y.mul(0.045).sub(t.mul(0.28)));
   const level = attribute('waterLevel', 'float');
-  const lakeHere = positionWorld.x.sub(params.position[0]).abs().lessThan(params.size / 2)
-    .and(positionWorld.z.sub(params.position[2]).abs().lessThan(params.size / 2));
+  // Whether the lake's own surface covers this point: the ribbon hands over to
+  // it there. Baked per vertex from the lake's outline (see waterGeometry).
+  const lakeHere = attribute('lakeMask', 'float').greaterThan(0.5);
   const current = kind.mul(lakeHere.select(level.sub(params.position[1]).smoothstep(0, 2), float(1)));
   // Snowmelt: up in snow country the river runs cold and dark, and reflects
   // the sky it runs under rather than the meadow probe captured down at the

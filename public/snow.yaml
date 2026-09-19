@@ -12,6 +12,19 @@ ground:
       start: 0.46
       full: 0.84
       noise: 0.12
+    # Where snow settles beyond altitude and slope. Faces turned downwind (lee)
+    # and hollows hold snow on steeper ground and further down; faces turned
+    # into the wind and convex ridges are scoured bare. lee and concavity shift
+    # the slope thresholds (normal Y); leeHeight and concavityHeight shift the
+    # effective height in metres. Concavity is the terrain Laplacian measured
+    # across curvatureStep metres; curvatureScale (1/m) reads as a full hollow.
+    accumulation:
+      lee: 0.24
+      leeHeight: 12
+      concavity: 0.16
+      concavityHeight: 14
+      curvatureStep: 6
+      curvatureScale: 0.08
     # Packed snow along walked routes: darker, bluer, smoother, less grainy.
     path:
       compaction: 0.85

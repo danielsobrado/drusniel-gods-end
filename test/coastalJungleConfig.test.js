@@ -35,8 +35,18 @@ function validConfig() {
             kindScale: { grass: 1, tree: 0.18 },
           },
         },
-        region: { zStart: 250, zEnd: 430, inlandStart: 140, inlandEnd: 270 },
-        ecology: { edgeFade: 18, baseVegetationScale: 0.18 },
+        region: { zStart: 250, zEnd: 430, inlandStart: 140, inlandEnd: 270, origin: [846, 312], yaw: Math.PI },
+        ecology: { edgeFade: 12, baseVegetationScale: 0 },
+        scatter: {
+          seed: 941,
+          extent: 128,
+          chunkSize: 16,
+          grassPerChunk: 540,
+          groundcoverPerChunk: 100,
+          undergrowthPerChunk: 7,
+          plantExtent: 22,
+          pathClearance: 0.5,
+        },
         render: {
           lodHysteresis: 0.06,
           chunkSize: 16,
@@ -79,6 +89,27 @@ test('coastal jungle validator rejects collapsed regions', () => {
   const config = validConfig();
   config.biomes.coastalJungle.region.zEnd = config.biomes.coastalJungle.region.zStart;
   assert.throws(() => validateCoastalJungleConfig(config), /non-zero Z range/);
+});
+
+test('coastal jungle validator requires where the authored scene lands', () => {
+  const config = validConfig();
+  delete config.biomes.coastalJungle.region.origin;
+  assert.throws(() => validateCoastalJungleConfig(config), /region\.origin/);
+
+  config.biomes.coastalJungle.region.origin = [846, 'north'];
+  assert.throws(() => validateCoastalJungleConfig(config), /region\.origin/);
+
+  config.biomes.coastalJungle.region.origin = [846, 312];
+  config.biomes.coastalJungle.region.yaw = 'south';
+  assert.throws(() => validateCoastalJungleConfig(config), /region\.yaw/);
+});
+
+test('coastal jungle validator rejects a degenerate floor scatter', () => {
+  const config = validConfig();
+  config.biomes.coastalJungle.scatter.chunkSize = 0;
+  config.biomes.coastalJungle.scatter.grassPerChunk = 2.5;
+  assert.throws(() => validateCoastalJungleConfig(config), /scatter\.chunkSize/);
+  assert.throws(() => validateCoastalJungleConfig(config), /scatter\.grassPerChunk/);
 });
 
 test('coastal jungle validator rejects invalid quality density and distance', () => {

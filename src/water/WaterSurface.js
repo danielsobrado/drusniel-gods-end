@@ -3,6 +3,7 @@ import { reflector } from 'three/tsl';
 import { createCinematicWaterMaterial } from './WaterMaterial.js';
 import { createLegacyWaterMaterial } from './LegacyWaterMaterial.js';
 import { createWaterGeometry, partitionWaterGeometry } from './waterGeometry.js';
+import { resolveLakeShape } from '../world/LakeShape.js';
 import { createSeaTileGeometries, seaTileStats } from './seaGeometry.js';
 import { RiverDetails } from './RiverDetails.js';
 import { coastDistanceAt } from '../world/CoastField.js';
@@ -98,7 +99,7 @@ export class WaterSurface {
     this.frustum = new THREE.Frustum();
 
     this.geometry = this.enhanced
-      ? createWaterGeometry(this.params, this.river)
+      ? createWaterGeometry(this.params, this.river, resolveLakeShape(config))
       : new THREE.PlaneGeometry(this.params.size, this.params.size, this.params.segments, this.params.segments);
     this.mesh = this.enhanced ? new THREE.Group() : new THREE.Mesh(this.geometry);
     if (!this.enhanced) this.mesh.rotation.set(-Math.PI * 0.5, 0, 0);

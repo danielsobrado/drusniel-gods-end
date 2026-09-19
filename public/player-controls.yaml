@@ -75,7 +75,9 @@ navigation:
     - { id: river, label: River, mode: ground, position: [88, -19], yaw: 0.75 }
     - { id: lake, label: Lake, mode: ground, position: [480, 378], yaw: -1.2 }
     - { id: beachNorth, label: Beach North, mode: ground, position: [990, 320], yaw: 1.5708 }
-    - { id: coastalJungle, label: Coastal Jungle, mode: ground, position: [846, 283], yaw: 0 }
+    # The original's reference view: 7 m short of the jungle's hero clearing,
+    # looking down its trail (see biomes.coastalJungle.region.origin).
+    - { id: coastalJungle, label: Coastal Jungle, mode: ground, position: [846, 305], yaw: 3.14159265 }
     - { id: beachSouth, label: Beach South, mode: ground, position: [900, -180], yaw: 1.5708 }
     - { id: snowPass, label: Snow Pass, mode: ground, position: [-125, -590], yaw: -0.5 }
     - { id: snowSummit, label: Alpine Summit, mode: ground, position: [-25, -655], yaw: 1.1, heightOffset: 0.08 }

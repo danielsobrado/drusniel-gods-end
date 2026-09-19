@@ -19,6 +19,14 @@ biomes:
         start: 18
         end: 85
         strength: 0.28
+      # Grass and groundcover are drawn only near the camera; beyond them the
+      # soil blends toward the colour of that cover instead of reading as a
+      # bare clearing.
+      floorCover:
+        color: '#4b5a2a'
+        start: 22
+        end: 48
+        strength: 0.85
       wind:
         enabled: true
         amplitude: 0.035
@@ -39,30 +47,58 @@ biomes:
           climber: 0.4
           background_tree: 0.14
           split_leaf: 0.75
+    # The authored scene keeps its own spacing: it is not squeezed into the
+    # strip but cropped by it. origin is where the scene origin (the reference
+    # view's clearing) lands and yaw turns the scene about it; PI puts the
+    # reference view's heading on +Z.
+    # inlandEnd runs the strip down the plateau to the lake's south arm, which
+    # is wider than the 256 m scene: a second copy, turned a quarter, fills
+    # the square inland of the first. Each copy keeps only its own square.
     region:
       zStart: 250
       zEnd: 430
       inlandStart: 140
-      inlandEnd: 270
-      flipAcross: false
-      flipAlong: false
+      inlandEnd: 520
+      origin: [846, 312]
+      yaw: 3.14159265
+      tileSize: 256
+      tiles:
+        - { origin: [590, 312], yaw: 1.57079633 }
+    # Only jungle grows in the strip. Across its edge band the jungle thins
+    # out while the surrounding biome thins in, so they overlap only there.
     ecology:
-      edgeFade: 18
-      baseVegetationScale: 0.18
+      edgeFade: 12
+      baseVegetationScale: 0
+      # Share of the original's big backdrop shrubs (its distant understory,
+      # 1.6-3.4x) kept outside the hero patch. At full density they cover the
+      # ground about twice over and wall in a walking camera.
+      backdropShrubDensity: 0.35
+    # The original web world scatters its floor at load time instead of
+    # authoring it (Codex-and-Blender web/forest-world.js, world_config.json):
+    # per chunk outside the hero patch, from one seeded LCG.
+    scatter:
+      seed: 941
+      extent: 128
+      chunkSize: 16
+      grassPerChunk: 540
+      groundcoverPerChunk: 100
+      undergrowthPerChunk: 7
+      plantExtent: 22
+      pathClearance: 0.5
     placement:
       groundOffset: 0.025
       pathOffset: 0.045
-      vineAttachHeight: 8.5
       slopeSampleDistance: 2
       maxSlope: 0.75
       routeMaskMax: 0.08
       routeFloorRevealStart: 0.08
       routeFloorRevealDepth: 0.015
-      surfaceEdgeFade: 18
+      surfaceEdgeFade: 12
       riverClearance: 10
       boundsPadding: 1
     collider:
       tree: { radius: 0.52, height: 7.5 }
+      background_tree: { radius: 0.4, height: 7 }
       palm: { radius: 0.38, height: 7 }
     shadowKinds: [groundcover, fern, broadleaf, palm, tree, shrub, vine, climber, background_tree, split_leaf]
     render:

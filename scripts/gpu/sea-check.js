@@ -41,6 +41,7 @@ async function checkFiniteWaterNormals(renderer) {
   const count = geometry.attributes.position.count;
   geometry.setAttribute('waterKind', new THREE.Float32BufferAttribute(new Float32Array(count).fill(2), 1));
   geometry.setAttribute('waterLevel', new THREE.Float32BufferAttribute(new Float32Array(count), 1));
+  geometry.setAttribute('lakeMask', new THREE.Float32BufferAttribute(new Float32Array(count), 1));
   for (const name of ['waterFlow', 'riverSurface']) {
     geometry.setAttribute(name, new THREE.Float32BufferAttribute(new Float32Array(count * 4), 4));
   }

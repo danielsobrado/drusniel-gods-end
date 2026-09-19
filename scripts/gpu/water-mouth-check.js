@@ -34,8 +34,10 @@ export async function checkWaterMouth(renderer, createMaterial = createCinematic
       a.waterKind.setX(i, kind); a.waterLevel.setX(i, level);
       a.waterFlow.setXYZW(i, 1, 0, 1, 20);
       a.riverSurface.setXYZW(i, a.position.getX(i), a.position.getZ(i) + 20, 0, 0);
+      // The lake's outline is the footprint here; the mesh moves off it with x.
+      a.lakeMask.setX(i, Math.abs(x) < params.size / 2 ? 1 : 0);
     }
-    for (const name of ['waterKind', 'waterLevel', 'waterFlow', 'riverSurface']) a[name].needsUpdate = true;
+    for (const name of ['waterKind', 'waterLevel', 'waterFlow', 'riverSurface', 'lakeMask']) a[name].needsUpdate = true;
     field.image.data[0] = level; field.needsUpdate = true;
     mesh.position.set(x, level, 0);
     camera.position.set(x, level + 5, 0.001); camera.lookAt(x, level, 0);

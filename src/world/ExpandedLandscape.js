@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import { RiverCourse } from '../water/RiverCourse.js';
-import { fractalNoise } from '../grass/vegetationEcology.js';
+import { fractalNoise, hash2d } from '../grass/vegetationEcology.js';
 import { createSeededRandom } from '../core/math.js';
 import { LandscapePaths, forestWeight } from './LandscapePaths.js';
 import { createPathLanternPairs } from './PathLanterns.js';
 import { createAlpineTrees } from './AlpineTrees.js';
 import { coastalHeight, sampleCoastField } from './CoastField.js';
+import { coastalJungleProfileWeight } from './CoastalJungleRegion.js';
 import {
   alpineDistance,
   alpineTreeAllowed,
@@ -13,6 +14,7 @@ import {
   shapeAlpineHeight,
 } from './AlpineRegion.js';
 import { refineTerrainRegion } from './TerrainRefinement.js';
+import { lakeSignedDistance, resolveLakeShape, shapeLakeHeight } from './LakeShape.js';
 import { sampleSnowSurfaceCpu } from './SnowDeformationField.js';
 
 const smooth = (a, b, x) => THREE.MathUtils.smoothstep(x, a, b);
@@ -78,6 +80,7 @@ export function expandLandscape(target, original, config) {
   const settings = config.terrain.expansion;
   if (!settings?.enabled || !target?.isMesh) return null;
   const alpine = resolveAlpineConfig(config);
+  const lake = resolveLakeShape(config);
   const width = settings.width ?? settings.size, depth = settings.depth ?? settings.size;
   const [centerX, centerZ] = settings.center ?? [0, 0];
   const naturalHeight = (x, z) => {
@@ -89,7 +92,7 @@ export function expandLandscape(target, original, config) {
     const base = THREE.MathUtils.lerp(old, outer, smooth(0, 170, edgeDistance));
     const mountain = base + mountainHeight(x, z) * smooth(210, 325, -z);
     const coast = coastalHeight(x, z, mountain, config.water.sea);
-    return shapeAlpineHeight(x, z, coast, alpine);
+    return shapeLakeHeight(x, z, shapeAlpineHeight(x, z, coast, alpine), lake);
   };
   const routes = [...(settings.routes ?? [])];
   if (alpine?.route) routes.push(alpine.route);
@@ -143,6 +146,17 @@ export function expandLandscape(target, original, config) {
         }
         return high - low > STEEP_TRIANGLE_RISE;
       },
+      sampleHeight: baseHeight,
+    });
+  }
+  // One more subdivision along the lake shore, so the bank is not a 5 m staircase.
+  if (lake) {
+    refined = refineTerrainRegion({
+      positions,
+      uvs,
+      indices: refined,
+      passes: 1,
+      shouldRefine: (x, z) => Math.abs(lakeSignedDistance(x, z, lake)) <= 12,
       sampleHeight: baseHeight,
     });
   }
@@ -207,6 +221,10 @@ export function adaptLandscapeRecords(trees, props, expansion, terrain) {
       .filter(location => location.mode === 'ground').map(location => location.position),
     windAngleDegrees: terrain.config.ground?.snow?.wind?.angleDegrees,
   }));
-  return { trees: result, props: { stones: rebase(props.stones),
+  // The coastal jungle grows its own forest. Broadleaf trees reach only into
+  // its edge band, thinning out there as the jungle thins in.
+  const outsideJungle = p => hash2d(Math.floor(p[0] * 4), Math.floor(p[2] * 4), 7121)
+    >= coastalJungleProfileWeight(p[0], p[2], terrain.config);
+  return { trees: result.filter(outsideJungle), props: { stones: rebase(props.stones),
     lanterns: createPathLanternPairs(rebase(props.lanterns), expansion.paths, terrain, river) } };
 }
