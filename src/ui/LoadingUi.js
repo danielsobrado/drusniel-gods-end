@@ -90,7 +90,10 @@ export class LoadingUi {
         <div id="status-tech" class="loading-detail loading-detail-tech"></div>
       </div>
       <button id="startButton" class="loading-start" type="button">START</button>
-      <a class="loading-lore-link" href="https://www.drusniel.com/" target="_blank" rel="noopener noreferrer">Read about Drusniel ↗</a>`;
+      <div class="loading-links">
+        <a class="loading-lore-link" href="https://www.drusniel.com/" target="_blank" rel="noopener noreferrer">Read about Drusniel ↗</a>
+        <a class="loading-lore-link" href="https://discord.gg/pNfJPWprgB" target="_blank" rel="noopener noreferrer">Come to Discord, get the source code ↗</a>
+      </div>`;
     root.appendChild(this.element);
     const logoText = presentation?.title ?? 'Drusniel: Gods’ End';
     this.element.querySelectorAll('.logo-outline, .logo-fill').forEach(element => setLogoText(element, logoText));

@@ -334,6 +334,14 @@
   white-space: nowrap;
 }
 
+.loading-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 12px 28px;
+}
+
 .loading-lore-link {
   color: rgba(238, 244, 232, .6);
   font-size: 11px;
