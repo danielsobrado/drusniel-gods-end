@@ -184,25 +184,98 @@
   }
 }
 
+/* Loading halts at the character stage until the player picks, so the gate has
+   to read as the call to action on the screen, not as a footnote under the bar. */
+.character-gate {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  width: min(820px, 92vw);
+  margin-top: 10px;
+}
+
+.character-prompt {
+  margin: 0;
+  color: #eef4e8;
+  font-size: clamp(22px, 3.2vw, 34px);
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.character-hint {
+  margin: -6px 0 0;
+  color: #b6ee43;
+  font-size: 13px;
+  letter-spacing: .12em;
+  text-align: center;
+}
+
+.character-hint:empty {
+  display: none;
+}
+
+.character-gate.is-locked .character-prompt {
+  font-size: clamp(14px, 1.6vw, 17px);
+  font-weight: 600;
+  opacity: .8;
+}
+
 .character-select {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 8px;
-  width: min(640px, 88vw);
-  margin-top: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+  width: 100%;
 }
 
 .character-card {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   min-width: 0;
-  padding: 8px 12px;
-  border: 1px solid rgba(238, 244, 232, .16);
-  background: rgba(255, 255, 255, .03);
+  min-height: 72px;
+  padding: 14px 18px;
+  border: 1px solid rgba(238, 244, 232, .28);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .05);
   color: inherit;
   text-align: left;
-  transition: border-color .25s, background .25s, opacity .25s;
+  cursor: pointer;
+  transition: border-color .25s, background .25s, opacity .25s, transform .2s;
+}
+
+.loading-overlay.is-awaiting-character .character-card {
+  animation: character-card-call 2.2s ease-in-out infinite;
+}
+
+.loading-overlay.is-awaiting-character .character-card:hover {
+  transform: translateY(-2px);
+}
+
+.loading-overlay.is-awaiting-character .character-hint {
+  animation: character-hint-blink 1.6s ease-in-out infinite;
+}
+
+@keyframes character-card-call {
+  0%, 100% { border-color: rgba(238, 244, 232, .28); box-shadow: 0 0 0 0 rgba(182, 238, 67, 0); }
+  50%      { border-color: rgba(182, 238, 67, .7); box-shadow: 0 0 22px 0 rgba(182, 238, 67, .22); }
+}
+
+@keyframes character-hint-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-overlay.is-awaiting-character .character-card,
+  .loading-overlay.is-awaiting-character .character-hint {
+    animation: none;
+  }
+
+  .loading-overlay.is-awaiting-character .character-card {
+    border-color: rgba(182, 238, 67, .55);
+  }
 }
 
 /* Keep the global lime `button:hover` text colour off the cards. */
@@ -224,18 +297,18 @@
   display: grid;
   flex: 0 0 auto;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
   border: 1px solid rgba(182, 238, 67, .35);
   border-radius: 50%;
   color: #b6ee43;
-  font-size: 13px;
+  font-size: 18px;
   font-weight: 800;
 }
 
 .character-monogram svg {
-  width: 17px;
-  height: 17px;
+  width: 24px;
+  height: 24px;
 }
 
 .character-copy {
@@ -245,7 +318,7 @@
 }
 
 .character-copy strong {
-  font-size: 13px;
+  font-size: 17px;
   font-weight: 700;
   letter-spacing: .06em;
 }
@@ -253,7 +326,7 @@
 .character-copy em {
   overflow: hidden;
   color: #b6ee43;
-  font-size: 9px;
+  font-size: 11px;
   font-style: normal;
   letter-spacing: .14em;
   text-overflow: ellipsis;

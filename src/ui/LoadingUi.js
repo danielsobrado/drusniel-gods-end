@@ -145,7 +145,16 @@ export class LoadingUi {
       this.characterList.appendChild(card);
     }
 
-    this.element.insertBefore(this.characterList, this.startButton);
+    // Loading stalls at the character stage until a card is picked, so the gate
+    // carries its own headline rather than relying on the small status line.
+    this.characterGate = document.createElement('section');
+    this.characterGate.className = 'character-gate';
+    this.characterGate.innerHTML = '<h2 class="character-prompt">Choose your character</h2>'
+      + '<p class="character-hint">Loading continues once you pick one</p>';
+    this.characterPrompt = this.characterGate.querySelector('.character-prompt');
+    this.characterHint = this.characterGate.querySelector('.character-hint');
+    this.characterGate.appendChild(this.characterList);
+    this.element.insertBefore(this.characterGate, this.startButton);
     const preselected = this.characterChoice?.selectedId;
     if (preselected) this.#chooseCharacter(preselected);
   }
@@ -154,12 +163,18 @@ export class LoadingUi {
     if (this.selectedCharacterId) return;
     this.selectedCharacterId = id;
     this.characterList.classList.add('is-locked');
+    this.element.classList.remove('is-awaiting-character');
+    this.characterGate.classList.add('is-locked');
+    let chosenName = id;
     for (const card of this.characterList.querySelectorAll('.character-card')) {
       const chosen = card.dataset.characterId === id;
       card.setAttribute('aria-checked', String(chosen));
       card.classList.toggle('is-chosen', chosen);
       card.disabled = true;
+      if (chosen) chosenName = card.querySelector('strong').textContent;
     }
+    this.characterPrompt.textContent = `Traveling as ${chosenName}`;
+    this.characterHint.textContent = '';
     this.resolveCharacter(id);
   }
 
@@ -176,6 +191,10 @@ export class LoadingUi {
     if (!stage) return;
     if (name !== 'shaders') this.#clearShaderStatus();
     this.#setProgress(stage.message, stage.progress);
+    if (name === 'character' && this.needsCharacterChoice()) {
+      this.element.classList.add('is-awaiting-character');
+      this.characterGate.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    }
     if (name === 'shaders') {
       this.statusDetail.textContent = 'Preparing the final lighting and surfaces…';
       this.statusTech.textContent = 'Waiting for renderer pipeline inventory.';

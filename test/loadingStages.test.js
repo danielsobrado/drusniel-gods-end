@@ -16,7 +16,7 @@ test('loading stages match the current startup sequence', () => {
     renderer: { message: 'Lighting the horizon...', progress: 0 },
     environment: { message: 'Waking the sky...', progress: 0 },
     world: { message: 'Shaping the wilds...', progress: 5 },
-    character: { message: 'Choose your traveler...', progress: 20 },
+    character: { message: 'Waiting for your character choice', progress: 20 },
     player: { message: 'Preparing your traveler...', progress: 25 },
     collision: { message: 'Setting the boundaries...', progress: 40 },
     foliage: { message: 'Awakening the forest...', progress: 55 },

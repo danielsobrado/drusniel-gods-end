@@ -3,7 +3,7 @@ export const LOADING_STAGES = Object.freeze({
   renderer: Object.freeze({ message: 'Lighting the horizon...', progress: 0 }),
   environment: Object.freeze({ message: 'Waking the sky...', progress: 0 }),
   world: Object.freeze({ message: 'Shaping the wilds...', progress: 5 }),
-  character: Object.freeze({ message: 'Choose your traveler...', progress: 20 }),
+  character: Object.freeze({ message: 'Waiting for your character choice', progress: 20 }),
   player: Object.freeze({ message: 'Preparing your traveler...', progress: 25 }),
   collision: Object.freeze({ message: 'Setting the boundaries...', progress: 40 }),
   foliage: Object.freeze({ message: 'Awakening the forest...', progress: 55 }),

@@ -32,6 +32,13 @@
 .cinematic-loading .character-copy strong { font-weight: 450; letter-spacing: .1em; }
 .cinematic-loading .character-copy em { color: #9fb2c1; }
 .cinematic-loading .character-select.is-locked .character-card.is-chosen { border-color: #9fb4c699; background: #9fb4c614; }
+.cinematic-loading .character-prompt { color: #dce5ec; font-weight: 450; letter-spacing: .18em; }
+.cinematic-loading .character-hint { color: #b7c9d8; }
+.cinematic-loading.is-awaiting-character .character-card { animation-name: character-card-call-ash; }
+@keyframes character-card-call-ash {
+  0%, 100% { border-color: #a9bccb47; box-shadow: 0 0 0 0 #9fb4c600; }
+  50%      { border-color: #b7c9d8c4; box-shadow: 0 0 22px 0 #9fb4c63d; }
+}
 .cinematic-loading .loading-lore-link { color: #a9bccbb3; border-color: #a9bccb40; }
 .cinematic-loading .loading-lore-link:hover, .cinematic-loading .loading-lore-link:focus-visible { color: #dce5ec; border-color: currentColor; }
 .cinematic-loading .loading-start { color: #c8d4de; border-color: #a9bccb73; font-weight: 450; letter-spacing: .16em; font-size: 17px; }
@@ -88,5 +95,6 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .cinematic-hud * { transition: none !important; }
+  .cinematic-loading.is-awaiting-character .character-card { animation: none; border-color: #b7c9d88c; }
   .cinematic-loading.is-ready .loading-start { animation: none; opacity: 1; box-shadow: 0 0 0 1px #9fb4c659, 0 14px 38px #00000080; }
 }

@@ -25,7 +25,7 @@ Opening the way...                 0%
 Lighting the horizon...            0%
 Waking the sky...                  0%
 Shaping the wilds...               5%
-Choose your traveler...           20%
+Waiting for your character choice 20%
 Preparing your traveler...        25%
 Setting the boundaries...         40%
 Awakening the forest...           55%
