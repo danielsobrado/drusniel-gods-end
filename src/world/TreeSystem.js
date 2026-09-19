@@ -1,6 +1,6 @@
 import * as THREE from 'three/webgpu';
 import {
-  attribute, color, dot, mix, positionLocal, reference, smoothstep, texture, uv, vec3, vec4,
+  attribute, color, dot, materialColor, mix, positionLocal, reference, smoothstep, texture, uv, vec3, vec4,
 } from 'three/tsl';
 import { adventureCanopyColor } from '../rendering/AdventurePalette.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
@@ -8,6 +8,9 @@ import { createRandom } from '../utils/random.js';
 import { logger } from '../utils/logger.js';
 import { TreeLeafMaterialFactory } from './TreeLeafMaterial.js';
 import { fitRootGround, measureRootReach, resolveRootSettings, rootBendFor } from './treeRootFit.js';
+import { loadVegetationLodAssets, primitiveParts } from '../foliage/VegetationLodAssets.js';
+import { VegetationLodRenderer } from '../foliage/VegetationLodRenderer.js';
+import { treeLodCenters } from '../foliage/vegetationLodPolicy.js';
 
 const LOD_HIGH = 0;
 const LOD_BILLBOARD = 1;
@@ -191,7 +194,69 @@ export class TreeSystem {
     this.lodUpdateTimer = 0;
     this.leafMaterialFactory = new TreeLeafMaterialFactory(config);
     this.barkMaterials = new Map();
+    this.qualityName = config.ui.initialQuality;
   }
+
+  async initLods(signal) {
+    if (!this.config.vegetationLod?.enabled || !this.trees.length) return;
+    try {
+      const keys = this.sources.map((source, i) => source ? `tree${i + 1}` : null).filter(Boolean);
+      const assets = await loadVegetationLodAssets(keys, this.config, signal);
+      if (signal?.aborted || this.disposed) { assets.dispose(); signal?.throwIfAborted(); return; }
+      this.lodAssets = assets;
+      const settings = this.config.trees.lod;
+      this.lodRenderer = new VegetationLodRenderer({ scene: this.scene, config: this.config,
+        chunkSize: settings.chunkSize,
+        policy: (record, kind, quality) => {
+          if (record.quality !== quality) {
+            record.quality = quality;
+            record.policy = { centers: treeLodCenters(record.height, quality, settings), blend: settings.blend,
+              far: this.config.trees.billboardDistance };
+          }
+          return record.policy;
+        },
+        prepareMaterial: (source, { name }) => {
+          const foliage = this.sources.some(s => s?.highLeavesName === name);
+          const material = foliage ? this.leafMaterialFactory.create(source, attribute('lodTint', 'vec3'))
+            : new THREE.MeshStandardNodeMaterial().copy(source);
+          if (!foliage) {
+            material.colorNode = materialColor.mul(attribute('lodTint', 'vec3'));
+            const base = positionLocal, bend = attribute('lodRootBend', 'vec2');
+            material.positionNode = base.add(vec3(0, dot(bend, base.xz)
+              .mul(smoothstep(0, this.rootSettings.conformHeight, base.y).oneMinus()), 0));
+          }
+          return material;
+        },
+      });
+      this.lodFullParts = [];
+      this.sources.forEach((source, typeIndex) => {
+        if (!source) return;
+        const full = primitiveParts(source.high); this.lodFullParts.push(...full);
+        const bounds = new THREE.Box3(); for (const part of full) bounds.union(part.geometry.boundingBox);
+        const sphere = bounds.getBoundingSphere(new THREE.Sphere());
+        const records = this.trees.filter(tree => tree.typeIndex === typeIndex).map(tree => {
+          tree.high.updateMatrixWorld(true); tree.high.visible = false;
+          return { position: tree.position.clone(), matrix: new Float32Array(tree.high.matrixWorld.elements),
+            height: (bounds.max.y - bounds.min.y) * tree.high.scale.y, tint: tree.tint, bend: tree.high.children[0]?.userData.treeRoots?.bend,
+            fraction: 0, sphere: sphere.clone().applyMatrix4(tree.high.matrixWorld) };
+        });
+        this.lodRenderer.addVariant({ key: `tree${typeIndex + 1}`, full, asset: assets.variants.get(`tree${typeIndex + 1}`), records });
+      });
+      for (const group of this.billboardGroups) group.visible = false;
+      this.setQuality(this.qualityName);
+      this.lodRenderer.update(this.camera, true);
+      this.stats = this.lodRenderer.stats;
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      this.lodRenderer?.dispose(); this.lodRenderer = null; this.lodAssets?.dispose();
+      for (const part of this.lodFullParts ?? []) part.geometry.dispose(); this.lodFullParts = [];
+      for (const group of this.billboardGroups) group.visible = true;
+      this.resetLod();
+      logger.warn('Tree LOD assets unavailable; retaining original tree rendering.', error);
+    }
+  }
+
+  setQuality(name) { this.qualityName = name; this.lodRenderer?.setQuality(name); }
 
   init() {
     if (!this.root) {
@@ -508,6 +573,7 @@ export class TreeSystem {
   // Select the opening view before shader warm-up or any reflection capture.
   // Starting every tree at high detail compiles and draws the entire forest.
   resetLod() {
+    if (this.lodRenderer) { this.lodRenderer.update(this.camera, true); return; }
     this.camera.getWorldPosition(this.cameraPosition);
     this.transitioningTrees.clear();
     this.lodUpdateTimer = 0;
@@ -525,6 +591,7 @@ export class TreeSystem {
   }
 
   update(deltaSeconds = DEFAULT_UPDATE_SECONDS) {
+    if (this.lodRenderer) { this.lodRenderer.update(this.camera); return; }
     this.camera.getWorldPosition(this.cameraPosition);
     for (const tree of this.transitioningTrees) this.#updateTransition(tree, deltaSeconds);
 
@@ -540,6 +607,9 @@ export class TreeSystem {
   }
 
   dispose() {
+    this.disposed = true;
+    this.lodRenderer?.dispose(); this.lodAssets?.dispose();
+    for (const part of this.lodFullParts ?? []) part.geometry.dispose(); this.lodFullParts = [];
     for (const tree of this.trees) {
       this.scene.remove(tree.high);
     }

@@ -17,7 +17,16 @@ function configureTexture(texture) {
   texture.anisotropy = ORIGINAL_ANISOTROPY;
 }
 
-function prepareTerrainMeshes(root) {
+export function hideCollisionHelpers(root, config = {}) {
+  const names = new Set(['WaterCollider', 'HouseCollider', config.water?.colliderName,
+    ...(config.collisions?.trimeshObjects ?? [])]);
+  root.traverse(object => {
+    if (names.has(object.name) || object.name === 'TerrainPart:colliders') object.visible = false;
+  });
+}
+
+function prepareTerrainMeshes(root, config) {
+  hideCollisionHelpers(root, config);
   root.traverse((object) => {
     if (!object.isMesh) return;
     object.castShadow = true;
@@ -132,7 +141,7 @@ export async function loadTerrain(scene, config, onPartLoaded = () => {}) {
   root.position.fromArray(terrainConfig.position ?? [0, 0, 0]);
   root.rotation.y = terrainConfig.rotationY ?? 0;
   root.updateWorldMatrix(true, true);
-  prepareTerrainMeshes(root);
+  prepareTerrainMeshes(root, config);
   scene.add(root);
 
   return {

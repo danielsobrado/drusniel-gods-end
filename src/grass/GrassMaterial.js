@@ -35,9 +35,12 @@ export class GrassMaterial {
     type = config.grass.type,
     atlasTexture = null,
     referenceBiome = false,
+    options = {},
   ) {
     this.config = config;
     this.type = type;
+    this.far = Boolean(options.far);
+    this.handoff = uniform(1e9);
     this.windConfig = resolveWindConfig(config);
     const cinematicWind = this.windConfig.model === CINEMATIC_MODEL;
     const cinematic = Boolean(config.cinematic?.enabled);
@@ -52,7 +55,7 @@ export class GrassMaterial {
       this.#publishSharedState(grass);
     } else this.cinematic = null;
 
-    if (cinematic) {
+    if (cinematic && !this.far) {
       this.lodBands = uniformArray(Array.from({ length: 4 }, () => new Vector4(1, 1, 0, 1)));
     }
 
@@ -65,11 +68,15 @@ export class GrassMaterial {
       atlasTexture,
       {
         referenceBiome,
+        farBillboard: this.far,
+        distanceCoverage: this.far ? (distance, uniforms) => smoothstep(this.handoff.mul(config.grass.far.transitionStart), this.handoff, distance)
+          .mul(smoothstep(uniforms.maxDistance.mul(config.grass.far.fadeStart), uniforms.maxDistance, distance).oneMinus())
+          : config.grass.far?.enabled ? (distance) => smoothstep(this.handoff.mul(config.grass.far.transitionStart), this.handoff, distance).oneMinus() : null,
         includeRecoveredWind: !cinematicWind,
         includeRecoveredHeightVariation: !cinematic,
         includeCinematicHeight: cinematic,
         useCachedTerrainNormals: cinematic && config.cinematic?.style?.enabled,
-        lodCoverage: cinematic ? (ctx) => this.#lodCoverage(ctx) : null,
+        lodCoverage: cinematic && !this.far ? (ctx) => this.#lodCoverage(ctx) : null,
         deformVisible: cinematicWind ? (ctx) => this.#applyCinematicWind(ctx) : null,
       },
     );
@@ -83,7 +90,7 @@ export class GrassMaterial {
     const rank = instanceData.y;
     const distance = visibility.distance;
     const coverage = float(1).toVar();
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < (this.config.grass.far?.enabled ? 3 : 4); i++) {
       const band = this.lodBands.element(i);
       If(rank.greaterThanEqual(band.z).and(rank.lessThan(band.y)), () => {
         const order = band.y.sub(rank).div(band.y.sub(band.z).max(1));
@@ -214,6 +221,7 @@ export class GrassMaterial {
 
   setMaxDistance(value) {
     this.recovered.setMaxDistance(value);
+    if (!this.far) this.handoff.value = value;
   }
 
   setInteractionCenter(center) {

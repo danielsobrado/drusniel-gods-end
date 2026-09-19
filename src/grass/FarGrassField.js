@@ -1,0 +1,110 @@
+import * as THREE from 'three/webgpu';
+import { assetUrl } from '../assets/assetUrl.js';
+import { coverageTexture } from '../foliage/VegetationLodAssets.js';
+import { createGrassGeometry } from './GrassGeometry.js';
+import { GrassMaterial } from './GrassMaterial.js';
+import { GrassTile } from './GrassTile.js';
+import { computeGrassGrid, tileDistanceSquared, tileOverlapsTerrain } from './GrassFieldLayout.js';
+
+/** A card represents ~180 stems. Density controls clumps, never single far-away blades. */
+export class FarGrassField {
+  constructor(field) { this.field = field; this.config = field.config; this.tiles = []; this.atlases = {}; this.controllers = new Map(); this.revision = -1; }
+  async init(signal) {
+    const base = this.config.vegetationLod.assetPath;
+    await Promise.all(['slender', 'reed', 'broadleaf'].map(async shape => {
+      const image = await new THREE.ImageLoader().loadAsync(assetUrl(`${base}grass-${shape}.webp`));
+      const atlas = coverageTexture(image, `Dense grass ${shape}`);
+      if (signal?.aborted || this.disposed) { atlas.dispose(); return; }
+      this.atlases[shape] = atlas;
+    }));
+    signal?.throwIfAborted();
+    this.settings = this.config.grass.far;
+    this.geometry = createGrassGeometry({ type: 'billboard', shape: 'tufted', detail: 1,
+      density: this.settings.density, tileSize: this.settings.chunkSize, bladeHeight: 3, stable: true });
+    this.stats = { billboards: 0, triangles: 0, chunks: 0, compactionMs: 0 };
+    this.rebuild();
+    return this;
+  }
+  controller() {
+    const field = this.field, shape = field.shape === 'tufted' ? 'slender' : field.shape;
+    const key = `${shape}:${Boolean(field.referenceState)}`;
+    if (!this.controllers.has(key)) {
+      this.controllers.set(key, new GrassMaterial(this.config, field.grassTerrainData, field.vegetation,
+        field.interactionMap, 'billboard', this.atlases[shape], Boolean(field.referenceState), { far: true }));
+    }
+    return this.controllers.get(key);
+  }
+  rebuild() {
+    const field = this.field;
+    for (const tile of this.tiles) tile.dispose(field.scene); this.tiles.length = 0;
+    this.quality = field.qualityName;
+    this.distance = this.settings.distances[this.quality];
+    const grid = computeGrassGrid({ terrainSizeX: field.terrainSampler.size.x, terrainSizeZ: field.terrainSampler.size.z,
+      tileSize: this.settings.chunkSize, maxDistance: this.distance + this.settings.chunkSize, painterEnabled: false });
+    this.grid = grid;
+    const material = this.controller().material;
+    for (let i = 0; i < grid.gridSizeX * grid.gridSizeZ; i++) {
+      const tile = new GrassTile(field.scene, material, this.geometry, true); tile.mesh.name = 'Far grass clumps';
+      tile.mesh.receiveShadow = false; tile.mesh.userData.occlusionCull = false;
+      this.tiles.push(tile);
+    }
+    this.centerX = this.centerZ = NaN;
+  }
+  update(elapsedSeconds) {
+    if (this.disposed) return;
+    const field = this.field;
+    if (this.quality !== field.qualityName) this.rebuild();
+    const controller = this.controller(), source = field.materialController;
+    const nearDistance = this.config.quality[field.qualityName][field.type].maxDistance;
+    controller.handoff.value = nearDistance; controller.setMaxDistance(this.distance);
+    for (const key of ['bladeHeight', 'bladeStiffness', 'baseBend', 'windDirection', 'windNoiseScale', 'simulationSpeed', 'sheen']) controller.uniforms[key].value = source.uniforms[key].value;
+    controller.uniforms.bladeWidth.value = this.settings.width;
+    controller.uniforms.bladeHeight.value *= this.settings.height;
+    controller.uniforms.baseColor.value.copy(source.uniforms.baseColor.value); controller.uniforms.tipColor.value.copy(source.uniforms.tipColor.value);
+    if (controller.cinematic && source.cinematic) for (const key of Object.keys(controller.cinematic)) controller.cinematic[key].value = source.cinematic[key].value;
+    controller.setFrame(elapsedSeconds, field.camera.position); controller.setViewProjection(field.projectionView);
+    const size = this.settings.chunkSize, camera = field.camera.position;
+    const cx = Math.floor((camera.x - field.terrainCenter.x) / size), cz = Math.floor((camera.z - field.terrainCenter.z) / size);
+    const changed = cx !== this.centerX || cz !== this.centerZ;
+    const { gridSizeX: nx, gridSizeZ: nz } = this.grid;
+    const wrap = (v, n) => ((v % n) + n) % n;
+    if (changed) {
+      this.centerX = cx; this.centerZ = cz;
+      for (let iz = 0; iz < nz; iz++) for (let ix = 0; ix < nx; ix++) {
+        const tx = cx + ix - Math.floor(nx / 2), tz = cz + iz - Math.floor(nz / 2);
+        const tile = this.tiles[wrap(tz, nz) * nx + wrap(tx, nx)];
+        const x = field.terrainCenter.x + tx * size, z = field.terrainCenter.z + tz * size;
+        if (tile.mesh.position.x === x && tile.mesh.position.z === z && tile.bounds) continue;
+        tile.setPosition(x, z, tx, tz);
+        tile.bounds = new THREE.Box3(new THREE.Vector3(x - size / 2, 0, z - size / 2), new THREE.Vector3(x + size / 2, 0, z + size / 2));
+        const range = field.terrainSampler.getHeightRange(tile.bounds);
+        tile.bounds.min.y = range.min - 4; tile.bounds.max.y = range.max + 8;
+        tile.bounds.expandByScalar(this.settings.width);
+        tile.isEmpty = !tileOverlapsTerrain(x, z, size, field.terrainSampler.bounds);
+      }
+    }
+    const invalid = this.revision !== field.layoutRevision || this.reference !== field.referenceState;
+    this.revision = field.layoutRevision; this.reference = field.referenceState;
+    const stats = this.stats; stats.billboards = stats.triangles = stats.chunks = stats.compactionMs = 0;
+    for (const tile of this.tiles) {
+      if (invalid) tile.invalidate();
+      tile.mesh.material = controller.material;
+      const { x, z } = tile.mesh.position;
+      const nearest = tileDistanceSquared(camera.x, camera.z, x, z, size);
+      const farthest = (Math.abs(camera.x - x) + size / 2) ** 2 + (Math.abs(camera.z - z) + size / 2) ** 2;
+      tile.setVisible(!tile.isEmpty && nearest < this.distance ** 2 && farthest > (nearDistance * this.settings.transitionStart) ** 2 && field.frustum.intersectsBox(tile.bounds));
+      if (!tile.mesh.visible) continue;
+      if (tile.setGeometry(this.geometry, 'billboard', field.containsGrass, field.layoutRevision)) stats.compactionMs += tile.lastCompactionMs;
+      const count = tile.mesh.geometry.instanceCount;
+      tile.setVisible(count > 0); stats.billboards += count; stats.chunks += count > 0 ? 1 : 0;
+    }
+    stats.triangles = stats.billboards * 2;
+  }
+  dispose() {
+    if (this.disposed) return; this.disposed = true;
+    for (const tile of this.tiles) tile.dispose(this.field.scene);
+    for (const controller of this.controllers.values()) controller.dispose();
+    for (const atlas of Object.values(this.atlases)) atlas.dispose();
+    this.geometry?.dispose(); this.tiles.length = 0; this.controllers.clear();
+  }
+}

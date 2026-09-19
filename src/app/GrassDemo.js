@@ -146,6 +146,7 @@ export class GrassDemo {
     }).init();
     this.#registerTreeColliders();
     this.#registerRecoveredWorldColliders();
+    await this.trees.initLods(this.abortController.signal);
     this.leaves = new LeafSystem({
       scene: this.world.scene,
       player: this.player,
@@ -513,6 +514,7 @@ export class GrassDemo {
       getTeleportLocations: () => this.navigation.getLocationOptions(),
       teleportToLocation: (id) => this.navigation.teleport(id),
       setQuality: (name) => {
+        this.trees.setQuality(name);
         this.grass.setQuality(name);
         this.environment.setQuality(name);
         this.pipeline?.setQuality(name);
@@ -562,6 +564,7 @@ export class GrassDemo {
       frames: this.profiler?.summarize() ?? null,
       warmup: this.pipeline?.warmupStats ?? null,
       grass: this.grass?.stats ?? null,
+      treeLod: this.trees?.stats ?? null,
       occlusion: this.pipeline?.gpuOcclusion.stats ?? null,
       reflections: this.water?.stats ?? null,
       understory: this.understory?.stats ?? null,

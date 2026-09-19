@@ -19,6 +19,7 @@ import { InteractionMap } from './InteractionMap.js';
 import { ProceduralVegetationField } from './ProceduralVegetationField.js';
 import { collectCooperative } from '../foliage/vegetationRebuild.js';
 import { isCoastalJungleRuntimeActive } from '../biome/CoastalJungleRuntime.js';
+import { FarGrassField } from './FarGrassField.js';
 
 const GRASS_TYPES = ['blade', 'billboard'];
 
@@ -104,6 +105,15 @@ export class GrassField {
     }
     this.materialController = this.materialControllers[this.type];
     this.#applyQuality(this.qualityName, true);
+    if (this.config.grass.far?.enabled) {
+      this.farGrass = new FarGrassField(this);
+      try { await this.farGrass.init(signal); }
+      catch (error) {
+        this.farGrass.dispose(); this.farGrass = null;
+        if (signal?.aborted) throw error;
+        logger.warn('Distant grass atlas unavailable; retaining near grass.', error);
+      }
+    }
     return this;
   }
 
@@ -384,6 +394,7 @@ export class GrassField {
     stats.compactionMs = 0;
     stats.compactionTiles = 0;
     stats.shareVertices = this.shareVertices;
+    stats.lods = { high: 0, medium: 0, low: 0, veryLow: 0 };
     this.materialController.setFrame(elapsedSeconds, this.camera.position);
     this.materialController.setViewProjection(this.projectionView);
 
@@ -417,6 +428,7 @@ export class GrassField {
       if (!tile.mesh.visible) continue;
 
       const lodName = selectGrassLodFromThresholds(distanceSquared, lodThresholds);
+      stats.lods[lodName]++;
       const compacted = tile.setGeometry(this.geometries[lodName], lodName, this.containsGrass, this.layoutRevision);
       if (compacted) {
         this.stats.compactionMs += tile.lastCompactionMs;
@@ -427,6 +439,8 @@ export class GrassField {
       this.stats.submittedBlades += tile.mesh.geometry.instanceCount;
       this.stats.proceduralCulledBlades += this.geometries[lodName].instanceCount - tile.mesh.geometry.instanceCount;
     }
+    this.farGrass?.update(elapsedSeconds);
+    stats.far = this.farGrass?.stats ?? null;
   }
 
   sampleVegetation(x, z) {
@@ -441,6 +455,7 @@ export class GrassField {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    this.farGrass?.dispose();
     for (const tile of this.tiles) tile.dispose(this.scene);
     for (const geometry of Object.values(this.geometries)) geometry.dispose();
     for (const controller of new Set([...Object.values(this.materialControllers),

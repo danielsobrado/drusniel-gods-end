@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { assetUrl } from '../assets/assetUrl.js';
 import { captureObjectResources } from '../utils/ResourceScope.js';
@@ -28,6 +29,9 @@ import {
 } from './CoastalJungleVisibility.js';
 import { CoastalJungleCulling } from './CoastalJungleCulling.js';
 import { conformCoastalJungleSurface } from './CoastalJungleSurface.js';
+import { loadVegetationLodAssets } from '../foliage/VegetationLodAssets.js';
+import { VegetationLodRenderer } from '../foliage/VegetationLodRenderer.js';
+import { TREE_KINDS, treeLodCenters } from '../foliage/vegetationLodPolicy.js';
 
 const FLOOR_NAME = 'ForestFloor';
 const PATH_NAME = 'ForestPath';
@@ -221,6 +225,8 @@ export class CoastalJungleSystem {
     this.root.updateWorldMatrix(true, true);
     this.culling = new CoastalJungleCulling(this.profile, this.batches, this.singles);
     this.stats.totalChunks = this.culling.build();
+    await this.#initializeLods(signal);
+    if (this.disposed) return;
     this.#registerColliders();
 
     setCoastalJungleRuntimeActive(this.config, true);
@@ -247,6 +253,7 @@ export class CoastalJungleSystem {
 
   setQuality(name) {
     this.qualityName = name ?? DEFAULT_QUALITY;
+    this.lodRenderer?.setQuality(this.qualityName);
     this.culling?.markDirty();
     if (!this.ready) return;
     const quality = this.#quality();
@@ -275,7 +282,7 @@ export class CoastalJungleSystem {
         this.#edgeFade(),
       );
     }
-    const result = this.culling.update(camera, this.#quality(), force);
+    const result = this.lodRenderer ? this.lodRenderer.update(camera, force) : this.culling.update(camera, this.#quality(), force);
     if (result) Object.assign(this.stats, result);
     return this.stats;
   }
@@ -283,6 +290,7 @@ export class CoastalJungleSystem {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    this.lodRenderer?.dispose(); this.lodAssets?.dispose();
     setCoastalJungleRuntimeActive(this.config, false);
     this.collisions?.removeGroup(this.profile?.collisionGroup ?? 'coastalJungle');
     if (this.scene?.userData?.updateCoastalJungleVisibility === this.visibilityUpdater) {
@@ -356,7 +364,75 @@ export class CoastalJungleSystem {
   }
 
   #visibilityDistance(quality, radius = this.stats.regionRadius) {
+    if (this.lodRenderer) return this.profile.lod.treeDistances[this.qualityName] + Math.max(0, radius);
     return Math.max(1, Number(quality?.maxDistance ?? 180)) + Math.max(0, radius);
+  }
+
+  async #initializeLods(signal) {
+    if (!this.config.vegetationLod?.enabled || !this.profile.lod?.enabled) return;
+    const variants = this.batches.map(batch => ({ key: `jungle-${batch.asset}`, kind: batch.kind,
+      parts: batch.parts, records: batch.records, matrix: batch.parts[0].matrixWorld }));
+    const singleGroups = new Map();
+    for (const single of this.singles) {
+      if (!single.record) continue;
+      let node = single.object;
+      while (node.parent && node.parent !== this.root) node = node.parent;
+      let group = singleGroups.get(node);
+      if (!group) {
+        group = { key: `jungle-${node.name}`, kind: single.kind, parts: [], matrix: new THREE.Matrix4(),
+          records: [{ ...single.record, matrix: new Float32Array(single.object.matrixWorld.elements) }] };
+        singleGroups.set(node, group);
+      }
+      group.parts.push(single.object);
+    }
+    variants.push(...singleGroups.values());
+    try {
+      const assets = await loadVegetationLodAssets(variants.map(v => v.key), this.config, signal);
+      if (signal?.aborted || this.disposed) { assets.dispose(); signal?.throwIfAborted(); return; }
+      this.lodAssets = assets;
+      const render = this.profile.render, lod = this.profile.lod;
+      const renderer = new VegetationLodRenderer({ scene: this.scene, config: this.config, chunkSize: lod.chunkSize,
+        prepareMaterial: (source, { kind }) => {
+          const material = new MeshStandardNodeMaterial().copy(source);
+          prepareCoastalJungleMaterial(material, { kind, instanced: true, settings: this.profile.material,
+            anisotropy: this.profile.anisotropy, cinematic: Boolean(this.config.cinematic?.enabled) });
+          return material;
+        },
+        policy: (record, kind, quality) => {
+          if (record.quality !== quality) {
+            record.quality = quality;
+            const tree = TREE_KINDS.has(kind);
+            const end = kind === 'grass' ? render.grassDistance : kind === 'groundcover' ? render.groundcoverDistance : render.undergrowthDistance;
+            const start = kind === 'grass' ? render.grassDenseDistance : end * 0.75;
+            record.policy = { centers: tree ? treeLodCenters(record.height, quality, this.config.trees.lod) : [(start + end) / 2],
+              blend: tree ? this.config.trees.lod.blend : (end - start) / (end + start), plant: !tree,
+              far: tree ? lod.treeDistances[quality] : lod.plantDistances[quality],
+              density: this.profile.quality[quality].density[kind] ?? 1 };
+          }
+          return record.policy;
+        },
+      });
+      this.lodRenderer = renderer;
+      for (const variant of variants) {
+        const full = variant.parts.map(part => ({ geometry: part.geometry, material: part.material, name: part.name }));
+        const bounds = new THREE.Box3();
+        for (const part of full) { part.geometry.computeBoundingBox(); bounds.union(part.geometry.boundingBox); }
+        const matrix = new THREE.Matrix4(), scale = new THREE.Vector3();
+        const records = variant.records.map(record => {
+          matrix.multiplyMatrices(variant.matrix, new THREE.Matrix4().fromArray(record.matrix));
+          scale.setFromMatrixScale(matrix);
+          return { position: record.position.clone(), matrix: new Float32Array(matrix.elements), sphere: record.sphere,
+            fraction: record.stableFraction, height: (bounds.max.y - bounds.min.y) * scale.y };
+        });
+        renderer.addVariant({ ...variant, full, records, asset: assets.variants.get(variant.key) });
+      }
+      for (const variant of variants) for (const part of variant.parts) part.visible = false;
+      renderer.setQuality(this.qualityName);
+    } catch (error) {
+      this.lodRenderer?.dispose(); this.lodRenderer = null; this.lodAssets?.dispose();
+      if (signal?.aborted) throw error;
+      logger.warn('Jungle LOD assets unavailable; retaining original rendering.', error);
+    }
   }
 
   #applyLodDistance(quality) {

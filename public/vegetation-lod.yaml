@@ -1,0 +1,27 @@
+# Offline derivatives; broad grass clumps preserve cover without extending dense geometry.
+vegetationLod:
+  enabled: true
+  assetPath: Assets/terrain/vegetation-lods/
+trees:
+  lod:
+    distances: [80, 160, 300]
+    referenceHeight: 12
+    blend: 0.15
+    chunkSize: 100
+grass:
+  far:
+    enabled: true
+    chunkSize: 75
+    density: 0.38
+    width: 4.2
+    height: 1.1
+    transitionStart: 0.8
+    fadeStart: 0.9
+    distances: { performance: 300, balanced: 400, high: 500, ultra: 600 }
+biomes:
+  coastalJungle:
+    lod:
+      enabled: true
+      chunkSize: 75
+      plantDistances: { performance: 300, balanced: 400, high: 500, ultra: 600 }
+      treeDistances: { performance: 600, balanced: 900, high: 1200, ultra: 1600 }

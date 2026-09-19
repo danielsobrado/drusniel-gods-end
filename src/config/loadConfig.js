@@ -23,6 +23,7 @@ export const CONFIG_FILES = [
   'reference-biome.yaml',
   'coastal-jungle-runtime.yaml',
   'visual-refinement.yaml',
+  'vegetation-lod.yaml',
 ];
 
 function isRecord(value) {

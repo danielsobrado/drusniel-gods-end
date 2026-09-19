@@ -1,0 +1,1061 @@
+{
+  "version": 1,
+  "variants": {
+    "tree1": {
+      "tree": true,
+      "triangles": [
+        14099,
+        7051,
+        2859
+      ],
+      "mesh": "tree1.glb",
+      "atlas": "tree1.webp",
+      "capture": {
+        "width": 27.91006726965048,
+        "height": 37.1386038268526,
+        "center": [
+          -1.0232148738938918,
+          17.049853122671962,
+          0.3764167312350537
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "tree2": {
+      "tree": true,
+      "triangles": [
+        8333,
+        4166,
+        1679
+      ],
+      "mesh": "tree2.glb",
+      "atlas": "tree2.webp",
+      "capture": {
+        "width": 10.72514380945452,
+        "height": 18.00812865897459,
+        "center": [
+          0.1514972699642385,
+          8.376196399072407,
+          0.10411499414033187
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "tree3": {
+      "tree": true,
+      "triangles": [
+        9018,
+        4486,
+        1797
+      ],
+      "mesh": "tree3.glb",
+      "atlas": "tree3.webp",
+      "capture": {
+        "width": 42.527635783826966,
+        "height": 33.51974908724026,
+        "center": [
+          -0.10794022526027902,
+          15.428351822671843,
+          -2.6403218511410387
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "tree4": {
+      "tree": true,
+      "triangles": [
+        20922,
+        10345,
+        4174
+      ],
+      "mesh": "tree4.glb",
+      "atlas": "tree4.webp",
+      "capture": {
+        "width": 46.583027736716474,
+        "height": 47.404572630010534,
+        "center": [
+          0.9300957572411335,
+          21.714367650175355,
+          2.7836144064995096
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "tree5": {
+      "tree": true,
+      "triangles": [
+        22303,
+        11150,
+        4397
+      ],
+      "mesh": "tree5.glb",
+      "atlas": "tree5.webp",
+      "capture": {
+        "width": 47.37987098923357,
+        "height": 47.03915398159057,
+        "center": [
+          1.2351418955637428,
+          21.046907672914024,
+          -0.534508332152086
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "tree6": {
+      "tree": true,
+      "triangles": [
+        22301,
+        11142,
+        4404
+      ],
+      "mesh": "tree6.glb",
+      "atlas": "tree6.webp",
+      "capture": {
+        "width": 49.79788413576421,
+        "height": 48.781245950714435,
+        "center": [
+          0.26160150942723703,
+          22.169075703350074,
+          0.5248030238353749
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "tree7": {
+      "tree": true,
+      "triangles": [
+        22293,
+        11141,
+        4457
+      ],
+      "mesh": "tree7.glb",
+      "atlas": "tree7.webp",
+      "capture": {
+        "width": 49.6654159923356,
+        "height": 50.36700257727412,
+        "center": [
+          -0.05952595459166332,
+          22.86496648247359,
+          -0.27074726111277414
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "tree8": {
+      "tree": true,
+      "triangles": [
+        21424,
+        10678,
+        4194
+      ],
+      "mesh": "tree8.glb",
+      "atlas": "tree8.webp",
+      "capture": {
+        "width": 61.5950367628735,
+        "height": 55.26308253688602,
+        "center": [
+          -1.5701378747849049,
+          25.080536831208477,
+          2.811584572873926
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "tree9": {
+      "tree": true,
+      "triangles": [
+        21407,
+        10701,
+        4238
+      ],
+      "mesh": "tree9.glb",
+      "atlas": "tree9.webp",
+      "capture": {
+        "width": 69.57939695085699,
+        "height": 69.82651320147964,
+        "center": [
+          -1.1130928472675805,
+          31.733141207282713,
+          -3.3452339625409877
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "tree10": {
+      "tree": true,
+      "triangles": [
+        23098,
+        18962,
+        7589
+      ],
+      "mesh": "tree10.glb",
+      "atlas": "tree10.webp",
+      "capture": {
+        "width": 13.338901784648677,
+        "height": 16.815018482208252,
+        "center": [
+          -0.5098857879638672,
+          7.210387706756592,
+          -0.15842676162719727
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "tree11": {
+      "tree": true,
+      "triangles": [
+        8332,
+        7356,
+        4089
+      ],
+      "mesh": "tree11.glb",
+      "atlas": "tree11.webp",
+      "capture": {
+        "width": 13.587110352542558,
+        "height": 13.894028567373754,
+        "center": [
+          3.264954626560211,
+          6.306807689368725,
+          0.3138465881347656
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "tree12": {
+      "tree": true,
+      "triangles": [
+        11404,
+        9574,
+        5494
+      ],
+      "mesh": "tree12.glb",
+      "atlas": "tree12.webp",
+      "capture": {
+        "width": 8.433860252102914,
+        "height": 8.717123692035676,
+        "center": [
+          -0.01219630241394043,
+          3.494649827480316,
+          0.13138985633850098
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "tree13": {
+      "tree": true,
+      "triangles": [
+        6522,
+        5108,
+        2643
+      ],
+      "mesh": "tree13.glb",
+      "atlas": "tree13.webp",
+      "capture": {
+        "width": 10.47731263895795,
+        "height": 14.178159324526787,
+        "center": [
+          1.182085394859314,
+          6.312188997864723,
+          0.3752593994140625
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "tree14": {
+      "tree": true,
+      "triangles": [
+        17890,
+        9973,
+        3546
+      ],
+      "mesh": "tree14.glb",
+      "atlas": "tree14.webp",
+      "capture": {
+        "width": 8.604499739191235,
+        "height": 21.359813239574432,
+        "center": [
+          0.4151194095611572,
+          9.066616594791412,
+          -0.04985618591308594
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "tree15": {
+      "tree": true,
+      "triangles": [
+        22914,
+        16652,
+        6197
+      ],
+      "mesh": "tree15.glb",
+      "atlas": "tree15.webp",
+      "capture": {
+        "width": 18.548225463892106,
+        "height": 22.56946370124817,
+        "center": [
+          0.31929779052734375,
+          6.4960267543792725,
+          0.12057733535766602
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "tree16": {
+      "tree": true,
+      "triangles": [
+        11622,
+        9328,
+        4344
+      ],
+      "mesh": "tree16.glb",
+      "atlas": "tree16.webp",
+      "capture": {
+        "width": 10.19369922227035,
+        "height": 17.372585788071156,
+        "center": [
+          0.35089635848999023,
+          7.947384260594845,
+          -0.07755804061889648
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "tree17": {
+      "tree": true,
+      "triangles": [
+        21146,
+        17041,
+        8100
+      ],
+      "mesh": "tree17.glb",
+      "atlas": "tree17.webp",
+      "capture": {
+        "width": 12.486484178805082,
+        "height": 13.124016480445862,
+        "center": [
+          0.024987220764160156,
+          2.7343863248825073,
+          -0.04758739471435547
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "tree18": {
+      "tree": true,
+      "triangles": [
+        8204,
+        5248,
+        2219
+      ],
+      "mesh": "tree18.glb",
+      "atlas": "tree18.webp",
+      "capture": {
+        "width": 9.326813014929156,
+        "height": 14.06901882827282,
+        "center": [
+          0.9764869213104248,
+          6.363670364022255,
+          0.0727546215057373
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "tree19": {
+      "tree": true,
+      "triangles": [
+        5792,
+        4878,
+        3070
+      ],
+      "mesh": "tree19.glb",
+      "atlas": "tree19.webp",
+      "capture": {
+        "width": 4.486382853294829,
+        "height": 4.204980172514916,
+        "center": [
+          0.12273907661437988,
+          1.6676387339830399,
+          -0.11724495887756348
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "jungle-background_tree_01": {
+      "tree": true,
+      "triangles": [
+        3404,
+        2770,
+        2409
+      ],
+      "mesh": "jungle-background_tree_01.glb",
+      "atlas": "jungle-background_tree_01.webp",
+      "capture": {
+        "width": 13.192240077633882,
+        "height": 13.056271106451751,
+        "center": [
+          0.6195677518844604,
+          6.134825233370066,
+          1.0112791061401367
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "jungle-background_tree_02": {
+      "tree": true,
+      "triangles": [
+        3404,
+        2730,
+        2388
+      ],
+      "mesh": "jungle-background_tree_02.glb",
+      "atlas": "jungle-background_tree_02.webp",
+      "capture": {
+        "width": 11.855324271168184,
+        "height": 14.715029509551824,
+        "center": [
+          0.10941171646118164,
+          6.920327967964113,
+          0.09295392036437988
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "jungle-background_tree_03": {
+      "tree": true,
+      "triangles": [
+        3404,
+        2772,
+        2425
+      ],
+      "mesh": "jungle-background_tree_03.glb",
+      "atlas": "jungle-background_tree_03.webp",
+      "capture": {
+        "width": 14.933767843535309,
+        "height": 10.65680481325835,
+        "center": [
+          0.8704767227172852,
+          4.9985119784250855,
+          0.0669713020324707
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "jungle-broadleaf_01": {
+      "tree": false,
+      "triangles": [
+        504
+      ],
+      "mesh": null,
+      "atlas": "jungle-broadleaf_01.webp",
+      "capture": {
+        "width": 4.17258571219549,
+        "height": 1.8034549788758159,
+        "center": [
+          -0.051482439041137695,
+          0.8473957786336541,
+          -0.04118490219116211
+        ],
+        "views": 8,
+        "tileSize": 128
+      }
+    },
+    "jungle-broadleaf_02": {
+      "tree": false,
+      "triangles": [
+        504
+      ],
+      "mesh": null,
+      "atlas": "jungle-broadleaf_02.webp",
+      "capture": {
+        "width": 3.820233582390635,
+        "height": 1.5890276317670942,
+        "center": [
+          -0.039010584354400635,
+          0.7461255257949233,
+          0.07230496406555176
+        ],
+        "views": 8,
+        "tileSize": 128
+      }
+    },
+    "jungle-broadleaf_03": {
+      "tree": false,
+      "triangles": [
+        504
+      ],
+      "mesh": null,
+      "atlas": "jungle-broadleaf_03.webp",
+      "capture": {
+        "width": 3.8733386804192165,
+        "height": 1.9651378421764822,
+        "center": [
+          0.02663642168045044,
+          0.9234650863800198,
+          0.13491398096084595
+        ],
+        "views": 8,
+        "tileSize": 128
+      }
+    },
+    "jungle-climber_01": {
+      "tree": false,
+      "triangles": [
+        1008
+      ],
+      "mesh": null,
+      "atlas": "jungle-climber_01.webp",
+      "capture": {
+        "width": 2.969185361380861,
+        "height": 5.95137478709221,
+        "center": [
+          -0.015001952648162842,
+          2.2003962099552155,
+          -0.020174264907836914
+        ],
+        "views": 8,
+        "tileSize": 128
+      }
+    },
+    "jungle-climber_02": {
+      "tree": false,
+      "triangles": [
+        1008
+      ],
+      "mesh": null,
+      "atlas": "jungle-climber_02.webp",
+      "capture": {
+        "width": 3.056613612715537,
+        "height": 5.945654323101044,
+        "center": [
+          0.0265505313873291,
+          2.2030945420265198,
+          0.015742897987365723
+        ],
+        "views": 8,
+        "tileSize": 128
+      }
+    },
+    "jungle-fern_01": {
+      "tree": false,
+      "triangles": [
+        144
+      ],
+      "mesh": null,
+      "atlas": "jungle-fern_01.webp",
+      "capture": {
+        "width": 2.718455469217069,
+        "height": 0.41026642426848414,
+        "center": [
+          0.1439361274242401,
+          0.23352189734578133,
+          -0.02828437089920044
+        ],
+        "views": 8,
+        "tileSize": 128
+      }
+    },
+    "jungle-fern_02": {
+      "tree": false,
+      "triangles": [
+        144
+      ],
+      "mesh": null,
+      "atlas": "jungle-fern_02.webp",
+      "capture": {
+        "width": 2.839259886231542,
+        "height": 0.4121831439435482,
+        "center": [
+          -0.03253844380378723,
+          0.23442601040005684,
+          -0.06278318166732788
+        ],
+        "views": 8,
+        "tileSize": 128
+      }
+    },
+    "jungle-ForegroundPalm_0": {
+      "tree": true,
+      "triangles": [
+        472,
+        362,
+        326
+      ],
+      "mesh": "jungle-ForegroundPalm_0.glb",
+      "atlas": "jungle-ForegroundPalm_0.webp",
+      "capture": {
+        "width": 8.640235934543911,
+        "height": 11.434809827003628,
+        "center": [
+          0.7948349714279175,
+          5.385653122793883,
+          0.003247380256652832
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "jungle-ForegroundPalm_1": {
+      "tree": true,
+      "triangles": [
+        472,
+        348,
+        302
+      ],
+      "mesh": "jungle-ForegroundPalm_1.glb",
+      "atlas": "jungle-ForegroundPalm_1.webp",
+      "capture": {
+        "width": 9.059783657984603,
+        "height": 12.657323025846855,
+        "center": [
+          0.39382708072662354,
+          5.963047734228894,
+          0.34684062004089355
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "jungle-ForegroundPalm_2": {
+      "tree": true,
+      "triangles": [
+        472,
+        350,
+        314
+      ],
+      "mesh": "jungle-ForegroundPalm_2.glb",
+      "atlas": "jungle-ForegroundPalm_2.webp",
+      "capture": {
+        "width": 9.235653925378248,
+        "height": 13.69416780971922,
+        "center": [
+          0.5754075050354004,
+          6.4527402620296925,
+          -0.257465124130249
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "jungle-ForegroundPalm_3": {
+      "tree": true,
+      "triangles": [
+        472,
+        360,
+        326
+      ],
+      "mesh": "jungle-ForegroundPalm_3.glb",
+      "atlas": "jungle-ForegroundPalm_3.webp",
+      "capture": {
+        "width": 9.254798000600786,
+        "height": 10.566064607910812,
+        "center": [
+          0.2121748924255371,
+          4.974966839887202,
+          -0.07880139350891113
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "jungle-grass_01": {
+      "tree": false,
+      "triangles": [
+        264
+      ],
+      "mesh": null,
+      "atlas": "jungle-grass_01.webp",
+      "capture": {
+        "width": 1.410109080266066,
+        "height": 0.7306126999855042,
+        "center": [
+          0.06893350183963776,
+          0.34462863206863403,
+          0.013435661792755127
+        ],
+        "views": 8,
+        "tileSize": 128
+      }
+    },
+    "jungle-grass_02": {
+      "tree": false,
+      "triangles": [
+        264
+      ],
+      "mesh": null,
+      "atlas": "jungle-grass_02.webp",
+      "capture": {
+        "width": 1.6361759414470676,
+        "height": 0.6845263230800629,
+        "center": [
+          0.0016575157642364502,
+          0.3228897750377655,
+          -0.028935223817825317
+        ],
+        "views": 8,
+        "tileSize": 128
+      }
+    },
+    "jungle-grass_03": {
+      "tree": false,
+      "triangles": [
+        264
+      ],
+      "mesh": null,
+      "atlas": "jungle-grass_03.webp",
+      "capture": {
+        "width": 1.6192017737700526,
+        "height": 0.6973067498207093,
+        "center": [
+          -0.05108746886253357,
+          0.3289182782173157,
+          0.02937290072441101
+        ],
+        "views": 8,
+        "tileSize": 128
+      }
+    },
+    "jungle-groundcover_01": {
+      "tree": false,
+      "triangles": [
+        80
+      ],
+      "mesh": null,
+      "atlas": "jungle-groundcover_01.webp",
+      "capture": {
+        "width": 1.9249290998106177,
+        "height": 0.0904621046409011,
+        "center": [
+          -0.003902912139892578,
+          0.06767080444842577,
+          -0.003140091896057129
+        ],
+        "views": 8,
+        "tileSize": 128
+      }
+    },
+    "jungle-groundcover_02": {
+      "tree": false,
+      "triangles": [
+        80
+      ],
+      "mesh": null,
+      "atlas": "jungle-groundcover_02.webp",
+      "capture": {
+        "width": 1.972569059779119,
+        "height": 0.0949991899356246,
+        "center": [
+          0.05711919069290161,
+          0.06981093902140856,
+          0.0005628466606140137
+        ],
+        "views": 8,
+        "tileSize": 128
+      }
+    },
+    "jungle-palm_01": {
+      "tree": true,
+      "triangles": [
+        472,
+        366,
+        330
+      ],
+      "mesh": "jungle-palm_01.glb",
+      "atlas": "jungle-palm_01.webp",
+      "capture": {
+        "width": 9.525149458552715,
+        "height": 11.507211121711881,
+        "center": [
+          0.5073386430740356,
+          5.419804676901549,
+          0.11420249938964844
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "jungle-palm_02": {
+      "tree": true,
+      "triangles": [
+        472,
+        362,
+        326
+      ],
+      "mesh": "jungle-palm_02.glb",
+      "atlas": "jungle-palm_02.webp",
+      "capture": {
+        "width": 9.17506545667961,
+        "height": 11.405834550056607,
+        "center": [
+          0.5775810480117798,
+          5.371985539328307,
+          -0.2694181203842163
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "jungle-shrub_01": {
+      "tree": false,
+      "triangles": [
+        612
+      ],
+      "mesh": null,
+      "atlas": "jungle-shrub_01.webp",
+      "capture": {
+        "width": 3.691255304896542,
+        "height": 1.8180233329534532,
+        "center": [
+          -0.026346266269683838,
+          0.802270844578743,
+          -0.047316133975982666
+        ],
+        "views": 8,
+        "tileSize": 128
+      }
+    },
+    "jungle-shrub_02": {
+      "tree": false,
+      "triangles": [
+        612
+      ],
+      "mesh": null,
+      "atlas": "jungle-shrub_02.webp",
+      "capture": {
+        "width": 3.5514865146519807,
+        "height": 1.7551539901643993,
+        "center": [
+          -0.010322630405426025,
+          0.8150340002030134,
+          -0.01316756010055542
+        ],
+        "views": 8,
+        "tileSize": 128
+      }
+    },
+    "jungle-split_leaf_01": {
+      "tree": false,
+      "triangles": [
+        392
+      ],
+      "mesh": null,
+      "atlas": "jungle-split_leaf_01.webp",
+      "capture": {
+        "width": 3.857239426895413,
+        "height": 1.5104214419750497,
+        "center": [
+          0.08385592699050903,
+          0.7097137743839994,
+          0.06379824876785278
+        ],
+        "views": 8,
+        "tileSize": 128
+      }
+    },
+    "jungle-split_leaf_02": {
+      "tree": false,
+      "triangles": [
+        392
+      ],
+      "mesh": null,
+      "atlas": "jungle-split_leaf_02.webp",
+      "capture": {
+        "width": 3.604888956198878,
+        "height": 1.4562223625229673,
+        "center": [
+          -0.03793102502822876,
+          0.6832889880752191,
+          -0.07777339220046997
+        ],
+        "views": 8,
+        "tileSize": 128
+      }
+    },
+    "jungle-tree_01": {
+      "tree": true,
+      "triangles": [
+        7212,
+        5485,
+        4528
+      ],
+      "mesh": "jungle-tree_01.glb",
+      "atlas": "jungle-tree_01.webp",
+      "capture": {
+        "width": 13.845661021437913,
+        "height": 12.139491807445884,
+        "center": [
+          -0.04234123229980469,
+          5.68448250181973,
+          0.39906787872314453
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "jungle-tree_02": {
+      "tree": true,
+      "triangles": [
+        6236,
+        4808,
+        3973
+      ],
+      "mesh": "jungle-tree_02.glb",
+      "atlas": "jungle-tree_02.webp",
+      "capture": {
+        "width": 13.148047517597053,
+        "height": 13.347536158710719,
+        "center": [
+          -0.16901159286499023,
+          6.259602081030607,
+          0.16596198081970215
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "jungle-tree_03": {
+      "tree": true,
+      "triangles": [
+        8188,
+        6091,
+        4948
+      ],
+      "mesh": "jungle-tree_03.glb",
+      "atlas": "jungle-tree_03.webp",
+      "capture": {
+        "width": 14.907915169906465,
+        "height": 9.987691723257305,
+        "center": [
+          -0.26826047897338867,
+          4.662720303982496,
+          0.198714017868042
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "jungle-tree_0010": {
+      "tree": true,
+      "triangles": [
+        6724,
+        5174,
+        4297
+      ],
+      "mesh": "jungle-tree_0010.glb",
+      "atlas": "jungle-tree_0010.webp",
+      "capture": {
+        "width": 13.289402040982687,
+        "height": 15.63565413184464,
+        "center": [
+          1.1609461307525635,
+          7.343094309791923,
+          1.0212221145629883
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "jungle-tree_05": {
+      "tree": true,
+      "triangles": [
+        7700,
+        5724,
+        4742
+      ],
+      "mesh": "jungle-tree_05.glb",
+      "atlas": "jungle-tree_05.webp",
+      "capture": {
+        "width": 15.321188216186016,
+        "height": 10.886988619863988,
+        "center": [
+          1.0494332313537598,
+          5.090509586036205,
+          0.4911327362060547
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "jungle-tree_06": {
+      "tree": true,
+      "triangles": [
+        7212,
+        5415,
+        4451
+      ],
+      "mesh": "jungle-tree_06.glb",
+      "atlas": "jungle-tree_06.webp",
+      "capture": {
+        "width": 12.741790393858102,
+        "height": 12.716511378437282,
+        "center": [
+          -0.3353252410888672,
+          5.959463607519865,
+          -0.2932928800582886
+        ],
+        "views": 8,
+        "tileSize": 256
+      }
+    },
+    "jungle-vine_01": {
+      "tree": false,
+      "triangles": [
+        3240
+      ],
+      "mesh": null,
+      "atlas": "jungle-vine_01.webp",
+      "capture": {
+        "width": 2.116808238775113,
+        "height": 6.653942287866958,
+        "center": [
+          0.3823786526918411,
+          -3.136065785191022,
+          -0.000015333294868469238
+        ],
+        "views": 8,
+        "tileSize": 128
+      }
+    },
+    "jungle-vine_02": {
+      "tree": false,
+      "triangles": [
+        3240
+      ],
+      "mesh": null,
+      "atlas": "jungle-vine_02.webp",
+      "capture": {
+        "width": 2.121831228009431,
+        "height": 5.950203428813257,
+        "center": [
+          0.44716113805770874,
+          -2.803714774432592,
+          0.041001543402671814
+        ],
+        "views": 8,
+        "tileSize": 128
+      }
+    }
+  }
+}

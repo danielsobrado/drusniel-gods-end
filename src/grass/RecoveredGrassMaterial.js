@@ -7,6 +7,7 @@ import { cloudShade } from '../rendering/cloudShadow.js';
 import {
   Fn,
   If,
+  interleavedGradientNoise,
   attribute,
   cameraPosition as cameraPositionNode,
   cameraViewMatrix,
@@ -25,6 +26,7 @@ import {
   oneMinus,
   positionLocal,
   positionWorld,
+  screenCoordinate,
   pow,
   sin,
   smoothstep,
@@ -200,6 +202,14 @@ export class GrassMaterial {
       // blades never received tree or character shadows.
       material.receivedShadowPositionNode = modelWorldMatrix.mul(vec4(positionNode, 1)).xyz;
       this.#configureBladeMaterial(material, bladeUv, instanceData);
+    }
+    if (this.shaderOptions.distanceCoverage) {
+      const base = modelWorldMatrix.mul(vec4(instancePosition, 1)).xyz;
+      const distance = base.xz.sub(this.uniforms.cameraPosition.xz).length();
+      // Texture cutout remains independent of distance coverage.
+      const coverage = this.shaderOptions.distanceCoverage(distance, this.uniforms);
+      const noise = interleavedGradientNoise(screenCoordinate.xy);
+      material.maskNode = this.shaderOptions.farBillboard ? noise.greaterThanEqual(float(1).sub(coverage)) : noise.lessThan(coverage);
     }
     return material;
   }
@@ -589,7 +599,7 @@ export class GrassMaterial {
         If(grassStrength.greaterThan(0), () => {
           const strengthRoot = sqrt(grassStrength);
           this.#applyReferenceShape(local, baseWorld);
-          this.#sampleInteractionBillboard(interactionTexture, baseWorld, local);
+          if (!this.shaderOptions.farBillboard) this.#sampleInteractionBillboard(interactionTexture, baseWorld, local);
 
           const sourceX = local.x;
           const sourceZ = local.z;
@@ -604,6 +614,11 @@ export class GrassMaterial {
             local.y.mul(uniforms.bladeHeight),
             rotatedZ.mul(uniforms.bladeWidth.mul(strengthRoot)),
           ));
+          if (this.shaderOptions.farBillboard) {
+            const toward = this.uniforms.cameraPosition.xz.sub(baseWorld.xz).normalize();
+            local.x.assign(positionLocal.x.mul(toward.y).mul(uniforms.bladeWidth));
+            local.z.assign(positionLocal.x.mul(toward.x.negate()).mul(uniforms.bladeWidth));
+          }
           local.x.addAssign(instancePosition.x);
           local.z.addAssign(instancePosition.z);
           local.y.addAssign(terrain.height);
