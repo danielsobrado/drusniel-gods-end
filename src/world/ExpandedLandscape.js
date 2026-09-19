@@ -16,6 +16,7 @@ import {
 import { refineTerrainRegion } from './TerrainRefinement.js';
 import { lakeSignedDistance, resolveLakeShape, shapeLakeHeight } from './LakeShape.js';
 import { sampleSnowSurfaceCpu } from './SnowDeformationField.js';
+import { mountainRelief } from './MountainNoise.js';
 
 const smooth = (a, b, x) => THREE.MathUtils.smoothstep(x, a, b);
 // Alpine triangles spanning more height than this get one more subdivision:
@@ -23,15 +24,20 @@ const smooth = (a, b, x) => THREE.MathUtils.smoothstep(x, a, b);
 // stretched facets, and the gorge walls are full of them.
 const STEEP_TRIANGLE_RISE = 4.5;
 
+const MOUNTAIN_PEAKS = [[10, -685, 95, 95, 110], [-85, -620, 115, 120, 155], [175, -575, 125, 145, 145],
+  [35, -380, 170, 140, 67], [-525, -330, 165, 210, 110], [540, -490, 165, 180, 115]];
+
 export function mountainHeight(x, z) {
-  const peaks = [[10, -685, 95, 95, 110], [-85, -620, 115, 120, 155], [175, -575, 125, 145, 145],
-    [35, -380, 170, 140, 67], [-525, -330, 165, 210, 110], [540, -490, 165, 180, 115]];
   let height = 0;
-  for (const [px, pz, sx, sz, amplitude] of peaks) {
-    height += amplitude * Math.exp(-(((x - px) / sx) ** 2) - ((z - pz) / sz) ** 2);
+  for (const [px, pz, sx, sz, amplitude] of MOUNTAIN_PEAKS) {
+    // A cusp at the summit and concave flanks, instead of a Gaussian dome.
+    const r = Math.hypot((x - px) / sx, (z - pz) / sz);
+    height += amplitude * Math.exp(-r * 0.55 - r * r * 0.6);
   }
-  const ridges = 1 - Math.abs(fractalNoise(x * 0.011, z * 0.011, 173, 4) * 2 - 1);
-  return height * (0.7 + ridges * 0.3);
+  // Warped so ridgelines bend and branch rather than following the noise grid.
+  const wx = x + (fractalNoise(x * 0.003, z * 0.003, 211, 3) - 0.5) * 140;
+  const wz = z + (fractalNoise(x * 0.003, z * 0.003, 223, 3) - 0.5) * 140;
+  return height * (0.4 + mountainRelief(wx * 0.0055, wz * 0.0055, 173) * 1.3);
 }
 
 // Conforming subdivision: shared edges are split once, including adjacent triangles.

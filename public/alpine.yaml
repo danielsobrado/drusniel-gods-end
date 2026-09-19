@@ -11,7 +11,7 @@ terrain:
     outerBlendStart: 215
     outerRadius: 275
     angularPeaks: 5
-    angularVariation: 0.22
+    angularVariation: 0.38
     angularPhase: 0.65
     detailScale: 0.015
     detailAmplitude: 7
@@ -19,13 +19,13 @@ terrain:
     seed: 9127
     refineRadius: 300
     refinePasses: 1
-    # Couloirs and spurs down the flanks, rock bands on the upper walls and a
-    # broken crest, so the cirque reads as rock under snow rather than a bowl.
-    # Faults every faultSpacing metres around the ring offset the beds by up to
-    # faultOffset of a band, so ledges break off instead of ringing the wall.
+    # Eroded ridges and gullies, shallow couloirs down the flanks and a broken
+    # crest, so the cirque reads as a massif of rock under snow rather than a
+    # bowl. Rock bands (strata) are off: stepped around the peaks they read as
+    # man-made terraces from the lowlands.
     landform:
-      couloirs: { amplitude: 14, spacing: 24, meander: 0.7 }
-      strata: { strength: 0.55, bandHeight: 12, tilt: 1.4, coverage: 0.4, faultSpacing: 34, faultOffset: 0.5 }
+      couloirs: { amplitude: 6, spacing: 24, meander: 0.7 }
+      relief: { amplitude: 22, scale: 0.011 }
       crest: { amplitude: 9, scale: 0.028 }
     treeLine: 108
     treeClearRadius: 320
@@ -35,8 +35,8 @@ terrain:
       walkable: true
       terrainWidth: 15
       maxGrade: 0.32
-      # Where the route crosses the rim, the cut is a terraced gorge.
-      cut: { floorWidth: 13, toe: 6, slope: 1.8, slopeVariation: 0.3, fillSlope: 0.9, meander: 6, benchHeight: 10, benchFraction: 0.5, roughness: 2.5 }
+      # Where the route crosses the rim, the cut is a steep valley.
+      cut: { floorWidth: 13, toe: 6, slope: 1.25, slopeVariation: 0.4, fillSlope: 0.9, meander: 12, roughness: 5 }
       points:
         - [-125, -590]
         - [-92, -618]

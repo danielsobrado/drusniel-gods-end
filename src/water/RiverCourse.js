@@ -6,18 +6,58 @@ const DEFAULT_BANK_BLEND = 7;
 const DEFAULT_OUTLET_BANK_BLEND = 24;
 const DEFAULT_OUTLET_DEPTH = 1.35;
 const DEFAULT_MOUTH_DEPTH = 2.4;
+// Water runs at FLAT_SPEED (m/s) on the level and approaches FALL_SPEED down
+// a sheer drop, changing over SPEED_RESPONSE metres of surface.
+const FLAT_SPEED = 1.4;
+const FALL_SPEED = 6.5;
+const SPEED_RESPONSE = 4;
 
 export function measureRiverSurface(samples) {
-  let surfaceDistance = 0, impact = 0, previousSlope = 0;
+  let surfaceDistance = 0, impact = 0, previousSlope = 0, flowSpeed = FLAT_SPEED, travelTime = 0;
   for (let i = 0; i < samples.length; i++) {
     const p = samples[i], before = samples[Math.max(0, i - 1)], after = samples[Math.min(samples.length - 1, i + 1)];
     const ds = p.s - before.s;
-    surfaceDistance += Math.hypot(ds, p.y - before.y);
+    const step = Math.hypot(ds, p.y - before.y);
+    surfaceDistance += step;
     const slope = Math.max(0, (before.y - after.y) / Math.max(0.001, after.s - before.s));
     impact = Math.min(1, Math.max(impact * Math.exp(-ds / 9), (previousSlope - slope) * 2));
-    Object.assign(p, { surfaceDistance, slope, impact });
+    // Seconds for the water to get here. Waterfall streaks ride on it, so
+    // they stretch as the water accelerates and bunch up where it slows.
+    const target = FLAT_SPEED + (FALL_SPEED - FLAT_SPEED) * ease(0.08, 0.9, slope);
+    const nextSpeed = target + (flowSpeed - target) * Math.exp(-step / SPEED_RESPONSE);
+    travelTime += step / ((flowSpeed + nextSpeed) / 2);
+    flowSpeed = nextSpeed;
+    Object.assign(p, { surfaceDistance, slope, impact, flowSpeed, travelTime });
     previousSlope = slope;
   }
+}
+
+// A fall starts where the course steepens past FALL_ENTER_SLOPE and ends at
+// its foot, the first sample back under FALL_EXIT_SLOPE. Runs that drop less
+// than FALL_MIN_DROP metres, or never pass FALL_MIN_PEAK, are rapids.
+const FALL_ENTER_SLOPE = 0.35;
+const FALL_EXIT_SLOPE = 0.2;
+const FALL_MIN_DROP = 3;
+const FALL_MIN_PEAK = 0.6;
+
+/** Waterfalls along measured samples: `lip` and `foot` sample indices, `drop` in metres. */
+export function findRiverFalls(samples) {
+  const falls = [];
+  let lip = -1, peak = 0;
+  for (let i = 0; i <= samples.length; i++) {
+    const slope = i < samples.length ? samples[i].slope ?? 0 : 0;
+    if (lip < 0) {
+      if (slope > FALL_ENTER_SLOPE) { lip = i; peak = slope; }
+      continue;
+    }
+    peak = Math.max(peak, slope);
+    if (slope >= FALL_EXIT_SLOPE) continue;
+    const foot = Math.min(i, samples.length - 1);
+    const drop = samples[Math.max(0, lip - 1)].y - samples[foot].y;
+    if (drop >= FALL_MIN_DROP && peak >= FALL_MIN_PEAK) falls.push({ lip, foot, drop, peak });
+    lip = -1;
+  }
+  return falls;
 }
 
 function resolveOutlet(settings, pointCount, lakeLevel) {
@@ -95,6 +135,7 @@ export class RiverCourse {
     }
     this.length = distance;
     measureRiverSurface(this.samples);
+    this.falls = findRiverFalls(this.samples);
     this.bounds.expandByScalar(35);
     this.size = this.bounds.getSize(new THREE.Vector3());
     for (let i = 0; i < count; i++) {

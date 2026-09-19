@@ -6,6 +6,7 @@ import { createWaterGeometry, partitionWaterGeometry } from './waterGeometry.js'
 import { resolveLakeShape } from '../world/LakeShape.js';
 import { createSeaTileGeometries, seaTileStats } from './seaGeometry.js';
 import { RiverDetails } from './RiverDetails.js';
+import { WaterfallMist } from './WaterfallMist.js';
 import { coastDistanceAt } from '../world/CoastField.js';
 import { ReflectionBudget } from './ReflectionBudget.js';
 import { createReflectionCapture } from './WaterReflection.js';
@@ -146,6 +147,9 @@ export class WaterSurface {
 
     this.details = this.river
       ? new RiverDetails(scene, this.river, options.terrain, options.rockSources, options.collisions)
+      : null;
+    this.mist = this.river
+      ? new WaterfallMist(scene, this.river, terrainSampler.getShaderData(), { quality: this.quality })
       : null;
     const collider = terrainRoot?.getObjectByName(config.water?.colliderName ?? 'WaterCollider');
     this.aggregateBounds = new THREE.Box3().setFromObject(this.mesh);
@@ -304,10 +308,12 @@ export class WaterSurface {
     if (this.uniforms.seaDetail) this.uniforms.seaDetail.value = QUALITY_DETAIL[name] ?? QUALITY_DETAIL.high;
     if (this.planar) this.planar.reflector.resolutionScale = QUALITY_REFLECTION[name] ?? QUALITY_REFLECTION.high;
     if (this.seaPlanar) this.seaPlanar.reflector.resolutionScale = QUALITY_REFLECTION[name] ?? QUALITY_REFLECTION.high;
+    this.mist?.setQuality(name);
     if (changed && this.material) this.#replaceSeaTiles(name);
   }
 
   update(delta, player, lighting) {
+    this.mist?.update(this.camera);
     this.rippleElapsed += delta;
     (this.uniforms.clock ?? this.uniforms.rippleClock).value = this.rippleElapsed;
     this.uniforms.sunColor.value.copy(lighting.color);
@@ -400,6 +406,7 @@ export class WaterSurface {
 
   dispose() {
     this.details?.dispose();
+    this.mist?.dispose();
     this.planar?.dispose();
     this.seaPlanar?.dispose();
     this.reflectionPlaceholders?.forEach((texture) => texture.dispose());

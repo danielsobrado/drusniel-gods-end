@@ -16,8 +16,8 @@ terrain:
         terrainWidth: 30
         maxGrade: 0.24
         # The climb crosses the alpine rim far below its crest. The cut is a
-        # terraced gorge, snow benches between rock risers, not a sheer slot.
-        cut: { floorWidth: 14, toe: 6, slope: 1.8, slopeVariation: 0.3, fillSlope: 0.9, meander: 7, benchHeight: 11, benchFraction: 0.5, roughness: 2.5 }
+        # steep, irregular valley rather than a sheer slot or benched terraces.
+        cut: { floorWidth: 14, toe: 6, slope: 1.25, slopeVariation: 0.4, fillSlope: 0.9, meander: 14, roughness: 5 }
         points: [[-80, -250], [-125, -350], [-60, -440], [-150, -490], [-160, -550], [-125, -590], [-80, -620], [-55, -655], [-15, -710]]
       - name: Meadow north beach road
         width: 5.5

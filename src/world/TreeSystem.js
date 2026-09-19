@@ -1,10 +1,13 @@
 import * as THREE from 'three/webgpu';
-import { attribute, color, mix, reference, texture, uv, vec4 } from 'three/tsl';
+import {
+  attribute, color, dot, mix, positionLocal, reference, smoothstep, texture, uv, vec3, vec4,
+} from 'three/tsl';
 import { adventureCanopyColor } from '../rendering/AdventurePalette.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { createRandom } from '../utils/random.js';
 import { logger } from '../utils/logger.js';
 import { TreeLeafMaterialFactory } from './TreeLeafMaterial.js';
+import { fitRootGround, measureRootReach, resolveRootSettings, rootBendFor } from './treeRootFit.js';
 
 const LOD_HIGH = 0;
 const LOD_BILLBOARD = 1;
@@ -18,7 +21,7 @@ function materialsOf(material) {
   return Array.isArray(material) ? material : [material];
 }
 
-function cloneHighMaterial(material) {
+function cloneHighMaterial(material, rootSettings) {
   const cloneMaterial = material.isNodeMaterial ? material.clone()
     : new THREE.MeshStandardNodeMaterial().copy(material);
   cloneMaterial.name = `TreeBark:${material.name || material.type}`;
@@ -27,6 +30,13 @@ function cloneHighMaterial(material) {
   cloneMaterial.depthWrite = true;
   cloneMaterial.opacity = 1;
   cloneMaterial.opacityNode = reference('userData.treeAppearance.opacity', 'float');
+  if (rootSettings.enabled) {
+    // Shear the root flare onto this tree's fitted ground plane, fading out up the trunk.
+    const base = cloneMaterial.positionNode ?? positionLocal;
+    const bend = reference('userData.treeRoots.bend', 'vec2');
+    const weight = smoothstep(0, rootSettings.conformHeight, base.y).oneMinus();
+    cloneMaterial.positionNode = base.add(vec3(0, dot(bend, base.xz).mul(weight), 0));
+  }
   return cloneMaterial;
 }
 
@@ -75,7 +85,7 @@ function resolveTreeAppearance(index, position, config) {
   return { retained: hash01(seed + 83.19) <= retention, scale, tint };
 }
 
-function prepareTreeClone(root, source, leafMaterialFactory, appearance, barkMaterials) {
+function prepareTreeClone(root, source, leafMaterialFactory, appearance, roots, barkMaterials, rootSettings) {
   root.traverse((object) => {
     if (!object.isMesh) return;
     object.visible = true;
@@ -90,6 +100,7 @@ function prepareTreeClone(root, source, leafMaterialFactory, appearance, barkMat
     object.receiveShadow = true;
     object.userData.rainRoughness = TREE_RAIN_ROUGHNESS;
     object.userData.treeAppearance = appearance;
+    object.userData.treeRoots = roots;
 
     if (source.highLeavesName && object.name === source.highLeavesName) {
       object.material = leafMaterialFactory.createShared(object.material);
@@ -98,7 +109,7 @@ function prepareTreeClone(root, source, leafMaterialFactory, appearance, barkMat
 
     if (!object.material) return;
     const cloned = materialsOf(object.material).map(material => {
-      if (!barkMaterials.has(material)) barkMaterials.set(material, cloneHighMaterial(material));
+      if (!barkMaterials.has(material)) barkMaterials.set(material, cloneHighMaterial(material, rootSettings));
       return barkMaterials.get(material);
     });
     object.material = Array.isArray(object.material) ? cloned : cloned[0];
@@ -159,10 +170,14 @@ function smoothStep01(value) {
 }
 
 export class TreeSystem {
-  constructor({ scene, camera, terrainRoot, zoneIndex, config, worldData = null, fallbackFactory }) {
+  constructor({
+    scene, camera, terrainRoot, terrainSampler = null, zoneIndex, config, worldData = null, fallbackFactory,
+  }) {
     this.scene = scene;
     this.camera = camera;
     this.root = terrainRoot;
+    this.terrainSampler = typeof terrainSampler?.sampleHeight === 'function' ? terrainSampler : null;
+    this.rootSettings = resolveRootSettings(config.trees.roots);
     this.zoneIndex = zoneIndex;
     this.config = config;
     this.worldData = Array.isArray(worldData) ? worldData : null;
@@ -236,6 +251,9 @@ export class TreeSystem {
         high,
         low,
         highLeavesName,
+        rootReach: this.rootSettings.enabled && this.terrainSampler
+          ? measureRootReach(high, { rootHeight: this.rootSettings.rootHeight, excludeName: highLeavesName })
+          : 0,
         billboardGeometry: bakeBillboardGeometry(low, billboardMesh),
         billboardSourceMaterial: materialsOf(billboardMesh.material)[0],
         billboardGroup: null,
@@ -303,13 +321,17 @@ export class TreeSystem {
     const resolvedScale = scale * appearance.scale;
     const shape = resolveTreeShape(index, position, this.config.trees.shapeVariation);
     const renderAppearance = { tint: appearance.tint, opacity: 1 };
+    const roots = { bend: new THREE.Vector2() };
     const high = clone(source.high);
     high.name = `TreeHigh_${index}`;
     high.visible = true;
     high.position.copy(position);
     high.rotation.set(lean, rotation, 0, 'YXZ');
     high.scale.copy(shape).multiplyScalar(resolvedScale);
-    prepareTreeClone(high, source, this.leafMaterialFactory, renderAppearance, this.barkMaterials);
+    this.#seatRoots(high, source, roots);
+    prepareTreeClone(
+      high, source, this.leafMaterialFactory, renderAppearance, roots, this.barkMaterials, this.rootSettings,
+    );
     this.scene.add(high);
 
     this.trees.push({
@@ -335,6 +357,18 @@ export class TreeSystem {
       transitionHighStart: 1,
       transitionBillboardStart: 0,
     });
+  }
+
+  // Bends the root flare onto the ground under it and sinks the tree past any
+  // dip the bend misses, so no root hangs in the air on a slope.
+  #seatRoots(high, source, roots) {
+    if (!this.terrainSampler || !(source.rootReach > 0)) return;
+    const { x, z } = high.position;
+    const reach = source.rootReach * Math.max(Math.abs(high.scale.x), Math.abs(high.scale.z));
+    const sampleHeight = (px, pz) => this.terrainSampler.sampleHeight(px, pz);
+    const ground = fitRootGround(sampleHeight, x, z, reach, this.rootSettings);
+    high.position.y += ground.sink;
+    rootBendFor(high, ground.slopeX, ground.slopeZ, roots.bend);
   }
 
   #buildBillboards() {

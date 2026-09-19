@@ -1,4 +1,5 @@
 import { fractalNoise, hash2d, smoothstep } from '../grass/vegetationEcology.js';
+import { mountainRelief } from './MountainNoise.js';
 
 export function resolveAlpineConfig(config) {
   const alpine = config.terrain?.alpine;
@@ -37,6 +38,7 @@ function resolveLandform(landform = {}) {
     couloirs: block(landform.couloirs, ['amplitude', 'spacing', 'meander']),
     strata: block(landform.strata, ['strength', 'bandHeight', 'tilt', 'coverage', 'faultSpacing', 'faultOffset']),
     crest: block(landform.crest, ['amplitude', 'scale']),
+    relief: block(landform.relief, ['amplitude', 'scale']),
   };
 }
 
@@ -47,7 +49,7 @@ const ridged = (x, z, seed, octaves) => 1 - Math.abs(fractalNoise(x, z, seed, oc
 // notches and pinnacles. None of it reaches the basin floor, so the walkable
 // summit stays as it was.
 function alpineLandform(x, z, height, distance, angle, rimProfile, wallHeight, alpine) {
-  const { couloirs, strata, crest } = alpine.landform;
+  const { couloirs, strata, crest, relief } = alpine.landform;
   const flank = smoothstep(0.06, 0.3, rimProfile) * (1 - smoothstep(0.82, 1, rimProfile) * 0.6)
     * smoothstep(alpine.basinRadius * 0.9, alpine.basinRadius + 20, distance);
   let result = height;
@@ -58,6 +60,13 @@ function alpineLandform(x, z, height, distance, angle, rimProfile, wallHeight, a
       + Math.sin(distance * 0.035 + angle * 3) * couloirs.meander;
     const spur = ridged(around, distance * 0.012, alpine.seed + 71, 2);
     result += (spur - 0.55) * 2 * couloirs.amplitude * flank * Math.min(1, wallHeight / 60);
+  }
+  if (relief.amplitude > 0 && relief.scale > 0) {
+    // Eroded ridges: spurs branch off the crest and gullies cut between them,
+    // so the walls read as a massif rather than a turned bowl.
+    const reliefMask = smoothstep(alpine.basinRadius * 0.9, alpine.basinRadius + 30, distance);
+    result += (mountainRelief(x * relief.scale, z * relief.scale, alpine.seed + 97) - 0.38) * 2
+      * relief.amplitude * reliefMask;
   }
   if (crest.amplitude > 0 && crest.scale > 0) {
     const crestMask = smoothstep(0.6, 0.95, rimProfile);
@@ -105,12 +114,22 @@ export function shapeAlpineHeight(x, z, currentHeight, alpine) {
 
   const angle = Math.atan2(dz, dx);
   const basinT = Math.min(1, distance / alpine.basinRadius);
+  // Past the crest the floor falls away toward the surrounding land, so the
+  // outer flanks descend all the way instead of standing on a plateau that
+  // the outer blend then cuts off in one smooth skirt.
   const basin = alpine.basinHeight + basinT * basinT * alpine.basinRelief;
+  const floor = basin + (Math.min(basin, currentHeight) - basin)
+    * smoothstep(alpine.rimRadius, alpine.outerRadius, distance);
   const rimDistance = (distance - alpine.rimRadius) / alpine.rimWidth;
-  const rimProfile = Math.exp(-rimDistance * rimDistance);
+  // A cusp at the crest with concave walls either side: an arête, not a
+  // rounded ring.
+  const rimAbs = Math.abs(rimDistance);
+  const rimProfile = Math.exp(-rimAbs * 0.6 - rimDistance * rimDistance * 0.7);
   const primary = Math.sin(angle * alpine.angularPeaks + alpine.angularPhase);
   const secondary = Math.sin(angle * (alpine.angularPeaks + 2) - alpine.angularPhase * 0.7);
-  const angular = 1 + alpine.angularVariation * (primary * 0.68 + secondary * 0.32);
+  // Peaks rise as horns above broad cols rather than as an even wave.
+  const wave = (primary * 0.68 + secondary * 0.32 + 1) / 2;
+  const angular = 1 + alpine.angularVariation * (wave ** 1.8 * 2 - 1);
   const detailWeight = 0.18 + smoothstep(alpine.basinRadius * 0.45, alpine.rimRadius, distance) * 0.82;
   const detail = (fractalNoise(
     x * alpine.detailScale,
@@ -118,7 +137,7 @@ export function shapeAlpineHeight(x, z, currentHeight, alpine) {
     alpine.seed,
     alpine.detailOctaves,
   ) - 0.5) * 2 * alpine.detailAmplitude * detailWeight;
-  const targetHeight = alpineLandform(x, z, basin + rimProfile * alpine.rimHeight * angular + detail,
+  const targetHeight = alpineLandform(x, z, floor + rimProfile * alpine.rimHeight * angular + detail,
     distance, angle, rimProfile, alpine.rimHeight * angular, alpine);
   const blend = 1 - smoothstep(alpine.outerBlendStart, alpine.outerRadius, distance);
   return currentHeight + (targetHeight - currentHeight) * blend;

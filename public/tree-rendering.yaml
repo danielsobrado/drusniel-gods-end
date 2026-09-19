@@ -1,4 +1,13 @@
 trees:
+  # Bends each tree's root flare onto the ground plane under it and sinks the
+  # tree past dips the plane misses, so roots never hang in the air on slopes.
+  roots:
+    enabled: true
+    rootHeight: 0.25
+    conformHeight: 3
+    maxSlope: 1.2
+    maxSink: 2
+    bury: 0.05
   shapeVariation:
     enabled: true
     width: 0.22

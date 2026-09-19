@@ -32,10 +32,12 @@ import {
   uniformArray,
   vec2,
   vec3,
+  vec4,
   viewportSafeUV,
 } from 'three/tsl';
 import { riverField } from './riverNodes.js';
 import { createSeaNodes } from './seaNodes.js';
+import { createWaterfallTexture, WATERFALL_TILE_WIDTH } from './waterfallTexture.js';
 import {
   createSeaDetailTexture,
   SEA_DETAIL_MOMENT_SCALE,
@@ -98,6 +100,7 @@ export function createCinematicWaterMaterial({
 }) {
   const seaPalette = params.sea?.colors ?? {};
   const detail = createWaterDetailTexture();
+  const falls = createWaterfallTexture();
   const seaDetail = params.sea?.enabled ? createSeaDetailTexture(params.sea.choppiness) : detail;
   const uniforms = {
     clock: uniform(0),
@@ -171,12 +174,19 @@ export function createCinematicWaterMaterial({
   const flowDy = dFdy(flow).toVar();
   const currentDx = dFdx(currentUv).toVar();
   const currentDy = dFdy(currentUv).toVar();
+  // Falling water is textured across in tiles and down in seconds of travel,
+  // so its streaks move at the water's own speed (see measureRiverSurface).
+  const travel = flowData.w;
+  const fallUv = vec2(surface.x.div(WATERFALL_TILE_WIDTH), travel);
+  const fallDx = dFdx(fallUv).toVar();
+  const fallDy = dFdy(fallUv).toVar();
   // Force explicit texture gradients into uniform control flow before any
   // per-body or distance branch. Body attributes are constant per triangle.
   const gradientsReady = worldDx.x.equal(worldDx.x).and(worldDy.x.equal(worldDy.x))
     .and(detailDx.x.equal(detailDx.x)).and(detailDy.x.equal(detailDy.x))
     .and(flowDx.x.equal(flowDx.x)).and(flowDy.x.equal(flowDy.x))
-    .and(currentDx.x.equal(currentDx.x)).and(currentDy.x.equal(currentDy.x));
+    .and(currentDx.x.equal(currentDx.x)).and(currentDy.x.equal(currentDy.x))
+    .and(fallDx.x.equal(fallDx.x)).and(fallDy.x.equal(fallDy.x));
   const oceanSample = (uv, scale = 1) => texture(seaDetail, uv)
     .grad(worldDx.mul(scale / seaArt.textureWorldScale), worldDy.mul(scale / seaArt.textureWorldScale));
   const onlySea = (expression, neutral = float(0)) => Fn(() => {
@@ -368,21 +378,52 @@ export function createCinematicWaterMaterial({
 
     const bankFoam = bank.y.abs().smoothstep(0.1, 1.15).oneMinus().mul(current)
       .mul(foamNoise.smoothstep(0.3, 0.75)).mul(0.5);
-    const cascade = texture(detail, currentUv.mul(vec2(1.8, 1.8)))
-      .grad(currentDx.mul(1.8), currentDy.mul(1.8)).b.smoothstep(0.24, 0.7)
-      .mul(falling).mul(0.8);
-    const landing = surface.w.mul(falling.oneMinus()).mul(current)
-      .mul(foamNoise.smoothstep(0.2, 0.65)).mul(0.85);
+    // Falling water: fine strands and broader sheets streak down the fall on
+    // its travel time, so they lengthen as the water accelerates and bunch up
+    // at the foot. Slow patches thin and thicken the white, and it frays into
+    // separate strands toward the banks. Below a drop two churn layers,
+    // drifting at different speeds, boil in the plunge and trail downstream
+    // as the impact decays.
+    const steep = surface.z.smoothstep(0.14, 0.75).mul(current);
+    const plunge = surface.w.mul(current);
+    const fall = vec3(0, 1, 1).toVar(); // foam, fringe opacity, foam shade
+    If(body.lessThan(1.5).and(gradientsReady).and(steep.add(plunge).greaterThan(0.002)), () => {
+      const layer = (map, scaleX, scaleY, drift, offsetX, offsetY) => texture(map, vec2(
+        fallUv.x.mul(scaleX).add(offsetX),
+        travel.sub(t.mul(drift)).mul(scaleY).add(offsetY),
+      )).grad(fallDx.mul(vec2(scaleX, scaleY)), fallDy.mul(vec2(scaleX, scaleY)));
+      const strands = layer(falls, 1, 0.3, 1, 0, 0).r;
+      const sheets = layer(falls, 0.61, 0.19, 0.82, 0.37, 0.53).g;
+      const patches = layer(falls, 0.43, 0.08, 0.6, 0.71, 0.2).b;
+      const churn = layer(detail, 1.2, 0.15, 1, 0, 0).b.mul(0.55)
+        .add(layer(detail, 2.1, 0.23, 0.7, 0.3, 0.6).b.mul(0.45));
+      const inside = bank.y.negate().smoothstep(0.2, 2.4);
+      const coverage = steep.mul(mix(float(0.3), float(1), inside))
+        .mul(patches.mul(0.7).add(0.55)).clamp(0, 1);
+      const thickness = strands.mul(0.6).add(sheets.mul(0.4));
+      const dense = thickness.smoothstep(coverage.oneMinus(), coverage.oneMinus().add(0.2));
+      const veil = sheets.smoothstep(0.15, 0.85).mul(coverage).mul(0.55);
+      const settle = plunge.sqrt().mul(steep.mul(0.6).oneMinus()).oneMinus().mul(0.8);
+      const boil = churn.smoothstep(settle, settle.add(0.2)).mul(plunge.mul(4).min(1));
+      fall.assign(vec3(
+        dense.max(veil).max(boil),
+        mix(float(1), thickness.smoothstep(0.32, 0.6), steep.mul(inside.oneMinus())),
+        mix(churn, strands, steep).mul(0.3).add(0.82),
+      ));
+    });
     const inlandFoam = Fn(() => {
       const value = float(0).toVar();
       If(body.lessThan(1.5).and(gradientsReady), () => {
-        value.assign(riverShore.add(bankFoam).add(cascade).add(landing));
+        value.assign(riverShore.add(bankFoam).mul(steep.oneMinus()).add(fall.x));
       });
       return value;
     })();
     const foam = inlandFoam.add(onlySea(sharedSurf.add(whitecaps))).clamp(0, 0.94);
+    // The plunge churns as white as the fall above it; calmer foam takes the
+    // sun's tint, which under a low sun would read as sand across a pool.
+    const whitewater = falling.max(plunge.mul(1.5).min(1));
     const foamColor = mix(
-      mix(color('#d6e7db').mul(uniforms.sunColor), color('#e4f5ff'), falling)
+      mix(color('#d6e7db').mul(uniforms.sunColor), color('#e4f5ff'), whitewater)
         .mul(uniforms.sunStrength.mul(0.3).add(0.5)),
       color('#edf8fb').mul(uniforms.sunStrength.mul(0.7).add(0.2)),
       sea,
@@ -401,13 +442,13 @@ export function createCinematicWaterMaterial({
       0.28,
     ).mul(crestTransmission);
 
-    return mix(
+    return vec4(mix(
       mix(underwater, reflected, fresnel.mul(0.85).mul(falling.mul(0.85).oneMinus()))
         .add(glint.mul(falling.mul(0.8).oneMinus()))
         .add(onlySea(crestColor, vec3(0))),
-      foamColor,
+      foamColor.mul(fall.z),
       foam,
-    );
+    ), fall.y);
   })();
 
   material.opacityNode = mix(smoothstep(0.015, 0.15, depth), seaCoverage, sea)
@@ -421,6 +462,7 @@ export function createCinematicWaterMaterial({
       material.dispose();
       refraction.dispose();
       detail.dispose();
+      falls.dispose();
       if (seaDetail !== detail) seaDetail.dispose();
     },
   };

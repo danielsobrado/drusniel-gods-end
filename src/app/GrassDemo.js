@@ -137,6 +137,7 @@ export class GrassDemo {
       scene: this.world.scene,
       camera: this.world.camera,
       terrainRoot: this.world.terrain,
+      terrainSampler: this.world.terrainSampler,
       zoneIndex: this.zoneIndex,
       config: this.config,
       worldData: treeWorldData,

@@ -117,9 +117,12 @@ export function createWaterGeometry(params, river, shape = null) {
       : (x, z) => Math.abs(x - params.position[0]) < half && Math.abs(z - params.position[2]) < half;
     const samples = [...river.samples];
     const first = samples[0], last = samples.at(-1);
-    samples.unshift({ ...first, x: first.x - first.dx * first.width, z: first.z - first.dz * first.width });
+    const travelTime = (p, distance) => (p.travelTime ?? 0) + distance / (p.flowSpeed ?? MIN_RIVER_SPEED);
+    samples.unshift({ ...first, x: first.x - first.dx * first.width, z: first.z - first.dz * first.width,
+      travelTime: travelTime(first, -first.width) });
     const tailDistance = (last.outletProgress ?? 0) > 0 ? OUTLET_TAIL_DISTANCE : last.width;
-    samples.push({ ...last, x: last.x + last.dx * tailDistance, z: last.z + last.dz * tailDistance });
+    samples.push({ ...last, x: last.x + last.dx * tailDistance, z: last.z + last.dz * tailDistance,
+      travelTime: travelTime(last, tailDistance) });
     const columns = 16;
     for (let i = 0; i < samples.length; i += 1) {
       const p = samples[i], next = samples[Math.min(i + 1, samples.length - 1)];
@@ -137,7 +140,7 @@ export function createWaterGeometry(params, river, shape = null) {
         masks.push(inLake(p.x - p.dz * across, p.z + p.dx * across) ? 1 : 0);
         kinds.push(1);
         levels.push(p.y);
-        flows.push(p.dx, p.dz, speed, p.s);
+        flows.push(p.dx, p.dz, speed, p.travelTime ?? 0);
         surfaces.push(across, p.surfaceDistance ?? p.s, p.slope ?? slope, p.impact ?? 0);
         if (i < samples.length - 1 && j < columns) {
           const a = i * (columns + 1) + j, b = a + 1, c = a + columns + 1, d = c + 1;

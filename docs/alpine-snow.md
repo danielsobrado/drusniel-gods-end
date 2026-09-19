@@ -6,20 +6,23 @@ The design takes inspiration from the MIT-licensed `Noniv/snowflow_demo`: wind-s
 
 ## Alpine cirque
 
-The summit is a purpose-built snowy cirque centered on `[-25, -655]`. The central basin stays above the full-snow elevation while an irregular ring of higher ridges surrounds it. The ring is broken into multiple peaks with angular variation rather than being a perfect circular crater, and the terrain blends back into the existing mountain field before leaving the alpine region.
+The summit is a purpose-built snowy cirque centered on `[-25, -655]`. The central basin stays above the full-snow elevation while an irregular ring of higher ridges surrounds it. The ridge has a sharp crest with concave walls on both sides, like an arête, not a rounded ring. Around the ring it rises into horn peaks above broad cols, not an even wave. Past the crest the floor falls away toward the surrounding land, so the outer flanks descend all the way down. Before, a plateau at basin height ended in one smooth skirt at the outer blend. The terrain blends back into the mountain field before leaving the alpine region.
+
+The mountain field outside the cirque (`mountainHeight`) is built the same way. Each peak has a pointed summit and concave flanks, not a Gaussian dome. A domain-warped ridged multifractal (`MountainNoise.js`) cuts the flanks into branching arêtes and gullies. Its finer octaves follow the coarser ridges and are damped where the slope is already steep, so ridges stay crisp and valleys stay smooth.
 
 The whole cirque, out to its outer blend radius (z -930), lies inside the terrain and the world bounds: the expanded terrain reaches z -1100 and the south boundary wall stands at z -960. The terrain used to stop at z -800 and the boundary at z -770, which cut through the south rim. From the basin that showed as a torn black wedge where the Snow Peak gorge ran off the end of the mesh, and the force field drew a cyan band along the rim.
 
 The walls carry geological structure (`terrain.alpine.landform`), none of which reaches the walkable basin floor:
 
-- **Couloirs and spurs** run straight down the fall line of both flanks, `spacing` metres apart around the ring and up to `amplitude` metres deep. The spurs' sides are steep enough to shed snow, so rock shows between snow-filled chutes.
-- **Rock bands** step stretches of the upper walls into snow ledges and rock risers. Bed thickness varies around the ring, the bands tilt and pinch out (`tilt`), and only `coverage` of the wall carries them.
+- **Eroded relief** (`relief`) adds the same ridged multifractal as the mountain field, up to `amplitude` metres, to the walls and outer flanks. Spurs branch off the crest with gullies cut between them.
+- **Couloirs and spurs** run straight down the fall line of both flanks, `spacing` metres apart around the ring and up to `amplitude` metres deep. The spurs' sides are steep enough to shed snow, so rock shows between snow-filled chutes. They are kept shallow: deeper ones read as a regular comb around the ring.
+- **Rock bands** (`strata`) can step stretches of the upper walls into snow ledges and rock risers. They are off in the shipped config: seen from the lowlands, the steps ringing each peak read as man-made terraces.
 - **The crest** breaks into notches and pinnacles from ridged noise, instead of a rounded lip.
 
 <!-- effective-config: terrain.alpine.landform -->
 ```yaml
-couloirs: { amplitude: 14, spacing: 24 }
-strata: { strength: 0.55, bandHeight: 12, coverage: 0.4 }
+couloirs: { amplitude: 6, spacing: 24 }
+relief: { amplitude: 22, scale: 0.011 }
 crest: { amplitude: 9 }
 ```
 
@@ -220,13 +223,13 @@ Visual review should cover Snow Pass, Snow Peak and Alpine Summit in sunny, gold
 
 Walkable routes are graded into the terrain (`maxGrade`), and the ridges around the cirque are steeper than any walkable grade. Snow climb runs up to 114 m below the crest near `[-155, -561]`; the alpine cirque route runs 73 m below it at Snow Pass and 64 m at Snow Peak. With the plain `terrainWidth` blend those cuts were sheer slots, their 100 m walls drawn as a few stretched triangles each.
 
-A route with a `cut` profile shapes those cuts as gorges instead (`LandscapePaths`). Past a flat floor of `floorWidth`, the wall rises at a mean `slope` through a quadratic `toe`, never above the natural terrain; where the route runs above the terrain, fill falls away at `fillSlope`. Along the route the mean slope varies by `slopeVariation`. Gullies and spurs, keyed to distance along the route and to the side, push the wall in and out by up to `meander` metres down its fall line. In patches the wall steps into benches about `benchHeight` apart. The benches hold snow and the risers are too steep for it, so the walls alternate snow shelves with rock and ice. Bench height and phase drift with position, so ledges tilt, pinch out at gullies and stop instead of stacking as contours. The rim where a wall meets the natural slope is rounded, and the rounding grows with the wall so the floor stays exact. Each cut segment looks laterally for terrain above its lowest possible wall, and shapes nothing beyond that reach.
+A route with a `cut` profile shapes those cuts as gorges instead (`LandscapePaths`). Past a flat floor of `floorWidth`, the wall rises at a mean `slope` through a quadratic `toe`, never above the natural terrain; where the route runs above the terrain, fill falls away at `fillSlope`. Along the route the mean slope varies by `slopeVariation`. Gullies and spurs, keyed to distance along the route and to the side, push the wall in and out by up to `meander` metres down its fall line. A `benchHeight` can step the wall into snow benches between rock risers. Both shipped routes leave it off. Their cuts run up to 117 m deep, so the benches covered whole mountain faces with terraces that were visible from the start meadow. Instead the walls rise at about 51 degrees with wide meanders and rough faces, so each crossing reads as a steep mountain valley. The rim where a wall meets the natural slope is rounded, and the rounding grows with the wall so the floor stays exact. Each cut segment looks laterally for terrain above its lowest possible wall, and shapes nothing beyond that reach.
 
 <!-- effective-config: terrain.alpine.route.cut -->
 ```yaml
 floorWidth: 13
-slope: 1.8
-benchHeight: 10
+slope: 1.25
+meander: 12
 ```
 
 In the alpine region, triangles spanning more than 4.5 m of height get one extra subdivision after the regular alpine pass, which keeps the risers and crests from turning into sawteeth on the grid. That adds about 24,000 vertices to the terrain.
