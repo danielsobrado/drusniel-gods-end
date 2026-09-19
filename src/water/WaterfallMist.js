@@ -5,6 +5,7 @@ import {
 } from 'three/tsl';
 import { createSeededRandom } from '../core/math.js';
 import { findRiverFalls } from './RiverCourse.js';
+import { createSceneLight, SKY_GAIN } from './sceneLight.js';
 import { createSprayPuffTexture } from './waterfallTexture.js';
 
 const MIST_SEED = 6089;
@@ -22,12 +23,8 @@ const SOFT_HEIGHT = 0.8;
 // so a big fall's cloud grows more in size than in density.
 const DENSITY_COUNT = 48;
 const MIE_G = 0.6;
-// Light scattered forward toward a viewer looking into the sun, and the share
-// of skylight: the hemisphere's sky side weighs more than its ground side, and
-// SKY_GAIN stands in for the environment map lighting the rest of the scene.
+// Light scattered forward toward a viewer looking into the sun.
 const PHASE_GAIN = 0.9;
-const HEMISPHERE_SKY_SHARE = 0.65;
-const SKY_GAIN = 1.4;
 const TWO_PI = Math.PI * 2;
 
 /**
@@ -152,14 +149,7 @@ export class WaterfallMist {
     this.sites = particles.sites;
     this.total = particles.count;
     this.intensity = uniform(1);
-    // Radiance a white diffuse surface takes from the sun (facing it) and from
-    // the sky, refreshed from the frame's lighting.
-    this.light = {
-      direction: uniform(new THREE.Vector3(0, 1, 0)),
-      sun: uniform(new THREE.Color(0.8, 0.8, 0.8)),
-      sky: uniform(new THREE.Color(0.15, 0.17, 0.2)),
-    };
-    this.scratch = new THREE.Color();
+    this.light = createSceneLight();
     this.frustum = new THREE.Frustum();
     this.viewProjection = new THREE.Matrix4();
     this.cameraPosition = new THREE.Vector3();
@@ -203,16 +193,7 @@ export class WaterfallMist {
   // `lighting` is the environment's current light set (see EnvironmentController).
   update(camera, lighting) {
     if (!this.mesh || !camera) return;
-    if (lighting) {
-      const { direction, sun, sky } = this.light;
-      direction.value.copy(lighting.position).normalize();
-      sun.value.copy(lighting.color).multiplyScalar(lighting.directionalIntensity / Math.PI);
-      sky.value.copy(lighting.hemisphereSkyColor)
-        .lerp(lighting.hemisphereGroundColor, 1 - HEMISPHERE_SKY_SHARE)
-        .multiplyScalar(lighting.hemisphereIntensity)
-        .add(this.scratch.copy(lighting.ambientColor).multiplyScalar(lighting.ambientIntensity))
-        .multiplyScalar(1 / Math.PI);
-    }
+    if (lighting) this.light.update(lighting);
     camera.updateMatrixWorld();
     this.viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     this.frustum.setFromProjectionMatrix(this.viewProjection, camera.coordinateSystem);

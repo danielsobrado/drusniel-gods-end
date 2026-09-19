@@ -38,6 +38,7 @@ import {
 import { riverField } from './riverNodes.js';
 import { createSeaNodes } from './seaNodes.js';
 import { createWaterfallTexture, WATERFALL_TILE_WIDTH } from './waterfallTexture.js';
+import { createSceneLight, SKY_GAIN } from './sceneLight.js';
 import {
   createSeaDetailTexture,
   SEA_DETAIL_MOMENT_SCALE,
@@ -101,6 +102,7 @@ export function createCinematicWaterMaterial({
   const seaPalette = params.sea?.colors ?? {};
   const detail = createWaterDetailTexture();
   const falls = createWaterfallTexture();
+  const light = createSceneLight();
   const seaDetail = params.sea?.enabled ? createSeaDetailTexture(params.sea.choppiness) : detail;
   const uniforms = {
     clock: uniform(0),
@@ -421,12 +423,14 @@ export function createCinematicWaterMaterial({
       return value;
     })();
     const foam = inlandFoam.add(onlySea(sharedSurf.add(whitecaps))).clamp(0, 0.94);
-    // The plunge churns as white as the fall above it; calmer foam takes the
-    // sun's tint, which under a low sun would read as sand across a pool.
+    // River foam is a white diffuse scatterer lit by the scene's own sun and
+    // sky, like the waterfall mist, so it dims with everything else at night.
+    // The plunge churns as white as the fall above it; calmer foam is greener.
     const whitewater = falling.max(plunge.mul(1.5).min(1));
+    const foamLight = light.sun.mul(dot(n, uniforms.sunDirection).mul(0.225).add(0.575))
+      .add(light.sky.mul(SKY_GAIN));
     const foamColor = mix(
-      mix(color('#d6e7db').mul(uniforms.sunColor), color('#e4f5ff'), whitewater)
-        .mul(uniforms.sunStrength.mul(0.3).add(0.5)),
+      mix(color('#d6e7db'), color('#e4f5ff'), whitewater).mul(foamLight),
       color('#edf8fb').mul(uniforms.sunStrength.mul(0.7).add(0.2)),
       sea,
     );
@@ -458,6 +462,7 @@ export function createCinematicWaterMaterial({
   return {
     material,
     uniforms,
+    light,
     detail,
     normalNode,
     dispose() {

@@ -313,6 +313,7 @@ export class WaterSurface {
   }
 
   update(delta, player, lighting) {
+    this.shader?.light?.update(lighting);
     this.mist?.update(this.camera, lighting);
     this.rippleElapsed += delta;
     (this.uniforms.clock ?? this.uniforms.rippleClock).value = this.rippleElapsed;
