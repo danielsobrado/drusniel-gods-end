@@ -48,6 +48,7 @@ import { CoastalJungleSystem } from '../biome/CoastalJungleSystem.js';
 import { commitPresetChange, preparePresetChange } from '../biome/presetSwitch.js';
 import { resolvePresetConfig } from '../config/resolvePresetConfig.js';
 import { disposePresetAppearance } from '../rendering/PresetAppearance.js';
+import { isMobileStartup, mobileWarmupTravelDistance } from '../config/mobileStartup.js';
 import { coastalJungleRegionCenter, coastalJungleRegionRadius } from '../world/CoastalJungleRegion.js';
 
 const MIN_PIXEL_RATIO = 0.5;
@@ -386,8 +387,14 @@ export class GrassDemo {
     await this.coastalJungle?.initTask;
     this.abortController.signal.throwIfAborted();
     this.#renderFrame();
-    this.trees.lodRenderer?.prepareAll();
-    this.coastalJungle?.lodRenderer?.prepareAll();
+    if (isMobileStartup(this.config)) {
+      const travelDistance = mobileWarmupTravelDistance(this.config);
+      this.trees.lodRenderer?.prepareNearby(this.world.camera, travelDistance);
+      this.coastalJungle?.lodRenderer?.prepareNearby(this.world.camera, travelDistance);
+    } else {
+      this.trees.lodRenderer?.prepareAll();
+      this.coastalJungle?.lodRenderer?.prepareAll();
+    }
     await this.pipeline.warmup({ water: this.water, signal: this.abortController.signal });
     this.#renderFrame();
     this.abortController.signal.throwIfAborted();
