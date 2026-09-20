@@ -39,7 +39,6 @@ try {
     const d = window.__grassDemo;
     await d.coastalJungle?.initTask;
     d.audio.start = async () => {};
-    document.querySelector('#startButton').click();
     d.ui.actions.setPixelRatio(1);
   });
   await page.waitForFunction(() => window.__grassDemo?.started, null, { timeout: 30000 });

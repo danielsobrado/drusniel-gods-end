@@ -51,7 +51,7 @@ try {
   console.log('Scene ready', Math.round(loadMs), 'ms');
   await page.evaluate(async () => {
     const d = window.__grassDemo; await d.coastalJungle?.initTask;
-    d.audio.start = async () => {}; document.querySelector('#startButton').click();
+    d.audio.start = async () => {};
   });
   await page.waitForFunction(() => window.__grassDemo.started, null, { timeout: 30000 });
   const results = [];

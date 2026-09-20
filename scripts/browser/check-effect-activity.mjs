@@ -26,7 +26,6 @@ try {
     const d = window.__grassDemo;
     await d.coastalJungle?.initTask;
     d.audio.start = async () => {};
-    document.querySelector('#startButton').click();
   });
   await page.waitForFunction(() => window.__grassDemo.started);
   const result = await page.evaluate(async () => {

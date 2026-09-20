@@ -41,14 +41,21 @@
 }
 .cinematic-loading .loading-lore-link { color: #a9bccbb3; border-color: #a9bccb40; }
 .cinematic-loading .loading-lore-link:hover, .cinematic-loading .loading-lore-link:focus-visible { color: #dce5ec; border-color: currentColor; }
-.cinematic-loading .loading-start { color: #c8d4de; border-color: #a9bccb73; font-weight: 450; letter-spacing: .16em; font-size: 17px; }
-.cinematic-loading.is-ready .loading-start { animation: start-rise .75s cubic-bezier(.16, .84, .28, 1) both, start-halo-ash 2.6s ease-out .75s infinite; }
-.cinematic-loading.is-ready .loading-start:hover:not(:disabled) { border-color: #b7c9d8c4; background: #9fb4c617; color: #e6edf2; }
-.cinematic-loading.is-ready .loading-start:disabled { animation: none; opacity: .55; transform: none; box-shadow: none; }
-@keyframes start-halo-ash {
-  0%   { box-shadow: 0 0 0 0 #9fb4c666, 0 14px 38px #00000080; }
-  70%  { box-shadow: 0 0 0 18px #9fb4c600, 0 14px 38px #00000080; }
-  100% { box-shadow: 0 0 0 0 #9fb4c600, 0 14px 38px #00000080; }
+.cinematic-loading .character-select.is-locked .character-monogram { border-color: #9fb4c66b; }
+.cinematic-loading .character-ring-track { stroke: #9fb4c629; }
+.cinematic-loading .character-ring-fill { stroke: #c8d4de; filter: drop-shadow(0 0 7px #9fb4c66b); }
+.cinematic-loading .character-percent { color: #e6edf2; font-weight: 450; letter-spacing: .06em; }
+.cinematic-loading.is-ready .character-percent { color: #dce5ec; }
+.cinematic-loading .character-gate.is-locked .character-progress::after { animation-name: ring-breath-ash; }
+.cinematic-loading.is-ready .character-progress::after { animation: ring-complete-ash .9s cubic-bezier(.16, .84, .28, 1) both; }
+@keyframes ring-breath-ash {
+  0%   { box-shadow: 0 0 0 0 #9fb4c647; }
+  70%  { box-shadow: 0 0 0 14px #9fb4c600; }
+  100% { box-shadow: 0 0 0 0 #9fb4c600; }
+}
+@keyframes ring-complete-ash {
+  from { box-shadow: 0 0 0 0 #9fb4c68c; }
+  to   { box-shadow: 0 0 0 26px #9fb4c600; }
 }
 .cinematic-hud .scene-heading { position: absolute; top: var(--hud-inset-y); left: var(--hud-inset-x); text-shadow: 0 1px 2px #0a0f14a6, 0 2px 22px #0a0f14b3; }
 .scene-eyebrow { font-size: 9px; font-weight: 600; letter-spacing: .24em; color: #ece5d5ba; }
@@ -96,5 +103,6 @@
 @media (prefers-reduced-motion: reduce) {
   .cinematic-hud * { transition: none !important; }
   .cinematic-loading.is-awaiting-character .character-card { animation: none; border-color: #b7c9d88c; }
-  .cinematic-loading.is-ready .loading-start { animation: none; opacity: 1; box-shadow: 0 0 0 1px #9fb4c659, 0 14px 38px #00000080; }
+  .cinematic-loading .character-gate.is-locked .character-progress::after,
+  .cinematic-loading.is-ready .character-progress::after { animation: none; box-shadow: 0 0 0 1px #9fb4c659; }
 }

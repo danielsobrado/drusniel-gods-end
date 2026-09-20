@@ -14,6 +14,8 @@ import {
 
 const LOGO_FILL_SECONDS = 1;
 const SHADER_STATUS_INTERVAL_MS = 100;
+// A beat at 100% so the ring visibly closes before the overlay irises away.
+const AUTO_START_DELAY_MS = 900;
 
 function power2Out(value) {
   const t = Math.max(0, Math.min(1, value));
@@ -64,6 +66,12 @@ function backendLabel(value) {
 export class LoadingUi {
   constructor(root, presentation, characterChoice = null) {
     this.logoFillPercent = 0;
+    this.isReady = false;
+    this.isStarting = false;
+    this.onStart = null;
+    this.autoStartTimer = null;
+    this.characterRing = null;
+    this.characterPercent = null;
     this.characterChoice = characterChoice;
     this.selectedCharacterId = null;
     this.characterList = null;
@@ -90,7 +98,6 @@ export class LoadingUi {
         <div id="status-detail" class="loading-detail"></div>
         <div id="status-tech" class="loading-detail loading-detail-tech"></div>
       </div>
-      <button id="startButton" class="loading-start" type="button">START</button>
       <div class="loading-links">
         <a class="loading-lore-link" href="https://www.drusniel.com/" target="_blank" rel="noopener noreferrer">Read about Drusniel ↗</a>
         <a class="loading-lore-link" href="https://discord.gg/pNfJPWprgB" target="_blank" rel="noopener noreferrer">Come to Discord, get the source code ↗</a>
@@ -105,7 +112,6 @@ export class LoadingUi {
     if (presentation) {
       this.element.classList.add('cinematic-loading');
       this.element.querySelector('.loading-logo').setAttribute('aria-label', presentation.title);
-      this.element.querySelector('#startButton').textContent = 'Enter Gods’ End';
     }
 
     this.progressBar = this.element.querySelector('.progress-bar');
@@ -114,13 +120,12 @@ export class LoadingUi {
     this.statusDetail = this.element.querySelector('#status-detail');
     this.statusTech = this.element.querySelector('#status-tech');
     this.logoFill = this.element.querySelector('.logo-fill');
-    this.startButton = this.element.querySelector('#startButton');
     this.#createCharacterPicker();
     this.stage('initializing');
   }
 
   // The roster gate sits inside the loading overlay because the choice has to be
-  // made before the player GLB is fetched, which is long before START lights up.
+  // made before the player GLB is fetched, which is long before the world is ready.
   #createCharacterPicker() {
     const roster = this.characterChoice?.roster ?? [];
     if (roster.length < 2) {
@@ -162,7 +167,7 @@ export class LoadingUi {
     this.characterPrompt = this.characterGate.querySelector('.character-prompt');
     this.characterHint = this.characterGate.querySelector('.character-hint');
     this.characterGate.appendChild(this.characterList);
-    this.element.insertBefore(this.characterGate, this.startButton);
+    this.element.insertBefore(this.characterGate, this.element.querySelector('.loading-links'));
     const preselected = this.characterChoice?.selectedId;
     if (preselected) this.#chooseCharacter(preselected);
   }
@@ -174,16 +179,47 @@ export class LoadingUi {
     this.element.classList.remove('is-awaiting-character');
     this.characterGate.classList.add('is-locked');
     let chosenName = id;
+    let chosenCard = null;
+    // The unpicked travellers leave the screen entirely rather than dimming: past
+    // this point the gate is a progress readout for one character, not a choice.
     for (const card of this.characterList.querySelectorAll('.character-card')) {
       const chosen = card.dataset.characterId === id;
       card.setAttribute('aria-checked', String(chosen));
       card.classList.toggle('is-chosen', chosen);
       card.disabled = true;
-      if (chosen) chosenName = card.querySelector('strong').textContent;
+      if (!chosen) card.remove();
+      else {
+        chosenCard = card;
+        chosenName = card.querySelector('strong').textContent;
+      }
     }
+    if (chosenCard) this.#mountCharacterRing(chosenCard);
     this.characterPrompt.textContent = `Traveling as ${chosenName}`;
     this.characterHint.textContent = '';
     this.resolveCharacter(id);
+  }
+
+  // The dial rides beside the chosen card and becomes the screen's main readout.
+  // `pathLength` normalises the circumference to 100, so the dash offset is the
+  // percentage itself and the radius can change in CSS without touching this.
+  #mountCharacterRing(card) {
+    const ring = document.createElement('span');
+    ring.className = 'character-progress';
+    ring.innerHTML = '<svg viewBox="0 0 120 120" aria-hidden="true">'
+      + '<circle class="character-ring-track" cx="60" cy="60" r="52" pathLength="100"/>'
+      + '<circle class="character-ring-fill" cx="60" cy="60" r="52" pathLength="100"/>'
+      + '</svg><span class="character-percent">0%</span>';
+    card.appendChild(ring);
+    this.characterRing = ring.querySelector('.character-ring-fill');
+    this.characterPercent = ring.querySelector('.character-percent');
+    this.#setCharacterRing(this.logoFillPercent);
+  }
+
+  #setCharacterRing(percent) {
+    if (!this.characterRing) return;
+    const clamped = Math.max(0, Math.min(100, Number(percent) || 0));
+    this.characterRing.style.strokeDashoffset = String(100 - clamped);
+    this.characterPercent.textContent = `${Math.round(clamped)}%`;
   }
 
   waitForCharacter() {
@@ -221,11 +257,12 @@ export class LoadingUi {
     this.percentLabel.textContent = `${Math.round(percent)}%`;
     this.statusLabel.textContent = message;
     this.#animateLogoFill(percent);
+    this.#setCharacterRing(percent);
 
     if (percent >= 100) {
       this.element.classList.add('is-ready');
-      // On short phone screens the character cards push Start below the fold.
-      this.startButton?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+      this.isReady = true;
+      this.#tryAutoStart();
     }
   }
 
@@ -242,6 +279,7 @@ export class LoadingUi {
       + `${categories ? ` · ${categories}` : ''}${types ? ` · ${types}` : ''}`;
     this.percentLabel.textContent = '0.0s';
     this.#animateLogoFill(92);
+    this.#setCharacterRing(92);
     this.shaderTimer = setInterval(() => {
       const elapsedSeconds = (performance.now() - this.shaderStartedAt) / 1000;
       this.percentLabel.textContent = `${elapsedSeconds.toFixed(1)}s`;
@@ -260,6 +298,7 @@ export class LoadingUi {
     this.statusDetail.textContent = 'Everything is in place.';
     this.statusTech.textContent = `${backendLabel(detail.backend)} · ${diagnostics.materials} materials · ${diagnostics.renderables} renderables · ${elapsedSeconds.toFixed(1)}s`;
     this.#animateLogoFill(98);
+    this.#setCharacterRing(98);
   }
 
   #stopShaderTimer() {
@@ -296,28 +335,48 @@ export class LoadingUi {
     this.logoAnimationFrame = requestAnimationFrame(tick);
   }
 
+  // No gate button any more: the overlay hands itself over as soon as the ring
+  // closes. `ready` is reached before this is awaited, so the 100% mark latches
+  // and whichever of the two lands last fires the entry.
   async waitForStart(onStart) {
     if (!this.element?.isConnected) return;
 
     await new Promise((resolve) => {
       this.resolveStart = resolve;
-      this.startButton.addEventListener('click', async () => {
-        this.startButton.disabled = true;
-        this.startButton.style.pointerEvents = 'none';
-        this.element.style.pointerEvents = 'none';
-        try {
-          await onStart?.();
-          if (this.element) await this.#revealScene();
-        } finally {
-          // Stops the ember loop before the frame budget belongs to the scene.
-          this.art?.dispose();
-          this.art = null;
-          this.element?.remove();
-          this.resolveStart = null;
-          resolve();
-        }
-      }, { once: true });
+      this.onStart = onStart ?? (() => {});
+      this.#tryAutoStart();
     });
+  }
+
+  #tryAutoStart() {
+    if (!this.isReady || !this.onStart || this.isStarting) return;
+    if (this.autoStartTimer !== null) return;
+    this.autoStartTimer = setTimeout(() => {
+      this.autoStartTimer = null;
+      this.#enterScene();
+    }, AUTO_START_DELAY_MS);
+  }
+
+  async #enterScene() {
+    if (this.isStarting || !this.element) return;
+    this.isStarting = true;
+    const onStart = this.onStart;
+    this.onStart = null;
+    this.element.classList.add('is-starting');
+    this.element.style.pointerEvents = 'none';
+    this.statusLabel.textContent = 'Entering Gods’ End…';
+    try {
+      await onStart?.();
+      if (this.element) await this.#revealScene();
+    } finally {
+      // Stops the ember loop before the frame budget belongs to the scene.
+      this.art?.dispose();
+      this.art = null;
+      this.element?.remove();
+      const resolve = this.resolveStart;
+      this.resolveStart = null;
+      resolve?.();
+    }
   }
 
   #revealScene() {
@@ -350,6 +409,9 @@ export class LoadingUi {
     this.resolveReveal?.();
     this.resolveStart = null;
     this.resolveReveal = null;
+    if (this.autoStartTimer !== null) clearTimeout(this.autoStartTimer);
+    this.autoStartTimer = null;
+    this.onStart = null;
     this.#stopShaderTimer();
     globalThis.removeEventListener?.(SHADER_COMPILE_START_EVENT, this.onShaderCompileStart);
     globalThis.removeEventListener?.(SHADER_COMPILE_END_EVENT, this.onShaderCompileEnd);

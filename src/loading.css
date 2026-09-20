@@ -6,9 +6,9 @@
   z-index: 20000;
   display: grid;
   place-content: center;
-  /* Six roster cards wrap to two rows, and the START button below them is now
-     taller. Centred grid content overflows in both directions, so a short viewport
-     used to push the button out of a clipped overlay with no way to reach it.
+  /* Six roster cards wrap to two rows before one is picked. Centred grid content
+     overflows in both directions, so a short viewport used to push the lower rows
+     out of a clipped overlay with no way to scroll to them.
      `safe center` gives up centring rather than overflow the top edge; browsers
      that do not know it drop this line and keep the `place-content` above. */
   align-content: safe center;
@@ -81,7 +81,7 @@
 }
 
 /* Darkest where the wordmark, the bar and the roster sit, opening up towards the
-   edges where the braziers are. The bottom band carries the START button. */
+   edges where the braziers are. The bottom band carries the lore links. */
 .loading-art-scrim {
   position: absolute;
   inset: 0;
@@ -199,75 +199,102 @@
   font-size: 9px;
 }
 
-/* The button is the one thing on this screen the player has to act on, and it used
-   to arrive as an 11px label fading up over a full second -- easy to sit through
-   without noticing. It is now the largest control on the overlay, it rises into
-   place when the world is ready, and it keeps a slow halo afterwards so a player
-   who looked away still finds it. */
-.loading-start {
-  min-width: 260px;
-  margin-top: 14px;
-  padding: 18px 46px;
-  border-width: 1px;
-  border-color: rgba(182, 238, 67, .55);
-  border-radius: 9px;
-  background: rgba(7, 16, 21, .68);
-  color: #b6ee43;
-  font-size: 16px;
+/* There is no start button: the overlay hands over on its own at 100%, and the
+   dial beside the chosen traveller is what the player watches instead. */
+.character-progress {
+  position: relative;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 122px;
+  height: 122px;
+  margin-left: auto;
+}
+
+.character-progress svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* 12 o'clock start, filling clockwise. */
+  transform: rotate(-90deg);
+  overflow: visible;
+}
+
+.character-progress circle {
+  fill: none;
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.character-ring-track {
+  stroke: rgba(238, 244, 232, .16);
+}
+
+/* pathLength="100" in the markup makes the dash units percentages, so the JS
+   only ever writes `100 - percent` here. */
+.character-ring-fill {
+  stroke: #b6ee43;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  filter: drop-shadow(0 0 6px rgba(182, 238, 67, .55));
+  transition: stroke-dashoffset .6s cubic-bezier(.22, .68, .3, 1);
+}
+
+.character-percent {
+  color: #eef4e8;
+  font-size: 27px;
   font-weight: 800;
-  letter-spacing: .2em;
-  opacity: 0;
-  transform: translateY(20px) scale(.94);
-  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
+  text-shadow: var(--art-text-shadow);
 }
 
-.loading-overlay.is-ready .loading-start {
-  pointer-events: all;
-  animation:
-    start-rise .75s cubic-bezier(.16, .84, .28, 1) both,
-    start-halo 2.6s ease-out .75s infinite;
+/* A slow breath on the dial while the world is still building, so the screen is
+   never completely still, and a clean flare on the last frame. */
+.character-gate.is-locked .character-progress::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(182, 238, 67, .3);
+  animation: ring-breath 2.6s ease-out infinite;
 }
 
-/* Keyed off transform/opacity/box-shadow only, so the whole thing stays on the
-   compositor while the scene behind it is still settling. */
-@keyframes start-rise {
-  from { opacity: 0; transform: translateY(20px) scale(.94); }
-  to   { opacity: 1; transform: none; }
+.loading-overlay.is-ready .character-progress::after {
+  animation: ring-complete .9s cubic-bezier(.16, .84, .28, 1) both;
 }
 
-@keyframes start-halo {
-  0%   { box-shadow: 0 0 0 0 rgba(182, 238, 67, .38), 0 14px 38px rgba(0, 0, 0, .5); }
-  70%  { box-shadow: 0 0 0 18px rgba(182, 238, 67, 0), 0 14px 38px rgba(0, 0, 0, .5); }
-  100% { box-shadow: 0 0 0 0 rgba(182, 238, 67, 0), 0 14px 38px rgba(0, 0, 0, .5); }
+.loading-overlay.is-ready .character-percent {
+  color: #b6ee43;
 }
 
-.loading-overlay.is-ready .loading-start:hover:not(:disabled) {
-  border-color: rgba(182, 238, 67, .9);
-  background: rgba(182, 238, 67, .12);
-  color: #d7ff7a;
+@keyframes ring-breath {
+  0%   { box-shadow: 0 0 0 0 rgba(182, 238, 67, .28); }
+  70%  { box-shadow: 0 0 0 14px rgba(182, 238, 67, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(182, 238, 67, 0); }
 }
 
-/* The click handler disables the button while the three-second scene reveal runs.
-   The entrance animation fills forwards, so it has to be cancelled here or it would
-   hold the button at full opacity and the press would read as ignored. This has to
-   out-specify `.loading-overlay.is-ready .loading-start` above, not merely follow it. */
-.loading-overlay.is-ready .loading-start:disabled {
+@keyframes ring-complete {
+  from { box-shadow: 0 0 0 0 rgba(182, 238, 67, .55); }
+  to   { box-shadow: 0 0 0 26px rgba(182, 238, 67, 0); }
+}
+
+/* The overlay is about to iris away; nothing on it should still be asking for
+   attention while the scene fades up behind it. */
+.loading-overlay.is-starting .character-progress::after {
   animation: none;
-  opacity: .55;
-  transform: none;
-  box-shadow: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .loading-start {
-    transform: none;
-    transition: opacity .4s;
+  .character-ring-fill {
+    transition: none;
   }
 
-  .loading-overlay.is-ready .loading-start {
+  .character-gate.is-locked .character-progress::after,
+  .loading-overlay.is-ready .character-progress::after {
     animation: none;
-    opacity: 1;
-    box-shadow: 0 0 0 1px rgba(182, 238, 67, .3), 0 14px 38px rgba(0, 0, 0, .5);
+    box-shadow: 0 0 0 1px rgba(182, 238, 67, .3);
   }
 }
 
@@ -447,12 +474,53 @@
   border-color: currentColor;
 }
 
-.character-select.is-locked .character-card {
-  opacity: .3;
+/* The unpicked cards are removed from the DOM on selection, so the grid collapses
+   to one card that no longer has to share a 230px column with anything. */
+.character-select.is-locked {
+  display: flex;
+  justify-content: center;
 }
 
 .character-select.is-locked .character-card.is-chosen {
+  gap: 22px;
+  width: min(460px, 92vw);
+  min-height: 132px;
+  padding: 16px 22px;
   border-color: rgba(182, 238, 67, .6);
-  background: rgba(182, 238, 67, .08);
+  background: rgba(7, 16, 21, .66);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .45);
+  cursor: default;
   opacity: 1;
+}
+
+.character-select.is-locked .character-monogram {
+  width: 62px;
+  height: 62px;
+  border-color: rgba(182, 238, 67, .5);
+  font-size: 26px;
+}
+
+.character-select.is-locked .character-monogram svg {
+  width: 34px;
+  height: 34px;
+}
+
+.character-select.is-locked .character-copy strong {
+  font-size: 21px;
+}
+
+@media (max-width: 420px) {
+  .character-select.is-locked .character-card.is-chosen {
+    gap: 14px;
+    padding: 14px 16px;
+  }
+
+  .character-progress {
+    width: 98px;
+    height: 98px;
+  }
+
+  .character-percent {
+    font-size: 22px;
+  }
 }
