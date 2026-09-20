@@ -30,7 +30,8 @@
     "config:dump": "node scripts/dump-config.mjs",
     "check:docs": "node scripts/check-docs-config.mjs",
     "cf:dev": "npm run build && wrangler dev",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "npm run build && wrangler deploy",
+    "assets:understory-billboards": "node scripts/generate-understory-billboards.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.20.0",
