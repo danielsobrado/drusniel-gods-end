@@ -45,6 +45,37 @@ test('alpine treeline clears high trees but preserves low and distant forest', (
   ), true);
 });
 
+// The expanded landscape meshes the cirque on a 2.5 m grid, so relief shorter
+// than about eight cells cannot be drawn: it arrives as flat triangles and a
+// crest that zig-zags from vertex to vertex. `landform.relief.octaves` is the
+// budget that keeps the field inside it, and this measures what it buys: the
+// mean slope break between neighbouring cells across the cirque.
+test('cirque relief stays inside what the terrain grid can carry', () => {
+  const withOctaves = (octaves) => ({
+    ...alpine,
+    landform: { ...alpine.landform, relief: { ...alpine.landform.relief, octaves } },
+  });
+  const meanSlopeBreak = (settings) => {
+    const step = 2.5;
+    let total = 0;
+    let count = 0;
+    const height = (x, z) => shapeAlpineHeight(x, z, 90, settings);
+    for (let z = settings.centerZ - 200; z <= settings.centerZ + 200; z += step) {
+      for (let x = settings.centerX - 200; x <= settings.centerX + 200; x += step) {
+        if (Math.hypot(x - settings.centerX, z - settings.centerZ) > 200) continue;
+        const middle = height(x, z);
+        const alongX = height(x - step, z) - 2 * middle + height(x + step, z);
+        const alongZ = height(x, z - step) - 2 * middle + height(x, z + step);
+        total += Math.atan2(Math.hypot(alongX, alongZ), step) * 180 / Math.PI;
+        count += 1;
+      }
+    }
+    return total / count;
+  };
+  assert.ok(meanSlopeBreak(alpine) < 21, 'configured relief must stay under 21 degrees of break per cell');
+  assert.ok(meanSlopeBreak(withOctaves(5)) > 24, 'the unbudgeted relief is what the budget guards against');
+});
+
 test('alpine validation rejects an inverted mountain layout', () => {
   const invalid = structuredClone(config);
   invalid.terrain.alpine.rimRadius = invalid.terrain.alpine.basinRadius - 1;

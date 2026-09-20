@@ -6,6 +6,8 @@ const label = process.argv[2] ?? 'current';
 const port = Number(process.argv[3] ?? 5173);
 const soak = process.argv.includes('--soak');
 const gameplay = process.argv.includes('--gameplay');
+const onlyScenario = process.argv.find(arg => arg.startsWith('--scenario='))?.split('=')[1];
+const onlyQuality = process.argv.find(arg => arg.startsWith('--quality='))?.split('=')[1];
 if (soak && gameplay) throw new Error('Choose either --soak or --gameplay');
 if (!/^[a-zA-Z0-9_-]+$/.test(label)) throw new Error('Use a simple alphanumeric report label');
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid server port');
@@ -54,9 +56,10 @@ try {
     { id: 'snow', x: -125, z: -590, radius: 65 },
   ];
   const cdp = await page.context().newCDPSession(page);
-  for (const quality of ['high', 'ultra']) {
+  for (const quality of onlyQuality ? [onlyQuality] : ['high', 'ultra']) {
     await page.evaluate(q => window.__grassDemo.ui.actions.setQuality(q), quality);
     for (const scenario of scenarios) {
+      if (onlyScenario && scenario.id !== onlyScenario) continue;
       for (const speed of gameplay ? [1, 10] : soak ? [180] : [9, 180]) {
         if (gameplay) {
           const boosted = await page.evaluate(() => {

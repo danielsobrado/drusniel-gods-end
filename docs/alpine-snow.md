@@ -14,7 +14,7 @@ The whole cirque, out to its outer blend radius (z -930), lies inside the terrai
 
 The walls carry geological structure (`terrain.alpine.landform`), none of which reaches the walkable basin floor:
 
-- **Eroded relief** (`relief`) adds the same ridged multifractal as the mountain field, up to `amplitude` metres, to the walls and outer flanks. Spurs branch off the crest with gullies cut between them.
+- **Eroded relief** (`relief`) adds the same ridged multifractal as the mountain field, up to `amplitude` metres, to the walls and outer flanks. Spurs branch off the crest with gullies cut between them. `octaves` is a mesh budget rather than a look control: at `scale` 0.011 the octaves are 91, 45, 22, 11 and 5.4 m across, and the alpine grid is 2.5 m, so the last two cannot be drawn. They arrived as flat triangles on the flanks and as crests that zig-zagged from vertex to vertex — the faceting visible on the mid-ground ridges from the summit and the outer flanks. Three octaves halve the mean slope break between neighbouring cells across the cirque (25 degrees to 19) and leave the massif where it stood: mean height shift 0.2 m, worst 3.3 m. `test/alpineRegion.test.js` measures the break, and subdividing the mesh does not substitute for the budget — a pass that quartered every triangle in the region (+49% of the terrain's triangles) changed the silhouettes far less than the two dropped octaves.
 - **Couloirs and spurs** run straight down the fall line of both flanks, `spacing` metres apart around the ring and up to `amplitude` metres deep. The spurs' sides are steep enough to shed snow, so rock shows between snow-filled chutes. They are kept shallow: deeper ones read as a regular comb around the ring.
 - **Rock bands** (`strata`) can step stretches of the upper walls into snow ledges and rock risers. They are off in the shipped config: seen from the lowlands, the steps ringing each peak read as man-made terraces.
 - **The crest** breaks into notches and pinnacles from ridged noise, instead of a rounded lip.
@@ -22,7 +22,7 @@ The walls carry geological structure (`terrain.alpine.landform`), none of which 
 <!-- effective-config: terrain.alpine.landform -->
 ```yaml
 couloirs: { amplitude: 6, spacing: 24 }
-relief: { amplitude: 22, scale: 0.011 }
+relief: { amplitude: 22, scale: 0.011, octaves: 3 }
 crest: { amplitude: 9 }
 ```
 

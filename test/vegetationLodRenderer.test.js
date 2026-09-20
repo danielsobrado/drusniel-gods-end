@@ -5,6 +5,28 @@ import { VegetationLodRenderer } from '../src/foliage/VegetationLodRenderer.js';
 import { validateVegetationLodConfig } from '../src/config/validateVegetationLodConfig.js';
 import { loadMergedConfig } from '../scripts/mergedConfig.mjs';
 
+test('preparing a streamed region prevents draw allocation when entering new chunks', () => {
+  const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(70, 1, 0.1, 2000);
+  const geometry = new THREE.BoxGeometry(), material = new THREE.MeshStandardNodeMaterial();
+  const renderer = new VegetationLodRenderer({ scene, config: {}, chunkSize: 20,
+    prepareMaterial: () => material.clone(), policy: () => ({ centers: [20, 40], far: 100 }) });
+  const full = [{ geometry, material }];
+  renderer.addVariant({ key: 'region', full, asset: { levels: [null, full] },
+    records: [0, 100, 200].map(x => ({ position: new THREE.Vector3(x, 0, 0),
+      matrix: new Float32Array(new THREE.Matrix4().makeTranslation(x, 0, 0).elements),
+      fraction: 0, sphere: new THREE.Sphere(new THREE.Vector3(x, 0, 0), 2) })) });
+  renderer.prepareAll();
+  const prepared = [...scene.children];
+  assert.equal(prepared.length, 6);
+  assert.ok(prepared.every(mesh => !mesh.visible && mesh.count === 0));
+  for (const x of [0, 100, 200, 0]) for (const z of [10, 30, 60]) {
+    camera.position.set(x, 0, z); camera.lookAt(x, 0, 0);
+    renderer.update(camera);
+    assert.deepEqual(scene.children, prepared);
+  }
+  renderer.dispose(); geometry.dispose(); material.dispose();
+});
+
 test('LOD submissions handle reversals, teleports, missing levels and preserve transformed billboard centers', () => {
   const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(70, 1, 0.1, 2000);
   const geometry = new THREE.BoxGeometry(3, 12, 3), material = new THREE.MeshStandardNodeMaterial();

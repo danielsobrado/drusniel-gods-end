@@ -25,6 +25,11 @@ terrain:
     # man-made terraces from the lowlands.
     landform:
       couloirs: { amplitude: 6, spacing: 24, meander: 0.7 }
+      # Three octaves: 91, 45 and 22 m across. The two the default drops (11 and
+      # 5.4 m) are shorter than the terrain mesh's 2.5 m grid can carry, so they
+      # never read as ridges, only as flat triangles and a crest that zig-zags
+      # from vertex to vertex. Dropping them leaves the massif where it stood
+      # (mean height shift 0.2 m, worst 3.3 m).
       relief: { amplitude: 22, scale: 0.011, octaves: 3 }
       crest: { amplitude: 9, scale: 0.028 }
     treeLine: 108
