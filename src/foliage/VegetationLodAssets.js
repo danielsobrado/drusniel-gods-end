@@ -3,7 +3,6 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { assetUrl } from '../assets/assetUrl.js';
 import { captureObjectResources } from '../utils/ResourceScope.js';
-import { foliageMipmaps } from './alphaCoverage.js';
 import { logger } from '../utils/logger.js';
 
 export function primitiveParts(root) {
@@ -17,19 +16,14 @@ export function primitiveParts(root) {
   });
   return parts;
 }
-export function coverageTexture(image, name = 'Foliage atlas') {
-  const canvas = document.createElement('canvas'); canvas.width = image.width; canvas.height = image.height;
-  const context = canvas.getContext('2d', { willReadFrequently: true }); context.drawImage(image, 0, 0);
-  // Typed-array uploads do not consistently apply flipY on both rendering backends.
-  // Flip the pixels before generating mipmaps so every level has the same orientation.
-  const input = context.getImageData(0, 0, image.width, image.height).data;
-  const data = new Uint8Array(input.length), stride = image.width * 4;
-  for (let y = 0; y < image.height; y++) data.set(input.subarray(y * stride, (y + 1) * stride), (image.height - y - 1) * stride);
-  const texture = new THREE.DataTexture(new Uint8Array(data), image.width, image.height);
-  texture.mipmaps = foliageMipmaps(new Uint8Array(data), image.width, image.height);
-  texture.flipY = false; texture.colorSpace = THREE.SRGBColorSpace;
-  texture.minFilter = THREE.LinearMipmapLinearFilter; texture.magFilter = THREE.LinearFilter;
-  texture.generateMipmaps = false; texture.anisotropy = 4; texture.name = name; texture.needsUpdate = true;
+export function coverageTexture(texture, name = 'Foliage atlas') {
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = true;
+  texture.anisotropy = 4;
+  texture.name = name;
+  texture.needsUpdate = true;
   return texture;
 }
 export async function loadVegetationLodAssets(keys, config, signal) {
@@ -76,8 +70,8 @@ export async function loadVegetationLodAssets(keys, config, signal) {
           (async () => {
             if (!entry.capture) return;
             try {
-              const image = await new THREE.ImageLoader().loadAsync(assetUrl(base + entry.atlas));
-              variant.atlas = coverageTexture(image, key); resources.push(() => variant.atlas.dispose());
+              const texture = await new THREE.TextureLoader().loadAsync(assetUrl(base + entry.atlas));
+              variant.atlas = coverageTexture(texture, key); resources.push(() => variant.atlas.dispose());
             } catch (error) { logger.warn(`Vegetation atlas unavailable: ${key}`, error); }
           })(),
         ]);
