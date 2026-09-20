@@ -306,6 +306,13 @@ ui:
   showAdvanced: true
   initialQuality: high
   initialPreset: sunny
+  mobileStartup:
+    enabled: true
+    maxShortSide: 900
+    requireCoarsePointer: true
+    initialQuality: performance
+    pixelRatioCap: 1.25
+    warmupTravelDistance: 25
 quality:
   performance:
     label: Performance
