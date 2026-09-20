@@ -1,0 +1,65 @@
+name: Bake understory billboards
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/bake-understory.yml
+      - scripts/generate-understory-billboards.mjs
+      - scripts/bake-vegetation-lods.mjs
+      - src/foliage/UnderstorySystem.js
+      - src/foliage/understoryBillboard.js
+
+permissions:
+  contents: write
+
+jobs:
+  bake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm ci --prefix scripts/browser
+      - run: node scripts/browser/node_modules/playwright/cli.js install --with-deps chromium
+      - name: Prepare understory sources
+        run: npm run assets:understory-billboards
+      - name: Start asset preview
+        run: |
+          npm run dev -- --host 127.0.0.1 > /tmp/grass-vite.log 2>&1 &
+          echo $! > /tmp/grass-vite.pid
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:5173/scripts/debug/bake-vegetation-lods.html > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/grass-vite.log
+          exit 1
+      - name: Bake understory atlases
+        env:
+          VEGETATION_BAKE_PREFIX: understory-
+          ASSET_PREVIEW_URL: http://127.0.0.1:5173
+        run: npm run assets:vegetation-atlases
+      - name: Stop asset preview
+        if: always()
+        run: |
+          if [ -f /tmp/grass-vite.pid ]; then kill "$(cat /tmp/grass-vite.pid)" || true; fi
+      - name: Verify generated atlases
+        run: node --test test/vegetationLodAssets.test.js
+      - name: Commit generated assets
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/Assets/terrain/vegetation-lods/manifest.json
+          git add public/Assets/terrain/vegetation-lods/understory-*.webp
+          if git diff --cached --quiet; then
+            echo "Understory atlases are already current."
+            exit 0
+          fi
+          git commit -m "Bake understory billboard atlases"
+          git push
