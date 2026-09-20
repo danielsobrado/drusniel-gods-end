@@ -21,6 +21,11 @@ const BANK_FREEBOARD = 0.3;
 const BANK_CREST_START = 0.6;
 const BANK_CREST_END = 1.6;
 const BANK_ROUNDING = 0.35;
+// Height above the outlet's own level at which the bank has faded away. Down at
+// the mouth the sea stands against the channel and holds the water itself, so a
+// bank there is a bar across the outlet, not a bank: it walled the estuary off
+// from the sea and left a lagoon of trapped water behind a strip of sand.
+export const SEA_BANK_FADE = 2.5;
 
 function lowestBank(sampleHeight, p, tangent, width) {
   let lowest = Infinity;
@@ -223,13 +228,18 @@ export class RiverCourse {
     // No bank inside the channel, nor on the lake crossing, where the lake's
     // own basin holds the water.
     if (p.edge <= 0 || (p.outletProgress <= 0 && p.y <= this.lakeLevel + 0.05)) return carved;
+    // Nor across the mouth, where the outlet has come down to the sea's level.
+    const held = p.outletProgress > 0
+      ? ease(this.outletLevel + BANK_FREEBOARD, this.outletLevel + SEA_BANK_FADE, p.y)
+      : 1;
+    if (held <= 0) return carved;
     // The bank holds the water: past the edge the ground rises to stand
     // BANK_FREEBOARD above the surface, and rounds off beyond the crest to
     // meet land that falls away.
     const past = Math.max(0, p.edge - BANK_CREST_END);
     const bank = THREE.MathUtils.lerp(bed, p.y + BANK_FREEBOARD, ease(0, BANK_CREST_START, p.edge))
       - past * past * BANK_ROUNDING;
-    return Math.max(carved, bank);
+    return Math.max(carved, THREE.MathUtils.lerp(carved, bank, held));
   }
 
   createTexture() {

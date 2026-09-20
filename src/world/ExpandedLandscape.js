@@ -31,6 +31,12 @@ const insideBounds = (x, z, b) => x >= b.minX && x <= b.maxX && z >= b.minZ && z
 
 const MOUNTAIN_PEAKS = [[10, -685, 95, 95, 110], [-85, -620, 115, 120, 155], [175, -575, 125, 145, 145],
   [35, -380, 170, 140, 67], [-525, -330, 165, 210, 110], [540, -490, 165, 180, 115]];
+// The ranges stand on the unrefined world grid, so their relief is cut to the
+// octaves that grid can carry: at 0.0055 they are 182, 91 and 44 m across, and
+// the five-metre grid needs about eight cells per feature. The two dropped
+// ones (22 and 11 m) only arrived as facets and as ridgelines that stepped
+// from vertex to vertex. Same budget as terrain.alpine.landform.relief.octaves.
+const MOUNTAIN_RELIEF_OCTAVES = 3;
 
 export function mountainHeight(x, z) {
   let height = 0;
@@ -42,7 +48,7 @@ export function mountainHeight(x, z) {
   // Warped so ridgelines bend and branch rather than following the noise grid.
   const wx = x + (fractalNoise(x * 0.003, z * 0.003, 211, 3) - 0.5) * 140;
   const wz = z + (fractalNoise(x * 0.003, z * 0.003, 223, 3) - 0.5) * 140;
-  return height * (0.4 + mountainRelief(wx * 0.0055, wz * 0.0055, 173) * 1.3);
+  return height * (0.4 + mountainRelief(wx * 0.0055, wz * 0.0055, 173, MOUNTAIN_RELIEF_OCTAVES) * 1.3);
 }
 
 // Conforming subdivision: shared edges are split once, including adjacent triangles.

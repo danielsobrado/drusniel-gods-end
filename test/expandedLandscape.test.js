@@ -8,6 +8,7 @@ import { loadMergedConfig } from '../scripts/mergedConfig.mjs';
 import { TerrainSampler } from '../src/world/TerrainSampler.js';
 import { expandLandscape, mountainHeight } from '../src/world/ExpandedLandscape.js';
 import { createWaterGeometry } from '../src/water/waterGeometry.js';
+import { SEA_BANK_FADE } from '../src/water/RiverCourse.js';
 import { createWorldSpacePositions } from '../src/player/terrainColliderGeometry.js';
 import { coastX } from '../src/world/coast.js';
 import { lakeSignedDistance, resolveLakeShape } from '../src/world/LakeShape.js';
@@ -57,6 +58,27 @@ test('expanded terrain encloses the lake, adds alpine relief, and uses the rende
   assert.ok(mountainHeight(0, -650) > mountainHeight(0, 0) + 100);
 });
 
+// The ranges stand on the unrefined five-metre grid, so their ridged relief is
+// cut to the octaves it can carry; the finer ones only came out as facets and
+// ridgelines that stepped from vertex to vertex. Same budget, and same
+// measurement, as terrain.alpine.landform.relief.octaves.
+test('the mountain field stays inside what the world grid can carry', () => {
+  const step = 5;
+  let total = 0;
+  let count = 0;
+  for (let z = -900; z <= -350; z += step) {
+    for (let x = -700; x <= 700; x += step) {
+      const middle = mountainHeight(x, z);
+      if (middle < 25) continue;
+      const alongX = mountainHeight(x - step, z) - 2 * middle + mountainHeight(x + step, z);
+      const alongZ = mountainHeight(x, z - step) - 2 * middle + mountainHeight(x, z + step);
+      total += Math.atan2(Math.hypot(alongX, alongZ), step) * 180 / Math.PI;
+      count += 1;
+    }
+  }
+  assert.ok(total / count < 21, `mean slope break per cell is ${(total / count).toFixed(1)} degrees`);
+});
+
 test('river descends from snow country through the lake and drains into the sea', async () => {
   const { expansion, sampler, config } = await landscape();
   const river = expansion.river;
@@ -94,6 +116,9 @@ test('river banks hold the water: past each channel edge the ground rises above 
   for (let i = 0; i < river.samples.length; i += 2) {
     const p = river.samples[i];
     if (p.outletProgress <= 0 && p.y <= river.lakeLevel + 0.05) continue; // the lake is its own basin
+    // Nor at the mouth: there the sea stands at the channel's own level and
+    // holds the water, so the carve fades its bank out. See the mouth test.
+    if (p.outletProgress > 0 && p.y <= river.outletLevel + SEA_BANK_FADE) continue;
     for (const side of [-1, 1]) {
       // Just past the edge, which erosion moves up to a metre either way.
       let bank = -Infinity;
@@ -105,6 +130,36 @@ test('river banks hold the water: past each channel edge the ground rises above 
     }
   }
   assert.deepEqual(spills.slice(0, 12), [], `${spills.length} bank spills`);
+});
+
+// The bank that holds the river in its channel used to run all the way to the
+// mouth, where the river surface is the sea's own level. It came out as a bar
+// of sand standing 0.3 m proud of the water right across the outlet, so the
+// estuary read from the beach as water, a strip of sand, then the open sea,
+// with the sea's wave lines stopping at the bar.
+test('the carve raises no bar across the river mouth', async () => {
+  const { expansion, config } = await landscape();
+  const river = expansion.river;
+  const level = config.water.sea.level;
+  const proud = [];
+  for (const p of river.samples) {
+    if (p.y > level + 0.2) continue;
+    for (const side of [-1, 1]) {
+      for (const beyond of [0.5, 2, 6, 14, 24]) {
+        const across = side * (p.width / 2 + beyond);
+        const x = p.x - p.dz * across;
+        const z = p.z + p.dx * across;
+        const original = expansion.baseHeight(x, z);
+        const carved = river.carve(x, z, original);
+        // The beach rises above the sea on its own; only ground the carve
+        // lifts there closes the mouth off.
+        if (carved > level && carved > original + 0.01) {
+          proud.push(`${p.x.toFixed(0)},${p.z.toFixed(0)} ${beyond} m out: ${(carved - level).toFixed(2)} m above the sea`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(proud.slice(0, 8), [], `${proud.length} samples of bar across the mouth`);
 });
 
 test('corridor subdivision has no unmatched interior edges or inverted triangles', async () => {
