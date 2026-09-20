@@ -38,7 +38,13 @@ function resolveLandform(landform = {}) {
     couloirs: block(landform.couloirs, ['amplitude', 'spacing', 'meander']),
     strata: block(landform.strata, ['strength', 'bandHeight', 'tilt', 'coverage', 'faultSpacing', 'faultOffset']),
     crest: block(landform.crest, ['amplitude', 'scale']),
-    relief: block(landform.relief, ['amplitude', 'scale']),
+    // `octaves` and `softness` keep the relief inside what the terrain mesh can
+    // carry: octaves finer than the grid only alias into facets, and a crease
+    // at the crest reads as a zig-zag along the grid however fine it gets.
+    relief: {
+      ...block(landform.relief, ['amplitude', 'scale', 'softness']),
+      octaves: Number(landform.relief?.octaves ?? 5),
+    },
   };
 }
 
@@ -65,8 +71,8 @@ function alpineLandform(x, z, height, distance, angle, rimProfile, wallHeight, a
     // Eroded ridges: spurs branch off the crest and gullies cut between them,
     // so the walls read as a massif rather than a turned bowl.
     const reliefMask = smoothstep(alpine.basinRadius * 0.9, alpine.basinRadius + 30, distance);
-    result += (mountainRelief(x * relief.scale, z * relief.scale, alpine.seed + 97) - 0.38) * 2
-      * relief.amplitude * reliefMask;
+    result += (mountainRelief(x * relief.scale, z * relief.scale, alpine.seed + 97,
+      relief.octaves, relief.softness) - 0.38) * 2 * relief.amplitude * reliefMask;
   }
   if (crest.amplitude > 0 && crest.scale > 0) {
     const crestMask = smoothstep(0.6, 0.95, rimProfile);

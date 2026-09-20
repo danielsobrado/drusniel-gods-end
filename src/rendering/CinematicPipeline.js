@@ -5,7 +5,7 @@ import {
 import {
   pass, renderOutput, vec4, vec3, vec2, uniform, mix, dot, uv, smoothstep, float, fract, sin, cos, screenCoordinate,
   time, mrt, output, velocity, Fn, If, Loop, step, perspectiveDepthToViewZ, atan, interleavedGradientNoise,
-  getViewPosition, exp, mod,
+  getViewPosition, exp, mod, max, normalize, reflect,
 } from 'three/tsl';
 import { ao } from 'three/addons/tsl/display/GTAONode.js';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
@@ -50,6 +50,13 @@ const UNDERWATER_DIMMING = [0.11, 0.04, 0.035];
 const SNELL_WINDOW = [0.645, 0.685];
 // Caustic cells repeat every this many metres across the bed.
 const CAUSTIC_TILE = 5.5;
+// How far, in screen widths, the surface's own ripples push the world seen
+// through Snell's window sideways.
+const SNELL_REFRACTION = 0.09;
+// How much of the water below shows in the surface's mirror outside that
+// window. Total internal reflection loses nothing, but the mirror is a
+// screen-space guess, so it is kept short of a perfect bounce.
+const UNDERSIDE_MIRROR = 0.62;
 const _underwaterFade = new Vector3();
 
 export class CinematicPipeline {
@@ -106,7 +113,9 @@ export class CinematicPipeline {
       beamU: uniform(new Vector3(1, 0, 0)),
       beamV: uniform(new Vector3(0, 0, 1)),
       projectionInverse: uniform(new Matrix4()),
+      projection: uniform(new Matrix4()),
       cameraWorld: uniform(new Matrix4()),
+      cameraWorldInverse: uniform(new Matrix4()),
     };
     this.#applyUniformEffects();
     this.setQuality(this.quality);
@@ -269,13 +278,44 @@ export class CinematicPipeline {
     return float(1.17).sub(sum.div(iterations).pow(1.4)).abs().pow(8);
   }
 
+  // The surface seen from below is not a flat lid: a few crossed ripples tilt
+  // its normal, so Snell's window breathes and what its mirror catches shifts
+  // with it. `distance` is how far off the surface lies; the finer octaves
+  // fade out with it so the surface near the horizon, where a pixel spans
+  // metres of water, does not boil into noise. Returns the slope (dh/dx, dh/dz).
+  #surfaceRipple(hit, distance) {
+    const near = smoothstep(70, 8, distance);
+    const fine = smoothstep(26, 4, distance);
+    return vec2(
+      cos(hit.x.mul(0.9).add(hit.y.mul(0.35)).add(time.mul(1.1))),
+      cos(hit.y.mul(0.8).sub(hit.x.mul(0.3)).add(time.mul(0.9))),
+    ).mul(0.085)
+      .add(vec2(
+        cos(hit.x.mul(2.3).sub(hit.y.mul(1.1)).sub(time.mul(1.7))),
+        cos(hit.y.mul(2.1).add(hit.x.mul(0.9)).add(time.mul(1.5))),
+      ).mul(0.05).mul(near))
+      .add(vec2(
+        cos(hit.x.mul(5.1).add(hit.y.mul(3.7)).add(time.mul(2.6))),
+        cos(hit.y.mul(4.8).sub(hit.x.mul(3.1)).sub(time.mul(2.3))),
+      ).mul(0.028).mul(fine));
+  }
+
+  // Where a world-space direction lands on screen. `ahead` is positive only
+  // for directions the camera can actually see.
+  #projectDirection(direction) {
+    const water = this.underwater;
+    const view = water.cameraWorldInverse.mul(vec4(direction, 0)).xyz;
+    const clip = water.projection.mul(vec4(view, 0));
+    return { uv: clip.xy.div(clip.w.max(0.0001)).mul(0.5).add(0.5), ahead: clip.w };
+  }
+
   // The view from inside a body of water. Each pixel's ray is rebuilt from
   // depth: rays that rise to the surface before reaching scene geometry see
   // its underside, which passes the world above inside Snell's window and
   // mirrors the water outside it. Everything else is dimmed by how deep it
   // lies, dappled with caustics, and fades into the water's colour with
   // distance, red first. Skipped entirely above water.
-  #underwaterView(stage, lit) {
+  #underwaterView(stage, lit, beauty) {
     const water = this.underwater;
     const depth = stage.depth.sample(uv()).r;
     return Fn(() => {
@@ -291,18 +331,38 @@ export class CinematicPipeline {
         const surface = ray.y.greaterThan(0).and(toSurface.lessThan(sceneDistance));
         const distance = surface.select(toSurface, sceneDistance).min(400);
 
-        const hit = water.eye.xz.add(ray.xz.mul(toSurface.min(400)));
-        const ripple = sin(hit.x.mul(1.7).add(time.mul(1.3))).mul(sin(hit.y.mul(1.3).sub(time.mul(1.1)))).mul(0.02)
-          .add(sin(hit.x.mul(4.1).sub(hit.y.mul(3.3)).add(time.mul(2.2))).mul(0.01));
-        const steepness = ray.y.add(ripple);
+        const reach = toSurface.min(400);
+        const hit = water.eye.xz.add(ray.xz.mul(reach));
+        const slope = this.#surfaceRipple(hit, reach);
+        const surfaceNormal = normalize(vec3(slope.x.negate(), 1, slope.y.negate()));
+        const steepness = dot(ray, surfaceNormal);
         const inWindow = smoothstep(SNELL_WINDOW[0], SNELL_WINDOW[1], steepness);
         const rim = smoothstep(SNELL_WINDOW[0] - 0.03, SNELL_WINDOW[0], steepness).mul(inWindow.oneMinus());
         // Scattered light is brightest looking up toward the surface and
         // falls off into the dark below.
-        const glow = mix(float(0.5), float(1.45), smoothstep(-0.7, 0.8, ray.y));
-        const murk = water.color.mul(glow);
-        const mirrored = murk.mul(rim.mul(0.9).add(1));
-        const underside = mix(mirrored, lit.mul(vec3(0.8, 0.95, 0.95)), inWindow);
+        const glow = (direction) => mix(float(0.5), float(1.45), smoothstep(-0.7, 0.8, direction));
+        const murk = water.color.mul(glow(ray.y));
+        // Outside the window the surface is a mirror: the ray bounces back
+        // down and the water under it is what shows. Following that bounce
+        // through the beauty buffer is a screen-space guess, so it fades back
+        // into plain murk wherever the bounced ray leaves the frame, and it
+        // carries the dimming of the depth it is reflected from.
+        const bounceRay = reflect(ray, surfaceNormal);
+        const bounce = this.#projectDirection(bounceRay);
+        const offFrame = max(bounce.uv.x.sub(0.5).abs(), bounce.uv.y.sub(0.5).abs());
+        const bounceFade = smoothstep(0.5, 0.42, offFrame).mul(smoothstep(0, 0.02, bounce.ahead));
+        const bounced = beauty.sample(bounce.uv.clamp(0, 1)).rgb
+          .mul(exp(vec3(...UNDERWATER_DIMMING).mul(water.depth.max(0).negate())));
+        // Even where the bounce leaves the frame the mirror is not the water
+        // the pixel is looking through: it looks back down, into the darker
+        // half of the scatter, and that alone keeps the surface readable.
+        const mirrorMurk = water.color.mul(glow(bounceRay.y));
+        const mirrored = mix(mirrorMurk, mix(mirrorMurk, bounced, UNDERSIDE_MIRROR), bounceFade)
+          .mul(rim.mul(0.9).add(1));
+        // Inside it, the world above, dragged sideways by the same ripples
+        // that tilt the surface.
+        const above = beauty.sample(uv().add(slope.mul(SNELL_REFRACTION).mul(inWindow)).clamp(0, 1)).rgb;
+        const underside = mix(mirrored, above.mul(vec3(0.8, 0.95, 0.95)), inWindow);
 
         const point = water.eye.add(ray.mul(distance));
         const pointDepth = water.level.sub(point.y).max(0);
@@ -391,7 +451,7 @@ export class CinematicPipeline {
       }
       if (this.effects.lightShafts) lit = lit.add(this.#lightShafts(stage));
     }
-    lit = this.#underwaterView(stage, lit);
+    lit = this.#underwaterView(stage, lit, beauty);
     // Under water every pixel is water, including where foliage left the
     // beauty pass translucent.
     let hdr = vec4(lit, mix(stage.beauty.a, 1, this.underwater.amount));
@@ -471,7 +531,9 @@ export class CinematicPipeline {
       camera.updateMatrixWorld();
       this.underwater.eye.value.setFromMatrixPosition(camera.matrixWorld);
       this.underwater.cameraWorld.value.copy(camera.matrixWorld);
+      this.underwater.cameraWorldInverse.value.copy(camera.matrixWorldInverse);
       this.underwater.projectionInverse.value.copy(camera.projectionMatrixInverse);
+      this.underwater.projection.value.copy(camera.projectionMatrix);
       if (sun) this.#updateUnderwaterSun(sun);
     }
     if (!this.effects.lightShafts || !sun) {

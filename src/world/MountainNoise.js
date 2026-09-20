@@ -39,13 +39,22 @@ export function gradientNoise(x, z, seed) {
  * detail while the valleys between them are smooth. Each octave is also
  * damped by the slope gathered so far, the way erosion leaves steep flanks
  * cut by gullies and gentle ground plain.
+ *
+ * `softness` rounds the crease at each octave's crest, over a width that
+ * scales with the octave, so a terrain mesh can follow the arête instead of
+ * snapping its line to the grid. It is in noise units: 0.09 rounds the first
+ * octave's crest over about a tenth of its wavelength. Without it a crest is a
+ * slope discontinuity, which no amount of subdivision resolves.
  */
-export function mountainRelief(x, z, seed, octaves = 5) {
+export function mountainRelief(x, z, seed, octaves = 5, softness = 0) {
   let px = x, pz = z;
   let total = 0, norm = 0, amplitude = 1, weight = 1, slopeX = 0, slopeZ = 0;
   for (let octave = 0; octave < octaves; octave += 1) {
     const [value, dx, dz] = gradientNoise(px, pz, seed + octave * 131);
-    const ridge = Math.max(0, 1 - Math.abs(value) * 1.6);
+    const magnitude = softness > 0
+      ? Math.sqrt(value * value + softness * softness) - softness
+      : Math.abs(value);
+    const ridge = Math.max(0, 1 - magnitude * 1.6);
     const crest = ridge * ridge;
     slopeX += dx * amplitude * weight;
     slopeZ += dz * amplitude * weight;

@@ -18,14 +18,14 @@ terrain:
     detailOctaves: 3
     seed: 9127
     refineRadius: 300
-    refinePasses: 1
+    refinePasses: 2
     # Eroded ridges and gullies, shallow couloirs down the flanks and a broken
     # crest, so the cirque reads as a massif of rock under snow rather than a
     # bowl. Rock bands (strata) are off: stepped around the peaks they read as
     # man-made terraces from the lowlands.
     landform:
       couloirs: { amplitude: 6, spacing: 24, meander: 0.7 }
-      relief: { amplitude: 22, scale: 0.011 }
+      relief: { amplitude: 22, scale: 0.011, octaves: 3 }
       crest: { amplitude: 9, scale: 0.028 }
     treeLine: 108
     treeClearRadius: 320
