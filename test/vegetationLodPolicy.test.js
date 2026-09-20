@@ -22,6 +22,18 @@ test('configured height cap keeps large tree geometry within the previous draw b
   assert.deepEqual(vegetationLodWeights(171, { centers, far: 4000 }), [0, 0, 0, 1]);
   assert.ok(treeLodCenters(6, 'high', settings)[0] < centers[0]);
 });
+test('a shorter center list hands the range to the impostor rather than to a mesh stage', () => {
+  const settings = { centers: treeLodCenters(12, 'high', { distances: [35, 75], referenceHeight: 12 }), far: 4000 };
+  assert.deepEqual(settings.centers, [35, 75]);
+  for (const distance of [0, 35, 75, 200, 3000]) {
+    const w = vegetationLodWeights(distance, settings);
+    assert.ok(Math.abs(w.reduce((a, b) => a + b) - 1) < 1e-10, `coverage at ${distance}`);
+    assert.equal(w[2], 0, `no decimated stage at ${distance}`);
+  }
+  assert.deepEqual(vegetationLodWeights(0, settings), [1, 0, 0, 0]);
+  assert.deepEqual(vegetationLodWeights(90, settings), [0, 0, 0, 1]);
+  assert.ok(vegetationLodWeights(75, settings)[1] > 0 && vegetationLodWeights(75, settings)[3] > 0);
+});
 test('missing assets retain a valid representation and tree scale and quality affect detail', () => {
   const centers = treeLodCenters(12);
   assert.deepEqual(vegetationLodWeights(240, { centers, far: 4000, available: [true, false, false, true] }), [1, 0, 0, 0]);

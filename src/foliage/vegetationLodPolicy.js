@@ -20,7 +20,9 @@ export function vegetationLodWeights(distance, { centers, blend = 0.15, far, ava
     target[i] = remaining * (1 - after);
     remaining *= after;
   }
-  target[centers.length] = remaining;
+  // The impostor is always the last slot: a shorter center list drops mesh stages
+  // in favour of it rather than shifting what the final representation is.
+  target[target.length - 1] = remaining;
   const fade = 1 - smoothCoverage(far * 0.9, far, distance);
   for (let i = 0; i < target.length; i++) {
     target[i] *= fade;

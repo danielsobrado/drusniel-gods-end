@@ -1,5 +1,5 @@
 /** Offline derivatives of the shipped forest/alpine/jungle assets; originals remain untouched. */
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { cloneDocument, mergeDocuments, prune, weld, simplifyPrimitive, draco, unpartition, dedup, textureCompress } from '@gltf-transform/functions';
@@ -30,42 +30,10 @@ function select(doc, name) {
   return root;
 }
 
-// Retain whole connected leaf cards, stratified across the crown. Never slice a card into random triangles.
-function thinCards(doc, ratio) {
-  for (const mesh of doc.getRoot().listMeshes()) for (const p of mesh.listPrimitives()) {
-    if (p.getMaterial()?.getAlphaMode() !== 'MASK') continue;
-    const pos = p.getAttribute('POSITION'), indices = p.getIndices()?.getArray();
-    if (!indices) continue;
-    const parent = Int32Array.from({ length: pos.getCount() }, (_, i) => i);
-    const find = i => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
-    for (let i = 0; i < indices.length; i += 3) {
-      parent[find(indices[i + 1])] = find(indices[i]); parent[find(indices[i + 2])] = find(indices[i]);
-    }
-    const components = new Map();
-    for (let i = 0; i < indices.length; i += 3) {
-      const key = find(indices[i]);
-      if (!components.has(key)) components.set(key, []);
-      components.get(key).push(indices[i], indices[i + 1], indices[i + 2]);
-    }
-    if (components.size < 16) continue;
-    const min = pos.getMin([]), max = pos.getMax([]), cells = new Map();
-    for (const [key, tris] of components) {
-      const vertices = [...new Set(tris)], center = [0, 0, 0];
-      for (const index of vertices) { const v = pos.getElement(index, []); for (let a = 0; a < 3; a++) center[a] += v[a] / vertices.length; }
-      const cell = center.map((v, a) => Math.min(4, Math.floor((v - min[a]) / Math.max(1e-5, max[a] - min[a]) * 5))).join(',');
-      if (!cells.has(cell)) cells.set(cell, []);
-      cells.get(cell).push({ key, tris });
-    }
-    const kept = [];
-    for (const entries of cells.values()) {
-      entries.sort((a, b) => ((Math.imul(a.key + 1, 2654435761) >>> 0) - (Math.imul(b.key + 1, 2654435761) >>> 0)));
-      for (const entry of entries.slice(0, Math.max(1, Math.ceil(entries.length * ratio)))) kept.push(...entry.tris);
-    }
-    p.setIndices(doc.createAccessor().setType('SCALAR').setArray(new Uint32Array(kept)).setBuffer(doc.getRoot().listBuffers()[0]));
-  }
-}
+// Atlas bakes read the untouched source, so existing captures survive a regeneration.
+const previous = JSON.parse(await readFile(`${directory}/manifest.json`, 'utf8').catch(() => '{"variants":{}}')).variants;
 
-const manifest = { version: 1, variants: {} };
+const manifest = { version: 2, variants: {} };
 const bundles = new Map();
 async function generate(source, nodeName, key, tree) {
   const full = cloneDocument(source);
@@ -74,29 +42,24 @@ async function generate(source, nodeName, key, tree) {
   await io.write(`public/tmp/lod-bake/${key}.glb`, full);
   const counts = [count(full)];
   if (tree) {
-    let output;
-    for (const [index, ratio] of [0.5, 0.2].entries()) {
-      const lod = cloneDocument(full);
-      lod.getRoot().listScenes()[0].listChildren()[0].setName(`${key}_${index === 0 ? 'Medium' : 'LowMesh'}`);
-      thinCards(lod, ratio);
-      for (const mesh of lod.getRoot().listMeshes()) for (const primitive of mesh.listPrimitives()) {
-        // Snow caps have coincident seam vertices. Keep their closed source topology;
-        // simplifying disconnected seams independently opens visible cracks.
-        if (primitive.getMaterial()?.getAlphaMode() !== 'MASK' && !/snow/i.test(primitive.getMaterial()?.getName() ?? '')) simplifyPrimitive(primitive,
-          { simplifier: MeshoptSimplifier, ratio, error: index === 0 ? 0.003 : 0.01 });
-      }
-      await lod.transform(prune());
-      counts.push(count(lod));
-      if (!output) output = lod; else mergeDocuments(output, lod);
+    // Leaf cards are authored to read as a canopy through heavy overlap, so every card
+    // survives here; dropping a fraction of them exposes the individual planes. Only the
+    // woody geometry simplifies, and the whole-tree impostor takes over past Medium.
+    const lod = cloneDocument(full);
+    lod.getRoot().listScenes()[0].listChildren()[0].setName(`${key}_Medium`);
+    for (const mesh of lod.getRoot().listMeshes()) for (const primitive of mesh.listPrimitives()) {
+      // Snow caps have coincident seam vertices. Keep their closed source topology;
+      // simplifying disconnected seams independently opens visible cracks.
+      if (primitive.getMaterial()?.getAlphaMode() !== 'MASK' && !/snow/i.test(primitive.getMaterial()?.getName() ?? '')) simplifyPrimitive(primitive,
+        { simplifier: MeshoptSimplifier, ratio: 0.5, error: 0.003 });
     }
-    // GLTFLoader reads one scene. Move both levels under it before serialization.
-    const scenes = output.getRoot().listScenes();
-    for (const scene of scenes.slice(1)) { for (const node of scene.listChildren()) scenes[0].addChild(node); scene.dispose(); }
+    await lod.transform(prune());
+    counts.push(count(lod));
     const bundle = key.startsWith('jungle-') ? 'jungle' : 'forest';
-    if (bundles.has(bundle)) mergeDocuments(bundles.get(bundle), output); else bundles.set(bundle, output);
+    if (bundles.has(bundle)) mergeDocuments(bundles.get(bundle), lod); else bundles.set(bundle, lod);
   }
   manifest.variants[key] = { tree, triangles: counts, mesh: tree ? `${key.startsWith('jungle-') ? 'jungle' : 'forest'}.glb` : null,
-    medium: `${key}_Medium`, lowMesh: `${key}_LowMesh`, atlas: `${key}.webp` };
+    medium: `${key}_Medium`, atlas: previous[key]?.atlas ?? `${key}.webp`, capture: previous[key]?.capture };
   console.log(`${key}: ${counts.join(' → ')} triangles`);
 }
 for (let type = 1; type <= 19; type++) {

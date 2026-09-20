@@ -1,6 +1,6 @@
 import { findCharacter } from '../config/characterRoster.js';
 import { GRASS_SHAPES, grassFamily, resolveGrassShape } from '../grass/grassShapes.js';
-import { POST_EFFECT_TOGGLES, TONEMAPPERS } from '../rendering/postEffects.js';
+import { POST_EFFECT_LEVELS, POST_EFFECT_TOGGLES, TONEMAPPERS } from '../rendering/postEffects.js';
 
 const DEFAULT_CONTROL_RANGES = Object.freeze({
   windStrength: { min: 0, max: 3, step: 0.1 },
@@ -78,10 +78,19 @@ export class DemoUi {
     const interactionEnabled = this.actions.getInteractionEnabled?.()
       ?? (this.config.grass.interaction.enabled !== false);
     const postEffects = this.actions.getPostEffects?.();
+    const postLevels = this.actions.getPostLevels?.();
+    // Depth of field keeps its two levels directly under its switch, folded
+    // away while the effect is off.
+    const dofLevels = postLevels ? `
+        <div class="level-group" data-post-levels ${postEffects.depthOfField ? '' : 'hidden'}>
+          ${POST_EFFECT_LEVELS.map((level) => `
+          <label>${level.label}${rangeInput(level.key, postLevels[level.key], level, `data-post-level="${level.key}"`)}</label>`).join('')}
+        </div>`
+      : '';
     const postControls = postEffects ? `
         ${choiceControl('tonemapper', 'Tonemapper', TONEMAPPERS, postEffects.tonemapper)}
         ${POST_EFFECT_TOGGLES.map(({ key, label }) => `
-        <label class="toggle-row"><span>${label}</span><input data-post-effect="${key}" type="checkbox" ${postEffects[key] ? 'checked' : ''}></label>`).join('')}`
+        <label class="toggle-row"><span>${label}</span><input data-post-effect="${key}" type="checkbox" ${postEffects[key] ? 'checked' : ''}></label>${key === 'depthOfField' ? dofLevels : ''}`).join('')}`
       : '';
 
     overlay.innerHTML = `
@@ -191,9 +200,18 @@ export class DemoUi {
       this.actions.setInteractionEnabled(event.target.checked);
     }, { signal });
 
+    const levelGroup = overlay.querySelector('[data-post-levels]');
     overlay.querySelectorAll('[data-post-effect]').forEach((input) => {
       input.addEventListener('change', () => {
         this.actions.setPostEffect(input.dataset.postEffect, input.checked);
+        if (levelGroup && input.dataset.postEffect === 'depthOfField') levelGroup.hidden = !input.checked;
+      }, { signal });
+    });
+
+    overlay.querySelectorAll('[data-post-level]').forEach((input) => {
+      input.addEventListener('input', () => {
+        this.#setOutput(overlay, input, input.value);
+        this.actions.setPostLevel(input.dataset.postLevel, Number(input.value));
       }, { signal });
     });
   }

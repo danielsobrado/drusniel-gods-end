@@ -186,6 +186,15 @@ a { color: inherit; }
   min-height: 24px;
 }
 .toggle-row input { width: 16px; height: 16px; margin: 0; }
+/* Levels belonging to the toggle above them. */
+.level-group {
+  display: grid;
+  gap: 6px;
+  margin-left: 10px;
+  padding-left: 8px;
+  border-left: 1px solid rgba(197,241,91,.18);
+}
+.level-group[hidden] { display: none; }
 .tool-button {
   min-height: 27px;
   color: rgba(239,246,232,.58);
@@ -491,6 +500,7 @@ a { color: inherit; }
   .control-range { grid-template-columns: minmax(0, 1fr) 25px; gap: 5px; }
   .control-range output { font-size: 8px; }
   .toggle-row { min-height: 20px; }
+  .level-group { gap: 4px; margin-left: 6px; padding-left: 6px; }
   .toggle-row input { width: 14px; height: 14px; }
   .reference-hud {
     left: 12px;

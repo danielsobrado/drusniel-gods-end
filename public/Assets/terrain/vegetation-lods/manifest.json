@@ -1,16 +1,14 @@
 {
-  "version": 1,
+  "version": 2,
   "variants": {
     "tree1": {
       "tree": true,
       "triangles": [
         14099,
-        7051,
-        2859
+        9975
       ],
       "mesh": "forest.glb",
       "medium": "tree1_Medium",
-      "lowMesh": "tree1_LowMesh",
       "atlas": "tree1.webp",
       "capture": {
         "width": 27.91006726965048,
@@ -28,12 +26,10 @@
       "tree": true,
       "triangles": [
         8333,
-        4166,
-        1679
+        5222
       ],
       "mesh": "forest.glb",
       "medium": "tree2_Medium",
-      "lowMesh": "tree2_LowMesh",
       "atlas": "tree2.webp",
       "capture": {
         "width": 10.72514380945452,
@@ -51,12 +47,10 @@
       "tree": true,
       "triangles": [
         9018,
-        4486,
-        1797
+        5638
       ],
       "mesh": "forest.glb",
       "medium": "tree3_Medium",
-      "lowMesh": "tree3_LowMesh",
       "atlas": "tree3.webp",
       "capture": {
         "width": 42.527635783826966,
@@ -74,12 +68,10 @@
       "tree": true,
       "triangles": [
         20922,
-        10345,
-        4174
+        15783
       ],
       "mesh": "forest.glb",
       "medium": "tree4_Medium",
-      "lowMesh": "tree4_LowMesh",
       "atlas": "tree4.webp",
       "capture": {
         "width": 46.583027736716474,
@@ -97,12 +89,10 @@
       "tree": true,
       "triangles": [
         22303,
-        11150,
-        4397
+        15990
       ],
       "mesh": "forest.glb",
       "medium": "tree5_Medium",
-      "lowMesh": "tree5_LowMesh",
       "atlas": "tree5.webp",
       "capture": {
         "width": 47.37987098923357,
@@ -120,12 +110,10 @@
       "tree": true,
       "triangles": [
         22301,
-        11142,
-        4404
+        15980
       ],
       "mesh": "forest.glb",
       "medium": "tree6_Medium",
-      "lowMesh": "tree6_LowMesh",
       "atlas": "tree6.webp",
       "capture": {
         "width": 49.79788413576421,
@@ -143,12 +131,10 @@
       "tree": true,
       "triangles": [
         22293,
-        11141,
-        4457
+        15981
       ],
       "mesh": "forest.glb",
       "medium": "tree7_Medium",
-      "lowMesh": "tree7_LowMesh",
       "atlas": "tree7.webp",
       "capture": {
         "width": 49.6654159923356,
@@ -166,12 +152,10 @@
       "tree": true,
       "triangles": [
         21424,
-        10678,
-        4194
+        15076
       ],
       "mesh": "forest.glb",
       "medium": "tree8_Medium",
-      "lowMesh": "tree8_LowMesh",
       "atlas": "tree8.webp",
       "capture": {
         "width": 61.5950367628735,
@@ -189,12 +173,10 @@
       "tree": true,
       "triangles": [
         21407,
-        10701,
-        4238
+        15101
       ],
       "mesh": "forest.glb",
       "medium": "tree9_Medium",
-      "lowMesh": "tree9_LowMesh",
       "atlas": "tree9.webp",
       "capture": {
         "width": 69.57939695085699,
@@ -212,12 +194,10 @@
       "tree": true,
       "triangles": [
         23098,
-        19878,
-        11241
+        19878
       ],
       "mesh": "forest.glb",
       "medium": "tree10_Medium",
-      "lowMesh": "tree10_LowMesh",
       "atlas": "tree10.webp",
       "capture": {
         "width": 13.338901784648677,
@@ -235,12 +215,10 @@
       "tree": true,
       "triangles": [
         8332,
-        7392,
-        4667
+        7392
       ],
       "mesh": "forest.glb",
       "medium": "tree11_Medium",
-      "lowMesh": "tree11_LowMesh",
       "atlas": "tree11.webp",
       "capture": {
         "width": 13.587110352542558,
@@ -258,12 +236,10 @@
       "tree": true,
       "triangles": [
         11404,
-        9870,
-        6936
+        9870
       ],
       "mesh": "forest.glb",
       "medium": "tree12_Medium",
-      "lowMesh": "tree12_LowMesh",
       "atlas": "tree12.webp",
       "capture": {
         "width": 8.433860252102914,
@@ -281,12 +257,10 @@
       "tree": true,
       "triangles": [
         6522,
-        5276,
-        3293
+        5276
       ],
       "mesh": "forest.glb",
       "medium": "tree13_Medium",
-      "lowMesh": "tree13_LowMesh",
       "atlas": "tree13.webp",
       "capture": {
         "width": 10.47731263895795,
@@ -304,12 +278,10 @@
       "tree": true,
       "triangles": [
         17890,
-        11821,
-        6504
+        11821
       ],
       "mesh": "forest.glb",
       "medium": "tree14_Medium",
-      "lowMesh": "tree14_LowMesh",
       "atlas": "tree14.webp",
       "capture": {
         "width": 8.604499739191235,
@@ -327,12 +299,10 @@
       "tree": true,
       "triangles": [
         22914,
-        17950,
-        10565
+        17950
       ],
       "mesh": "forest.glb",
       "medium": "tree15_Medium",
-      "lowMesh": "tree15_LowMesh",
       "atlas": "tree15.webp",
       "capture": {
         "width": 18.548225463892106,
@@ -350,12 +320,10 @@
       "tree": true,
       "triangles": [
         11622,
-        9522,
-        5454
+        9522
       ],
       "mesh": "forest.glb",
       "medium": "tree16_Medium",
-      "lowMesh": "tree16_LowMesh",
       "atlas": "tree16.webp",
       "capture": {
         "width": 10.19369922227035,
@@ -373,12 +341,10 @@
       "tree": true,
       "triangles": [
         21146,
-        17785,
-        11934
+        17785
       ],
       "mesh": "forest.glb",
       "medium": "tree17_Medium",
-      "lowMesh": "tree17_LowMesh",
       "atlas": "tree17.webp",
       "capture": {
         "width": 12.486484178805082,
@@ -396,12 +362,10 @@
       "tree": true,
       "triangles": [
         8204,
-        5392,
-        2675
+        5392
       ],
       "mesh": "forest.glb",
       "medium": "tree18_Medium",
-      "lowMesh": "tree18_LowMesh",
       "atlas": "tree18.webp",
       "capture": {
         "width": 9.326813014929156,
@@ -419,12 +383,10 @@
       "tree": true,
       "triangles": [
         5792,
-        4936,
-        3648
+        4936
       ],
       "mesh": "forest.glb",
       "medium": "tree19_Medium",
-      "lowMesh": "tree19_LowMesh",
       "atlas": "tree19.webp",
       "capture": {
         "width": 4.486382853294829,
@@ -442,12 +404,10 @@
       "tree": true,
       "triangles": [
         3404,
-        2770,
-        2409
+        3296
       ],
       "mesh": "jungle.glb",
       "medium": "jungle-background_tree_01_Medium",
-      "lowMesh": "jungle-background_tree_01_LowMesh",
       "atlas": "jungle-background_tree_01.webp",
       "capture": {
         "width": 13.192240077633882,
@@ -465,12 +425,10 @@
       "tree": true,
       "triangles": [
         3404,
-        2730,
-        2388
+        3292
       ],
       "mesh": "jungle.glb",
       "medium": "jungle-background_tree_02_Medium",
-      "lowMesh": "jungle-background_tree_02_LowMesh",
       "atlas": "jungle-background_tree_02.webp",
       "capture": {
         "width": 11.855324271168184,
@@ -488,12 +446,10 @@
       "tree": true,
       "triangles": [
         3404,
-        2772,
-        2425
+        3328
       ],
       "mesh": "jungle.glb",
       "medium": "jungle-background_tree_03_Medium",
-      "lowMesh": "jungle-background_tree_03_LowMesh",
       "atlas": "jungle-background_tree_03.webp",
       "capture": {
         "width": 14.933767843535309,
@@ -514,7 +470,6 @@
       ],
       "mesh": null,
       "medium": "jungle-broadleaf_01_Medium",
-      "lowMesh": "jungle-broadleaf_01_LowMesh",
       "atlas": "jungle-broadleaf_01.webp",
       "capture": {
         "width": 4.17258571219549,
@@ -535,7 +490,6 @@
       ],
       "mesh": null,
       "medium": "jungle-broadleaf_02_Medium",
-      "lowMesh": "jungle-broadleaf_02_LowMesh",
       "atlas": "jungle-broadleaf_02.webp",
       "capture": {
         "width": 3.820233582390635,
@@ -556,7 +510,6 @@
       ],
       "mesh": null,
       "medium": "jungle-broadleaf_03_Medium",
-      "lowMesh": "jungle-broadleaf_03_LowMesh",
       "atlas": "jungle-broadleaf_03.webp",
       "capture": {
         "width": 3.8733386804192165,
@@ -577,7 +530,6 @@
       ],
       "mesh": null,
       "medium": "jungle-climber_01_Medium",
-      "lowMesh": "jungle-climber_01_LowMesh",
       "atlas": "jungle-climber_01.webp",
       "capture": {
         "width": 2.969185361380861,
@@ -598,7 +550,6 @@
       ],
       "mesh": null,
       "medium": "jungle-climber_02_Medium",
-      "lowMesh": "jungle-climber_02_LowMesh",
       "atlas": "jungle-climber_02.webp",
       "capture": {
         "width": 3.056613612715537,
@@ -619,7 +570,6 @@
       ],
       "mesh": null,
       "medium": "jungle-fern_01_Medium",
-      "lowMesh": "jungle-fern_01_LowMesh",
       "atlas": "jungle-fern_01.webp",
       "capture": {
         "width": 2.718455469217069,
@@ -640,7 +590,6 @@
       ],
       "mesh": null,
       "medium": "jungle-fern_02_Medium",
-      "lowMesh": "jungle-fern_02_LowMesh",
       "atlas": "jungle-fern_02.webp",
       "capture": {
         "width": 2.839259886231542,
@@ -658,12 +607,10 @@
       "tree": true,
       "triangles": [
         472,
-        362,
-        326
+        436
       ],
       "mesh": "jungle.glb",
       "medium": "jungle-ForegroundPalm_0_Medium",
-      "lowMesh": "jungle-ForegroundPalm_0_LowMesh",
       "atlas": "jungle-ForegroundPalm_0.webp",
       "capture": {
         "width": 8.640235934543911,
@@ -681,12 +628,10 @@
       "tree": true,
       "triangles": [
         472,
-        348,
-        302
+        422
       ],
       "mesh": "jungle.glb",
       "medium": "jungle-ForegroundPalm_1_Medium",
-      "lowMesh": "jungle-ForegroundPalm_1_LowMesh",
       "atlas": "jungle-ForegroundPalm_1.webp",
       "capture": {
         "width": 9.059783657984603,
@@ -704,12 +649,10 @@
       "tree": true,
       "triangles": [
         472,
-        350,
-        314
+        426
       ],
       "mesh": "jungle.glb",
       "medium": "jungle-ForegroundPalm_2_Medium",
-      "lowMesh": "jungle-ForegroundPalm_2_LowMesh",
       "atlas": "jungle-ForegroundPalm_2.webp",
       "capture": {
         "width": 9.235653925378248,
@@ -727,12 +670,10 @@
       "tree": true,
       "triangles": [
         472,
-        360,
-        326
+        436
       ],
       "mesh": "jungle.glb",
       "medium": "jungle-ForegroundPalm_3_Medium",
-      "lowMesh": "jungle-ForegroundPalm_3_LowMesh",
       "atlas": "jungle-ForegroundPalm_3.webp",
       "capture": {
         "width": 9.254798000600786,
@@ -753,7 +694,6 @@
       ],
       "mesh": null,
       "medium": "jungle-grass_01_Medium",
-      "lowMesh": "jungle-grass_01_LowMesh",
       "atlas": "jungle-grass_01.webp",
       "capture": {
         "width": 1.410109080266066,
@@ -774,7 +714,6 @@
       ],
       "mesh": null,
       "medium": "jungle-grass_02_Medium",
-      "lowMesh": "jungle-grass_02_LowMesh",
       "atlas": "jungle-grass_02.webp",
       "capture": {
         "width": 1.6361759414470676,
@@ -795,7 +734,6 @@
       ],
       "mesh": null,
       "medium": "jungle-grass_03_Medium",
-      "lowMesh": "jungle-grass_03_LowMesh",
       "atlas": "jungle-grass_03.webp",
       "capture": {
         "width": 1.6192017737700526,
@@ -816,7 +754,6 @@
       ],
       "mesh": null,
       "medium": "jungle-groundcover_01_Medium",
-      "lowMesh": "jungle-groundcover_01_LowMesh",
       "atlas": "jungle-groundcover_01.webp",
       "capture": {
         "width": 1.9249290998106177,
@@ -837,7 +774,6 @@
       ],
       "mesh": null,
       "medium": "jungle-groundcover_02_Medium",
-      "lowMesh": "jungle-groundcover_02_LowMesh",
       "atlas": "jungle-groundcover_02.webp",
       "capture": {
         "width": 1.972569059779119,
@@ -855,12 +791,10 @@
       "tree": true,
       "triangles": [
         472,
-        366,
-        330
+        436
       ],
       "mesh": "jungle.glb",
       "medium": "jungle-palm_01_Medium",
-      "lowMesh": "jungle-palm_01_LowMesh",
       "atlas": "jungle-palm_01.webp",
       "capture": {
         "width": 9.525149458552715,
@@ -878,12 +812,10 @@
       "tree": true,
       "triangles": [
         472,
-        362,
-        326
+        436
       ],
       "mesh": "jungle.glb",
       "medium": "jungle-palm_02_Medium",
-      "lowMesh": "jungle-palm_02_LowMesh",
       "atlas": "jungle-palm_02.webp",
       "capture": {
         "width": 9.17506545667961,
@@ -904,7 +836,6 @@
       ],
       "mesh": null,
       "medium": "jungle-shrub_01_Medium",
-      "lowMesh": "jungle-shrub_01_LowMesh",
       "atlas": "jungle-shrub_01.webp",
       "capture": {
         "width": 3.691255304896542,
@@ -925,7 +856,6 @@
       ],
       "mesh": null,
       "medium": "jungle-shrub_02_Medium",
-      "lowMesh": "jungle-shrub_02_LowMesh",
       "atlas": "jungle-shrub_02.webp",
       "capture": {
         "width": 3.5514865146519807,
@@ -946,7 +876,6 @@
       ],
       "mesh": null,
       "medium": "jungle-split_leaf_01_Medium",
-      "lowMesh": "jungle-split_leaf_01_LowMesh",
       "atlas": "jungle-split_leaf_01.webp",
       "capture": {
         "width": 3.857239426895413,
@@ -967,7 +896,6 @@
       ],
       "mesh": null,
       "medium": "jungle-split_leaf_02_Medium",
-      "lowMesh": "jungle-split_leaf_02_LowMesh",
       "atlas": "jungle-split_leaf_02.webp",
       "capture": {
         "width": 3.604888956198878,
@@ -985,12 +913,10 @@
       "tree": true,
       "triangles": [
         7212,
-        5485,
-        4528
+        7051
       ],
       "mesh": "jungle.glb",
       "medium": "jungle-tree_01_Medium",
-      "lowMesh": "jungle-tree_01_LowMesh",
       "atlas": "jungle-tree_01.webp",
       "capture": {
         "width": 13.845661021437913,
@@ -1008,12 +934,10 @@
       "tree": true,
       "triangles": [
         6236,
-        4808,
-        3973
+        6088
       ],
       "mesh": "jungle.glb",
       "medium": "jungle-tree_02_Medium",
-      "lowMesh": "jungle-tree_02_LowMesh",
       "atlas": "jungle-tree_02.webp",
       "capture": {
         "width": 13.148047517597053,
@@ -1031,12 +955,10 @@
       "tree": true,
       "triangles": [
         8188,
-        6091,
-        4948
+        8029
       ],
       "mesh": "jungle.glb",
       "medium": "jungle-tree_03_Medium",
-      "lowMesh": "jungle-tree_03_LowMesh",
       "atlas": "jungle-tree_03.webp",
       "capture": {
         "width": 14.907915169906465,
@@ -1054,12 +976,10 @@
       "tree": true,
       "triangles": [
         6724,
-        5174,
-        4297
+        6614
       ],
       "mesh": "jungle.glb",
       "medium": "jungle-tree_0010_Medium",
-      "lowMesh": "jungle-tree_0010_LowMesh",
       "atlas": "jungle-tree_0010.webp",
       "capture": {
         "width": 13.289402040982687,
@@ -1077,12 +997,10 @@
       "tree": true,
       "triangles": [
         7700,
-        5724,
-        4742
+        7526
       ],
       "mesh": "jungle.glb",
       "medium": "jungle-tree_05_Medium",
-      "lowMesh": "jungle-tree_05_LowMesh",
       "atlas": "jungle-tree_05.webp",
       "capture": {
         "width": 15.321188216186016,
@@ -1100,12 +1018,10 @@
       "tree": true,
       "triangles": [
         7212,
-        5415,
-        4451
+        7047
       ],
       "mesh": "jungle.glb",
       "medium": "jungle-tree_06_Medium",
-      "lowMesh": "jungle-tree_06_LowMesh",
       "atlas": "jungle-tree_06.webp",
       "capture": {
         "width": 12.741790393858102,
@@ -1126,7 +1042,6 @@
       ],
       "mesh": null,
       "medium": "jungle-vine_01_Medium",
-      "lowMesh": "jungle-vine_01_LowMesh",
       "atlas": "jungle-vine_01.webp",
       "capture": {
         "width": 2.116808238775113,
@@ -1147,7 +1062,6 @@
       ],
       "mesh": null,
       "medium": "jungle-vine_02_Medium",
-      "lowMesh": "jungle-vine_02_LowMesh",
       "atlas": "jungle-vine_02.webp",
       "capture": {
         "width": 2.121831228009431,

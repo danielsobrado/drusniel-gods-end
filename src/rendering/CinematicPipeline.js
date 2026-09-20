@@ -17,7 +17,7 @@ import { GpuOcclusion } from './GpuOcclusion.js';
 import { createDepthNormals } from './DepthNormals.js';
 import { EffectTarget } from './EffectTarget.js';
 import { withSceneWarmup } from './SceneWarmup.js';
-import { isPostEffect, resolvePostEffects } from './postEffects.js';
+import { isPostEffect, isPostLevel, resolvePostEffects, resolvePostLevels } from './postEffects.js';
 import {
   accountComposite,
   applyCpuMarks,
@@ -61,6 +61,7 @@ export class CinematicPipeline {
     this.cpu = resetCpuStats({});
     this.hookedNodes = new WeakSet();
     this.effects = resolvePostEffects(this.settings);
+    this.levels = resolvePostLevels(this.settings);
     if (!this.enabled) return;
     this.post = new RenderPipeline(world.renderer);
     this.post.outputColorTransform = false;
@@ -90,8 +91,8 @@ export class CinematicPipeline {
     };
     this.focus = {
       distance: uniform(post.depthOfField?.focusDistance ?? 6),
-      range: uniform(post.depthOfField?.focalRange ?? 28),
-      bokeh: uniform(post.depthOfField?.bokehScale ?? 1),
+      range: uniform(this.levels.focalRange),
+      bokeh: uniform(this.levels.bokehScale),
     };
     this.sharpness = uniform(post.sharpness ?? 0.6);
     this.underwater = {
@@ -444,6 +445,17 @@ export class CinematicPipeline {
     if (!this.post) return;
     if (UNIFORM_EFFECTS.has(name)) this.#applyUniformEffects();
     else this.#build();
+  }
+
+  // Both depth-of-field levels are uniforms the built graph already reads, so
+  // the HUD sliders take effect without a rebuild.
+  setLevel(name, value) {
+    const level = Number(value);
+    if (!isPostLevel(name, level)) return;
+    this.levels[name] = level;
+    if (!this.post) return;
+    if (name === 'focalRange') this.focus.range.value = level;
+    if (name === 'bokehScale') this.focus.bokeh.value = level;
   }
 
   setFocusDistance(distance) {

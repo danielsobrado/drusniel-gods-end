@@ -113,13 +113,15 @@ cinematic:
     # screen height around the sun that emits; snowStrength applies in snow
     # country, where the valley mist gives the light something to catch in.
     lightShafts: { samples: 32, decay: 0.965, strength: 1, snowStrength: 2.4, sourceRadius: 0.45 }
-    depthOfField: { focalRange: 28, bokehScale: 1 }
+    # Subtle by default: the character and nearby grass stay sharp while
+    # distant foliage cards soften. Both values are HUD sliders at runtime.
+    depthOfField: { focalRange: 34, bokehScale: 0.7 }
     # Menu defaults; every entry is switchable at runtime from Scene settings.
     effects:
       taa: false
       bloom: true
       lightShafts: true
-      depthOfField: false
+      depthOfField: true
       sharpen: false
       grain: true
       vignette: true

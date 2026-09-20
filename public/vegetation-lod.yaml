@@ -4,8 +4,9 @@ vegetationLod:
   assetPath: Assets/terrain/vegetation-lods/
 trees:
   lod:
-    # Keep all three mesh stages inside the previous ~170-unit High mesh budget.
-    distances: [35, 75, 135]
+    # Two mesh stages only. Past Medium the eight-view impostor holds the silhouette
+    # for two triangles, which reads better than a decimated canopy and costs less.
+    distances: [35, 75]
     referenceHeight: 12
     maxHeightScale: 1.1
     blend: 0.15

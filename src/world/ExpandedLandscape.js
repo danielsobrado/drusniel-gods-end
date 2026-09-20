@@ -5,7 +5,7 @@ import { createSeededRandom } from '../core/math.js';
 import { LandscapePaths, forestWeight } from './LandscapePaths.js';
 import { createPathLanternPairs } from './PathLanterns.js';
 import { createAlpineTrees } from './AlpineTrees.js';
-import { coastalHeight, sampleCoastField } from './CoastField.js';
+import { coastDistanceAt, coastalHeight, sampleCoastField } from './CoastField.js';
 import { coastalJungleProfileWeight } from './CoastalJungleRegion.js';
 import {
   alpineDistance,
@@ -23,6 +23,11 @@ const smooth = (a, b, x) => THREE.MathUtils.smoothstep(x, a, b);
 // steep faces on the alpine grid otherwise show as sawtooth crests and
 // stretched facets, and the gorge walls are full of them.
 const STEEP_TRIANGLE_RISE = 4.5;
+// Dry bank a trunk needs between itself and any water edge, and how far its base
+// must stand above that water surface.
+const WATER_CLEARANCE = 6;
+const WATER_FREEBOARD = 1.5;
+const insideBounds = (x, z, b) => x >= b.minX && x <= b.maxX && z >= b.minZ && z <= b.maxZ;
 
 const MOUNTAIN_PEAKS = [[10, -685, 95, 95, 110], [-85, -620, 115, 120, 155], [175, -575, 125, 145, 145],
   [35, -380, 170, 140, 67], [-525, -330, 165, 210, 110], [540, -490, 165, 180, 115]];
@@ -182,12 +187,12 @@ export function expandLandscape(target, original, config) {
   const previous = target.geometry;
   target.geometry = geometry;
   river?.createTexture();
-  return { river, paths, original, baseHeight, naturalHeight, alpine, dispose() { target.geometry = previous; geometry.dispose(); river?.dispose(); paths.dispose(); original.texture?.dispose(); } };
+  return { river, paths, original, baseHeight, naturalHeight, alpine, lake, dispose() { target.geometry = previous; geometry.dispose(); river?.dispose(); paths.dispose(); original.texture?.dispose(); } };
 }
 
 export function adaptLandscapeRecords(trees, props, expansion, terrain) {
   if (!expansion) return { trees, props };
-  const { original, river, alpine } = expansion;
+  const { original, river, alpine, lake } = expansion;
   const rebase = records => (records ?? []).filter(p => !river || (river.sample(p[0], p[2])?.edge ?? 100) > 5)
     .map(p => {
       const record = [...p];
@@ -196,6 +201,18 @@ export function adaptLandscapeRecords(trees, props, expansion, terrain) {
     });
   const snowAt = (x, z) => sampleSnowSurfaceCpu(terrain, x, z, 2, terrain.config)?.coverage ?? 0;
   const allowed = (x, y, z) => alpineTreeAllowed(x, y, z, alpine, snowAt(x, z));
+  // Nothing grows in water. A trunk must stand WATER_CLEARANCE metres of dry bank
+  // back from the river channel, the lake outline (whose surface reaches `margin`
+  // under the banks) and the shoreline, and its base must sit WATER_FREEBOARD above
+  // the surface it stands beside, which is what rules out the shallow margins.
+  const sea = terrain.config.water.sea;
+  const dryGround = (x, y, z) => {
+    if ((river?.sample(x, z)?.edge ?? Infinity) < WATER_CLEARANCE) return false;
+    if (lake && (lakeSignedDistance(x, z, lake) < lake.margin + WATER_CLEARANCE
+      || (insideBounds(x, z, lake.bounds) && y < lake.level + WATER_FREEBOARD))) return false;
+    if (sea?.enabled && (coastDistanceAt(x, z, sea) > -WATER_CLEARANCE || y < sea.level + WATER_FREEBOARD)) return false;
+    return true;
+  };
   const result = rebase(trees).filter(p => allowed(p[0], p[1], p[2]));
   const random = createSeededRandom(29173);
   for (let z = terrain.bounds.min.z + 30; z < terrain.bounds.max.z - 30; z += 28) {
@@ -231,6 +248,6 @@ export function adaptLandscapeRecords(trees, props, expansion, terrain) {
   // its edge band, thinning out there as the jungle thins in.
   const outsideJungle = p => hash2d(Math.floor(p[0] * 4), Math.floor(p[2] * 4), 7121)
     >= coastalJungleProfileWeight(p[0], p[2], terrain.config);
-  return { trees: result.filter(outsideJungle), props: { stones: rebase(props.stones),
+  return { trees: result.filter(p => outsideJungle(p) && dryGround(p[0], p[1], p[2])), props: { stones: rebase(props.stones),
     lanterns: createPathLanternPairs(rebase(props.lanterns), expansion.paths, terrain, river) } };
 }

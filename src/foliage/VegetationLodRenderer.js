@@ -233,11 +233,9 @@ export class VegetationLodRenderer {
         // tens of thousands of temporary objects each camera update.
         settings.available = settings.plant ? undefined : available;
         const weights = vegetationLodWeights(distance, settings, this.weights);
-        if (settings.plant) {
-          // A plant has only full geometry and a billboard; keep the last slot consistent with trees.
-          weights[3] = weights[1]; weights[1] = weights[2] = 0;
-          if (!available[3]) { weights[0] += weights[3]; weights[3] = 0; }
-        }
+        // A plant has only full geometry and a billboard, and the policy already places
+        // its weights in those slots. Without an atlas the near mesh covers the range.
+        if (settings.plant && !available[3]) { weights[0] += weights[3]; weights[3] = 0; }
         let total = 0, shown = false;
         for (let level = 0; level < 4; level++) {
           if (level === 3 && chunk.cards) continue;

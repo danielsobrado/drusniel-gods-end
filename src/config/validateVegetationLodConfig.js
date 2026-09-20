@@ -5,9 +5,10 @@ export function validateVegetationLodConfig(config, problems) {
   };
   const lod = config.trees?.lod;
   if (!lod) { problems.push('trees.lod is required'); return; }
-  if (!Array.isArray(lod.distances) || lod.distances.length !== 3
+  // One entry per mesh stage; the impostor always follows the last one.
+  if (!Array.isArray(lod.distances) || lod.distances.length < 1 || lod.distances.length > 3
     || lod.distances.some((v, i, a) => !Number.isFinite(v) || v <= (a[i - 1] ?? 0))) {
-    problems.push('trees.lod.distances must contain three increasing positive distances');
+    problems.push('trees.lod.distances must contain one to three increasing positive distances');
   }
   if (!(lod.blend > 0 && lod.blend < 0.5)) problems.push('trees.lod.blend must be between 0 and 0.5');
   positive(lod.referenceHeight, 'trees.lod.referenceHeight'); positive(lod.chunkSize, 'trees.lod.chunkSize');

@@ -6,6 +6,17 @@ import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import draco from 'draco3dgltf';
 import sharp from 'sharp';
 
+function maskedTriangles(doc, name) {
+  let total = 0;
+  doc.getRoot().listNodes().find(n => n.getName() === name).traverse(node => {
+    for (const primitive of node.getMesh()?.listPrimitives() ?? []) {
+      if (primitive.getMaterial()?.getAlphaMode() !== 'MASK') continue;
+      total += (primitive.getIndices()?.getCount() ?? primitive.getAttribute('POSITION').getCount()) / 3;
+    }
+  });
+  return total;
+}
+
 test('shipped tree derivatives reduce geometry and all variants have compact eight-view atlases', async () => {
   const base = 'public/Assets/terrain/vegetation-lods/';
   const manifest = JSON.parse(await readFile(base + 'manifest.json', 'utf8'));
@@ -18,9 +29,18 @@ test('shipped tree derivatives reduce geometry and all variants have compact eig
     assert.equal(image.hasAlpha, true, key); assert.equal(image.format, 'webp'); bytes += (await stat(base + entry.atlas)).size;
     if (!entry.tree) continue;
     assert.ok(entry.triangles[1] < entry.triangles[0], `${key} medium budget`);
-    assert.ok(entry.triangles[2] < entry.triangles[1], `${key} low budget`);
+    assert.equal(entry.triangles.length, 2, `${key} has one mesh derivative`);
+    assert.equal(entry.lowMesh, undefined, `${key} must not ship a decimated canopy`);
     const doc = key.startsWith('jungle-') ? jungle : forest;
-    for (const name of [entry.medium, entry.lowMesh]) {
+    if (/^tree\d+$/.test(key)) {
+      // Leaf cards read as a canopy only through overlap; thinning them exposes the planes.
+      const type = key.slice(4);
+      const source = await io.read(`public/Assets/terrain/fantasy/tree${type}.glb`);
+      const root = source.getRoot().listNodes().find(n => n.getName() === `Tree${type}_High`);
+      assert.equal(maskedTriangles(doc, entry.medium), maskedTriangles(source, root.getName()),
+        `${key} medium must keep every leaf card`);
+    }
+    for (const name of [entry.medium]) {
       const root = doc.getRoot().listNodes().find(n => n.getName() === name); assert.ok(root, name);
       let bottom = Infinity, top = -Infinity;
       root.traverse(node => {

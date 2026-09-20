@@ -403,8 +403,8 @@ presets:
   goldenHour:
     label: Emberfall
     grass:
-      blade: { bladeHeight: 1.5, bladeWidth: 0.2, bladeStiffness: 0.9, baseBend: 0.1, windIntensity: 1.5, windDirection: 45, windNoiseScale: 0.38, simulationSpeed: 0.95, baseColor: '#405b0c', tipColor: '#b6b72a', sheen: 0.25 }
-      billboard: { bladeHeight: 1, bladeWidth: 1.5, bladeStiffness: 0.9, baseBend: 0.1, windIntensity: 1.5, windDirection: 45, windNoiseScale: 0.38, simulationSpeed: 0.95, baseColor: '#405b0c', tipColor: '#b6b72a', sheen: 0.25 }
+      blade: { bladeHeight: 1.8, bladeWidth: 0.2, bladeStiffness: 0.9, baseBend: 0.1, windIntensity: 2.2, windDirection: 45, windNoiseScale: 0.38, simulationSpeed: 0.95, baseColor: '#405b0c', tipColor: '#b6b72a', sheen: 0.25 }
+      billboard: { bladeHeight: 1, bladeWidth: 1.5, bladeStiffness: 0.9, baseBend: 0.1, windIntensity: 2.2, windDirection: 45, windNoiseScale: 0.38, simulationSpeed: 0.95, baseColor: '#405b0c', tipColor: '#b6b72a', sheen: 0.25 }
     lighting: { color: '#ff9d4d', directionalIntensity: 3, position: [-44, 18, 50], hemisphereSkyColor: '#e99a72', hemisphereGroundColor: '#4a2b20', hemisphereIntensity: 0.28, ambientColor: '#d8784e', ambientIntensity: 0.1, environmentIntensity: 0.25 }
     sky: { groundColor: '#a96b45', horizonColor: '#ff9b5d', zenithColor: '#51437f', sunHaloColor: '#ffb35c', sunDiskColor: '#fff0c0', haloPower: 20, diskPower: 5800, sunPosition: [-44, 18, 50], fogColor: '#c88973', fogDensity: 0.005 }
     cloudCoverage: 0.55

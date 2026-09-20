@@ -40,10 +40,13 @@ Pixel Ratio
 Foot Interaction
 Tonemapper
 Temporal AA / Bloom / Light Shafts / Depth of Field / Sharpen / Film Grain / Vignette
+  Focus Range / Blur Strength (indented under Depth of Field)
 Join Waitlist
 ```
 
 Simulation Speed is no longer on the panel; presets still author `simulationSpeed` per grass family. The post-effect rows come from `src/rendering/postEffects.js` and switch `CinematicPipeline` live; defaults are `cinematic.post.effects`.
+
+Depth of Field is on by default and carries two sliders, listed in `POST_EFFECT_LEVELS` and seeded from `cinematic.post.depthOfField`: Focus Range (`focalRange`, 10–60) and Blur Strength (`bokehScale`, 0.2–1.6). Both drive uniforms the built effect graph already reads, so moving them costs no rebuild. The slider group folds away while the effect is off. `focusDistance` is deliberately not exposed: the pipeline tracks the character every frame, and a manual override would let the player defocus themselves.
 
 The reference does not use native HTML selects for the first three controls. The DOM contains a current value plus a set of button options.
 

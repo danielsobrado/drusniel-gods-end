@@ -54,16 +54,19 @@ export async function loadVegetationLodAssets(keys, config, signal) {
           (async () => {
             if (!entry.mesh) return;
             try {
-              for (const [level, suffix] of [[1, 'Medium'], [2, 'LowMesh']]) {
+              // Trees carry one mesh derivative; the impostor takes the stages below it.
+              for (const [level, field] of [[1, 'medium'], [2, 'lowMesh']]) {
                 const definition = /^tree\d+$/.test(key) ? config.trees?.types?.[Number(key.slice(4)) - 1] : null;
                 const override = definition?.[level === 1 ? 'mediumMesh' : 'lowMesh'];
+                const node = override?.node ?? entry[field];
+                if (!node) continue;
                 const file = override?.asset ?? entry.mesh;
                 const url = override?.asset ? assetUrl(file) : assetUrl(base + file);
                 if (!bundles.has(url)) bundles.set(url, loader.loadAsync(url).then(gltf => {
                   resources.push(captureObjectResources(gltf.scene)); return gltf;
                 }));
                 const gltf = await bundles.get(url);
-                const root = gltf.scene.getObjectByName(override?.node ?? entry[level === 1 ? 'medium' : 'lowMesh'] ?? `${key}_${suffix}`);
+                const root = gltf.scene.getObjectByName(node);
                 if (!root) continue;
                 const parts = primitiveParts(root); variant.levels[level] = parts;
                 resources.push(() => parts.forEach(p => p.geometry.dispose()));

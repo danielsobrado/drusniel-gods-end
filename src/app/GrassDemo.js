@@ -533,6 +533,8 @@ export class GrassDemo {
       },
       getPostEffects: () => (this.pipeline?.enabled ? { ...this.pipeline.effects } : null),
       setPostEffect: (name, value) => this.pipeline?.setEffect(name, value),
+      getPostLevels: () => (this.pipeline?.enabled ? { ...this.pipeline.levels } : null),
+      setPostLevel: (name, value) => this.pipeline?.setLevel(name, value),
       getPixelRatio: () => this.pixelRatio,
       setPixelRatio: (value) => {
         const cap = this.config.renderer.pixelRatioCap;
