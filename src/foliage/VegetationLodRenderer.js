@@ -39,6 +39,7 @@ export class VegetationLodRenderer {
   constructor({ scene, config, chunkSize = TREE_LOD_DEFAULTS.chunkSize, prepareMaterial, policy }) {
     Object.assign(this, { scene, config, chunkSize, prepareMaterial, policy });
     this.chunks = []; this.templates = []; this.resources = [];
+    this.shared = new Map(); this.sharedCapacity = new Map();
     this.frustum = new THREE.Frustum(); this.projection = new THREE.Matrix4();
     this.lastPosition = new THREE.Vector3(Infinity, Infinity, Infinity); this.lastQuaternion = new THREE.Quaternion();
     this.lastProjection = new THREE.Matrix4(); this.localCamera = new THREE.Vector3();
@@ -71,6 +72,7 @@ export class VegetationLodRenderer {
       return { geometry: part.geometry, material: Array.isArray(part.material) ? materials : materials[0] };
     }) ?? null);
     this.templates.push(templates);
+    this.sharedCapacity.set(key, (this.sharedCapacity.get(key) ?? 0) + records.length);
     const groups = new Map();
     const recordBounds = new THREE.Box3();
     for (const record of records) {
@@ -103,11 +105,52 @@ export class VegetationLodRenderer {
     this.dirty = true;
   }
   setQuality(name) { this.quality = name; this.dirty = true; }
+  prepareNearby(camera, travelDistance = 12) {
+    // Prepare only mesh stages reachable on the first walk/turn. Lazy creation
+    // at a threshold otherwise compiles pipelines in a visible gameplay frame.
+    camera.updateMatrixWorld();
+    this.frustum.setFromProjectionMatrix(this.projection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse), camera.coordinateSystem);
+    const sphere = new THREE.Sphere();
+    for (const chunk of this.chunks) {
+      if (chunk.cards) continue;
+      for (const record of chunk.records) {
+        sphere.copy(record.sphere); sphere.radius += travelDistance;
+        if (!this.frustum.intersectsSphere(sphere)) continue;
+        const settings = this.policy(record, chunk.kind, this.quality);
+        const blend = settings.blend ?? 0.15;
+        const distance = record.position.distanceTo(camera.position);
+        if (distance - travelDistance >= settings.far) continue;
+        for (let level = 0; level < 3; level++) {
+          if (!chunk.templates[level]) continue;
+          const lower = level ? settings.centers[level - 1] * (1 - blend) : 0;
+          const upper = settings.centers[level] * (1 + blend);
+          if (distance + travelDistance < lower || distance - travelDistance > upper) continue;
+          const draw = this.#draw(chunk, level);
+          if (!draw.count) for (const mesh of draw.meshes) mesh.visible = false;
+        }
+      }
+    }
+  }
   #draw(chunk, level) {
+    // Billboards are two triangles sharing one geometry and material across every
+    // chunk of a variant, so one draw per variant replaces one per chunk. Cards
+    // keep their own path; they never reach level 3.
+    if (level === 3 && !chunk.cards) {
+      const existing = this.shared.get(chunk.key);
+      if (existing) return existing;
+      const built = this.#buildDraw(chunk, level,
+        Math.max(64, 2 ** Math.ceil(Math.log2(this.sharedCapacity.get(chunk.key) ?? 64))));
+      this.shared.set(chunk.key, built);
+      return built;
+    }
     if (chunk.draws[level]) return chunk.draws[level];
     // Three includes uniform matrix-array length in the shader key. Exact per-cell
     // capacities compiled a new program for almost every chunk while travelling.
-    const capacity = Math.max(64, 2 ** Math.ceil(Math.log2(chunk.records.length)));
+    chunk.draws[level] = this.#buildDraw(chunk, level,
+      Math.max(64, 2 ** Math.ceil(Math.log2(chunk.records.length))));
+    return chunk.draws[level];
+  }
+  #buildDraw(chunk, level, capacity) {
     const matrices = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 16), 16).setUsage(THREE.DynamicDrawUsage);
     const interval = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 2), 2).setUsage(THREE.DynamicDrawUsage);
     const tint = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3).setUsage(THREE.DynamicDrawUsage);
@@ -131,8 +174,13 @@ export class VegetationLodRenderer {
       mesh.userData.occlusionCull = false;
       this.scene.add(mesh); return mesh;
     });
-    const draw = { meshes, matrices, interval, tint, bend, up, view, bounds: new THREE.Box3(), count: 0 };
-    chunk.draws[level] = draw; return draw;
+    return { meshes, matrices, interval, tint, bend, up, view, bounds: new THREE.Box3(), count: 0 };
+  }
+  #commitDraw(draw, stats) {
+    for (const attr of [draw.matrices, draw.interval, draw.tint, draw.bend, draw.up, draw.view]) {
+      attr.clearUpdateRanges(); attr.addUpdateRange(0, draw.count * attr.itemSize); attr.needsUpdate = true;
+    }
+    for (const mesh of draw.meshes) stats.triangles += triangles(mesh.geometry) * draw.count;
   }
   update(camera, force = false) {
     if (this.disposed) return this.stats;
@@ -144,6 +192,10 @@ export class VegetationLodRenderer {
     const stats = this.stats;
     for (const key of ['full', 'medium', 'low', 'billboard', 'triangles', 'visibleInstances', 'visibleChunks']) stats[key] = 0;
     stats.byKind = {};
+    for (const draw of this.shared.values()) {
+      draw.count = 0;
+      for (const mesh of draw.meshes) mesh.visible = false;
+    }
     for (const chunk of this.chunks) {
       if (chunk.cards) chunk.cards.mesh.visible = false;
       for (const draw of chunk.draws) if (draw) { draw.count = 0; draw.bounds.makeEmpty(); for (const mesh of draw.meshes) mesh.visible = false; }
@@ -229,13 +281,13 @@ export class VegetationLodRenderer {
           mesh.count = draw.count; mesh.visible = draw.count > 0;
           if (level < 3 && draw.count) draw.bounds.getBoundingSphere(mesh.boundingSphere);
           mesh.castShadow = chunk.castShadow && level < 2 && this.quality !== 'performance' && this.quality !== 'balanced';
-          stats.triangles += triangles(mesh.geometry) * draw.count;
         }
-        if (!draw.count) continue;
-        for (const attr of [draw.matrices, draw.interval, draw.tint, draw.bend, draw.up, draw.view]) {
-          attr.clearUpdateRanges(); attr.addUpdateRange(0, draw.count * attr.itemSize); attr.needsUpdate = true;
-        }
+        if (draw.count) this.#commitDraw(draw, stats);
       }
+    }
+    for (const draw of this.shared.values()) {
+      for (const mesh of draw.meshes) { mesh.count = draw.count; mesh.visible = draw.count > 0; }
+      if (draw.count) this.#commitDraw(draw, stats);
     }
     stats.bookkeepingMs = performance.now() - start;
     return stats;
@@ -243,9 +295,11 @@ export class VegetationLodRenderer {
   dispose() {
     if (this.disposed) return; this.disposed = true;
     for (const chunk of this.chunks) if (chunk.cards) { chunk.cards.mesh.removeFromParent(); chunk.cards.mesh.geometry.dispose(); }
-    for (const chunk of this.chunks) for (const draw of chunk.draws) if (draw) for (const mesh of draw.meshes) {
+    const draws = [...this.chunks.flatMap(chunk => chunk.draws), ...this.shared.values()];
+    for (const draw of draws) if (draw) for (const mesh of draw.meshes) {
       mesh.removeFromParent(); mesh.geometry.dispose(); mesh.dispose();
     }
+    this.shared.clear(); this.sharedCapacity.clear();
     for (const release of this.resources) release();
     this.resources.length = this.chunks.length = this.templates.length = 0;
   }

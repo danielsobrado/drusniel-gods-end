@@ -21,7 +21,9 @@ export function hideCollisionHelpers(root, config = {}) {
   const names = new Set(['WaterCollider', 'HouseCollider', config.water?.colliderName,
     ...(config.collisions?.trimeshObjects ?? [])]);
   root.traverse(object => {
-    if (names.has(object.name) || object.name === 'TerrainPart:colliders') object.visible = false;
+    if (names.has(object.name) || object.name === 'TerrainPart:colliders') {
+      object.visible = false; object.userData.skipWarmup = true;
+    }
   });
 }
 

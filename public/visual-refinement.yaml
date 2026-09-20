@@ -38,8 +38,10 @@ quality:
   high:
     blade:
       lod:
+        # medium mirrors high so the stem count survives the segmentation drop
+        # at 16.8 m; only the blade's curvature is given up there.
         high: { density: 3.4 }
-        medium: { density: 2.3 }
+        medium: { density: 3.4 }
     billboard:
       lod:
         high: { density: 3.1 }
@@ -48,7 +50,7 @@ quality:
     blade:
       lod:
         high: { density: 4.3 }
-        medium: { density: 2.7 }
+        medium: { density: 4.3 }
     billboard:
       lod:
         high: { density: 4 }
@@ -83,8 +85,8 @@ foliage:
     quality:
       performance: { density: 0.26, radius: 0.48, shadows: false }
       balanced: { density: 0.45, radius: 0.7, shadows: false }
-      high: { density: 0.7, radius: 0.9, shadows: true }
-      ultra: { density: 0.88, radius: 1, shadows: true }
+      high: { density: 0.7, radius: 0.9, shadows: false }
+      ultra: { density: 0.88, radius: 1, shadows: false }
 
 trees:
   appearance:

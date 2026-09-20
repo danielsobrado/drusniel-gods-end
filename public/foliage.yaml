@@ -29,8 +29,8 @@ foliage:
     quality:
       performance: { density: 0.32, radius: 0.48, shadows: false }
       balanced: { density: 0.55, radius: 0.7, shadows: false }
-      high: { density: 0.85, radius: 0.9, shadows: true }
-      ultra: { density: 1, radius: 1, shadows: true }
+      high: { density: 0.85, radius: 0.9, shadows: false }
+      ultra: { density: 1, radius: 1, shadows: false }
   understory:
     enabled: true
     radius: 62
@@ -58,8 +58,8 @@ foliage:
     quality:
       performance: { density: 0.3, radius: 0.46, shadows: false }
       balanced: { density: 0.52, radius: 0.68, shadows: false }
-      high: { density: 0.84, radius: 0.9, shadows: true }
-      ultra: { density: 1, radius: 1, shadows: true }
+      high: { density: 0.84, radius: 0.9, shadows: false }
+      ultra: { density: 1, radius: 1, shadows: false }
 
 presets:
   sunny:

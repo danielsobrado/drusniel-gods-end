@@ -377,6 +377,7 @@ export class GrassDemo {
     await this.coastalJungle?.initTask;
     this.abortController.signal.throwIfAborted();
     this.#renderFrame();
+    this.trees.lodRenderer?.prepareNearby(this.world.camera);
     await this.pipeline.warmup({ water: this.water, signal: this.abortController.signal });
     this.#renderFrame();
     this.abortController.signal.throwIfAborted();

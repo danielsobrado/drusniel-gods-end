@@ -108,10 +108,12 @@ export function canonicalizeRockMaterials(meshes, source) {
 export function hideRockPack(meshes) {
   for (const mesh of meshes) {
     mesh.visible = false;
+    mesh.userData.skipWarmup = true;
     let current = mesh.parent;
     while (current) {
       if (ROCK_PACK_ROOT_NAMES.has(current.name)) {
         current.visible = false;
+        current.userData.skipWarmup = true;
         break;
       }
       current = current.parent;

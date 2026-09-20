@@ -22,7 +22,14 @@ test('LOD submissions handle reversals, teleports, missing levels and preserve t
     camera.position.copy(position).add(new THREE.Vector3(0, 0, distance)); camera.lookAt(position); camera.updateMatrixWorld();
     return { ...renderer.update(camera) };
   };
-  assert.equal(visit(20).full, 1); assert.equal(visit(120).medium, 1); assert.equal(visit(220).low, 1);
+  assert.equal(visit(20).full, 1);
+  renderer.prepareNearby(camera, 60);
+  const preparedCount = scene.children.length;
+  assert.equal(renderer.stats.medium, 0, 'preparation must not change the submitted population');
+  assert.equal(scene.children.find(mesh => mesh.name === 'test:medium').visible, false);
+  assert.equal(visit(80).medium, 1);
+  assert.equal(scene.children.length, preparedCount, 'crossing a prepared transition allocates no new draw');
+  assert.equal(visit(120).medium, 1); assert.equal(visit(220).low, 1);
   assert.equal(visit(500).billboard, 1);
   const card = scene.children.find(o => o.name === 'test:billboard');
   const actual = new THREE.Matrix4(); card.getMatrixAt(0, actual);

@@ -9,6 +9,7 @@
     "assets:audit-images": "node scripts/audit-web-images.mjs",
     "assets:optimize-vegetation-images": "node scripts/optimize-vegetation-images.mjs",
     "test:vegetation-webgpu": "node scripts/browser/check-vegetation-lods.mjs",
+    "perf:grass-lod": "node scripts/browser/measure-grass-lod.mjs",
     "test:vegetation-webgl": "node scripts/browser/check-vegetation-lods.mjs --webgl",
     "assets:split-terrain": "node scripts/split-terrain-glb.mjs",
     "assets:fantasy": "node scripts/generate-fantasy-assets.mjs",

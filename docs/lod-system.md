@@ -14,7 +14,7 @@ Grass uses a **camera-centered tile grid with four prebuilt mesh levels plus dis
 
 ## Extended vegetation coverage
 
-`public/vegetation-lod.yaml` configures the extended chain. For a 12-unit tree, transition centers are 80, 160 and 300 units, with ±15% overlap. Distances scale with height and quality (Performance 0.65, Balanced 0.8, High 1, Ultra 1.25). Selection uses the current camera, including reversals and teleports; complementary screen-space coverage is separate from texture alpha testing. Missing intermediate assets fall back to an available mesh.
+`public/vegetation-lod.yaml` configures the extended chain. For a 12-unit tree, transition centers are 35, 75 and 135 units, with ±15% overlap. Height scaling is capped at 1.1 so tall trees finish their mesh stages by approximately 171 units on High. Quality scales distances (Performance 0.65, Balanced 0.8, High 1, Ultra 1.25). Selection uses the current camera, including reversals and teleports; complementary screen-space coverage is separate from texture alpha testing. Missing intermediate assets fall back to an available mesh.
 
 Main forest billboards retain the 4,000-unit range. Jungle trees end at 600/900/1200/1600 units by quality; the final 10% fades. Jungle grass changes from mesh to card across 14–34 units, and other plants across the final quarter of their mesh range. All levels share placement records. Chunk submissions contain only visible representations, including overlapping levels, with immutable geometry buffers shared across chunks.
 
@@ -32,7 +32,19 @@ Grass profiling distinguishes visible tile counts (`lods`) from submitted blade 
 
 Individual tree definitions may override `mediumMesh` or `lowMesh` with `{ asset: Assets/path.glb, node: NodeName }`; paths are relative to the public asset root. Omitted references use the generated manifest. `low` continues to name the original billboard and is never interpreted as a mesh LOD.
 
-The longer tree chain retains more geometry than the old direct switch at 170 units. Compare whole-scene costs with `node scripts/browser/check-vegetation-lods.mjs --baseline` (the same route with extended LODs disabled), and run measurements sequentially. A lower per-tree triangle budget does not imply unchanged frame time compared with the old billboard-only distance range.
+Tree billboard submissions are batched by variant across visible spatial chunks. Jungle plant cards use static instance buffers; the GPU handles camera facing and distance coverage, while small CPU cells restrict near-mesh processing. Compare whole-scene costs with `node scripts/browser/check-vegetation-lods.mjs --baseline` and run measurements sequentially. A lower triangle budget does not by itself establish a frame-time improvement.
+
+## Starting-area performance and shadows
+
+High and Ultra grass retain the near blade geometry and density; medium detail reduces segmentation before reducing stem population. The merged `visual-refinement.yaml` densities take precedence over `config.yaml`. `npm run perf:grass-lod -- current 5173 --quality=high` captures eight real gameplay-camera angles at the start.
+
+Terrain shadows partition the existing terrain triangles into 128-unit sections. Each shadow camera culls sections outside its frustum. Vertex data, terrain shape, and the main visible terrain mesh are unchanged; no simplification runs at startup. Proxies use a dedicated shadow layer, shared material/vertex buffers, and owned index buffers. Disposal restores the original terrain caster and shadow-camera layers. This avoids submitting the entire 722k-triangle landscape for a nearby shadow map.
+
+The cinematic shadow-map budget now applies to a single cascade as well as multiple cascades: the default is 2048 instead of the previously inherited 4096. Existing PCF softness remains. Wild grass and small understory plants receive shadows but no longer cast them; character, tree, structure and terrain shadows remain. These settings do not reduce plant populations.
+
+Shader warmup skips authored collision helpers and unused source models. Before warmup, tree mesh stages within 12 units of the opening camera's current distance bands and expanded view frustum are prepared without changing their submitted counts. This covers the first walking transitions without compiling every tree level throughout the world.
+
+`node scripts/browser/measure-opening.mjs` (or `--webgl`) alternates the original terrain caster and sectioned caster in one browser session, using the real starting camera. It records startup, paired timings, submitted triangles, and walking/reversal frame times under `.cache/opening/`. It checks that the shadow map is 2048 and sectioning saves at least 500k submitted triangles in this view. Compare paired measurements: absolute timings on machines that switch power states are not reliable evidence of a speedup.
 
 Imported understory uses full plant meshes nearby and two-triangle billboards in the distance. See the understory section below.
 

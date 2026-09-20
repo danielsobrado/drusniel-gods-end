@@ -381,6 +381,7 @@ export class TreeSystem {
       });
     });
     markerGroup.visible = false;
+    markerGroup.userData.skipWarmup = true;
   }
 
   // `lean` tilts the trunk from vertical, toward the tree's own facing.
@@ -392,6 +393,7 @@ export class TreeSystem {
     const renderAppearance = { tint: appearance.tint, opacity: 1 };
     const roots = { bend: new THREE.Vector2() };
     const high = clone(source.high);
+    high.userData.skipWarmup = false;
     high.name = `TreeHigh_${index}`;
     high.visible = true;
     high.position.copy(position);
@@ -496,6 +498,8 @@ export class TreeSystem {
       if (!source) continue;
       source.high.visible = false;
       source.low.visible = false;
+      source.high.userData.skipWarmup = true;
+      source.low.userData.skipWarmup = true;
     }
   }
 

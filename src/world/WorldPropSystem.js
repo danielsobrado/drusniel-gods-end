@@ -122,7 +122,7 @@ export class WorldPropSystem {
         const instance = createLantern(this.scene, lanternSources[Math.floor(index / 2) % lanternSources.length], record, this.collisionSystem);
         if (instance) this.instances.push(instance);
       }
-      for (const source of lanternSources) source.visible = false;
+      for (const source of lanternSources) { source.visible = false; source.userData.skipWarmup = true; }
     } else {
       logger.warn('Recovered Lantern source was not found in terrain GLB.');
     }

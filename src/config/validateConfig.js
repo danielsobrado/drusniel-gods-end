@@ -9,6 +9,7 @@ import { validateVegetationLodConfig } from './validateVegetationLodConfig.js';
 // a hard startup failure.
 
 import { grassFamily, isGrassShape } from '../grass/grassShapes.js';
+import { validateGrassQualityLod } from '../grass/grassLodPolicy.js';
 
 const REQUIRED_OBJECTS = [
   ['camera', 'camera'],
@@ -289,6 +290,7 @@ export function validateConfig(config) {
     }
   }
 
+  validateGrassQualityLod(config, problems);
   validateTrees(config, problems);
   validateVegetationLodConfig(config, problems);
   validateNavigation(config, problems);

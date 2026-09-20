@@ -12,6 +12,7 @@ test('collision helpers stay hidden independently of physics registration in spl
     helpers.add(water, house); root.add(helpers, terrain);
     hideCollisionHelpers(root, { collisions: { trimeshObjects: ['HouseCollider'] } });
     assert.equal(water.visible, false); assert.equal(house.visible, false);
+    assert.equal(water.userData.skipWarmup, true); assert.equal(house.userData.skipWarmup, true);
     assert.equal(terrain.visible, true);
     assert.equal(root.getObjectByName('WaterCollider'), water, 'bounds consumers can still resolve the helper');
   }

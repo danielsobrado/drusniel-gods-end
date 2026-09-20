@@ -77,8 +77,10 @@ export class CinematicLighting {
     world.renderer.toneMappingExposure = settings.exposure;
     world.sun.shadow.intensity = settings.shadows.intensity ?? 1;
     world.sun.shadow.radius = settings.shadows.radius ?? 1;
+    // Apply the cinematic budget to single-map shadows too. Previously the
+    // default one-cascade path silently kept visual-parity's 4096 map.
+    world.sun.shadow.mapSize.setScalar(Math.min(world.sun.shadow.mapSize.x, settings.shadows.mapSize));
     if (settings.shadows.cascades > 1 && window.innerWidth >= 768 && world.renderer.backend.isWebGPUBackend) {
-      world.sun.shadow.mapSize.setScalar(settings.shadows.mapSize);
       this.csm = new CSMShadowNode(world.sun, {
         cascades: settings.shadows.cascades,
         maxFar: settings.shadows.distance,

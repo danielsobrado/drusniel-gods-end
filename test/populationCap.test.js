@@ -21,7 +21,7 @@ test('quality tables resolve the shared wild-grass and understory caps', async (
   const config = await loadMergedConfig();
   assert.equal(resolvePopulationCap({ performance: 96, high: 240 }, 'performance'), 96);
   const original = resolveWildGrassSettings(config, 'sunny', 'high');
-  assert.equal(original.castShadow, true);
+  assert.equal(original.castShadow, false, 'small foliage receives shadows without extra caster draws');
   assert.equal(original.maxInstancesTotal, undefined);
   setReferenceBiomeEnabled(config, true);
   const wild = resolveWildGrassSettings(config, 'sunny', 'high');

@@ -11,6 +11,7 @@ import { loadTerrain } from './loadTerrain.js';
 import { createRendererSession, resolveRendererRequest } from '../rendering/RendererSession.js';
 import { ResourceScope, captureObjectResources } from '../utils/ResourceScope.js';
 import { expandLandscape } from './ExpandedLandscape.js';
+import { createTerrainShadowChunks } from './TerrainShadowChunks.js';
 import { createBeachScatter, disposeBeachScatter } from './BeachScatter.js';
 import { createCoastalGroundcover, disposeCoastalGroundcover } from './CoastalGroundcover.js';
 import { SnowDeformationField } from './SnowDeformationField.js';
@@ -160,8 +161,10 @@ export async function createWorld(config, onProgress = () => {}, { signal, rende
       const backdrop = terrainAsset.root.getObjectByName('Landscape046');
       if (backdrop) {
         const visible = backdrop.visible;
+        const skipWarmup = backdrop.userData.skipWarmup;
         backdrop.visible = false;
-        scope.defer(() => { backdrop.visible = visible; });
+        backdrop.userData.skipWarmup = true;
+        scope.defer(() => { backdrop.visible = visible; backdrop.userData.skipWarmup = skipWarmup; });
       }
     }
     scope.defer(() => terrainSampler.texture?.dispose());
@@ -201,6 +204,8 @@ export async function createWorld(config, onProgress = () => {}, { signal, rende
       ? (terrainAsset.target ?? materialTargets[0] ?? terrainAsset.root)
       : createFallbackGround(scene, groundMaterial, config);
     if (!terrainAsset.root) scope.defer(() => { ground.geometry.dispose(); ground.removeFromParent(); });
+    const terrainShadows = expansion ? createTerrainShadowChunks(ground, lights.sun.shadow.camera) : null;
+    if (terrainShadows) scope.defer(() => terrainShadows.dispose());
 
     if (config.terrain.expansion?.enabled && config.water.sea?.enabled) {
       const beachScatter = createBeachScatter(terrainSampler, config.water.sea);
@@ -241,6 +246,7 @@ export async function createWorld(config, onProgress = () => {}, { signal, rende
       terrainAnimationClips: terrainAsset.animations,
       terrainAnimations,
       terrainTarget: terrainAsset.target ?? ground,
+      terrainShadows,
       terrainSampler,
       expansion,
       snowDeformation,
