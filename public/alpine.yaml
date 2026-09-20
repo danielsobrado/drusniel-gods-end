@@ -18,7 +18,7 @@ terrain:
     detailOctaves: 3
     seed: 9127
     refineRadius: 300
-    refinePasses: 2
+    refinePasses: 1
     # Eroded ridges and gullies, shallow couloirs down the flanks and a broken
     # crest, so the cirque reads as a massif of rock under snow rather than a
     # bowl. Rock bands (strata) are off: stepped around the peaks they read as
