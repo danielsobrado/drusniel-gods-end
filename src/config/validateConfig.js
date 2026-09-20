@@ -189,6 +189,27 @@ function validateNavigation(config, problems) {
   }
 }
 
+function validateMobileStartup(config, problems) {
+  const settings = config.ui?.mobileStartup;
+  if (!settings?.enabled) return;
+
+  if (!(Number(settings.maxShortSide) > 0)) {
+    problems.push('ui.mobileStartup.maxShortSide must be a positive number');
+  }
+  if (settings.requireCoarsePointer !== undefined && typeof settings.requireCoarsePointer !== 'boolean') {
+    problems.push('ui.mobileStartup.requireCoarsePointer must be boolean');
+  }
+  if (!config.quality?.[settings.initialQuality]) {
+    problems.push('ui.mobileStartup.initialQuality must name a configured quality tier');
+  }
+  if (!(Number(settings.pixelRatioCap) > 0)) {
+    problems.push('ui.mobileStartup.pixelRatioCap must be a positive number');
+  }
+  if (!(Number(settings.warmupTravelDistance) > 0)) {
+    problems.push('ui.mobileStartup.warmupTravelDistance must be a positive number');
+  }
+}
+
 function validateLandscapeTravel(config, problems) {
   const expansion = config.terrain?.expansion;
   if (expansion?.enabled && expansion.routes !== undefined) {
@@ -291,6 +312,7 @@ export function validateConfig(config) {
   }
 
   validateGrassQualityLod(config, problems);
+  validateMobileStartup(config, problems);
   validateTrees(config, problems);
   validateVegetationLodConfig(config, problems);
   validateNavigation(config, problems);
