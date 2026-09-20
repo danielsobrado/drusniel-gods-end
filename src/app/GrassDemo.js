@@ -48,9 +48,26 @@ import { CoastalJungleSystem } from '../biome/CoastalJungleSystem.js';
 import { commitPresetChange, preparePresetChange } from '../biome/presetSwitch.js';
 import { resolvePresetConfig } from '../config/resolvePresetConfig.js';
 import { disposePresetAppearance } from '../rendering/PresetAppearance.js';
+import { coastalJungleRegionCenter, coastalJungleRegionRadius } from '../world/CoastalJungleRegion.js';
 
 const MIN_PIXEL_RATIO = 0.5;
 const TREE_COLLIDER_HEIGHT_FACTOR = 0.5;
+
+function coastalJunglePreloadBounds(config) {
+  const profile = config.biomes?.coastalJungle;
+  const sea = config.water?.sea;
+  if (!profile?.enabled || !sea?.enabled) return null;
+
+  const center = coastalJungleRegionCenter(profile.region, sea);
+  const regionRadius = coastalJungleRegionRadius(profile.region, sea);
+  if (!center || !(regionRadius > 0)) return null;
+
+  const qualityDistances = Object.values(profile.quality ?? {})
+    .map((quality) => Number(quality?.maxDistance))
+    .filter(Number.isFinite);
+  const preloadDistance = Math.max(0, Number(profile.render?.treeDistance) || 0, ...qualityDistances);
+  return { x: center.x, z: center.z, radius: regionRadius + preloadDistance };
+}
 
 export class GrassDemo {
   constructor(root, config) {
@@ -68,6 +85,7 @@ export class GrassDemo {
     this.gpuTimestamp = null;
     this.gpuTimestampPending = false;
     this.presetGeneration = 0;
+    this.coastalJunglePreload = coastalJunglePreloadBounds(config);
   }
 
   async start() {
@@ -214,15 +232,6 @@ export class GrassDemo {
       expansion: this.world.expansion,
       collisions: this.collisions,
     });
-    try {
-      await this.coastalJungle.init(this.abortController.signal);
-      this.abortController.signal.throwIfAborted();
-    } catch (error) {
-      this.coastalJungle.dispose();
-      this.coastalJungle = null;
-      if (error?.name === 'AbortError') throw error;
-      logger.warn('Coastal jungle could not start; continuing without it.', error);
-    }
 
     this.water = new WaterSurface(
       this.world.scene,
@@ -629,6 +638,7 @@ export class GrassDemo {
     this.audio.update(deltaSeconds);
     this.collisions.update();
     const playerPosition = this.player.getPosition();
+    this.#maybeInitCoastalJungle(playerPosition);
     const influencePoints = this.player.getInfluencePoints();
     // Snow deformation and powder are stepped once per frame by
     // WorldNavigation.update(); stepping them here as well ran their
@@ -696,6 +706,22 @@ export class GrassDemo {
       biomeTriangles: this.biome?.stats?.triangles ?? 0,
     });
     this.#queueGpuTimestamp();
+  }
+
+  #maybeInitCoastalJungle(position) {
+    const preload = this.coastalJunglePreload;
+    if (!this.started || !preload || !this.coastalJungle
+      || this.coastalJungle.initTask || this.coastalJungle.disposed) return;
+
+    const dx = position.x - preload.x;
+    const dz = position.z - preload.z;
+    if (dx * dx + dz * dz > preload.radius * preload.radius) return;
+
+    this.coastalJungle.init(this.abortController.signal);
+    logger.info('Coastal jungle preload started.', {
+      distance: Math.round(Math.hypot(dx, dz)),
+      triggerRadius: Math.round(preload.radius),
+    });
   }
 
   #queueGpuTimestamp() {
