@@ -68,3 +68,32 @@ test('shared tree materials are disposed exactly once and source assets remain o
   assert.equal(counts.get(bark), undefined);
   assert.equal(counts.get(foliage), undefined);
 });
+
+test('successful instanced LOD replacement retires scene traversal but preserves tree reference bounds', async t => {
+  const { system, camera } = await fixture();
+  // An empty derivative manifest exercises the real full-mesh fallback without
+  // fetching textures; initLods still creates the production instanced renderer.
+  const previousDocument = globalThis.document;
+  globalThis.document = { baseURI: 'http://localhost/' };
+  t.after(() => {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+  });
+  t.mock.method(globalThis, 'fetch', async () => ({ ok: true, json: async () => ({ variants: {} }) }));
+  const originals = system.trees.map(tree => tree.high);
+  const bounds = originals.map(object => new THREE.Box3().setFromObject(object));
+  const materials = new Set(originals.flatMap(object => object.children.map(child => child.material)));
+  let disposed = 0;
+  for (const material of materials) material.addEventListener('dispose', () => disposed++);
+  try {
+    await system.initLods();
+    assert.ok(system.lodRenderer, 'real LOD initialization succeeds');
+    assert.ok(originals.every(object => object.parent === null), 'unused trees leave the render traversal');
+    assert.ok(system.billboardGroups.every(object => object.parent === null));
+    originals.forEach((object, i) => assert.ok(new THREE.Box3().setFromObject(object).equals(bounds[i]),
+      'collision and scenic-tour reference bounds survive detachment'));
+    assert.equal(disposed, 0, 'source geometry and materials remain available to their owners');
+    camera.position.set(10, 0, 10); camera.lookAt(10, 0, 0); system.update();
+    assert.ok(system.stats.visibleInstances > 0, 'replacement instances remain visible');
+  } finally { system.dispose(); }
+});

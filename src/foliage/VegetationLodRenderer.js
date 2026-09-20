@@ -163,12 +163,15 @@ export class VegetationLodRenderer {
     return chunk.draws[level];
   }
   #buildDraw(chunk, level, capacity) {
-    const matrices = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 16), 16).setUsage(THREE.DynamicDrawUsage);
-    const interval = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 2), 2).setUsage(THREE.DynamicDrawUsage);
-    const tint = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3).setUsage(THREE.DynamicDrawUsage);
-    const bend = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 2), 2).setUsage(THREE.DynamicDrawUsage);
-    const up = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3).setUsage(THREE.DynamicDrawUsage);
-    const view = new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1).setUsage(THREE.DynamicDrawUsage);
+    // #commitDraw explicitly versions changed data. DynamicDrawUsage makes
+    // Three upload it again on every render pass, even after that version was
+    // consumed (and after the first pass cleared the limited update range).
+    const matrices = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 16), 16);
+    const interval = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 2), 2);
+    const tint = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
+    const bend = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 2), 2);
+    const up = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
+    const view = new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1);
     const meshes = chunk.templates[level].map(template => {
       // Chunk wrappers own instance attributes; immutable vertex/index buffers are shared.
       const geometry = new THREE.BufferGeometry();

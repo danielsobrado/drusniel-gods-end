@@ -8,6 +8,9 @@ const soak = process.argv.includes('--soak');
 const gameplay = process.argv.includes('--gameplay');
 const onlyScenario = process.argv.find(arg => arg.startsWith('--scenario='))?.split('=')[1];
 const onlyQuality = process.argv.find(arg => arg.startsWith('--quality='))?.split('=')[1];
+const compareTrees = process.argv.includes('--compare-tree-traversal');
+const assertWarmedTrees = process.argv.includes('--assert-warmed-trees');
+if (compareTrees && !gameplay) throw new Error('Tree traversal comparison requires --gameplay');
 if (soak && gameplay) throw new Error('Choose either --soak or --gameplay');
 if (!/^[a-zA-Z0-9_-]+$/.test(label)) throw new Error('Use a simple alphanumeric report label');
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid server port');
@@ -50,12 +53,22 @@ try {
     await d.coastalJungle?.initTask;
     d.audio.start = async () => {};
     d.ui.actions.setPixelRatio(1);
+    const backend = d.world.renderer.backend;
+    const createPipeline = backend.createRenderPipeline;
+    backend.createRenderPipeline = function (renderObject, ...args) {
+      if (d.profiler.recording && d.__benchmarkPipelines) {
+        d.__benchmarkPipelines.push({ name: renderObject.object?.name,
+          material: renderObject.material?.name, capacity: renderObject.object?.instanceMatrix?.count });
+      }
+      return createPipeline.call(this, renderObject, ...args);
+    };
   });
   await page.waitForFunction(() => window.__grassDemo?.started, null, { timeout: 30000 });
   report.meta = await page.evaluate(() => window.__grassDemo.getProfileResults());
   if (report.meta.backend !== 'webgpu') throw new Error('The movement benchmark requires WebGPU');
   console.log(label, 'READY', JSON.stringify({ backend: report.meta.backend, quality: report.meta.quality, viewport: report.meta.viewport }));
-  const scenarios = gameplay ? [{ id: 'sprint', x: -80, z: -80, radius: 80 }]
+  const scenarios = gameplay ? [{ id: 'sprint', x: -80, z: -80, radius: 80 },
+    { id: 'jungleCoast', x: 840, z: 290, radius: 70 }]
     : soak ? [{ id: 'fastTurns', x: -160, z: -160, radius: 180 }] : [
     { id: 'forest', x: -320, z: 20, radius: 80 },
     { id: 'meadow', x: 0, z: -40, radius: 80 },
@@ -63,12 +76,24 @@ try {
     { id: 'jungleCoast', x: 840, z: 290, radius: 70 },
     { id: 'snow', x: -125, z: -590, radius: 65 },
   ];
+  if (onlyScenario && !scenarios.some(s => s.id === onlyScenario)) throw new Error(`Unknown scenario: ${onlyScenario}`);
   const cdp = await page.context().newCDPSession(page);
   for (const quality of onlyQuality ? [onlyQuality] : ['high', 'ultra']) {
     await page.evaluate(q => window.__grassDemo.ui.actions.setQuality(q), quality);
     for (const scenario of scenarios) {
       if (onlyScenario && scenario.id !== onlyScenario) continue;
-      for (const speed of gameplay ? [1, 10] : soak ? [180] : [9, 180]) {
+      const captures = (gameplay ? (compareTrees ? [1] : [1, 10]) : soak ? [180] : [9, 180])
+        .flatMap(speed => (compareTrees ? ['attached', 'detached', 'attached', 'detached'] : ['current'])
+          .map(treeTraversal => ({ speed, treeTraversal })));
+      for (const [captureIndex, { speed, treeTraversal }] of captures.entries()) {
+        if (compareTrees) await page.evaluate(mode => {
+          const d = window.__grassDemo;
+          if (!d.trees.lodRenderer) throw new Error('Traversal comparison requires replacement tree instances');
+          for (const object of [...d.trees.trees.map(tree => tree.high), ...d.trees.billboardGroups]) {
+            if (mode === 'attached') d.world.scene.add(object);
+            else object.removeFromParent();
+          }
+        }, treeTraversal);
         if (gameplay) {
           const boosted = await page.evaluate(() => {
             document.activeElement?.blur();
@@ -81,7 +106,8 @@ try {
           await page.keyboard.down('Shift');
           await page.keyboard.down('w');
         }
-        const trace = !soak && quality === 'high' && scenario.id === (onlyScenario ?? 'forest') && speed === 9;
+        const trace = !soak && quality === 'high' && scenario.id === (onlyScenario ?? (gameplay ? 'sprint' : 'forest'))
+          && speed === (gameplay ? 1 : 9);
         if (trace) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.start'); }
         const run = await page.evaluate(async ({ scenario, speed, soak, gameplay }) => {
           const d = window.__grassDemo;
@@ -132,6 +158,7 @@ try {
               tileCount: d.grass.tiles.length };
           };
           const memorySamples = [memory()];
+          d.__benchmarkPipelines = [];
           let nextMemorySample = 5;
           d.profiler.startTimed({ warmupSeconds: soak ? 5 : gameplay ? 2 : speed === 9 ? 0 : 1,
             measureSeconds: soak ? 60 : gameplay ? 15 : speed === 9 ? 4 : 8 });
@@ -156,6 +183,7 @@ try {
             intervalsOver33ms: d.profiler.samples.filter(s => s.intervalMs > 1000 / 30).length,
             intervalsOver50ms: d.profiler.samples.filter(s => s.intervalMs > 50).length,
             memory: memory(), memorySamples,
+            newPipelines: d.__benchmarkPipelines,
             renderError: Boolean(d.renderErrorLogged) };
         }, { scenario, speed, soak, gameplay });
         if (gameplay) {
@@ -165,13 +193,18 @@ try {
         }
         if (trace) {
           const { profile } = await cdp.send('Profiler.stop');
-          await writeFile(new URL(`${label}-${scenario.id}.cpuprofile`, out), JSON.stringify(profile));
+          const suffix = compareTrees ? `-${captureIndex}-${treeTraversal}` : '';
+          await writeFile(new URL(`${label}-${scenario.id}${suffix}.cpuprofile`, out), JSON.stringify(profile));
         }
         run.quality = quality;
+        run.treeTraversal = treeTraversal;
         report.runs.push(run);
         await save();
         if (run.renderError || !run.frames) throw new Error('Movement capture failed to render valid frames');
-        console.log(label, quality, scenario.id, speed, JSON.stringify({ frames: run.frames,
+        if (assertWarmedTrees && run.newPipelines.some(pipeline => /^tree\d+:/.test(pipeline.name))) {
+          throw new Error('A prepared tree LOD compiled a new pipeline during character movement');
+        }
+        console.log(label, quality, scenario.id, speed, treeTraversal, JSON.stringify({ frames: run.frames,
           cpu: run.processing, interval: run.interval, compaction: run.compactionMs,
           grassMiB: run.memory.grassBytes / 1048576, renderError: run.renderError }));
       }

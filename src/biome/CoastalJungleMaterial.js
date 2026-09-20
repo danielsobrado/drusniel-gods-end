@@ -5,7 +5,6 @@ import {
   color,
   cos,
   float,
-  instanceIndex,
   mix,
   positionLocal,
   positionWorld,
@@ -37,7 +36,6 @@ const FOLIAGE_KINDS = new Set([
   'split_leaf',
 ]);
 const DEG_TO_RAD = Math.PI / 180;
-const INSTANCE_PHASE = 0.754877666;
 
 // How far inside the jungle the camera stands. There the haze stands in for
 // the original's own fog; from outside only the world fog applies, as it does
@@ -98,7 +96,11 @@ function createWindPosition(kind, instanced, settings) {
   const turbulence = clamp01(wind.turbulence ?? 0.28);
   const flutterRatio = clamp01(wind.flutterRatio ?? 0.32);
   const kindScale = Math.max(0, numberOr(wind.kindScale?.[kind], 1));
-  const instancePhase = instanced ? float(instanceIndex).mul(INSTANCE_PHASE) : float(0);
+  // Culling/LOD compacts the draw list on camera movement. A draw-slot index
+  // changes even for a stationary plant, snapping its wind to a new phase.
+  const instancePhase = instanced
+    ? positionLocal.x.mul(0.754877666).add(positionLocal.z.mul(0.569840296))
+    : float(0);
   const phase = time.mul(shared.simulationSpeed).mul(speed)
     .add(positionLocal.x.mul(spatialX))
     .add(positionLocal.z.mul(spatialZ))

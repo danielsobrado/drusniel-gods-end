@@ -31,6 +31,12 @@ draws were created on first entry or on crossing another chunk, moving shader
 and binding setup into gameplay. This front-loads allocation and shader work;
 it does not reduce plant density or visibility distance.
 
+Ordinary trees now prepare all of their LOD draws as well. Preparing only the
+opening camera's neighbourhood left new full/medium pipelines to compile while
+the character moved through the jungle. The movement benchmark records pipeline
+object names; `--assert-warmed-trees` fails if a tree LOD still creates a pipeline
+during the capture.
+
 A local Chrome WebGPU capture on 2026-09-20 (1280 × 720, High) compared
 `run-movement-benchmark.mjs jungle-before 5173 --scenario=jungleCoast --quality=high`
 with the same route after preparation. The worst first-entry CPU frame fell from
@@ -45,6 +51,32 @@ random values before distance or ecology rejection. This keeps surviving plants'
 positions, variants and transforms stable when the placement window crosses a
 cell boundary. `test/foliagePlacementContinuity.test.js` checks the shared area
 across multiple windows rather than merely regenerating at the same origin.
+
+Character movement exposed two additional issues. Jungle wind used the compacted
+instance index as its phase, so culling another plant could instantly change the
+wind on a surviving plant. The phase now derives from its position. Vegetation
+LOD buffers also use explicit version updates instead of `DynamicDrawUsage`:
+Three r185 otherwise uploads unchanged attributes again in subsequent render
+passes, potentially uploading the entire capacity after the first pass consumes
+the partial update range.
+
+`node scripts/browser/check-foliage-motion.mjs` checks both backends. With time
+frozen, moving a plant between four draw slots must produce identical pixels at
+capacities 64 and 2,048. A changed LOD attribute must upload once across three
+render passes; before the fix it uploaded three times.
+
+After successful tree LOD replacement, the original high-detail trees and old
+billboard groups are detached from the scene. The tree records still own them
+for collision and scenic-tour bounds, which remain unchanged. This removes
+unused descendants from every scene/shadow matrix traversal. A local High
+character-sprint comparison in one Chrome session alternated attached/detached
+references twice: median CPU frames were 23.7/19.4 ms and 23.0/19.7 ms. Those
+figures isolate traversal work; they do not establish that every frame stall is
+gone. Repeat with:
+
+```text
+node scripts/browser/run-movement-benchmark.mjs character-ab 5173 --gameplay --scenario=jungleCoast --quality=high --compare-tree-traversal
+```
 
 High-detail trees share bark and leaf materials by source material. Per-tree tint and transition opacity are object references in the shader, so different tree colors and fades do not create new shader graphs. Tree distance LOD is initialized before shader warm-up, after the initial camera placement; distant trees start as billboards. Geometry bounds are computed once per shared geometry. River and upland rock batches also share their textured wet-rock material by source.
 

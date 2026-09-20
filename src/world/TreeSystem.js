@@ -245,10 +245,11 @@ export class TreeSystem {
       for (const group of this.billboardGroups) group.visible = false;
       this.setQuality(this.qualityName);
       this.lodRenderer.update(this.camera, true);
-      // The old representations remain as placement/collision references, but
-      // successful replacement means their shaders will never be rendered.
-      for (const tree of this.trees) tree.high.userData.skipWarmup = true;
-      for (const group of this.billboardGroups) group.userData.skipWarmup = true;
+      // These roots were placed directly in world space. Keep the objects for
+      // collision/tour bounds, but detach their thousands of unused descendants
+      // so every render/shadow pass no longer traverses their transforms.
+      for (const tree of this.trees) tree.high.removeFromParent();
+      for (const group of this.billboardGroups) group.removeFromParent();
       this.stats = this.lodRenderer.stats;
     } catch (error) {
       if (signal?.aborted) throw error;
