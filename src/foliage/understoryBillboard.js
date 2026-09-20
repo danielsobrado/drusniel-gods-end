@@ -95,8 +95,10 @@ export function createUnderstoryBillboard({ atlas, capacity, radius, fadeWidth,
   const tileUv = uv().clamp(inset, 1 - inset);
   // Render-target UVs use the opposite vertical orientation from mesh UVs;
   // TextureNode handles the remaining backend-specific texture orientation.
+  const staticAtlas = Boolean(atlas.texture);
   const atlasTexture = atlas.texture ?? atlas.target?.texture;
-  const sample = index => texture(atlasTexture, vec2(tileUv.x.add(index).div(atlas.views), tileUv.y.oneMinus()));
+  const atlasY = staticAtlas ? tileUv.y : tileUv.y.oneMinus();
+  const sample = index => texture(atlasTexture, vec2(tileUv.x.add(index).div(atlas.views), atlasY));
   const a = sample(first), b = sample(second), blend = fract(view);
   const alpha = mix(a.a, b.a, blend);
   // Captures have black transparent borders. Unpremultiply after the blend.
