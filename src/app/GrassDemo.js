@@ -223,7 +223,7 @@ export class GrassDemo {
       grass: this.grass,
       jobs: this.vegetationJobs,
     });
-    await this.understory.init();
+    await this.understory.init(this.abortController.signal);
     this.abortController.signal.throwIfAborted();
 
     this.coastalJungle = new CoastalJungleSystem({
