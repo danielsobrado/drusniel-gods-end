@@ -30,8 +30,10 @@ export async function loadVegetationLodAssets(keys, config, signal) {
   const base = config.vegetationLod?.assetPath ?? 'Assets/terrain/vegetation-lods/';
   const resources = [], variants = new Map();
   const dispose = () => { for (const release of resources.splice(0)) release(); };
-  const draco = new DRACOLoader().setDecoderPath(config.assets.dracoDecoderPath);
-  const loader = new GLTFLoader().setDRACOLoader(draco);
+  const dracoPath = config.assets?.dracoDecoderPath;
+  const draco = dracoPath ? new DRACOLoader().setDecoderPath(dracoPath) : null;
+  const loader = new GLTFLoader();
+  if (draco) loader.setDRACOLoader(draco);
   const bundles = new Map();
   try {
     const response = await fetch(assetUrl(`${base}manifest.json`), { signal });
@@ -80,5 +82,5 @@ export async function loadVegetationLodAssets(keys, config, signal) {
     signal?.throwIfAborted();
     return { variants, dispose };
   } catch (error) { dispose(); throw error; }
-  finally { draco.dispose(); }
+  finally { draco?.dispose(); }
 }
