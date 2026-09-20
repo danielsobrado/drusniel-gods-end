@@ -353,11 +353,14 @@ quality:
       # Segmentation falls faster than population: the medium band keeps the high
       # band's stem count so the meadow never thins, it only stops paying for
       # blade curvature the eye cannot resolve past ~17 m. distance is a fraction
-      # of maxDistance, so high ends at 16.8 m and medium at 42 m.
+      # of maxDistance, so high ends at 16.8 m and medium at 39.2 m. Past that
+      # the blade is a single triangle: curvature is unresolvable at 40 m, and
+      # the stem count is untouched, so the band loses two thirds of its
+      # geometry without thinning the meadow.
       lod:
         high: { detail: 5, density: 4.5, distance: 0.12 }
         medium: { detail: 3, density: 4.5, distance: 0.28 }
-        low: { detail: 2, density: 2, distance: 0.6 }
+        low: { detail: 1, density: 2, distance: 0.6 }
         veryLow: { detail: 1, density: 1, distance: 1.0 }
     billboard:
       maxDistance: 160
@@ -372,11 +375,13 @@ quality:
     shadowMapSize: 4096
     blade:
       maxDistance: 220
-      # Same policy as High, with the segmentation bands held further out.
+      # Same policy as High, with the segmentation bands held further out:
+      # high ends at 22 m, medium at 39.6 m, and the flat-triangle band starts
+      # at 110 m rather than 39.2 m.
       lod:
         high: { detail: 5, density: 5.5, distance: 0.1 }
         medium: { detail: 4, density: 5.5, distance: 0.18 }
-        low: { detail: 2, density: 2, distance: 0.5 }
+        low: { detail: 1, density: 2, distance: 0.5 }
         veryLow: { detail: 1, density: 1, distance: 1.0 }
     billboard:
       maxDistance: 220

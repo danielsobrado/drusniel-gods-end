@@ -155,8 +155,11 @@ test('the near band clears the interaction footprint on every profile', () => {
 });
 
 test('the acceptance profiles hold full detail past the neighbouring tile seam', () => {
-  // High and Ultra are the visual reference: their near band has to survive
-  // walking to a tile edge, where the next tile's centre is half a tile away.
+  // High and Ultra are the visual reference. The band is picked from the
+  // distance to a tile's nearest EDGE, so the camera's own tile always scores 0
+  // and the binding case is standing at a tile centre: the neighbouring tile's
+  // near edge is half a tile away there, and a shorter near band would leave
+  // the tile the player is walking into at medium detail.
   const half = config.grass.tileSize * 0.5;
   for (const name of ['high', 'ultra']) {
     const { lod, maxDistance } = config.quality[name].blade;

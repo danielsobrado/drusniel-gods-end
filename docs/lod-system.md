@@ -222,21 +222,31 @@ high:
   blade:
     maxDistance: 140
     lod:
-      high:     { detail: 5, density: 4.5, distance: 0.3 }
-      medium:   { detail: 3, density: 3,   distance: 0.5 }
-      low:      { detail: 1, density: 2,   distance: 0.9 }
+      high:     { detail: 5, density: 4.5, distance: 0.12 }
+      medium:   { detail: 3, density: 4.5, distance: 0.28 }
+      low:      { detail: 1, density: 2,   distance: 0.6 }
       veryLow:  { detail: 1, density: 1,   distance: 1.0 }
 ```
+
+(`visual-refinement.yaml` overrides the near two densities to `3.4`; the merged
+runtime value is what the field actually builds.)
 
 Because `maxDistance` is `140`, those normalized thresholds correspond approximately to:
 
 ```text
-high      <= 42 world units
-medium    <= 70 world units
-low       <= 126 world units
+high      <= 16.8 world units
+medium    <= 39.2 world units
+low       <= 84 world units
 veryLow   <= 140 world units
 culled    > 140 world units
 ```
+
+The two knobs fall on different curves. `density` is held flat across the near
+two bands so the meadow never visibly thins, while `detail` drops on its own:
+`9 -> 5` triangles per blade at 16.8 m and `5 -> 1` at 39.2 m. Note that the
+band is chosen from the distance to a tile's nearest edge, so a 25 m tile that
+merely clips the near radius is promoted whole; the effective full-detail reach
+is the threshold plus up to a tile diagonal.
 
 The conversion is simply:
 
