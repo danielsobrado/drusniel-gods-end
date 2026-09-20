@@ -245,6 +245,10 @@ export class TreeSystem {
       for (const group of this.billboardGroups) group.visible = false;
       this.setQuality(this.qualityName);
       this.lodRenderer.update(this.camera, true);
+      // The old representations remain as placement/collision references, but
+      // successful replacement means their shaders will never be rendered.
+      for (const tree of this.trees) tree.high.userData.skipWarmup = true;
+      for (const group of this.billboardGroups) group.userData.skipWarmup = true;
       this.stats = this.lodRenderer.stats;
     } catch (error) {
       if (signal?.aborted) throw error;

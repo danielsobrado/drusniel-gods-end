@@ -3,6 +3,16 @@ import test from 'node:test';
 import { BoxGeometry, DirectionalLight, Group, InstancedMesh, LOD, Mesh, MeshBasicMaterial, Scene } from 'three';
 import { CinematicPipeline } from '../src/rendering/CinematicPipeline.js';
 import { WaterSurface } from '../src/water/WaterSurface.js';
+import { withSceneWarmup } from '../src/rendering/SceneWarmup.js';
+
+test('warmup excludes unused source tiles and restores their visibility', () => {
+  const scene = new Scene(), geometry = new BoxGeometry(), material = new MeshBasicMaterial();
+  const tile = new Mesh(geometry, material); tile.userData.skipWarmup = true; tile.visible = false;
+  const ready = new Mesh(geometry, material); scene.add(tile, ready);
+  withSceneWarmup(scene, () => { assert.equal(tile.visible, false); assert.equal(ready.visible, true); });
+  assert.equal(tile.visible, false); assert.equal(ready.visible, true);
+  geometry.dispose(); material.dispose();
+});
 
 function fixture() {
   const scene = new Scene();

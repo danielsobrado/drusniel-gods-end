@@ -28,6 +28,8 @@ WebP atlases use lossless alpha. The two mesh bundles deduplicate and compress e
 
 The detailed two-level tree descriptions later in this document describe the legacy fallback.
 
+Grass profiling distinguishes visible tile counts (`lods`) from submitted blade counts (`lodInstances`), and reports total submitted `triangles` (including far cards) and `cullingMs`. Empty compacted tiles contribute to neither count. Far grass is prepared by the opening-view render; its shared material is excluded from the separate zero-index shader warmup, which otherwise produces invalid WebGL element-buffer draws.
+
 Individual tree definitions may override `mediumMesh` or `lowMesh` with `{ asset: Assets/path.glb, node: NodeName }`; paths are relative to the public asset root. Omitted references use the generated manifest. `low` continues to name the original billboard and is never interpreted as a mesh LOD.
 
 The longer tree chain retains more geometry than the old direct switch at 170 units. Compare whole-scene costs with `node scripts/browser/check-vegetation-lods.mjs --baseline` (the same route with extended LODs disabled), and run measurements sequentially. A lower per-tree triangle budget does not imply unchanged frame time compared with the old billboard-only distance range.

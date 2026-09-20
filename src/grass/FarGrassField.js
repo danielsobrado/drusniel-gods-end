@@ -54,6 +54,9 @@ export class FarGrassField {
     const material = this.controller().material;
     for (let i = 0; i < grid.gridSizeX * grid.gridSizeZ; i++) {
       const tile = new GrassTile(field.scene, material, this.geometry, true); tile.mesh.name = 'Far grass clumps';
+      // The opening-view draw prepares this shared material with real compacted
+      // data. A forced zero-index warmup draw invalidates its WebGL VAO binding.
+      tile.mesh.userData.skipWarmup = true;
       tile.mesh.receiveShadow = false; tile.mesh.userData.occlusionCull = false;
       this.tiles.push(tile);
     }

@@ -372,6 +372,7 @@ export class GrassField {
   }
 
   update(deltaSeconds, elapsedSeconds, playerPosition, influencePoints = []) {
+    const cullingStarted = performance.now();
     this.#syncCoastalJungleRuntime();
     this.interactionMap.update(playerPosition, influencePoints);
     this.materialController.setInteractionCenter(this.interactionMap.center);
@@ -400,6 +401,8 @@ export class GrassField {
     stats.compactionTiles = 0;
     stats.shareVertices = this.shareVertices;
     stats.lods = { high: 0, medium: 0, low: 0, veryLow: 0 };
+    stats.lodInstances = { high: 0, medium: 0, low: 0, veryLow: 0 };
+    stats.triangles = 0;
     this.materialController.setFrame(elapsedSeconds, this.camera.position);
     this.materialController.setViewProjection(this.projectionView);
 
@@ -433,19 +436,22 @@ export class GrassField {
       if (!tile.mesh.visible) continue;
 
       const lodName = selectGrassLodFromThresholds(distanceSquared, lodThresholds);
-      stats.lods[lodName]++;
       const compacted = tile.setGeometry(this.geometries[lodName], lodName, this.containsGrass, this.layoutRevision);
       if (compacted) {
         this.stats.compactionMs += tile.lastCompactionMs;
         this.stats.compactionTiles += 1;
       }
       if (tile.mesh.geometry.instanceCount === 0) tile.setVisible(false);
-      else this.stats.visibleTiles++;
+      else { this.stats.visibleTiles++; stats.lods[lodName]++; }
+      stats.lodInstances[lodName] += tile.mesh.geometry.instanceCount;
+      stats.triangles += (tile.mesh.geometry.index?.count ?? tile.mesh.geometry.attributes.position.count) / 3 * tile.mesh.geometry.instanceCount;
       this.stats.submittedBlades += tile.mesh.geometry.instanceCount;
       this.stats.proceduralCulledBlades += this.geometries[lodName].instanceCount - tile.mesh.geometry.instanceCount;
     }
     this.farGrass?.update(elapsedSeconds);
     stats.far = this.farGrass?.stats ?? null;
+    stats.triangles += stats.far?.triangles ?? 0;
+    stats.cullingMs = performance.now() - cullingStarted;
   }
 
   sampleVegetation(x, z) {

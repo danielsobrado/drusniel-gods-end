@@ -427,7 +427,9 @@ export class CoastalJungleSystem {
         renderer.addVariant({ ...variant, full, records, asset: assets.variants.get(variant.key),
           excludeFromReflection: true, castShadow: (this.profile.shadowKinds ?? []).includes(variant.kind) });
       }
-      for (const variant of variants) for (const part of variant.parts) part.visible = false;
+      for (const variant of variants) for (const part of variant.parts) {
+        part.visible = false; part.userData.skipWarmup = true;
+      }
       renderer.setQuality(this.qualityName);
     } catch (error) {
       this.lodRenderer?.dispose(); this.lodRenderer = null; this.lodAssets?.dispose();

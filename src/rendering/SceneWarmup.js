@@ -17,7 +17,7 @@ export function withSceneWarmup(scene, render) {
   try {
     scene.userData.updateCoastalJungleVisibility = undefined;
     for (const object of objects.keys()) {
-      let visible = true;
+      let visible = object.userData.skipWarmup !== true;
       if (object.isLight) {
         // Revealing hidden ancestors must not add lights to the shader key.
         for (let ancestor = object; ancestor; ancestor = ancestor.parent) {

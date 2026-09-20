@@ -12,6 +12,19 @@ await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ channel: 'chrome', headless: true,
   args: ['--enable-unsafe-webgpu', '--ignore-gpu-blocklist', '--disable-background-timer-throttling', '--disable-renderer-backgrounding'] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+if (process.argv.includes('--diagnose-gl')) await page.addInitScript(() => {
+  const original = window.WebGL2RenderingContext.prototype.drawElementsInstanced;
+  window.WebGL2RenderingContext.prototype.drawElementsInstanced = function (...args) {
+    if (!this.getParameter(this.ELEMENT_ARRAY_BUFFER_BINDING)) console.warn('Missing index binding', JSON.stringify({ args, mesh: window.__lastDrawMesh }));
+    return original.apply(this, args);
+  };
+  setInterval(() => window.__grassDemo?.world?.scene.traverse(object => {
+    if (!object.isMesh || object.userData.drawDiagnostic) return;
+    object.userData.drawDiagnostic = true;
+    const before = object.onBeforeRender;
+    object.onBeforeRender = function (...args) { window.__lastDrawMesh = { name: this.name, vertices: this.geometry.attributes.position?.count, indices: this.geometry.index?.count }; before.apply(this, args); };
+  }), 50);
+});
 // Keep route captures stable while documentation and tests are edited in the workspace.
 await page.routeWebSocket('**/*', socket => {
   const server = socket.connectToServer();
