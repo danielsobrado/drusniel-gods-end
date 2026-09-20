@@ -3,6 +3,7 @@ import { attribute, float, floor, fract, interleavedGradientNoise, mix,
   screenCoordinate, texture, transformNormalToView, uv, vec2, vec3, vec4 } from 'three/tsl';
 import { foliageBacklight } from '../rendering/CinematicLighting.js';
 import { TREE_LOD_DEFAULTS, vegetationLodWeights } from './vegetationLodPolicy.js';
+import { createPlantCards, plantCardNodes } from './StaticPlantCards.js';
 
 const names = ['full', 'medium', 'low', 'billboard'];
 const triangles = geometry => (geometry.index?.count ?? geometry.attributes.position.count) / 3;
@@ -11,8 +12,8 @@ function coverageMask() {
   const noise = interleavedGradientNoise(screenCoordinate.xy);
   return noise.greaterThanEqual(interval.x).and(noise.lessThan(interval.y));
 }
-function atlasMaterial(atlas, capture, config) {
-  const angle = attribute('lodView', 'float'), view = fract(angle.div(Math.PI * 2).add(1)).mul(capture.views);
+function atlasMaterial(atlas, capture, config, cards) {
+  const angle = cards?.angle ?? attribute('lodView', 'float'), view = fract(angle.div(Math.PI * 2).add(1)).mul(capture.views);
   const first = floor(view), next = first.add(1).mod(capture.views), fraction = fract(view);
   const inset = 1.5 / capture.tileSize;
   const tileUV = uv().clamp(inset, 1 - inset);
@@ -25,6 +26,11 @@ function atlasMaterial(atlas, capture, config) {
   material.normalNode = transformNormalToView(vec3(0, 1, 0));
   material.alphaToCoverage = Boolean(config.cinematic?.enabled);
   material.maskNode = coverageMask();
+  if (cards) {
+    const noise = interleavedGradientNoise(screenCoordinate.xy);
+    material.positionNode = cards.position;
+    material.maskNode = noise.greaterThanEqual(cards.minimum).and(noise.lessThan(cards.maximum)).and(cards.density);
+  }
   return material;
 }
 
@@ -37,14 +43,17 @@ export class VegetationLodRenderer {
     this.lastPosition = new THREE.Vector3(Infinity, Infinity, Infinity); this.lastQuaternion = new THREE.Quaternion();
     this.lastProjection = new THREE.Matrix4(); this.localCamera = new THREE.Vector3();
     this.quality = 'high'; this.dirty = true; this.weights = [0, 0, 0, 0];
+    this.nearRecords = [];
     this.stats = { full: 0, medium: 0, low: 0, billboard: 0, triangles: 0, visibleInstances: 0, visibleChunks: 0, bookkeepingMs: 0, byKind: {} };
   }
   addVariant({ key, kind = 'tree', full, asset, records, excludeFromReflection = false, castShadow = true }) {
     if (!records.length) return;
     const levels = [full, asset?.levels[1], asset?.levels[2], null];
+    const plant = this.policy(records[0], kind, this.quality).plant;
+    const cardNodes = plant && asset?.atlas && asset.entry.capture ? plantCardNodes(asset.entry.capture) : null;
     if (asset?.atlas && asset.entry.capture) {
       const geometry = new THREE.PlaneGeometry(1, 1);
-      const material = atlasMaterial(asset.atlas, asset.entry.capture, this.config);
+      const material = atlasMaterial(asset.atlas, asset.entry.capture, this.config, cardNodes);
       levels[3] = [{ geometry, material, atlas: true }];
       this.resources.push(() => { geometry.dispose(); material.dispose(); });
     }
@@ -63,24 +72,42 @@ export class VegetationLodRenderer {
     }) ?? null);
     this.templates.push(templates);
     const groups = new Map();
+    const recordBounds = new THREE.Box3();
     for (const record of records) {
       const cell = `${Math.floor(record.position.x / this.chunkSize)},${Math.floor(record.position.z / this.chunkSize)}`;
       let chunk = groups.get(cell);
       if (!chunk) {
-        chunk = { key, kind, templates, excludeFromReflection, castShadow, capture: asset?.entry.capture, records: [], bounds: new THREE.Box3(), draws: [null, null, null, null] };
+        chunk = { key, kind, templates, cardNodes, excludeFromReflection, castShadow, capture: asset?.entry.capture, records: [], bounds: new THREE.Box3(), draws: [null, null, null, null] };
         groups.set(cell, chunk);
       }
-      record.inverse = new THREE.Matrix4().fromArray(record.matrix).invert();
+      if (!cardNodes) record.inverse = new THREE.Matrix4().fromArray(record.matrix).invert();
       chunk.records.push(record);
-      chunk.bounds.union(record.sphere.getBoundingBox(new THREE.Box3()));
+      chunk.bounds.union(record.sphere.getBoundingBox(recordBounds));
     }
-    for (const chunk of groups.values()) { chunk.bounds.expandByScalar(3); this.chunks.push(chunk); }
+    for (const chunk of groups.values()) {
+      chunk.bounds.expandByScalar(3);
+      if (cardNodes) {
+        chunk.cards = createPlantCards(chunk, this.scene);
+        // Draw chunks stay broad to limit calls; small CPU cells bound near-mesh work.
+        const cells = new Map();
+        for (const record of chunk.records) {
+          const key = `${Math.floor(record.position.x / 32)},${Math.floor(record.position.z / 32)}`;
+          let cell = cells.get(key);
+          if (!cell) { cell = { bounds: new THREE.Box3(), records: [] }; cells.set(key, cell); }
+          cell.records.push(record); cell.bounds.expandByPoint(record.position);
+        }
+        chunk.nearCells = [...cells.values()];
+      }
+      this.chunks.push(chunk);
+    }
     this.dirty = true;
   }
   setQuality(name) { this.quality = name; this.dirty = true; }
   #draw(chunk, level) {
     if (chunk.draws[level]) return chunk.draws[level];
-    const capacity = chunk.records.length;
+    // Three includes uniform matrix-array length in the shader key. Exact per-cell
+    // capacities compiled a new program for almost every chunk while travelling.
+    const capacity = Math.max(64, 2 ** Math.ceil(Math.log2(chunk.records.length)));
     const matrices = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 16), 16).setUsage(THREE.DynamicDrawUsage);
     const interval = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 2), 2).setUsage(THREE.DynamicDrawUsage);
     const tint = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3).setUsage(THREE.DynamicDrawUsage);
@@ -118,14 +145,36 @@ export class VegetationLodRenderer {
     for (const key of ['full', 'medium', 'low', 'billboard', 'triangles', 'visibleInstances', 'visibleChunks']) stats[key] = 0;
     stats.byKind = {};
     for (const chunk of this.chunks) {
+      if (chunk.cards) chunk.cards.mesh.visible = false;
       for (const draw of chunk.draws) if (draw) { draw.count = 0; draw.bounds.makeEmpty(); for (const mesh of draw.meshes) mesh.visible = false; }
       if (!this.frustum.intersectsBox(chunk.bounds)) continue;
-      if (chunk.bounds.distanceToPoint(camera.position) >= this.policy(chunk.records[0], chunk.kind, this.quality).far) continue;
+      const chunkPolicy = this.policy(chunk.records[0], chunk.kind, this.quality);
+      const chunkDistance = chunk.bounds.distanceToPoint(camera.position);
+      if (chunkDistance >= chunkPolicy.far) continue;
+      if (chunk.cards) {
+        const { centers, blend, far, density = 1 } = chunkPolicy;
+        chunk.cards.ranges.value.set(centers[0] * (1 - blend), centers[0] * (1 + blend), far, density);
+        chunk.cards.mesh.visible = true;
+        const count = chunk.records.length;
+        stats.billboard += count; stats.triangles += count * 2; stats.visibleInstances += count;
+        stats.byKind[chunk.kind] = (stats.byKind[chunk.kind] ?? 0) + count;
+        // Distant chunks require no per-stem CPU work or buffer uploads on movement.
+        if (chunkDistance >= centers[0] * (1 + blend)) { stats.visibleChunks++; continue; }
+      }
       const available = chunk.templates.map(Boolean);
       let chunkVisible = false;
-      for (const record of chunk.records) {
+      let records = chunk.records;
+      if (chunk.cards) {
+        records = this.nearRecords; records.length = 0;
+        const range = chunkPolicy.centers[0] * (1 + chunkPolicy.blend);
+        for (const cell of chunk.nearCells) if (cell.bounds.distanceToPoint(camera.position) < range) {
+          for (const record of cell.records) records.push(record);
+        }
+      }
+      for (const record of records) {
         if (!this.frustum.intersectsSphere(record.sphere)) continue;
         const distance = record.position.distanceTo(camera.position);
+        if (chunk.cards && distance >= chunkPolicy.centers[0] * (1 + chunkPolicy.blend)) continue;
         const settings = this.policy(record, chunk.kind, this.quality);
         if (distance >= settings.far || record.fraction > (settings.density ?? 1)) continue;
         // Reuse policy records; spreading one object per visible jungle stem creates
@@ -139,6 +188,7 @@ export class VegetationLodRenderer {
         }
         let total = 0, shown = false;
         for (let level = 0; level < 4; level++) {
+          if (level === 3 && chunk.cards) continue;
           const weight = weights[level];
           if (!(weight > 0) || !available[level]) continue;
           const draw = this.#draw(chunk, level), index = draw.count++;
@@ -170,9 +220,9 @@ export class VegetationLodRenderer {
           }
           stats[names[level]]++; shown = chunkVisible = true;
         }
-        if (shown) { stats.visibleInstances++; stats.byKind[chunk.kind] = (stats.byKind[chunk.kind] ?? 0) + 1; }
+        if (shown && !chunk.cards) { stats.visibleInstances++; stats.byKind[chunk.kind] = (stats.byKind[chunk.kind] ?? 0) + 1; }
       }
-      if (chunkVisible) stats.visibleChunks++;
+      if (chunkVisible || chunk.cards) stats.visibleChunks++;
       for (let level = 0; level < 4; level++) {
         const draw = chunk.draws[level]; if (!draw) continue;
         for (const mesh of draw.meshes) {
@@ -192,6 +242,7 @@ export class VegetationLodRenderer {
   }
   dispose() {
     if (this.disposed) return; this.disposed = true;
+    for (const chunk of this.chunks) if (chunk.cards) { chunk.cards.mesh.removeFromParent(); chunk.cards.mesh.geometry.dispose(); }
     for (const chunk of this.chunks) for (const draw of chunk.draws) if (draw) for (const mesh of draw.meshes) {
       mesh.removeFromParent(); mesh.geometry.dispose(); mesh.dispose();
     }

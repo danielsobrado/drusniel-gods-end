@@ -4,8 +4,10 @@ vegetationLod:
   assetPath: Assets/terrain/vegetation-lods/
 trees:
   lod:
-    distances: [80, 160, 300]
+    # Keep all three mesh stages inside the previous ~170-unit High mesh budget.
+    distances: [35, 75, 135]
     referenceHeight: 12
+    maxHeightScale: 1.1
     blend: 0.15
     chunkSize: 500
 grass:

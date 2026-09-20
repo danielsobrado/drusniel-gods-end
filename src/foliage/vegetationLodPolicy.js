@@ -34,6 +34,6 @@ export function vegetationLodWeights(distance, { centers, blend = 0.15, far, ava
   return target;
 }
 export function treeLodCenters(height, quality = 'high', settings = TREE_LOD_DEFAULTS) {
-  const scale = Math.max(0.1, height / (settings.referenceHeight ?? 12)) * VEGETATION_QUALITY[quality].scale;
+  const scale = Math.min(settings.maxHeightScale ?? Infinity, Math.max(0.1, height / (settings.referenceHeight ?? 12))) * VEGETATION_QUALITY[quality].scale;
   return (settings.distances ?? TREE_LOD_DEFAULTS.distances).map(distance => distance * scale);
 }

@@ -11,6 +11,7 @@ export function validateVegetationLodConfig(config, problems) {
   }
   if (!(lod.blend > 0 && lod.blend < 0.5)) problems.push('trees.lod.blend must be between 0 and 0.5');
   positive(lod.referenceHeight, 'trees.lod.referenceHeight'); positive(lod.chunkSize, 'trees.lod.chunkSize');
+  if (lod.maxHeightScale !== undefined) positive(lod.maxHeightScale, 'trees.lod.maxHeightScale');
   const far = config.grass?.far;
   if (far?.enabled) {
     for (const key of ['chunkSize', 'density', 'width', 'height']) positive(far[key], `grass.far.${key}`);

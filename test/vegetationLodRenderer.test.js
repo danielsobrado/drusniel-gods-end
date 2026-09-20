@@ -51,3 +51,34 @@ test('vegetation configuration rejects reversed transitions and cutoffs before h
   assert.ok(problems.some(p => p.includes('increasing')));
   assert.ok(problems.some(p => p.includes('near grass range')));
 });
+
+test('distant plant movement reuses static buffers without per-record policy or matrix work', () => {
+  const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(70, 1, 0.1, 2000);
+  const geometry = new THREE.BoxGeometry(), material = new THREE.MeshStandardNodeMaterial();
+  const atlas = new THREE.DataTexture(new Uint8Array(4), 1, 1);
+  let visits = 0;
+  const renderer = new VegetationLodRenderer({ scene, config: {}, chunkSize: 20, prepareMaterial: () => material.clone(),
+    policy: () => { visits++; return { plant: true, centers: [24], blend: 10 / 24, far: 500 }; } });
+  const records = Array.from({ length: 2000 }, (_, i) => {
+    const position = new THREE.Vector3(i % 10, 0, -100 - Math.floor(i / 10) * 0.01);
+    return { position, matrix: new Float32Array(new THREE.Matrix4().makeTranslation(position).elements),
+      fraction: 0, sphere: new THREE.Sphere(position, 2) };
+  });
+  renderer.addVariant({ key: 'grass', kind: 'grass', full: [{ geometry, material }], records,
+    asset: { levels: [], atlas, entry: { capture: { center: [0, 1, 0], width: 2, height: 2, views: 8, tileSize: 128 } } } });
+  camera.lookAt(0, 0, -100); renderer.update(camera);
+  const cards = scene.children.filter(mesh => mesh.name === 'grass:billboard');
+  const versions = cards.map(mesh => mesh.geometry.attributes.cardCenter.data.version);
+  visits = 0;
+  for (let i = 0; i < 20; i++) { camera.position.x += 0.1; renderer.update(camera); }
+  assert.ok(visits < 100, `policy visits must scale with chunks, not 2000 stems: ${visits}`);
+  assert.deepEqual(cards.map(mesh => mesh.geometry.attributes.cardCenter.data.version), versions);
+  assert.ok(cards.every(mesh => mesh.geometry.attributes.cardOrigin.data === mesh.geometry.attributes.cardCenter.data));
+  assert.equal(records.some(record => record.inverse), false);
+  assert.equal(renderer.stats.full, 0);
+  assert.equal(renderer.stats.billboard, 2000);
+  renderer.setQuality('performance'); renderer.update(camera);
+  assert.ok(cards.every(mesh => mesh.visible));
+  renderer.dispose(); assert.equal(scene.children.length, 0);
+  geometry.dispose(); material.dispose(); atlas.dispose();
+});

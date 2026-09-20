@@ -14,6 +14,14 @@ test('all four tree levels overlap without gaps and reverse immediately', () => 
   assert.deepEqual(vegetationLodWeights(4001, settings), [0, 0, 0, 0]);
   assert.equal(vegetationLodWeights(3900, settings)[3] > 0, true);
 });
+
+test('configured height cap keeps large tree geometry within the previous draw budget', () => {
+  const settings = { distances: [35, 75, 135], referenceHeight: 12, maxHeightScale: 1.1 };
+  const centers = treeLodCenters(60, 'high', settings);
+  assert.ok(centers[2] * 1.15 < 171);
+  assert.deepEqual(vegetationLodWeights(171, { centers, far: 4000 }), [0, 0, 0, 1]);
+  assert.ok(treeLodCenters(6, 'high', settings)[0] < centers[0]);
+});
 test('missing assets retain a valid representation and tree scale and quality affect detail', () => {
   const centers = treeLodCenters(12);
   assert.deepEqual(vegetationLodWeights(240, { centers, far: 4000, available: [true, false, false, true] }), [1, 0, 0, 0]);

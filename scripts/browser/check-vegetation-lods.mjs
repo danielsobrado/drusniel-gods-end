@@ -43,10 +43,12 @@ page.on('console', m => {
   if (m.type() === 'warning') { warnings.push(m.text()); if (warnings.length < 8) console.log('Warning:', m.text().slice(0,600)); }
 });
 try {
+  const loadStart = performance.now();
   await page.goto(`${process.env.VEGETATION_BASE_URL ?? (process.argv.includes('--production') ? 'http://127.0.0.1:5174' : 'http://127.0.0.1:5173')}/?character=drusniel&renderer=${backend}`, { waitUntil: 'domcontentloaded' });
   console.log('Loading', backend);
   await page.waitForFunction(() => window.__grassDemo?.water?.uniforms?.clock.value > 0.2, null, { timeout: 300000 });
-  console.log('Scene ready');
+  const loadMs = performance.now() - loadStart;
+  console.log('Scene ready', Math.round(loadMs), 'ms');
   await page.evaluate(async () => {
     const d = window.__grassDemo; await d.coastalJungle?.initTask;
     d.audio.start = async () => {}; document.querySelector('#startButton').click();
@@ -79,8 +81,31 @@ try {
     assert.equal(result.hiddenCollider, true);
     results.push({ route: route.name, ...result }); console.log(JSON.stringify(results.at(-1)));
     await page.screenshot({ path: `${output}/${route.name}.png` });
+    const movement = await page.evaluate(async ({ position, target }) => {
+      const d = window.__grassDemo, times = [], culling = []; let previous;
+      await new Promise(resolve => {
+        let frame = 0;
+        const tick = time => {
+          if (previous !== undefined) { times.push(time - previous); culling.push(d.coastalJungle.stats.bookkeepingMs ?? 0); }
+          previous = time;
+          // Cross chunk boundaries and reverse, keeping the same view target.
+          const offset = frame < 60 ? frame * 0.5 : (120 - frame) * 0.5;
+          d.navigation.freeFly.teleport([position[0] + offset, position[1], position[2]], target);
+          if (++frame <= 120) requestAnimationFrame(tick); else resolve();
+        };
+        requestAnimationFrame(tick);
+      });
+      times.sort((a, b) => a - b); culling.sort((a, b) => a - b);
+      return { median: times[60], p95: times[114], max: times.at(-1), jungleCullingP95: culling[114] };
+    }, route);
+    results.at(-1).movementMs = movement;
+    console.log('Movement', route.name, JSON.stringify(movement));
   }
   if (!baseline) {
+    // Fixed High-quality views previously doubled after extending tree meshes.
+    const triangleBudgets = { meadow: 3600000, lake: 3200000, jungle: 6500000, 'jungle-distant': 4600000, alpine: 2300000 };
+    for (const result of results) assert.ok(result.render.triangles <= triangleBudgets[result.route],
+      `${result.route}: ${result.render.triangles} triangles exceeds the original-view budget`);
     assert.ok(results.some(r => r.grass.far?.billboards > 0), 'distant grass is submitted');
     assert.ok(results.some(r => r.trees.medium > 0 && r.trees.low > 0 && r.trees.billboard > 0), 'all reduced tree levels are active');
     assert.ok(results.some(r => r.jungle.billboard > 0), 'jungle has a distant representation');
@@ -107,7 +132,7 @@ try {
     assert.ok(colored > 500, `distant grass must produce real pixels, found ${colored}`);
     console.log(`Far grass pixels beyond old range: ${colored}`);
   }
-  await writeFile(`${output}/results.json`, JSON.stringify({ backend, results, errors, warnings }, null, 2));
+  await writeFile(`${output}/results.json`, JSON.stringify({ backend, loadMs, results, errors, warnings }, null, 2));
   assert.equal(warnings.some(w => /GL_INVALID_|Shader Error|VALIDATION_ERROR/.test(w)), false, 'no invalid GPU draws');
   assert.deepEqual(errors, []);
 } catch (error) {
