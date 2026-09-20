@@ -4,6 +4,7 @@ import './cinematic.css';
 import './minimap.css';
 import { GrassDemo } from './app/GrassDemo.js';
 import { loadConfig } from './config/loadConfig.js';
+import { applyMobileStartupProfile } from './config/mobileStartup.js';
 import { ExplorationSpeedMode } from './player/ExplorationSpeedMode.js';
 import { RendererRecovery } from './rendering/RendererRecovery.js';
 import { resolveRendererRequest } from './rendering/RendererSession.js';
@@ -65,6 +66,7 @@ async function bootstrap() {
     const start = async (backend, state) => {
       if (disposed) return;
       const runtimeConfig = state?.config ?? structuredClone(config);
+      if (!state) applyMobileStartupProfile(runtimeConfig);
       explorationSpeedMode.setConfig(runtimeConfig);
       demo = new GrassDemo(root, runtimeConfig);
       const candidate = demo;
