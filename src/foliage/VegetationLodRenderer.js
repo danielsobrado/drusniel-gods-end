@@ -105,6 +105,18 @@ export class VegetationLodRenderer {
     this.dirty = true;
   }
   setQuality(name) { this.quality = name; this.dirty = true; }
+  prepareAll() {
+    // Include remote regions in the loading-screen warm-up. Creating these
+    // draws on first entry defers shader/binding setup into a gameplay frame.
+    for (const chunk of this.chunks) {
+      if (chunk.cards) chunk.cards.mesh.userData.skipWarmup = false;
+      for (let level = 0; level < 4; level++) {
+        if (!chunk.templates[level] || (level === 3 && chunk.cards)) continue;
+        const draw = this.#draw(chunk, level);
+        if (!draw.count) for (const mesh of draw.meshes) mesh.visible = false;
+      }
+    }
+  }
   prepareNearby(camera, travelDistance = 12) {
     // Prepare only mesh stages reachable on the first walk/turn. Lazy creation
     // at a threshold otherwise compiles pipelines in a visible gameplay frame.

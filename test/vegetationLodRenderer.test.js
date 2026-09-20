@@ -11,7 +11,7 @@ test('preparing a streamed region prevents draw allocation when entering new chu
   const renderer = new VegetationLodRenderer({ scene, config: {}, chunkSize: 20,
     prepareMaterial: () => material.clone(), policy: () => ({ centers: [20, 40], far: 100 }) });
   const full = [{ geometry, material }];
-  renderer.addVariant({ key: 'region', full, asset: { levels: [null, full] },
+  renderer.addVariant({ key: 'region', full, asset: { levels: [null, full], entry: {} },
     records: [0, 100, 200].map(x => ({ position: new THREE.Vector3(x, 0, 0),
       matrix: new Float32Array(new THREE.Matrix4().makeTranslation(x, 0, 0).elements),
       fraction: 0, sphere: new THREE.Sphere(new THREE.Vector3(x, 0, 0), 2) })) });
@@ -97,6 +97,9 @@ test('distant plant movement reuses static buffers without per-record policy or 
     asset: { levels: [], atlas, entry: { capture: { center: [0, 1, 0], width: 2, height: 2, views: 8, tileSize: 128 } } } });
   camera.lookAt(0, 0, -100); renderer.update(camera);
   const cards = scene.children.filter(mesh => mesh.name === 'grass:billboard');
+  renderer.prepareAll();
+  assert.ok(cards.every(mesh => mesh.userData.skipWarmup === false), 'remote cards participate in loading-screen preparation');
+  assert.equal(renderer.stats.full, 0, 'preparation must not publish hidden near geometry');
   const versions = cards.map(mesh => mesh.geometry.attributes.cardCenter.data.version);
   visits = 0;
   for (let i = 0; i < 20; i++) { camera.position.x += 0.1; renderer.update(camera); }

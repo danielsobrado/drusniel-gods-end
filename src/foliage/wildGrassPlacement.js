@@ -141,6 +141,13 @@ export function* iterateWildGrassClumps({
       for (let i = 0; i < candidates; i += 1) {
         const px = (x + random()) * cellSize;
         const pz = (z + random()) * cellSize;
+        // Consume the complete candidate before any camera/ecology rejection.
+        // Otherwise skipping one candidate changes every later plant in this cell.
+        const acceptance = random();
+        const scale = minScale + random() * (maxScale - minScale);
+        const stretch = 1 + (random() * 2 - 1) * stretchAmount;
+        const yaw = random() * Math.PI * 2;
+        const variant = Math.floor(random() * variantCount);
         if (((x + z + i) & 15) === 0) yield undefined;
         if (Math.hypot(px - origin.x, pz - origin.z) > settings.radius) continue;
         const sampled = cache
@@ -157,18 +164,16 @@ export function* iterateWildGrassClumps({
         if (!sampled.contains) continue;
         const py = sampled.height;
         if (!Number.isFinite(py) || py < waterY) continue;
-        if (random() > wildGrassPlacementChance(sampled.ecology, settings)) continue;
-        const scale = minScale + random() * (maxScale - minScale);
-        const stretch = 1 + (random() * 2 - 1) * stretchAmount;
+        if (acceptance > wildGrassPlacementChance(sampled.ecology, settings)) continue;
         yield {
           x: px,
           y: py - embed,
           z: pz,
-          yaw: random() * Math.PI * 2,
+          yaw,
           scaleX: scale * stretch,
           scaleY: scale,
           scaleZ: scale / Math.max(stretch, 0.001),
-          variant: Math.floor(random() * variantCount),
+          variant,
         };
       }
     }

@@ -19,6 +19,14 @@ const browser = await chromium.launch({ channel: 'chrome', headless: true, args:
   '--disable-backgrounding-occluded-windows', '--enable-precise-memory-info',
 ] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+// Keep a capture on one code revision if a build refreshes generated files.
+await page.routeWebSocket('**/*', socket => {
+  const server = socket.connectToServer();
+  server.onMessage(message => {
+    if (typeof message === 'string' && /"type":"(?:update|full-reload)"/.test(message)) return;
+    socket.send(message);
+  });
+});
 const report = { label, port, soak, gameplay, startedAt: new Date().toISOString(), runs: [], errors: [] };
 page.on('pageerror', error => { report.errors.push(error.message); console.log('PAGE ERROR', error.message); });
 page.on('console', message => {
@@ -73,7 +81,7 @@ try {
           await page.keyboard.down('Shift');
           await page.keyboard.down('w');
         }
-        const trace = !soak && quality === 'high' && scenario.id === 'forest' && speed === 9;
+        const trace = !soak && quality === 'high' && scenario.id === (onlyScenario ?? 'forest') && speed === 9;
         if (trace) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.start'); }
         const run = await page.evaluate(async ({ scenario, speed, soak, gameplay }) => {
           const d = window.__grassDemo;
@@ -157,7 +165,7 @@ try {
         }
         if (trace) {
           const { profile } = await cdp.send('Profiler.stop');
-          await writeFile(new URL(`${label}-forest.cpuprofile`, out), JSON.stringify(profile));
+          await writeFile(new URL(`${label}-${scenario.id}.cpuprofile`, out), JSON.stringify(profile));
         }
         run.quality = quality;
         report.runs.push(run);

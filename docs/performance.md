@@ -25,6 +25,27 @@ High and Ultra use the cinematic pass's multisample coverage without an addition
 
 ## Startup material reuse
 
+The coastal jungle prepares every chunk's available mesh LOD draws and includes
+its static plant cards in the loading-screen shader warm-up. Previously those
+draws were created on first entry or on crossing another chunk, moving shader
+and binding setup into gameplay. This front-loads allocation and shader work;
+it does not reduce plant density or visibility distance.
+
+A local Chrome WebGPU capture on 2026-09-20 (1280 × 720, High) compared
+`run-movement-benchmark.mjs jungle-before 5173 --scenario=jungleCoast --quality=high`
+with the same route after preparation. The worst first-entry CPU frame fell from
+3,753 ms to 102 ms. In the rapid-movement segment, P95 frame interval fell from
+108.1 ms to 20.8 ms; median CPU time was 12.9 ms before and 13.8 ms after.
+These are local captures, not cross-device guarantees. Spikes remain: the final
+rapid-movement maximum frame interval was 138.2 ms. Reports and the final CPU
+trace are under `.cache/movement-performance/jungle-{before,verify}*`.
+
+Imported understory and wild-grass candidates also consume a fixed number of
+random values before distance or ecology rejection. This keeps surviving plants'
+positions, variants and transforms stable when the placement window crosses a
+cell boundary. `test/foliagePlacementContinuity.test.js` checks the shared area
+across multiple windows rather than merely regenerating at the same origin.
+
 High-detail trees share bark and leaf materials by source material. Per-tree tint and transition opacity are object references in the shader, so different tree colors and fades do not create new shader graphs. Tree distance LOD is initialized before shader warm-up, after the initial camera placement; distant trees start as billboards. Geometry bounds are computed once per shared geometry. River and upland rock batches also share their textured wet-rock material by source.
 
 A local Chrome WebGPU check on 2026-09-13 (1440 x 640, device pixel ratio 1, `?character=drusniel&profile=1`) measured:
