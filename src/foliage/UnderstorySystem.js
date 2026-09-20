@@ -10,8 +10,10 @@ import { VegetationJob, VegetationSampleCache } from './vegetationRebuild.js';
 import { iterateUnderstoryPlants, resolveUnderstorySettings } from './understoryPlacement.js';
 import { bakeUnderstoryBillboard, createUnderstoryBillboard, understoryCoverage } from './understoryBillboard.js';
 import { UnderstoryLod } from './understoryLod.js';
+import { loadVegetationLodAssets } from './VegetationLodAssets.js';
 
 const PLANT_ROOT_PATTERN = /^Plants_\d+$/i;
+const UNDERSTORY_ATLAS_PREFIX = 'understory-';
 
 function meshMaterial(source) {
   return Array.isArray(source?.material) ? source.material[0] : source?.material;
@@ -111,7 +113,7 @@ export class UnderstorySystem {
     this.stats = { plants: 0, near: 0, billboards: 0, triangles: 0, fullMeshTriangles: 0 };
   }
 
-  async init() {
+  async init(signal) {
     const path = this.config.assets?.foliage?.understory;
     if (!path) {
       logger.warn('Understory GLB path is not configured; skipping imported plants.');
@@ -128,6 +130,13 @@ export class UnderstorySystem {
         .map((root) => bakePlant(root, worldScale))
         .filter(Boolean);
       for (const plant of plants) for (const primitive of plant.primitives) this.geometries.add(primitive.geometry);
+      try {
+        const keys = plants.map((plant) => UNDERSTORY_ATLAS_PREFIX + plant.name);
+        this.billboardAssets = await loadVegetationLodAssets(keys, this.config, signal);
+      } catch (error) {
+        if (signal?.aborted) throw error;
+        logger.warn('Static understory billboards unavailable; falling back to runtime baking.', error);
+      }
       if (plants.length === 0) {
         logger.warn('Understory GLB contained no usable plant meshes; skipping imported plants.');
         this.releaseGltf?.();
@@ -204,7 +213,7 @@ export class UnderstorySystem {
       variant.billboard?.material.dispose();
       variant.billboard?.removeFromParent();
       variant.billboard?.dispose();
-      variant.atlas?.target.dispose();
+      variant.atlas?.target?.dispose();
     }
     this.meshes.length = 0;
     for (const geometry of this.geometries) geometry.dispose();
@@ -212,6 +221,8 @@ export class UnderstorySystem {
     this.variants.length = 0;
     for (const material of this.materials) material.dispose();
     this.materials.length = 0;
+    this.billboardAssets?.dispose();
+    this.billboardAssets = null;
     this.releaseGltf?.();
     this.releaseGltf = null;
     this.ready = false;
@@ -269,8 +280,13 @@ export class UnderstorySystem {
       this.variants.push(variant);
       if (this.renderer) {
         for (const primitive of plant.primitives) prepareAtlas(primitive.sourceMaterial?.map);
-        variant.atlas = await bakeUnderstoryBillboard(this.renderer, plant);
-        if (this.disposed) { variant.atlas.target.dispose(); return; }
+        const baked = this.billboardAssets?.variants.get(UNDERSTORY_ATLAS_PREFIX + plant.name);
+        if (baked?.atlas && baked.entry?.capture) {
+          variant.atlas = { texture: baked.atlas, ...baked.entry.capture };
+        } else {
+          variant.atlas = await bakeUnderstoryBillboard(this.renderer, plant);
+          if (this.disposed) { variant.atlas.target.dispose(); return; }
+        }
         variant.billboard = createUnderstoryBillboard({ ...shared, atlas: variant.atlas, capacity,
           lodStart: this.lodStart, lodEnd: this.lodEnd });
         variant.billboard.name = `Understory billboard ${plant.name}`;
