@@ -1,0 +1,326 @@
+{
+  "assets": [
+    {
+      "name": "grass_01",
+      "file": "grass_01.glb",
+      "dimensions_m": [
+        1.0026946067810059,
+        0.874230682849884,
+        0.6892572641372681
+      ],
+      "triangles": 264
+    },
+    {
+      "name": "grass_02",
+      "file": "grass_02.glb",
+      "dimensions_m": [
+        1.1775190830230713,
+        0.998014509677887,
+        0.645779550075531
+      ],
+      "triangles": 264
+    },
+    {
+      "name": "grass_03",
+      "file": "grass_03.glb",
+      "dimensions_m": [
+        1.1355082988739014,
+        1.0217759609222412,
+        0.6578365564346313
+      ],
+      "triangles": 264
+    },
+    {
+      "name": "groundcover_01",
+      "file": "groundcover_01.glb",
+      "dimensions_m": [
+        1.5899523496627808,
+        0.8773834109306335,
+        0.08534161001443863
+      ],
+      "triangles": 80
+    },
+    {
+      "name": "groundcover_02",
+      "file": "groundcover_02.glb",
+      "dimensions_m": [
+        1.355802059173584,
+        1.2746773958206177,
+        0.0896218791604042
+      ],
+      "triangles": 80
+    },
+    {
+      "name": "fern_01",
+      "file": "fern_01.glb",
+      "dimensions_m": [
+        1.7785325050354004,
+        1.8476730585098267,
+        0.3870438039302826
+      ],
+      "triangles": 144
+    },
+    {
+      "name": "fern_02",
+      "file": "fern_02.glb",
+      "dimensions_m": [
+        2.0351524353027344,
+        1.7414847612380981,
+        0.3888520300388336
+      ],
+      "triangles": 144
+    },
+    {
+      "name": "broadleaf_01",
+      "file": "broadleaf_01.glb",
+      "dimensions_m": [
+        2.6621525287628174,
+        2.8996899127960205,
+        1.7013726234436035
+      ],
+      "triangles": 504
+    },
+    {
+      "name": "broadleaf_02",
+      "file": "broadleaf_02.glb",
+      "dimensions_m": [
+        2.718754291534424,
+        2.3658289909362793,
+        1.4990826845169067
+      ],
+      "triangles": 504
+    },
+    {
+      "name": "broadleaf_03",
+      "file": "broadleaf_03.glb",
+      "dimensions_m": [
+        2.601612091064453,
+        2.5659327507019043,
+        1.8539036512374878
+      ],
+      "triangles": 504
+    },
+    {
+      "name": "palm_01",
+      "file": "palm_01.glb",
+      "dimensions_m": [
+        6.380722999572754,
+        6.327273845672607,
+        10.855859756469727
+      ],
+      "triangles": 472
+    },
+    {
+      "name": "palm_02",
+      "file": "palm_02.glb",
+      "dimensions_m": [
+        6.805885314941406,
+        5.3480329513549805,
+        10.760221481323242
+      ],
+      "triangles": 472
+    },
+    {
+      "name": "tree_01",
+      "file": "tree_01.glb",
+      "dimensions_m": [
+        8.837509155273438,
+        9.618358612060547,
+        11.452350616455078
+      ],
+      "triangles": 7212
+    },
+    {
+      "name": "tree_02",
+      "file": "tree_02.glb",
+      "dimensions_m": [
+        8.972268104553223,
+        8.564643859863281,
+        12.592015266418457
+      ],
+      "triangles": 6236
+    },
+    {
+      "name": "tree_03",
+      "file": "tree_03.glb",
+      "dimensions_m": [
+        9.631510734558105,
+        10.248516082763672,
+        9.422350883483887
+      ],
+      "triangles": 8188
+    },
+    {
+      "name": "tree_04",
+      "file": "tree_04.glb",
+      "dimensions_m": [
+        9.082971572875977,
+        8.641776084899902,
+        14.750617027282715
+      ],
+      "triangles": 6724
+    },
+    {
+      "name": "tree_05",
+      "file": "tree_05.glb",
+      "dimensions_m": [
+        10.33020305633545,
+        10.109580039978027,
+        10.270744323730469
+      ],
+      "triangles": 7700
+    },
+    {
+      "name": "tree_06",
+      "file": "tree_06.glb",
+      "dimensions_m": [
+        9.477302551269531,
+        7.394222259521484,
+        11.996708869934082
+      ],
+      "triangles": 7212
+    },
+    {
+      "name": "shrub_01",
+      "file": "shrub_01.glb",
+      "dimensions_m": [
+        2.448681354522705,
+        2.4759817123413086,
+        1.7151163816452026
+      ],
+      "triangles": 612
+    },
+    {
+      "name": "shrub_02",
+      "file": "shrub_02.glb",
+      "dimensions_m": [
+        2.3440423011779785,
+        2.3939590454101562,
+        1.6558057069778442
+      ],
+      "triangles": 612
+    },
+    {
+      "name": "vine_01",
+      "file": "vine_01.glb",
+      "dimensions_m": [
+        1.730664610862732,
+        0.9963757991790771,
+        6.277304172515869
+      ],
+      "triangles": 3240
+    },
+    {
+      "name": "vine_02",
+      "file": "vine_02.glb",
+      "dimensions_m": [
+        1.7667156457901,
+        0.9410786628723145,
+        5.613399505615234
+      ],
+      "triangles": 3240
+    },
+    {
+      "name": "climber_01",
+      "file": "climber_01.glb",
+      "dimensions_m": [
+        1.998569130897522,
+        1.9626474380493164,
+        5.614504337310791
+      ],
+      "triangles": 1008
+    },
+    {
+      "name": "climber_02",
+      "file": "climber_02.glb",
+      "dimensions_m": [
+        2.063516616821289,
+        2.0142083168029785,
+        5.609107971191406
+      ],
+      "triangles": 1008
+    },
+    {
+      "name": "background_tree_01",
+      "file": "background_tree_01.glb",
+      "dimensions_m": [
+        9.023445129394531,
+        8.571355819702148,
+        12.31723690032959
+      ],
+      "triangles": 3404
+    },
+    {
+      "name": "background_tree_02",
+      "file": "background_tree_02.glb",
+      "dimensions_m": [
+        8.055352210998535,
+        7.7588114738464355,
+        13.882102966308594
+      ],
+      "triangles": 3404
+    },
+    {
+      "name": "background_tree_03",
+      "file": "background_tree_03.glb",
+      "dimensions_m": [
+        10.695001602172852,
+        9.170695304870605,
+        10.053589820861816
+      ],
+      "triangles": 3404
+    },
+    {
+      "name": "split_leaf_01",
+      "file": "split_leaf_01.glb",
+      "dimensions_m": [
+        2.509781837463379,
+        2.6348862648010254,
+        1.4249259233474731
+      ],
+      "triangles": 392
+    },
+    {
+      "name": "split_leaf_02",
+      "file": "split_leaf_02.glb",
+      "dimensions_m": [
+        2.5570387840270996,
+        2.242154598236084,
+        1.373794674873352
+      ],
+      "triangles": 392
+    },
+    {
+      "name": "tree_lod_01",
+      "file": "tree_lod_01.glb",
+      "dimensions_m": [
+        9.37261962890625,
+        9.02869987487793,
+        11.853211402893066
+      ],
+      "triangles": 1620
+    },
+    {
+      "name": "tree_lod_02",
+      "file": "tree_lod_02.glb",
+      "dimensions_m": [
+        7.114605903625488,
+        8.060715675354004,
+        12.867130279541016
+      ],
+      "triangles": 1620
+    },
+    {
+      "name": "tree_lod_03",
+      "file": "tree_lod_03.glb",
+      "dimensions_m": [
+        10.576906204223633,
+        8.01972484588623,
+        9.215110778808594
+      ],
+      "triangles": 1620
+    }
+  ],
+  "units": "meters",
+  "vine_pivot": "top attachment; other plants at ground"
+}

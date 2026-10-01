@@ -1,0 +1,199 @@
+{
+  "units": "meters",
+  "pivot": "ground center",
+  "materials": "embedded glTF PBR, double sided; no external textures",
+  "assets": [
+    {
+      "name": "jungle_grass_short",
+      "file": "jungle_grass_short.glb",
+      "dimensions_m": [
+        1.1542885303497314,
+        1.210514783859253,
+        0.3836561143398285
+      ],
+      "triangles": 1760,
+      "bytes": 126308,
+      "seed": 201
+    },
+    {
+      "name": "jungle_grass_tall",
+      "file": "jungle_grass_tall.glb",
+      "dimensions_m": [
+        2.2975361347198486,
+        2.110236644744873,
+        0.8710921406745911
+      ],
+      "triangles": 2240,
+      "bytes": 159908,
+      "seed": 202
+    },
+    {
+      "name": "jungle_grass_broad",
+      "file": "jungle_grass_broad.glb",
+      "dimensions_m": [
+        2.072338104248047,
+        1.84319007396698,
+        0.6863014698028564
+      ],
+      "triangles": 1360,
+      "bytes": 98296,
+      "seed": 203
+    },
+    {
+      "name": "jungle_groundcover",
+      "file": "jungle_groundcover.glb",
+      "dimensions_m": [
+        0.8955873250961304,
+        0.802964985370636,
+        0.34421542286872864
+      ],
+      "triangles": 648,
+      "bytes": 47148,
+      "seed": 204
+    },
+    {
+      "name": "fern_small",
+      "file": "fern_small.glb",
+      "dimensions_m": [
+        1.3290475606918335,
+        1.3832182884216309,
+        0.17840556800365448
+      ],
+      "triangles": 6048,
+      "bytes": 419404,
+      "seed": 205
+    },
+    {
+      "name": "fern_large",
+      "file": "fern_large.glb",
+      "dimensions_m": [
+        2.328683853149414,
+        2.2646877765655518,
+        0.2979598641395569
+      ],
+      "triangles": 11520,
+      "bytes": 795156,
+      "seed": 206
+    },
+    {
+      "name": "elephant_ear",
+      "file": "elephant_ear.glb",
+      "dimensions_m": [
+        2.205254077911377,
+        2.2112679481506348,
+        0.992817759513855
+      ],
+      "triangles": 324,
+      "bytes": 25584,
+      "seed": 207
+    },
+    {
+      "name": "banana_understory",
+      "file": "banana_understory.glb",
+      "dimensions_m": [
+        3.5206520557403564,
+        3.4289512634277344,
+        1.834163784980774
+      ],
+      "triangles": 360,
+      "bytes": 27564,
+      "seed": 208
+    },
+    {
+      "name": "palm_young",
+      "file": "palm_young.glb",
+      "dimensions_m": [
+        3.557643175125122,
+        3.314058303833008,
+        2.1169514656066895
+      ],
+      "triangles": 13904,
+      "bytes": 944244,
+      "seed": 209
+    },
+    {
+      "name": "palm_tall",
+      "file": "palm_tall.glb",
+      "dimensions_m": [
+        5.842362403869629,
+        5.910811424255371,
+        7.663049221038818
+      ],
+      "triangles": 26208,
+      "bytes": 1763384,
+      "seed": 210
+    },
+    {
+      "name": "jungle_canopy_tree",
+      "file": "jungle_canopy_tree.glb",
+      "dimensions_m": [
+        5.695073127746582,
+        6.17770528793335,
+        7.541594982147217
+      ],
+      "triangles": 44712,
+      "bytes": 3101744,
+      "seed": 211
+    },
+    {
+      "name": "hanging_vine_cluster",
+      "file": "hanging_vine_cluster.glb",
+      "dimensions_m": [
+        1.755920648574829,
+        0.29045623540878296,
+        3.205535411834717
+      ],
+      "triangles": 4992,
+      "bytes": 343592,
+      "seed": 212
+    },
+    {
+      "name": "palm_frond_module",
+      "file": "palm_frond_module.glb",
+      "dimensions_m": [
+        2.521362781524658,
+        1.3947205543518066,
+        0.4120575785636902
+      ],
+      "triangles": 1536,
+      "bytes": 109568,
+      "seed": 213
+    },
+    {
+      "name": "fern_frond_module",
+      "file": "fern_frond_module.glb",
+      "dimensions_m": [
+        1.2091069221496582,
+        0.5454907417297363,
+        0.23294156789779663
+      ],
+      "triangles": 960,
+      "bytes": 68724,
+      "seed": 214
+    },
+    {
+      "name": "broad_leaf_module",
+      "file": "broad_leaf_module.glb",
+      "dimensions_m": [
+        0.9578262567520142,
+        0.5,
+        0.19207830727100372
+      ],
+      "triangles": 16,
+      "bytes": 2308,
+      "seed": 215
+    },
+    {
+      "name": "vine_strand_module",
+      "file": "vine_strand_module.glb",
+      "dimensions_m": [
+        0.6525377631187439,
+        0.2904721200466156,
+        1.9909926652908325
+      ],
+      "triangles": 640,
+      "bytes": 46996,
+      "seed": 216
+    }
+  ]
+}

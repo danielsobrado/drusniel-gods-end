@@ -1,0 +1,28 @@
+trees:
+  # Bends each tree's root flare onto the ground plane under it and sinks the
+  # tree past dips the plane misses, so roots never hang in the air on slopes.
+  roots:
+    enabled: true
+    rootHeight: 0.25
+    conformHeight: 3
+    maxSlope: 1.2
+    maxSink: 2
+    bury: 0.05
+    # Trees whose roots would still stand this far (m) above the ground after
+    # the bend and the capped sink sit on a cliff or ridge edge; they are left
+    # out rather than drawn with roots in the air.
+    maxOverhang: 1
+  shapeVariation:
+    enabled: true
+    width: 0.22
+    depth: 0.18
+    height: 0.08
+  highDistance: 170
+  billboardDistance: 4000
+  highHysteresis: 8
+  billboardHysteresis: 200
+  transitionDuration: 1
+  lodUpdateInterval: 0.1
+  billboard:
+    alphaTest: 0.4
+    anisotropy: 4

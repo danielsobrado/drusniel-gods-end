@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-*/
+pkg/
+.wrangler/
+.dev.vars*
+
+# Generated runtime assets (rebuilt by `npm run prepare:runtime`)
+public/config.bundle.json
+public/Assets/vendor/basis/
+public/Assets/generated/expanded-terrain.json
+public/Assets/generated/expanded-terrain.bin.gz
+public/Assets/generated/scene-preprocessing.json
+public/Assets/generated/scene-preprocessing.bin.gz
+
+# Local source art and scratch assets
+assets-source/
+public/tmp/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.vscode/
+.idea/
+.history/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Caches and test artifacts
+.cache/
+.browser-profile/
+coverage/
+test-results/
+playwright-report/
+
+# Logs and crash dumps
+*.log
+*.stackdump
+
+# Scratch files, screenshots and one-off scripts in the repo root
+.tmp-*
+.*-tmp.*
+/.browser-check.ps1
+/.cleanup-review.ps1
+/*.png
+/*.jpg
+
+# CI
+.github/

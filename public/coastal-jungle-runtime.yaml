@@ -1,0 +1,177 @@
+# Runtime integration for the authored coastal jungle v2 pack.
+biomes:
+  coastalJungle:
+    enabled: true
+    asset: Assets/terrain/coastal-jungle/scenes/coastal_jungle_v2_reference.glb
+    collisionGroup: coastalJungle
+    anisotropy: 8
+    material:
+      alphaTest: 0.4
+      shadowAlphaTest: 0.48
+      alphaToCoverage: true
+      foliageRoughnessMin: 0.84
+      surfaceRoughnessMin: 0.9
+      ambientLift: 0.035
+      backlight: 0.18
+      haze:
+        enabled: true
+        color: '#91b1b7'
+        start: 18
+        end: 85
+        strength: 0.28
+      # Grass and groundcover are drawn only near the camera; beyond them the
+      # soil blends toward the colour of that cover instead of reading as a
+      # bare clearing.
+      floorCover:
+        color: '#4b5a2a'
+        start: 22
+        end: 48
+        strength: 0.85
+      wind:
+        enabled: true
+        amplitude: 0.035
+        speed: 1.4
+        spatialX: 0.7
+        spatialZ: 0.6
+        turbulence: 0.28
+        flutterRatio: 0.32
+        kindScale:
+          grass: 1
+          groundcover: 0.8
+          fern: 0.72
+          broadleaf: 0.75
+          palm: 0.35
+          tree: 0.18
+          shrub: 0.58
+          vine: 0.65
+          climber: 0.4
+          background_tree: 0.14
+          split_leaf: 0.75
+    # The authored scene keeps its own spacing: it is not squeezed into the
+    # strip but cropped by it. origin is where the scene origin (the reference
+    # view's clearing) lands and yaw turns the scene about it; PI puts the
+    # reference view's heading on +Z.
+    # inlandEnd runs the strip down the plateau to the lake's south arm, which
+    # is wider than the 256 m scene: a second copy, turned a quarter, fills
+    # the square inland of the first. Each copy keeps only its own square.
+    region:
+      zStart: 250
+      zEnd: 430
+      inlandStart: 140
+      inlandEnd: 520
+      origin: [846, 312]
+      yaw: 3.14159265
+      tileSize: 256
+      tiles:
+        - { origin: [590, 312], yaw: 1.57079633 }
+    # Only jungle grows in the strip. Across its edge band the jungle thins
+    # out while the surrounding biome thins in, so they overlap only there.
+    ecology:
+      edgeFade: 12
+      baseVegetationScale: 0
+      # Share of the original's big backdrop shrubs (its distant understory,
+      # 1.6-3.4x) kept outside the hero patch. At full density they cover the
+      # ground about twice over and wall in a walking camera.
+      backdropShrubDensity: 0.35
+    # The source world scatters its floor at load time instead of
+    # authoring it:
+    # per chunk outside the hero patch, from one seeded LCG.
+    scatter:
+      seed: 941
+      extent: 128
+      chunkSize: 16
+      grassPerChunk: 540
+      groundcoverPerChunk: 100
+      undergrowthPerChunk: 7
+      plantExtent: 22
+      pathClearance: 0.5
+    placement:
+      groundOffset: 0.025
+      pathOffset: 0.045
+      slopeSampleDistance: 2
+      maxSlope: 0.75
+      routeMaskMax: 0.08
+      routeFloorRevealStart: 0.08
+      routeFloorRevealDepth: 0.015
+      surfaceEdgeFade: 12
+      riverClearance: 10
+      boundsPadding: 1
+    collider:
+      tree: { radius: 0.52, height: 7.5 }
+      background_tree: { radius: 0.4, height: 7 }
+      palm: { radius: 0.38, height: 7 }
+    shadowKinds: [groundcover, fern, broadleaf, palm, tree, shrub, vine, climber, background_tree, split_leaf]
+    render:
+      lodHysteresis: 0.06
+      chunkSize: 16
+      grassDenseDistance: 14
+      grassDistance: 34
+      grassFarDensity: 0.2
+      groundcoverDistance: 28
+      undergrowthDistance: 72
+      treeDistance: 180
+      preloadLeadDistance: 80
+      cameraMoveThreshold: 0.2
+      cameraRotationThreshold: 0.0038
+      cameraTurnMarginDegrees: 12
+    quality:
+      performance:
+        maxDistance: 130
+        shadows: false
+        density:
+          grass: 0.55
+          groundcover: 0.65
+          fern: 0.70
+          broadleaf: 0.75
+          palm: 1
+          tree: 1
+          shrub: 0.70
+          vine: 0.65
+          climber: 0.70
+          background_tree: 1
+          split_leaf: 0.75
+      balanced:
+        maxDistance: 160
+        shadows: false
+        density:
+          grass: 0.80
+          groundcover: 0.85
+          fern: 0.90
+          broadleaf: 0.90
+          palm: 1
+          tree: 1
+          shrub: 0.90
+          vine: 0.85
+          climber: 0.90
+          background_tree: 1
+          split_leaf: 0.90
+      high:
+        maxDistance: 180
+        shadows: true
+        density:
+          grass: 1
+          groundcover: 1
+          fern: 1
+          broadleaf: 1
+          palm: 1
+          tree: 1
+          shrub: 1
+          vine: 1
+          climber: 1
+          background_tree: 1
+          split_leaf: 1
+      ultra:
+        maxDistance: 180
+        shadows: true
+        density:
+          grass: 1
+          groundcover: 1
+          fern: 1
+          broadleaf: 1
+          palm: 1
+          tree: 1
+          shrub: 1
+          vine: 1
+          climber: 1
+          background_tree: 1
+          split_leaf: 1

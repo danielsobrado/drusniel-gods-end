@@ -1,0 +1,533 @@
+.loading-overlay {
+  --r: 0vmax;
+  --art-text-shadow: 0 1px 3px rgba(4, 10, 14, .95), 0 0 16px rgba(4, 10, 14, .8);
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  display: grid;
+  place-content: center;
+  /* Six roster cards wrap to two rows before one is picked. Centred grid content
+     overflows in both directions, so a short viewport used to push the lower rows
+     out of a clipped overlay with no way to scroll to them.
+     `safe center` gives up centring rather than overflow the top edge; browsers
+     that do not know it drop this line and keep the `place-content` above. */
+  align-content: safe center;
+  justify-items: center;
+  gap: 18px;
+  padding: 28px;
+  overflow: hidden auto;
+  background: radial-gradient(circle at 50% 42%, #17252a 0, #071015 62%);
+  color: #eef4e8;
+  pointer-events: auto;
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 0 var(--r), #000 calc(var(--r) + 1px));
+  mask-image: radial-gradient(circle at 50% 50%, transparent 0 var(--r), #000 calc(var(--r) + 1px));
+}
+
+/* The key art and its ember canvas are the only children that are not part of the
+   centred column, so everything else has to be lifted above them. */
+.loading-overlay > :not(.loading-art) {
+  position: relative;
+  z-index: 1;
+}
+
+/* Fixed rather than absolute: the overlay scrolls on short viewports, and the
+   backdrop sliding out from under the roster cards would give that away. The
+   overlay's own stacking context still keeps this inside the iris reveal mask. */
+.loading-art {
+  --art-opacity: .72;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.loading-art-lqip,
+.loading-art-image,
+.loading-art-fx {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* A 24px inline thumbnail, so the first paint is already the scene rather than a
+   bare gradient. Upscaling is the blur; a filter here would cost a layer. */
+.loading-art-lqip {
+  background-position: center;
+  background-size: cover;
+  opacity: var(--art-opacity);
+  transition: opacity .5s ease;
+  /* The shipped WebP carries a matching alpha ramp, so the handoff between the
+     two is invisible. This approximates it in one mask layer. */
+  -webkit-mask-image: radial-gradient(ellipse 80% 76% at 50% 44%, #000 34%, transparent 100%);
+  mask-image: radial-gradient(ellipse 80% 76% at 50% 44%, #000 34%, transparent 100%);
+}
+
+.loading-art-image {
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity .6s ease;
+}
+
+.loading-art.is-loaded .loading-art-image {
+  opacity: var(--art-opacity);
+}
+
+/* If the WebP never arrives this class is never set, so the placeholder stays up
+   as the backdrop rather than the screen falling back to a bare gradient. */
+.loading-art.is-loaded .loading-art-lqip {
+  opacity: 0;
+}
+
+/* Darkest where the wordmark, the bar and the roster sit, opening up towards the
+   edges where the braziers are. The bottom band carries the lore links. */
+.loading-art-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 57% 53% at 50% 45%, rgba(7, 16, 21, .88), rgba(7, 16, 21, .42) 60%, rgba(7, 16, 21, 0) 100%),
+    linear-gradient(to bottom, rgba(7, 16, 21, .58), rgba(7, 16, 21, .12) 26%, rgba(7, 16, 21, .44) 70%, rgba(7, 16, 21, .88));
+}
+
+/* The overlay's text used to sit on a flat gradient and needed no help. Over a
+   painted hall it does: the wordmark in particular crosses the mage's white hair,
+   where an ash-blue fill on its own disappears. */
+.loading-row,
+.loading-detail,
+.character-prompt,
+.character-hint,
+.loading-links {
+  text-shadow: var(--art-text-shadow);
+}
+
+/* Screen so the embers and the brazier haloes brighten the paint underneath
+   instead of laying grey over it. The overlay is a stacking context, so this
+   blends only with the art below it and never with the 3D scene behind. */
+.loading-art-fx {
+  mix-blend-mode: screen;
+}
+
+.loading-logo {
+  position: relative;
+  width: min(1120px, 94vw);
+  height: clamp(30px, 5vw, 52px);
+  text-shadow: 0 2px 6px rgba(4, 10, 14, .95), 0 0 34px rgba(4, 10, 14, .85);
+  font-family: "Inter Display", Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(21px, 4.4vw, 44px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: .08em;
+  text-align: center;
+}
+
+.loading-logo > span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  white-space: nowrap;
+}
+
+.logo-outline {
+  color: rgba(238, 244, 232, .15);
+  -webkit-text-stroke: 1px rgba(238, 244, 232, .5);
+}
+
+.logo-fill {
+  color: #eef4e8;
+  clip-path: polygon(0 100%, 100% 100%, 100% 100%, 0 100%);
+}
+
+.loading-progress {
+  width: min(430px, 76vw);
+}
+
+.loading-progress-track {
+  width: 100%;
+  height: 3px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, .09);
+}
+
+.progress-bar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #b6ee43;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+.loading-overlay.is-compiling-shaders .progress-bar {
+  width: 34%;
+  transform: translateX(-110%);
+  transform-origin: center;
+  animation: shader-progress-sweep 1.35s ease-in-out infinite;
+}
+
+@keyframes shader-progress-sweep {
+  0% { transform: translateX(-110%); }
+  50% { transform: translateX(100%); }
+  100% { transform: translateX(295%); }
+}
+
+.loading-overlay .loading-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 9px;
+  color: #b6ee43;
+  font-size: 11px;
+}
+
+.loading-detail {
+  min-height: 14px;
+  margin-top: 6px;
+  overflow: hidden;
+  color: rgba(238, 244, 232, .72);
+  font-size: 10px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loading-detail-tech {
+  min-height: 13px;
+  margin-top: 2px;
+  color: rgba(238, 244, 232, .42);
+  font-size: 9px;
+}
+
+/* There is no start button: the overlay hands over on its own at 100%, and the
+   dial beside the chosen traveller is what the player watches instead. */
+.character-progress {
+  position: relative;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 122px;
+  height: 122px;
+  margin-left: auto;
+}
+
+.character-progress svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* 12 o'clock start, filling clockwise. */
+  transform: rotate(-90deg);
+  overflow: visible;
+}
+
+.character-progress circle {
+  fill: none;
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.character-ring-track {
+  stroke: rgba(238, 244, 232, .16);
+}
+
+/* pathLength="100" in the markup makes the dash units percentages, so the JS
+   only ever writes `100 - percent` here. */
+.character-ring-fill {
+  stroke: #b6ee43;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  filter: drop-shadow(0 0 6px rgba(182, 238, 67, .55));
+  transition: stroke-dashoffset .6s cubic-bezier(.22, .68, .3, 1);
+}
+
+.character-percent {
+  color: #eef4e8;
+  font-size: 27px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
+  text-shadow: var(--art-text-shadow);
+}
+
+/* A slow breath on the dial while the world is still building, so the screen is
+   never completely still, and a clean flare on the last frame. */
+.character-gate.is-locked .character-progress::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(182, 238, 67, .3);
+  animation: ring-breath 2.6s ease-out infinite;
+}
+
+.loading-overlay.is-ready .character-progress::after {
+  animation: ring-complete .9s cubic-bezier(.16, .84, .28, 1) both;
+}
+
+.loading-overlay.is-ready .character-percent {
+  color: #b6ee43;
+}
+
+@keyframes ring-breath {
+  0%   { box-shadow: 0 0 0 0 rgba(182, 238, 67, .28); }
+  70%  { box-shadow: 0 0 0 14px rgba(182, 238, 67, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(182, 238, 67, 0); }
+}
+
+@keyframes ring-complete {
+  from { box-shadow: 0 0 0 0 rgba(182, 238, 67, .55); }
+  to   { box-shadow: 0 0 0 26px rgba(182, 238, 67, 0); }
+}
+
+/* The overlay is about to iris away; nothing on it should still be asking for
+   attention while the scene fades up behind it. */
+.loading-overlay.is-starting .character-progress::after {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .character-ring-fill {
+    transition: none;
+  }
+
+  .character-gate.is-locked .character-progress::after,
+  .loading-overlay.is-ready .character-progress::after {
+    animation: none;
+    box-shadow: 0 0 0 1px rgba(182, 238, 67, .3);
+  }
+}
+
+/* Loading stays centered and uncluttered until the character gate at 20%.
+   Explicitly override the gate's grid display while hidden because author styles
+   otherwise win over the browser's default [hidden] rule. */
+.character-gate[hidden] {
+  display: none;
+}
+
+/* Loading halts at the character stage until the player picks, so the gate has
+   to read as the call to action on the screen, not as a footnote under the bar. */
+.character-gate {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  width: min(820px, 92vw);
+  margin-top: 10px;
+}
+
+.character-prompt {
+  margin: 0;
+  color: #eef4e8;
+  font-size: clamp(22px, 3.2vw, 34px);
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.character-hint {
+  margin: -6px 0 0;
+  color: #b6ee43;
+  font-size: 13px;
+  letter-spacing: .12em;
+  text-align: center;
+}
+
+.character-hint:empty {
+  display: none;
+}
+
+.character-gate.is-locked .character-prompt {
+  font-size: clamp(14px, 1.6vw, 17px);
+  font-weight: 600;
+  opacity: .8;
+}
+
+.character-select {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+.character-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  min-height: 72px;
+  padding: 14px 18px;
+  border: 1px solid rgba(238, 244, 232, .28);
+  border-radius: 8px;
+  /* Dark rather than the old white wash: the cards now sit over the key art, and
+     a lightening fill let the orc's shoulder read straight through the labels. */
+  background: rgba(7, 16, 21, .52);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .25s, background .25s, opacity .25s, transform .2s;
+}
+
+.loading-overlay.is-awaiting-character .character-card {
+  animation: character-card-call 2.2s ease-in-out infinite;
+}
+
+.loading-overlay.is-awaiting-character .character-card:hover {
+  transform: translateY(-2px);
+}
+
+.loading-overlay.is-awaiting-character .character-hint {
+  animation: character-hint-blink 1.6s ease-in-out infinite;
+}
+
+@keyframes character-card-call {
+  0%, 100% { border-color: rgba(238, 244, 232, .28); box-shadow: 0 0 0 0 rgba(182, 238, 67, 0); }
+  50%      { border-color: rgba(182, 238, 67, .7); box-shadow: 0 0 22px 0 rgba(182, 238, 67, .22); }
+}
+
+@keyframes character-hint-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-overlay.is-awaiting-character .character-card,
+  .loading-overlay.is-awaiting-character .character-hint {
+    animation: none;
+  }
+
+  .loading-overlay.is-awaiting-character .character-card {
+    border-color: rgba(182, 238, 67, .55);
+  }
+}
+
+/* Keep the global lime `button:hover` text colour off the cards. */
+.character-card:hover {
+  color: inherit;
+}
+
+.character-card:hover:not(:disabled) {
+  border-color: rgba(182, 238, 67, .55);
+  background: rgba(182, 238, 67, .07);
+}
+
+.character-card:focus-visible {
+  outline: 2px solid #b6ee43;
+  outline-offset: 3px;
+}
+
+.character-monogram {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(182, 238, 67, .35);
+  border-radius: 50%;
+  color: #b6ee43;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.character-monogram svg {
+  width: 24px;
+  height: 24px;
+}
+
+.character-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.character-copy strong {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+
+.character-copy em {
+  overflow: hidden;
+  color: #b6ee43;
+  font-size: 11px;
+  font-style: normal;
+  letter-spacing: .14em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.loading-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 12px 28px;
+}
+
+.loading-lore-link {
+  color: rgba(238, 244, 232, .6);
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(238, 244, 232, .2);
+  padding-bottom: 2px;
+  transition: color .2s, border-color .2s;
+}
+
+.loading-lore-link:hover,
+.loading-lore-link:focus-visible {
+  color: #eef4e8;
+  border-color: currentColor;
+}
+
+/* The unpicked cards are removed from the DOM on selection, so the grid collapses
+   to one card that no longer has to share a 230px column with anything. */
+.character-select.is-locked {
+  display: flex;
+  justify-content: center;
+}
+
+.character-select.is-locked .character-card.is-chosen {
+  gap: 22px;
+  width: min(460px, 92vw);
+  min-height: 132px;
+  padding: 16px 22px;
+  border-color: rgba(182, 238, 67, .6);
+  background: rgba(7, 16, 21, .66);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .45);
+  cursor: default;
+  opacity: 1;
+}
+
+.character-select.is-locked .character-monogram {
+  width: 62px;
+  height: 62px;
+  border-color: rgba(182, 238, 67, .5);
+  font-size: 26px;
+}
+
+.character-select.is-locked .character-monogram svg {
+  width: 34px;
+  height: 34px;
+}
+
+.character-select.is-locked .character-copy strong {
+  font-size: 21px;
+}
+
+@media (max-width: 420px) {
+  .character-select.is-locked .character-card.is-chosen {
+    gap: 14px;
+    padding: 14px 16px;
+  }
+
+  .character-progress {
+    width: 98px;
+    height: 98px;
+  }
+
+  .character-percent {
+    font-size: 22px;
+  }
+}

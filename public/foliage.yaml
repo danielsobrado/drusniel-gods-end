@@ -1,0 +1,148 @@
+assets:
+  foliage:
+    wildGrass: Assets/terrain/foliage/game_ready_grass.glb
+    understory: Assets/terrain/understories/low_poly_stylized_plants_pack_free.glb
+
+foliage:
+  wildGrass:
+    enabled: true
+    radius: 68
+    cellSize: 12
+    candidatesPerCell: 11
+    count: 1800
+    minDensity: 0.12
+    minGrowth: 0.18
+    pathThreshold: 0.3
+    minScale: 0.82
+    maxScale: 1.22
+    stretch: 0.07
+    embed: 0.03
+    alphaTest: 0.32
+    shadowAlphaTest: 0.55
+    windBend: 0.11
+    windFlutter: 0.028
+    fadeWidth: 16
+    worldScale: 0.68
+    density: 1
+    moistureBias: 0
+    growthBias: 0
+    quality:
+      performance: { density: 0.32, radius: 0.48, shadows: false }
+      balanced: { density: 0.55, radius: 0.7, shadows: false }
+      high: { density: 0.85, radius: 0.9, shadows: false }
+      ultra: { density: 1, radius: 1, shadows: false }
+  understory:
+    enabled: true
+    radius: 62
+    cellSize: 12
+    candidatesPerCell: 7
+    count: 800
+    minDensity: 0.08
+    minUnderstory: 0.18
+    pathThreshold: 0.3
+    minScale: 0.88
+    maxScale: 1.16
+    stretch: 0.05
+    embed: 0.02
+    alphaTest: 0.1
+    shadowAlphaTest: 0.35
+    windBend: 0.08
+    windFlutter: 0.018
+    fadeWidth: 14
+    billboardStart: 22
+    billboardEnd: 30
+    worldScale: 36
+    density: 1
+    moistureBias: 0
+    understoryBias: 0
+    quality:
+      performance: { density: 0.3, radius: 0.46, shadows: false }
+      balanced: { density: 0.52, radius: 0.68, shadows: false }
+      high: { density: 0.84, radius: 0.9, shadows: false }
+      ultra: { density: 1, radius: 1, shadows: false }
+
+presets:
+  sunny:
+    foliage:
+      wildGrass:
+        enabled: true
+        density: 1
+        growthBias: 0.28
+        moistureBias: 0.04
+      understory:
+        enabled: true
+        density: 0.58
+        understoryBias: 0.1
+  goldenHour:
+    foliage:
+      wildGrass:
+        enabled: true
+        density: 0.78
+        growthBias: 0.22
+        moistureBias: 0.06
+      understory:
+        enabled: true
+        density: 0.7
+        understoryBias: 0.1
+  rainy:
+    foliage:
+      wildGrass:
+        enabled: true
+        density: 0.92
+        growthBias: 0.18
+        moistureBias: 0.34
+      understory:
+        enabled: true
+        density: 0.94
+        moistureBias: 0.28
+        understoryBias: 0.14
+  windy:
+    foliage:
+      wildGrass:
+        enabled: true
+        density: 0.74
+        growthBias: 0.24
+        windBend: 0.18
+        windFlutter: 0.04
+      understory:
+        enabled: true
+        density: 0.72
+        windBend: 0.14
+        windFlutter: 0.028
+  calm:
+    foliage:
+      wildGrass:
+        enabled: true
+        density: 0.5
+        growthBias: 0.16
+        windBend: 0.055
+        windFlutter: 0.016
+      understory:
+        enabled: true
+        density: 0.6
+        windBend: 0.04
+        windFlutter: 0.01
+  bowed:
+    foliage:
+      wildGrass:
+        enabled: true
+        density: 0.34
+        growthBias: 0.08
+        maxScale: 1.08
+      understory:
+        enabled: true
+        density: 0.4
+        maxScale: 1.08
+  moonlight:
+    foliage:
+      wildGrass:
+        enabled: true
+        density: 0.24
+        growthBias: 0.05
+        moistureBias: -0.04
+        radius: 58
+      understory:
+        enabled: true
+        density: 0.3
+        understoryBias: 0.06
+        radius: 52

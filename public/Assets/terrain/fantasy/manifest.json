@@ -1,0 +1,40 @@
+{
+  "generatedDate": "2026-09-14",
+  "generator": "scripts/generate-fantasy-assets.mjs",
+  "command": "npm run assets:fantasy",
+  "assets": [
+    {
+      "files": ["tree10.glb", "tree11.glb"],
+      "generator": "scripts/generate-alpine-trees.mjs",
+      "internalSource": "Original conifer geometry; project bark-rugged artwork; tree1 low-card UV layout",
+      "author": "Procedural geometry authored in this repository; project bark artwork",
+      "license": "Original project geometry; preserved source rights for the reused billboard layout",
+      "attribution": "Retain upstream attribution associated with the original tree asset layout",
+      "changes": "Snow spruce and windswept mountain pine with six roots, three shared materials, modeled snow caps and rebaked distant atlases"
+    },
+    {
+      "files": ["tree1.glb", "tree2.glb", "tree3.glb", "tree4.glb", "tree5.glb", "tree6.glb", "tree7.glb", "tree8.glb", "tree9.glb"],
+      "internalSource": "public/Assets/terrain/trees/tree1.glb through tree9.glb",
+      "author": "Existing project tree assets; root geometry and trunk deformation authored in this repository",
+      "license": "Derivative: retains the existing source assets' rights; no new license grant",
+      "attribution": "Retain all upstream attribution associated with the original project tree assets",
+      "changes": "Curved trunks, flared bases, seven merged roots; project stylized bark and foliage; regenerated distant atlases"
+    },
+    {
+      "files": ["rocks.glb"],
+      "internalSource": "public/Assets/terrain/props/free_pack_-_rocks_stylized.glb",
+      "author": "Existing project stylized rock pack; geometry derivatives authored in this repository",
+      "license": "Derivative: retains the existing source asset's rights; no new license grant",
+      "attribution": "Retain all upstream attribution associated with the original project rock pack",
+      "changes": "Variants 10 and 11 use painted variants 06 and 07, reshaped to the original bounds with coherent authored UVs"
+    },
+    {
+      "files": ["lantern.glb"],
+      "internalSource": "scripts/wooden-lanterns.mjs; project bark-knotted texture; existing stylized rock pack texture and UV geometry",
+      "author": "Original procedural supports; project bark artwork; existing project rock pack",
+      "license": "Support geometry is original project work; project bark artwork; reused rock geometry and texture retain source rights",
+      "attribution": "Retain upstream attribution associated with the original project rock pack",
+      "changes": "Three wooden supports: timber crossbeam, twisted woodland staff, and braced roadside post; stone footings and three distinct warm lantern cages"
+    }
+  ]
+}

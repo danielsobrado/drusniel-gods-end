@@ -1,0 +1,144 @@
+camera:
+  distance: 5
+  minDistance: 1.5
+  pitch: -0.25
+  controls:
+    initialYaw: 0
+    targetHeight: 1
+    cameraHeight: 4
+    shoulderOffset: 1.2
+    # Below this width the touch layout (joystick, look pad) is used. The camera
+    # only swings behind the player by itself on touch-primary devices (phones,
+    # tablets); with a mouse it stays under full manual control at any width.
+    mobileBreakpoint: 768
+    mobileDistance: 7
+    desktopDistance: 5
+    mobileTargetOffset: 0.8
+    desktopTargetOffsetFactor: 0.001
+    mouseSensitivity: 0.001
+    dragSensitivityX: 0.005
+    dragSensitivityY: 0.004
+    minPitch: -0.8
+    maxPitch: 0.7
+    zoomSensitivity: 0.01
+    followSharpness: 8
+    zoomSharpness: 12
+    terrainClearance: 0.4
+    terrainOcclusionSamples: 18
+    terrainOcclusionPadding: 0.35
+    pointerLockOnClick: true
+player:
+  modelScale: 1
+  modelOffsetY: 0
+  modelRotationY: 0
+  motion:
+    acceleration: 20
+    deceleration: 16
+    stopSpeed: 0.06
+    runStateThreshold: 0.85
+    animationFadeSeconds: 0.25
+    walkAnimationRate: 1
+    runAnimationRate: 1
+    minAnimationRate: 0.72
+    maxAnimationRate: 1.18
+    explorationBoost:
+      doubleTapWindowMs: 350
+      speedMultiplier: 10
+navigation:
+  freeFly:
+    moveSpeed: 60
+    fastMultiplier: 3
+    lookSensitivity: 0.0015
+    minPitch: -1.553
+    maxPitch: 1.553
+  scenicTour:
+    durationSeconds: 120
+    returnDurationSeconds: 1.5
+    finalHoldSeconds: 4
+    lookAheadDistance: 32
+    preloadDistance: 420
+    orientationSharpness: 6
+    maxLookUpDegrees: 8
+    maxLookDownDegrees: 22
+    terrainClearance: 4
+    # Height kept above the crown of any tree, rock or structure the route passes
+    # over, and how far to either side of the flight path those count as in the way.
+    canopyClearance: 9
+    obstacleStandoff: 14
+    targetDrop: 2
+    seaLookBlendStart: 0.91
+    seaFocusXZ: [2100, 65]
+    seaFocusHeightOffset: 8
+    lakeDive:
+      enabled: true
+      centerXZ: [485, 260]
+      radius: 155
+      fullDepthRadius: 62
+      depth: 3.5
+      bedClearance: 1.5
+    # Authored world showcase: meadow and its anaconda -> river -> the big
+    # waterfall -> village -> up the falls and the snow river -> alpine peaks ->
+    # lake dive -> coastal jungle -> beach/coast -> offshore -> deep sea.
+    # `pace` slows the flight near a point (1 = cruise); `lookAt` turns the view
+    # to a subject while passing; `serpent: N` flies past wildlife.serpents[N]
+    # wherever it is when the tour starts. The peaks are flown slowly too: fast
+    # flight over them streamed more than a frame could take and stuttered.
+    showcasePoints:
+      - { position: [25, 70], lift: 18 }
+      - { serpent: 1, standoff: 130, lift: 85, pace: 0.4, paceRadius: 220, lookRadius: 220 }
+      - { position: [88, -19], lift: 24 }
+      # The 77 m falls seen from downstream, then the village beside it.
+      - { position: [-15, -170], lift: 36, pace: 0.4, paceRadius: 200, lookAt: [51, 75, -323], lookRadius: 170 }
+      # Around the village: in from the north-east, out past its south side.
+      - { position: [-95, -250], lift: 50, pace: 0.4, paceRadius: 170, lookAt: [-205, -310], lookHeight: 6, lookRadius: 130 }
+      - { position: [-190, -395], lift: 55, pace: 0.4, paceRadius: 170, lookAt: [-205, -310], lookHeight: 6, lookRadius: 130 }
+      # Up past the falls and along the snow river to its source.
+      - { position: [5, -350], lift: 38, pace: 0.4, paceRadius: 150, lookAt: [60, 95, -345], lookRadius: 120 }
+      - { position: [120, -440], lift: 34, pace: 0.4, paceRadius: 150, lookAt: [100, 135, -480], lookRadius: 120 }
+      - { position: [75, -545], lift: 30, pace: 0.4, paceRadius: 160 }
+      - { position: [30, -625], lift: 34, pace: 0.45, paceRadius: 160 }
+      - { position: [-25, -655], lift: 44, pace: 0.5, paceRadius: 180 }
+      - { position: [-125, -590], lift: 38, pace: 0.5, paceRadius: 180 }
+      - { position: [-115, -520], lift: 34, pace: 0.5, paceRadius: 180 }
+      - { position: [215, 92], lift: 28 }
+      - { position: [365, 118], lift: 22 }
+      - { position: [470, 175], lift: 18 }
+      - { position: [485, 260], lift: 16 }
+      - { position: [486, 342], lift: 14 }
+      - { position: [465, 420], lift: 18 }
+      - { position: [620, 340], lift: 30 }
+      - { position: [760, 318], lift: 28 }
+      - { position: [846, 305], lift: 26 }
+      - { position: [940, 315], lift: 18 }
+      - { position: [990, 320], lift: 14, minY: -6 }
+      - { position: [1080, 230], lift: 18, minY: -7 }
+      - { position: [1180, 130], lift: 22, minY: -6 }
+      - { position: [1320, 85], lift: 24, minY: -5 }
+      - { position: [1500, 65], lift: 28, minY: -4 }
+    riverViews:
+      - { fraction: 0.02, offset: 42, lift: 52 }
+      - { fraction: 0.14, offset: 46, lift: 44 }
+      - { fraction: 0.32, offset: 30, lift: 30 }
+      - { fraction: 0.5, offset: -22, lift: 20 }
+      - { fraction: 0.66, offset: 24, lift: 18 }
+      - { fraction: 0.82, offset: -18, lift: 15 }
+      - { fraction: 0.96, offset: 20, lift: 12 }
+  locations:
+    - { id: start, label: Start, mode: ground, position: [2, -5], yaw: 0 }
+    - { id: river, label: River, mode: ground, position: [88, -19], yaw: 0.75 }
+    # On the west bank of the lake's southern arm, looking east across the
+    # water to the jungle; the old [480, 378] became mid-lake when the lake grew.
+    - { id: lake, label: Lake, mode: ground, position: [416, 378], yaw: -1.5708 }
+    # South-east edge of the medieval village (see world/structurePlacements.js),
+    # looking north-west up the lane between the houses.
+    - { id: village, label: Village, mode: ground, position: [-160, -335], yaw: 1.9 }
+    - { id: beachSouth, label: Beach South, mode: ground, position: [990, 320], yaw: 1.5708 }
+    # The original's reference view: 7 m short of the jungle's hero clearing,
+    # looking down its trail (see biomes.coastalJungle.region.origin).
+    - { id: coastalJungle, label: Coastal Jungle, mode: ground, position: [846, 305], yaw: 3.14159265 }
+    - { id: beachNorth, label: Beach North, mode: ground, position: [900, -180], yaw: 1.5708 }
+    - { id: snowPass, label: Snow Pass, mode: ground, position: [-125, -590], yaw: -0.5 }
+    - { id: snowSummit, label: Alpine Summit, mode: ground, position: [-25, -655], yaw: 1.1, heightOffset: 0.08 }
+    - { id: snowPeak, label: Snow Peak, mode: ground, position: [-135, -765], yaw: 0.8, heightOffset: 0.08 }
+    - { id: offshore, label: Offshore, mode: fly, position: [1180, -12, 65], target: [1020, -24, 65] }
+    - { id: deepSea, label: Deep Sea, mode: fly, position: [1500, -4, 65], target: [1120, -24, 65] }

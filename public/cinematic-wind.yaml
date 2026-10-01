@@ -1,0 +1,49 @@
+wind:
+  model: cinematic
+  baseStrength: 0.18
+  minStrength: 0.06
+  maxStrength: 1.25
+  noiseScaleReference: 0.3
+  direction:
+    variationDegrees: 12
+    scale: 0.03
+    speed: 0.035
+  large:
+    scale: 0.015
+    speed: 0.08
+    strength: 0.70
+  medium:
+    scale: 0.07
+    speed: 0.21
+    strength: 0.23
+  flutter:
+    scale: 0.35
+    speed: 0.70
+    strength: 0.07
+  gust:
+    threshold: 0.48
+    peak: 0.86
+    exponent: 1.6
+    inertiaSeconds: 0.12
+    inertiaGain: 0.20
+  response:
+    blade:
+      bendScale: 0.28
+      tipFlutter: 0.035
+      tipExponent: 5
+      variationMin: 0.85
+      variationMax: 1.15
+    billboard:
+      bendScale: 0.22
+      tipFlutter: 0.025
+      tipExponent: 4
+      variationMin: 0.90
+      variationMax: 1.10
+    trees:
+      bendScale: 0.08
+      flutterScale: 0.025
+      heightMeters: 8
+      outerRadius: 3
+    leaves:
+      advection: 0.52
+      turbulence: 0.22

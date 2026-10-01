@@ -1,0 +1,107 @@
+# Offline derivatives; broad grass clumps preserve cover without extending dense geometry.
+vegetationLod:
+  enabled: true
+  assetPath: Assets/terrain/vegetation-lods/
+  ktx2:
+    enabled: true
+    transcoderPath: Assets/vendor/basis/
+    workerLimit: 2
+    maxTransferRatio: 3
+  update:
+    cameraMoveThreshold: 0.5
+    # Repack after about 10 degrees; the wider turn envelope keeps newly exposed
+    # vegetation ready between repacks instead of rebuilding every mouse frame.
+    cameraRotationThreshold: 0.0038
+    cameraTurnMarginDegrees: 12
+    # Tree/vegetation LODs stop casting shadows beyond this distance. The sun's
+    # single-map shadow region is ~85 m (cinematic shadows.extent), so anything past this only multiplies
+    # shadow-pass geometry without contributing a visible shadow.
+    shadowCastDistance: 110
+    # Full and Medium trees cast their shadow from this stage's mesh (2 = Low).
+    # Shadows need the canopy silhouette, not wood detail; null restores
+    # per-stage casting.
+    shadowLodLevel: 2
+  impostorNormalRetry:
+    maxAttempts: 3
+    delayMs: 1500
+trees:
+  lod:
+    # Full, Medium and Low mesh stages keep tree volume farther into the scene.
+    # Low thins complete foliage-card components so individual cards are never torn.
+    # Medium deliberately keeps every card: they read as a canopy only through
+    # overlap, and thinning that near exposes the planes (see vegetationLodAssets).
+    # Foliage is about half of a tree's triangles, so Low is where the mesh stages
+    # can actually get cheaper.
+    distances: [35, 75, 120]
+    referenceHeight: 12
+    screenSpace:
+      enabled: true
+      # Projected CSS-pixel heights for Full→Medium, Medium→Low and Low→Billboard.
+      # These adapt to zoom and viewport size. Full→Medium is unchanged from the
+      # 1080p/FOV≈70 look; Medium keeps every card and was ~55% of the frame's
+      # tree triangles at 125, so it hands over to Low sooner (2026-09-23 budget).
+      heights: [260, 180, 110]
+      # Read the heights at this viewport height whatever the window size, so
+      # LOD choice (and the triangle budget) is independent of resolution and
+      # browser zoom: a 4K window read them at 2080 px and drew 12.3M
+      # triangles at the start, 3x the 720 budget with no visible gain.
+      # Remove to let bigger windows promote more trees.
+      referenceViewportHeight: 720
+      fallbackViewportHeight: 1080
+    medium:
+      # Cards are off limits here, so wood carries Medium's saving. Simplification
+      # is error-bounded, so trunks and branches keep their silhouette rather than
+      # losing a fixed fraction of geometry.
+      woodRatio: 0.35
+      woodError: 0.003
+    low:
+      woodRatio: 0.35
+      woodError: 0.01
+      # Low is the one stage that may drop cards, so it carries the saving: at
+      # 0.62 a Low tree still cost 41% of Full, which is a weak last mesh stage
+      # before the impostor takes over.
+      foliageKeepRatio: 0.5
+      grid: [3, 5, 3]
+      minComponents: 12
+      maxComponentShare: 0.12
+    impostor:
+      # More azimuth samples reduce silhouette morphing without increasing total atlas pixels.
+      views: 12
+      tileSize: 208
+      gutter: 8
+      detailedNormalQualities: [high, ultra]
+      anisotropy: 2
+      fallback:
+        normalSampleRadius: 2
+        normalStrength: 1.25
+        maskSignalLow: 0.07
+        maskSignalHigh: 0.18
+        maskBrightnessLow: 0.08
+        maskBrightnessHigh: 0.25
+        greenRedWeight: 0.55
+        greenBlueWeight: 0.45
+        yellowWeight: 0.65
+        chromaWeight: 0.12
+    maxHeightScale: 1.1
+    blend: 0.15
+    chunkSize: 500
+grass:
+  far:
+    enabled: true
+    # Clump density is per unit area, so the tile size only sets how many
+    # draws cover the distance band: 75 drew ~44 tiles (and re-compacted one on
+    # every tile step); 150 draws ~12 with the same clumps.
+    chunkSize: 150
+    density: 0.65
+    width: 3.4
+    height: 1.35
+    transitionStart: 0.8
+    fadeStart: 0.9
+    distances: { performance: 300, balanced: 400, high: 500, ultra: 600 }
+biomes:
+  coastalJungle:
+    lod:
+      enabled: true
+      chunkSize: 150
+      plantDistances: { performance: 300, balanced: 400, high: 500, ultra: 600 }
+      treeDistances: { performance: 600, balanced: 900, high: 1200, ultra: 1600 }

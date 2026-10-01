@@ -1,0 +1,289 @@
+import * as THREE from 'three';
+import { resolvePresetConfig } from '../config/resolvePresetConfig.js';
+import { setPresetAppearance } from '../rendering/PresetAppearance.js';
+import { getSurfaceDetail } from '../rendering/surfaceDetail.js';
+import {
+  blendSnowAtmosphere,
+  createSnowAtmosphereState,
+  resolveSnowAtmosphereConfig,
+} from './SnowAtmosphere.js';
+
+const GRASS_TYPES = ['blade', 'billboard'];
+const RAIN_ACTIVE_THRESHOLD = 0.001;
+const DEFAULT_TREE_WIND_SPEED_MULTIPLIER = 2;
+const DEFAULT_LEAF_WIND_STRENGTH_MULTIPLIER = 1;
+const ORIGINAL_RAIN_ROUGHNESS_KEY = 'originalRainRoughness';
+const COASTAL_GROUNDCOVER_NAME = 'Coastal groundcover';
+
+function color(value) {
+  return new THREE.Color(value);
+}
+
+function grassSnapshot(value) {
+  return {
+    ...value,
+    baseColor: color(value.baseColor),
+    tipColor: color(value.tipColor),
+  };
+}
+
+function snapshot(preset) {
+  return {
+    grass: {
+      blade: grassSnapshot(preset.grass.blade),
+      billboard: grassSnapshot(preset.grass.billboard),
+    },
+    lighting: {
+      color: color(preset.lighting.color),
+      directionalIntensity: preset.lighting.directionalIntensity,
+      position: new THREE.Vector3().fromArray(preset.lighting.position),
+      hemisphereSkyColor: color(preset.lighting.hemisphereSkyColor),
+      hemisphereGroundColor: color(preset.lighting.hemisphereGroundColor),
+      hemisphereIntensity: preset.lighting.hemisphereIntensity,
+      ambientColor: color(preset.lighting.ambientColor),
+      ambientIntensity: preset.lighting.ambientIntensity,
+      environmentIntensity: preset.lighting.environmentIntensity,
+    },
+    sky: {
+      groundColor: color(preset.sky.groundColor),
+      horizonColor: color(preset.sky.horizonColor),
+      zenithColor: color(preset.sky.zenithColor),
+      sunHaloColor: color(preset.sky.sunHaloColor),
+      sunDiskColor: color(preset.sky.sunDiskColor),
+      haloPower: preset.sky.haloPower,
+      diskPower: preset.sky.diskPower,
+      sunPosition: new THREE.Vector3().fromArray(preset.sky.sunPosition),
+      fogColor: color(preset.sky.fogColor),
+      fogDensity: preset.sky.fogDensity,
+    },
+    cloudCoverage: preset.cloudCoverage,
+    rainIntensity: preset.rainIntensity ?? (preset.rain ? 1 : 0),
+  };
+}
+
+function setGrassSnapshotParameter(state, name, value) {
+  for (const type of GRASS_TYPES) {
+    if (typeof state.grass[type]?.[name] === 'number') state.grass[type][name] = value;
+  }
+}
+
+function applyMaterialRainRoughness(material, target, intensity) {
+  if (!material || material.roughness === undefined) return;
+  material.userData ??= {};
+  if (material.userData[ORIGINAL_RAIN_ROUGHNESS_KEY] === undefined) {
+    material.userData[ORIGINAL_RAIN_ROUGHNESS_KEY] = material.roughness;
+  }
+  material.roughness = THREE.MathUtils.lerp(
+    material.userData[ORIGINAL_RAIN_ROUGHNESS_KEY],
+    target,
+    intensity,
+  );
+}
+
+export class EnvironmentController {
+  constructor({
+    scene,
+    sun,
+    hemisphere,
+    ambient,
+    sky,
+    clouds,
+    grass,
+    rain,
+    water,
+    trees,
+    leaves,
+    audio,
+    terrain,
+    wildGrass,
+    understory,
+    config,
+  }) {
+    this.scene = scene;
+    this.sun = sun;
+    this.hemisphere = hemisphere;
+    this.ambient = ambient;
+    this.sky = sky;
+    this.clouds = clouds;
+    this.grass = grass;
+    this.rain = rain;
+    this.water = water;
+    this.trees = trees;
+    this.leaves = leaves;
+    this.audio = audio;
+    this.terrain = terrain;
+    this.wildGrass = wildGrass;
+    this.understory = understory;
+    this.config = config;
+    this.quality = config.ui.initialQuality;
+    this.shadowMapCap = Number(sun?.shadow?.mapSize?.x) || Number.POSITIVE_INFINITY;
+    this.currentPreset = config.ui.initialPreset;
+    this.grassOverrides = {};
+    this.current = snapshot(resolvePresetConfig(config, config.ui.initialPreset));
+    // The light actually applied: the preset, blended toward snow-country
+    // light while the view is up the mountain. Water reads its sun from here.
+    this.snowAtmosphere = resolveSnowAtmosphereConfig(config);
+    this.snowRegionWeight = 0;
+    this.atmosphere = createSnowAtmosphereState();
+    const beachMoisture = this.terrain?.material?.userData?.beachMoisture;
+    if (beachMoisture) {
+      beachMoisture.value = THREE.MathUtils.clamp(Number(this.current.rainIntensity) || 0, 0, 1);
+    }
+    setPresetAppearance(config, this.currentPreset);
+    this.#applyShadowQuality();
+    this.#apply();
+  }
+
+  // A hard cut, not a cross-fade: the caller plays this behind a closed iris,
+  // so interpolating the sun across the sky would only read as a time-lapse.
+  setPreset(name) {
+    const preset = resolvePresetConfig(this.config, name);
+    if (!preset) throw new Error(`Unknown environment preset: ${name}`);
+    this.currentPreset = name;
+    this.grassOverrides = {};
+    this.current = snapshot(preset);
+    setPresetAppearance(this.config, name);
+    this.audio?.setPreset?.(name);
+    this.wildGrass?.setPreset?.(name);
+    this.understory?.setPreset?.(name);
+    this.#apply();
+  }
+
+  setQuality(name) {
+    if (!this.config.quality[name]) return;
+    this.quality = name;
+    this.#applyShadowQuality();
+    this.wildGrass?.setQuality?.(name);
+    this.understory?.setQuality?.(name);
+    this.scene?.getObjectByName?.(COASTAL_GROUNDCOVER_NAME)?.userData?.setQuality?.(name);
+    this.#apply();
+  }
+
+  #applyShadowQuality() {
+    const configured = Number(this.config.quality?.[this.quality]?.shadowMapSize);
+    if (!(configured > 0) || !Number.isFinite(configured) || !this.sun?.shadow?.mapSize) return;
+    const size = Math.min(configured, this.shadowMapCap);
+    if (this.sun.shadow.mapSize.x === size && this.sun.shadow.mapSize.y === size) return;
+
+    this.sun.shadow.mapSize.set(size, size);
+    this.sun.shadow.map?.dispose?.();
+    this.sun.shadow.map = null;
+    this.sun.shadow.needsUpdate = true;
+  }
+
+  setGrassParameter(name, value) {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) return;
+    if (!GRASS_TYPES.some(type => typeof this.current.grass[type]?.[name] === 'number')) return;
+    this.grassOverrides[name] = numericValue;
+    setGrassSnapshotParameter(this.current, name, numericValue);
+    this.#apply();
+  }
+
+  get lighting() {
+    return this.atmosphere.lighting;
+  }
+
+  get exposureScale() {
+    return this.atmosphere.exposureScale;
+  }
+
+  get occlusionScale() {
+    return this.atmosphere.occlusionScale;
+  }
+
+  // 0 in the lowlands, 1 on the snowfield. Eased by the caller.
+  setSnowRegion(weight) {
+    const next = this.snowAtmosphere ? THREE.MathUtils.clamp(Number(weight) || 0, 0, 1) : 0;
+    if (next === this.snowRegionWeight) return;
+    // Tiny steps are skipped, but the ends of the ramp always land exactly.
+    if (Math.abs(next - this.snowRegionWeight) < 1e-4 && next !== 0 && next !== 1) return;
+    this.snowRegionWeight = next;
+    this.#applyAtmosphere();
+  }
+
+  updateSunTarget(playerPosition) {
+    this.sun.position.copy(playerPosition).add(this.atmosphere.lighting.position);
+    this.sun.target.position.copy(playerPosition);
+    this.sun.target.updateMatrixWorld();
+  }
+
+  #applyAtmosphere() {
+    const atmosphere = blendSnowAtmosphere(this.current, this.snowAtmosphere, this.snowRegionWeight, this.atmosphere);
+    const lighting = atmosphere.lighting;
+    this.sun.color.copy(lighting.color);
+    this.sun.intensity = lighting.directionalIntensity;
+    this.hemisphere.color.copy(lighting.hemisphereSkyColor);
+    this.hemisphere.groundColor.copy(lighting.hemisphereGroundColor);
+    this.hemisphere.intensity = lighting.hemisphereIntensity;
+    this.ambient.color.copy(lighting.ambientColor);
+    this.ambient.intensity = lighting.ambientIntensity;
+    this.scene.environmentIntensity = lighting.environmentIntensity;
+
+    const fogMultiplier = this.config.quality[this.quality].fogMultiplier;
+    this.scene.fog.color.copy(atmosphere.fogColor);
+    this.scene.fog.density = atmosphere.fogDensity * fogMultiplier;
+    this.sky?.setPreset({
+      ...this.current.sky,
+      horizonColor: atmosphere.sky.horizonColor,
+      zenithColor: atmosphere.sky.zenithColor,
+      fogColor: atmosphere.sky.fogColor,
+      sunPosition: atmosphere.sky.sunPosition.toArray(),
+    });
+  }
+
+  #apply() {
+    this.#applyAtmosphere();
+    this.grass.setPreset({ grass: this.current.grass });
+    this.#applyVegetationSimulation();
+    this.rain?.setWindStrength(
+      this.current.grass.blade.windIntensity * (this.config.rain.windStrengthMultiplier ?? 10),
+    );
+    this.#applyRainIntensity(this.current.rainIntensity);
+    this.#applyRainRoughness(this.current.rainIntensity);
+    this.clouds?.setCoverage(this.current.cloudCoverage);
+  }
+
+  #applyVegetationSimulation() {
+    const grass = this.current.grass.blade;
+    const treeWindMultiplier = this.config.trees.windSpeedMultiplier
+      ?? DEFAULT_TREE_WIND_SPEED_MULTIPLIER;
+    const leafWindMultiplier = this.config.leaves.windStrengthMultiplier
+      ?? DEFAULT_LEAF_WIND_STRENGTH_MULTIPLIER;
+
+    this.trees?.setWindSpeed(grass.windIntensity * treeWindMultiplier);
+    this.trees?.setSimulationSpeed(grass.simulationSpeed);
+    this.leaves?.setWindStrength(grass.windIntensity * leafWindMultiplier);
+    this.leaves?.setSimulationSpeed(grass.simulationSpeed);
+  }
+
+  #applyRainIntensity(value) {
+    const intensity = THREE.MathUtils.clamp(Number(value), 0, 1);
+    this.rain?.setIntensity(intensity);
+    // Wet bark and stones follow the rain.
+    getSurfaceDetail(this.config).rain.value = intensity;
+
+    const groundRain = this.terrain?.material?.userData;
+    if (groundRain) {
+      if (typeof groundRain.setRainIntensity === 'function') groundRain.setRainIntensity(intensity);
+      else groundRain.setRain?.(intensity > RAIN_ACTIVE_THRESHOLD);
+      if (groundRain.rippleAmount) {
+        const maximum = this.config.ground.rainRipple?.amount ?? 0.7;
+        groundRain.rippleAmount.value = THREE.MathUtils.lerp(0, maximum, intensity);
+      }
+    }
+
+    this.water?.setRainIntensity(intensity);
+  }
+
+  #applyRainRoughness(value) {
+    const intensity = THREE.MathUtils.clamp(Number(value), 0, 1);
+    const defaultRainRoughness = this.config.rain.defaultRoughness ?? 0.2;
+    this.scene.traverse((object) => {
+      if (!object.isMesh || object.userData.grid || !object.material) return;
+      const target = object.userData.rainRoughness ?? defaultRainRoughness;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      for (const material of materials) applyMaterialRainRoughness(material, target, intensity);
+    });
+  }
+}

@@ -1,0 +1,87 @@
+vegetation:
+  resolution: 1024
+  seed: 28411
+  buildChunkRows: 8
+  growthThreshold: 0.12
+  distributionCellSize: 0.3
+  surfacePathThreshold: 0.45
+  shaderCutoff: 0.08
+  shaderSoftness: 0.1
+  viewCulling:
+    enabled: true
+    cameraMoveThreshold: 0.75
+    cameraRotationThreshold: 0.0014
+    turnMarginDegrees: 12
+    boundsScale: 1.15
+    boundsPadding: 0.5
+    # Shared per-frame budget (ms) for the instance view cullers. A camera turn
+    # repacks wild grass, understory and meadow; spreading that work keeps any
+    # one frame from carrying all three.
+    budgetMs: 1.5
+  path:
+    clearance: 0.8
+    falloff: 4.5
+  terrain:
+    slopeSampleDistance: 1.5
+    slopeStart: 0.18
+    slopeMax: 0.95
+  moisture:
+    waterDistance: 38
+    waterSurfaceTolerance: 0.15
+    waterWeight: 0.48
+    lowlandWeight: 0.34
+    noiseWeight: 0.18
+    lowlandExponent: 1.35
+  trees:
+    trunkClearance: 1.6
+    trunkFalloff: 2.4
+    shadeRadius: 14
+    grassShadePenalty: 0.38
+  density:
+    base: 0.84
+    moistureBoost: 0.24
+    macroVariation: 0.28
+    detailVariation: 0.12
+    highlandPenalty: 0.1
+  height:
+    base: 0.2
+    macroWeight: 0.46
+    moistureWeight: 0.42
+    pathPenalty: 0.28
+    slopePenalty: 0.22
+    shadePenalty: 0.18
+    minGrowth: 0.45
+    maxGrowth: 1.0
+  understory:
+    treeWeight: 0.78
+    moistureWeight: 0.42
+  details:
+    pathThreshold: 0.36
+    pathDecorationChance: 0.18
+    pathStoneChance: 0.46
+    wetThreshold: 0.62
+    understoryThreshold: 0.46
+    minimumPlantDensity: 0.2
+    meadowPatchThreshold: 0.08
+    fernChance: 0.58
+    flowerChance: 0.32
+    minScale: 0.65
+    maxScale: 1.5
+    reedBaseScale: 0.82
+    reedMoistureScale: 0.58
+    fernBaseScale: 0.72
+    fernUnderstoryScale: 0.55
+    plantBaseScale: 0.64
+    plantGrowthScale: 0.72
+    hueBase: 0.12
+    humidityTint: 0.035
+    shadeTint: 0.018
+    saturation: 0.12
+    lightnessBase: 0.84
+    lightnessShadeScale: 0.85
+    lightnessVariation: 0.1
+  noise:
+    macroScale: 0.018
+    detailScale: 0.075
+    octaves: 3
+

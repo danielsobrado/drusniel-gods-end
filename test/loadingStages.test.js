@@ -1,0 +1,64 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
+import {
+  IRIS_CLOSE_SECONDS,
+  IRIS_OPEN_SECONDS,
+  IRIS_RADIUS_VMAX,
+  LOADING_REVEAL_RADIUS_VMAX,
+  LOADING_REVEAL_SECONDS,
+  LOADING_STAGES,
+  power4InOut,
+} from '../src/ui/loadingStages.js';
+
+test('loading stages match the current startup sequence', () => {
+  assert.deepEqual(LOADING_STAGES, {
+    initializing: { message: 'Opening the way...', progress: 0 },
+    renderer: { message: 'Lighting the horizon...', progress: 0 },
+    environment: { message: 'Waking the sky...', progress: 0 },
+    world: { message: 'Shaping the wilds...', progress: 5 },
+    character: { message: 'Waiting for your character choice', progress: 20 },
+    player: { message: 'Preparing your traveler...', progress: 25 },
+    collision: { message: 'Setting the boundaries...', progress: 40 },
+    foliage: { message: 'Awakening the forest...', progress: 55 },
+    grass: { message: 'Weaving the undergrowth...', progress: 65 },
+    audio: { message: 'Waking the soundscape...', progress: 75 },
+    shaders: { message: 'Polishing the final details...', progress: 80 },
+    ready: { message: 'The way is open', progress: 100 },
+  });
+});
+
+test('loading reveal uses the power4.inOut timing', () => {
+  assert.equal(LOADING_REVEAL_SECONDS, 3);
+  assert.equal(LOADING_REVEAL_RADIUS_VMAX, 120);
+  assert.equal(power4InOut(0), 0);
+  assert.equal(power4InOut(0.5), 0.5);
+  assert.equal(power4InOut(1), 1);
+  assert.ok(power4InOut(0.25) < 0.25);
+  assert.ok(power4InOut(0.75) > 0.75);
+});
+
+// The scene-change iris shares the loading screen's mask and easing, so it has
+// to share its fully-open radius too or a preset switch would leave a dark ring.
+test('the scene-change iris is quick and matches the loading reveal radius', () => {
+  assert.equal(IRIS_RADIUS_VMAX, LOADING_REVEAL_RADIUS_VMAX);
+  assert.ok(IRIS_CLOSE_SECONDS > 0 && IRIS_CLOSE_SECONDS < 1);
+  assert.ok(IRIS_OPEN_SECONDS > 0 && IRIS_OPEN_SECONDS < 1);
+  assert.ok(IRIS_CLOSE_SECONDS < IRIS_OPEN_SECONDS, 'the cut should land before the reveal');
+  assert.ok(IRIS_CLOSE_SECONDS + IRIS_OPEN_SECONDS < LOADING_REVEAL_SECONDS);
+});
+
+
+test('character selection stays hidden until loading reaches its 20% gate', () => {
+  const source = readFileSync(new URL('../src/ui/LoadingUi.js', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../src/loading.css', import.meta.url), 'utf8');
+
+  assert.match(source, /this\.characterGate\.hidden = true;/);
+  assert.match(
+    source,
+    /if \(percent >= LOADING_STAGES\.character\.progress\) this\.#revealCharacterPicker\(\);/,
+  );
+  assert.match(source, /this\.characterGate\.hidden = false;/);
+  assert.match(styles, /\.character-gate\[hidden\]\s*\{\s*display:\s*none;/);
+  assert.equal(LOADING_STAGES.character.progress, 20);
+});

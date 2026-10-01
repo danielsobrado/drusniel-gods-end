@@ -1,0 +1,134 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import * as THREE from 'three';
+import { createSyntheticCatalog } from '../src/biome/BiomeAssets.js';
+import {
+  ASSET_LIMITS, FAR_VIEWS, MAX_HULL_VERTICES, MAX_MAIN_BATCHES, MAX_SHADOW_BATCHES,
+  pendingProvenance, validateCatalog, validateProvenance,
+} from '../src/biome/BiomeCatalog.js';
+import { reduceConvexPoints } from '../src/biome/convexHull.js';
+import { BiomeLod } from '../src/biome/BiomeLod.js';
+import { canonicalizeRockMaterials, harmonizeRockMaterials } from '../src/world/rockPack.js';
+
+test('synthetic catalog stays inside triangle, atlas and hull limits', () => {
+  const catalog = createSyntheticCatalog();
+  assert.deepEqual(validateCatalog(catalog), []);
+  assert.equal(catalog.cactus.far.views, FAR_VIEWS);
+  assert.equal(catalog.cactus.far.viewsReady.length, 8);
+  assert.ok(catalog.cactus.hull.length / 3 <= MAX_HULL_VERTICES);
+  assert.ok(ASSET_LIMITS.cactus.near >= 2400);
+});
+
+test('provenance records internal authorship and rejects invented credits', () => {
+  const manifest = pendingProvenance();
+  assert.deepEqual(validateProvenance(manifest), []);
+  assert.equal(manifest.assetsPending, true);
+  assert.match(manifest.license, /original/);
+  assert.deepEqual(validateProvenance({ ...manifest, invented: true }),
+    ['provenance must not invent third-party attribution']);
+});
+
+test('convex reduction never exceeds 32 vertices', () => {
+  const points = new Float32Array(300);
+  for (let i = 0; i < 100; i++) {
+    points[i * 3] = i;
+    points[i * 3 + 1] = i % 7;
+    points[i * 3 + 2] = -i;
+  }
+  const hull = reduceConvexPoints(points, 32);
+  assert.ok(hull.length / 3 <= 32);
+  assert.ok(hull.length / 3 >= 8);
+});
+
+test('complementary LOD bands overlap and rocks keep mid geometry', () => {
+  const lod = new BiomeLod(8);
+  const origins = new Float32Array([0, 0, 0, 20, 0, 0, 60, 0, 0]);
+  const camera = { x: 0, z: 0 };
+  lod.partition(origins, 3, camera, 18, 24, 55, 65);
+  assert.equal(lod.nearCount, 2);
+  assert.ok(lod.midCount >= 1);
+  assert.ok(lod.farCount >= 1);
+  lod.partition(origins, 3, camera, 18, 24, 55, 65, { rocks: true });
+  assert.equal(lod.farCount, 0);
+  assert.ok(lod.midCount >= 1);
+});
+
+test('rock pack fills missing PBR maps without replacing authored maps', () => {
+  const geometry = new THREE.BoxGeometry(1, 1, 1);
+  const colorMap = new THREE.Texture();
+  const normalMap = new THREE.Texture();
+  const roughnessMap = new THREE.Texture();
+  const preservedMap = new THREE.Texture();
+  const referenceMaterial = new THREE.MeshStandardMaterial({ map: colorMap, normalMap, roughnessMap });
+  const targetMaterial = new THREE.MeshStandardMaterial({ map: preservedMap, color: '#829178' });
+  const reference = new THREE.Mesh(geometry, referenceMaterial);
+  const target = new THREE.Mesh(geometry.clone(), targetMaterial);
+
+  harmonizeRockMaterials([reference, target]);
+
+  assert.equal(targetMaterial.map, preservedMap);
+  assert.equal(targetMaterial.normalMap, normalMap);
+  assert.equal(targetMaterial.roughnessMap, roughnessMap);
+  assert.equal(targetMaterial.color.getHexString(), '829178');
+
+  geometry.dispose();
+  target.geometry.dispose();
+  referenceMaterial.dispose();
+  targetMaterial.dispose();
+  colorMap.dispose();
+  normalMap.dispose();
+  roughnessMap.dispose();
+  preservedMap.dispose();
+});
+
+test('all rock variants can share one canonical Stone appearance', () => {
+  const geometry = new THREE.BoxGeometry(1, 1, 1);
+  const canonicalMap = new THREE.Texture();
+  const detailNormal = new THREE.Texture();
+  const detailRoughness = new THREE.Texture();
+  const canonicalMaterial = new THREE.MeshStandardMaterial({
+    map: canonicalMap,
+    color: '#d4d3ca',
+    roughness: 0.82,
+    metalness: 0.02,
+  });
+  const detailedMaterial = new THREE.MeshStandardMaterial({
+    normalMap: detailNormal,
+    roughnessMap: detailRoughness,
+    color: '#527260',
+  });
+  const otherMaterial = new THREE.MeshStandardMaterial({ color: '#344e57' });
+  const canonicalSource = new THREE.Mesh(geometry.clone(), canonicalMaterial);
+  const first = new THREE.Mesh(geometry.clone(), detailedMaterial);
+  const second = new THREE.Mesh(geometry.clone(), otherMaterial);
+
+  const shared = canonicalizeRockMaterials([first, second], canonicalSource);
+
+  assert.ok(shared);
+  assert.notEqual(shared, canonicalMaterial);
+  assert.equal(first.material, shared);
+  assert.equal(second.material, shared);
+  assert.equal(shared.map, canonicalMap);
+  assert.equal(shared.normalMap, detailNormal);
+  assert.equal(shared.roughnessMap, detailRoughness);
+  assert.equal(shared.color.getHexString(), 'd4d3ca');
+  assert.ok(shared.metalness <= 0.08);
+  assert.ok(shared.roughness >= 0.72);
+
+  geometry.dispose();
+  canonicalSource.geometry.dispose();
+  first.geometry.dispose();
+  second.geometry.dispose();
+  canonicalMaterial.dispose();
+  detailedMaterial.dispose();
+  otherMaterial.dispose();
+  shared.dispose();
+  canonicalMap.dispose();
+  detailNormal.dispose();
+  detailRoughness.dispose();
+});
+
+test('batch budgets stay at 13 main and 3 shadow', () => {
+  assert.ok(MAX_MAIN_BATCHES <= 13);
+  assert.ok(MAX_SHADOW_BATCHES <= 3);
+});

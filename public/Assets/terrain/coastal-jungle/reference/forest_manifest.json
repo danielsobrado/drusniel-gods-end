@@ -1,0 +1,29 @@
+{
+  "seed": 941,
+  "instances": {
+    "grass": 6776,
+    "groundcover": 3325,
+    "fern": 249,
+    "broadleaf": 155,
+    "palm": 7,
+    "tree": 20,
+    "shrub": 119,
+    "vine": 83,
+    "climber": 64,
+    "background_tree": 50,
+    "split_leaf": 80,
+    "distant_understory": 460
+  },
+  "glb_bytes": 6825736,
+  "textures": [
+    "jungle_grass_reference_atlas",
+    "tropical_leaf_atlas",
+    "palm_fern_atlas",
+    "shrub_leaf_atlas",
+    "palm_bark_basecolor",
+    "canopy_branch_atlas",
+    "jungle_ground_basecolor",
+    "jungle_path_basecolor_edge"
+  ],
+  "units": "meters"
+}

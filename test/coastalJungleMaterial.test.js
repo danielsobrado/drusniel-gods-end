@@ -1,0 +1,104 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import * as THREE from 'three/webgpu';
+import { color, float, vec3 } from 'three/tsl';
+import {
+  coastalJungleBillboardWindOffset,
+  isCoastalJungleFoliageMaterial,
+  prepareCoastalJungleImpostorMaterial,
+  prepareCoastalJungleMaterial,
+  prepareCoastalJungleTexture,
+} from '../src/biome/CoastalJungleMaterial.js';
+
+test('coastal jungle identifies atlas materials as foliage', () => {
+  const material = new THREE.MeshStandardMaterial();
+  material.name = 'tropical_leaf_atlas';
+  assert.equal(isCoastalJungleFoliageMaterial(material, 'broadleaf'), true);
+});
+
+test('coastal jungle texture preparation restores runtime sampling quality', () => {
+  const map = new THREE.Texture();
+  prepareCoastalJungleTexture(map, { anisotropy: 8, colorTexture: true });
+  assert.equal(map.colorSpace, THREE.SRGBColorSpace);
+  assert.equal(map.minFilter, THREE.LinearMipmapLinearFilter);
+  assert.equal(map.magFilter, THREE.LinearFilter);
+  assert.equal(map.anisotropy, 8);
+  assert.equal(map.generateMipmaps, true);
+});
+
+test('coastal jungle foliage gets source-style cutout, depth haze and wind nodes', () => {
+  const material = new THREE.MeshStandardMaterial({ map: new THREE.Texture(), roughness: 0.4 });
+  material.name = 'jungle_grass_atlas';
+  prepareCoastalJungleMaterial(material, {
+    kind: 'grass',
+    instanced: true,
+    cinematic: true,
+    settings: {
+      alphaTest: 0.4,
+      shadowAlphaTest: 0.48,
+      foliageRoughnessMin: 0.84,
+      ambientLift: 0.035,
+      backlight: 0.18,
+      haze: { enabled: true, color: '#91b1b7', start: 18, end: 85, strength: 0.28 },
+      wind: { enabled: true, amplitude: 0.035, speed: 1.4, spatialX: 0.7, spatialZ: 0.6 },
+    },
+  });
+  assert.equal(material.alphaTest, 0.4);
+  assert.equal(material.side, THREE.DoubleSide);
+  assert.equal(material.depthWrite, true);
+  assert.equal(material.transparent, false);
+  assert.equal(material.roughness, 0.84);
+  assert.equal(material.metalness, 0);
+  assert.ok(material.alphaTestNode);
+  assert.ok(material.colorNode);
+  assert.ok(material.maskShadowNode);
+  assert.ok(material.emissiveNode);
+  assert.ok(material.positionNode);
+});
+
+
+test('coastal jungle impostors reuse foliage haze and backlight treatment', () => {
+  const material = new THREE.MeshStandardNodeMaterial({ roughness: 0.4 });
+  prepareCoastalJungleImpostorMaterial(material, {
+    sourceRgb: color('#52803f'),
+    alpha: float(1),
+    foliageMask: float(1),
+    cinematic: true,
+    settings: {
+      alphaToCoverage: true,
+      foliageRoughnessMin: 0.84,
+      ambientLift: 0.035,
+      backlight: 0.18,
+      haze: { enabled: true, color: '#91b1b7', start: 18, end: 85, strength: 0.28 },
+    },
+  });
+  assert.ok(material.colorNode);
+  assert.ok(material.emissiveNode);
+  assert.equal(material.roughness, 0.84);
+  assert.equal(material.metalness, 0);
+  assert.equal(material.alphaToCoverage, true);
+  assert.equal(material.userData.coastalJungleImpostor, true);
+});
+
+
+test('coastal jungle billboard wind uses the same configured wind family', () => {
+  const offset = coastalJungleBillboardWindOffset({
+    origin: vec3(12, 0, -8),
+    right: vec3(1, 0, 0),
+    forward: vec3(0, 0, 1),
+    kind: 'tree',
+    settings: {
+      wind: {
+        enabled: true,
+        amplitude: 0.04,
+        speed: 1.4,
+        spatialX: 0.7,
+        spatialZ: 0.6,
+        turbulence: 0.28,
+        flutterRatio: 0.32,
+        kindScale: { tree: 1 },
+      },
+    },
+  });
+  assert.equal(offset.isNode, true);
+});

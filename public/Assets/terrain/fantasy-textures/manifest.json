@@ -1,0 +1,76 @@
+{
+  "source": "Project artwork, 2026-09-14",
+  "processing": "Lanczos resize; JPEG bark; indexed PNG foliage with transparency; source artwork kept in assets-source",
+  "textures": [
+    {
+      "name": "bark-painted",
+      "source": "assets-source/stylized-textures/bark-painted.png",
+      "file": "bark-painted.jpg",
+      "width": 512,
+      "height": 512,
+      "originalBytes": 2400793,
+      "bytes": 56801,
+      "alpha": false
+    },
+    {
+      "name": "bark-rugged",
+      "source": "assets-source/stylized-textures/bark-rugged.png",
+      "file": "bark-rugged.jpg",
+      "width": 512,
+      "height": 512,
+      "originalBytes": 3683111,
+      "bytes": 80264,
+      "alpha": false
+    },
+    {
+      "name": "bark-peeling",
+      "source": "assets-source/stylized-textures/bark-peeling.png",
+      "file": "bark-peeling.jpg",
+      "width": 512,
+      "height": 512,
+      "originalBytes": 3163899,
+      "bytes": 63167,
+      "alpha": false
+    },
+    {
+      "name": "bark-knotted",
+      "source": "assets-source/stylized-textures/bark-knotted.png",
+      "file": "bark-knotted.jpg",
+      "width": 512,
+      "height": 512,
+      "originalBytes": 2763927,
+      "bytes": 53873,
+      "alpha": false
+    },
+    {
+      "name": "leaves-green",
+      "source": "assets-source/stylized-textures/leaves-green.png",
+      "file": "leaves-green.png",
+      "width": 512,
+      "height": 512,
+      "originalBytes": 2119732,
+      "bytes": 152170,
+      "alpha": true
+    },
+    {
+      "name": "leaves-gold",
+      "source": "assets-source/stylized-textures/leaves-gold.png",
+      "file": "leaves-gold.png",
+      "width": 512,
+      "height": 512,
+      "originalBytes": 2146995,
+      "bytes": 153620,
+      "alpha": true
+    },
+    {
+      "name": "leaves-pale",
+      "source": "assets-source/stylized-textures/leaves-pale.png",
+      "file": "leaves-pale.png",
+      "width": 512,
+      "height": 512,
+      "originalBytes": 2223783,
+      "bytes": 167091,
+      "alpha": true
+    }
+  ]
+}

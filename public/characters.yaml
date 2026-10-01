@@ -1,0 +1,149 @@
+# Playable roster offered on the loading screen before the player model loads.
+#
+# `model` replaces assets.player and the `player` block is merged over the
+# effective player config, so every character carries its own proportions and
+# clip names.
+#
+# Two rig generations ship side by side. The older skins (Enanillo, the Paladin,
+# the Cleric) are the 24-joint armature exported in centimetres under an 0.01
+# Armature node; the newer ones (Drusniel, the Wizard, the Serpent Master) are the
+# same skeleton plus four leaf bones -- LeftHand_End, RightHand_End, LeftToe_end,
+# RightToe_end -- exported in metres at Armature scale 1, and they name their clips
+# `Running`/`Walking` rather than `Armature|running|baselayer`. Both land at the
+# same on-screen height because `PlayerController` measures the posed skinned bounds
+# and rescales to `targetHeight`.
+#
+# A clip only binds across skins of the same generation, which is why
+# `animationSources` is empty everywhere: every character carries its own walk and
+# run, merged in at build time by scripts/merge-glb-animations.mjs.
+characters:
+  default: drusniel
+  roster:
+    - id: drusniel
+      name: Drusniel
+      title: Dark Elf in the Wilds
+      blurb: Tall, long-striding, looking for adventure.
+      model: Assets/Drusniel_Dark_Elf.glb
+      player:
+        targetHeight: 5.0
+        animationSources: []
+        animations:
+          idle: null
+          walk: Walking
+          run: Running
+        locomotion:
+          footPlacement: true
+          rootMotion:
+            inPlace: true
+            nodes: [Hips, Armature]
+            axes: [x, z]
+          clipSpeedInHeights:
+            walk: 0.85
+            run: 2.4
+    - id: enanillo
+      name: Enanillo
+      title: Dwarven Delver
+      blurb: Short and stout, with an authored walk cycle of his own.
+      model: Assets/Enanillo_Dwarven.glb
+      player:
+        targetHeight: 3.4
+        animationSources: []
+        animations:
+          idle: null
+          walk: Armature|walking_man|baselayer
+          run: Armature|running|baselayer
+        locomotion:
+          footPlacement: true
+          rootMotion:
+            inPlace: true
+            nodes: [Hips, Armature]
+            axes: [x, z]
+          clipSpeedInHeights:
+            walk: 0.85
+            run: 2.4
+    - id: paladin
+      name: Paladin
+      title: Radiant Paladin
+      blurb: Armoured and unhurried, standing eye to eye with the elf.
+      model: Assets/Radiant_Paladin.glb
+      player:
+        targetHeight: 5.0
+        animationSources: []
+        animations:
+          idle: null
+          walk: Armature|walking_man|baselayer
+          run: Armature|running|baselayer
+        locomotion:
+          footPlacement: true
+          rootMotion:
+            inPlace: true
+            nodes: [Hips, Armature]
+            axes: [x, z]
+          clipSpeedInHeights:
+            walk: 0.85
+            run: 2.4
+    - id: cleric
+      name: Cleric
+      title: Devout of the Grove
+      blurb: Robed and deliberate, on the older armature.
+      # The two asset files carry each other's character: Arcane_Wizard.glb is
+      # the Cleric and Devout_Cleric.glb is the Wizard.
+      model: Assets/Arcane_Wizard.glb
+      player:
+        targetHeight: 5.0
+        animationSources: []
+        animations:
+          idle: null
+          walk: Walking
+          run: Running
+        locomotion:
+          footPlacement: true
+          rootMotion:
+            inPlace: true
+            nodes: [Hips, Armature]
+            axes: [x, z]
+          clipSpeedInHeights:
+            walk: 0.85
+            run: 2.4
+    - id: serpent
+      name: Serpent Master
+      title: Keeper of Coils
+      blurb: Broad-shouldered, and the only one who brought dances along.
+      model: Assets/Serpent_Master.glb
+      player:
+        targetHeight: 5.0
+        animationSources: []
+        animations:
+          idle: null
+          walk: Walking
+          run: Running
+        locomotion:
+          footPlacement: true
+          rootMotion:
+            inPlace: true
+            nodes: [Hips, Armature]
+            axes: [x, z]
+          clipSpeedInHeights:
+            walk: 0.85
+            run: 2.4
+    - id: wizard
+      name: Wizard
+      title: Arcane Wanderer
+      blurb: Staff-bearing and light-footed, the heaviest mesh on the roster.
+      model: Assets/Devout_Cleric.glb
+      player:
+        targetHeight: 5.0
+        animationSources: []
+        animations:
+          idle: null
+          walk: Walking
+          run: Running
+        locomotion:
+          footPlacement: true
+          rootMotion:
+            inPlace: true
+            nodes: [Hips, Armature]
+            axes: [x, z]
+          clipSpeedInHeights:
+            walk: 0.85
+            run: 2.4

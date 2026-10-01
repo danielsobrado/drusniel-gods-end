@@ -1,0 +1,53 @@
+import * as THREE from 'three/webgpu';
+import { GrassMaterial } from '../../../src/grass/GrassMaterial.js';
+import { createGrassGeometry } from '../../../src/grass/GrassGeometry.js';
+import { ambientUniforms } from '../../../src/weather/ambientUniforms.js';
+import { loadConfig } from '../../../src/config/loadConfig.js';
+import { CinematicLighting } from '../../../src/rendering/CinematicLighting.js';
+const params = new URLSearchParams(window.location.search);
+const config = await loadConfig();
+config.grass.tileSize = 8;
+config.grass.far.enabled = false;
+// Guarantee a gust at the sampled positions so disabling the effect changes pixels.
+config.wind.gust.threshold = 0;
+config.wind.gust.peak = 0.1;
+config.cinematic.shadows.cascades = 2;
+config.cinematic.shadows.mapSize = 128;
+const renderer = new THREE.WebGPURenderer({ forceWebGL: params.get('backend') === 'webgl', antialias: true });
+await renderer.init();
+renderer.setSize(256, 256);
+document.body.append(renderer.domElement);
+ambientUniforms.grassGustSheen.value = Number(params.get('sheen'));
+const tex = values => {
+  const t = new THREE.DataTexture(new Uint8Array(values), 1, 1);
+  t.needsUpdate = true;
+  return t;
+};
+const height = tex([0, 0, 0, 255]), mask = tex([0, 255, 255, 255]), interaction = tex([0, 0, 0, 255]);
+const material = new GrassMaterial(config, { getShaderData: () => ({ texture: height,
+  boundsMin: new THREE.Vector3(-20, 0, -20), boundsSize: new THREE.Vector3(40, 1, 40), minHeight: 0, maxHeight: 1 }) },
+{ vegetationTexture: mask }, { getShaderData: () => ({ texture: interaction, center: new THREE.Vector2(), worldSize: 40 }) }, 'blade');
+material.setLod(config.quality.high.blade);
+const geometry = createGrassGeometry({ type: 'blade', detail: 4, density: 2, tileSize: 8, bladeHeight: 1, stable: true });
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#000000');
+const mesh = new THREE.Mesh(geometry, material.material);
+mesh.frustumCulled = false;
+const hemisphere = new THREE.HemisphereLight(0xffffff, 0x333333, 2);
+const sun = new THREE.DirectionalLight(0xffffff, 2);
+sun.position.set(10, 20, 10); sun.castShadow = true;
+mesh.receiveShadow = true;
+mesh.castShadow = true;
+scene.add(mesh, hemisphere, sun, sun.target);
+scene.fog = new THREE.FogExp2('#aabbcc', 0.001);
+renderer.shadowMap.enabled = true;
+const lighting = new CinematicLighting({ scene, sun, hemisphere, renderer }, config);
+lighting.activateShadows(); lighting.update();
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+camera.position.set(5, 3, 7); camera.lookAt(0, 0.5, 0); camera.updateMatrixWorld();
+material.setFrame(4, camera.position);
+material.setViewProjection(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+renderer.render(scene, camera);
+await renderer.backend.device?.queue.onSubmittedWorkDone();
+window.parityReady = true;
+window.parity = { renderer, scene, camera, material, lighting };

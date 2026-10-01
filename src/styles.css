@@ -1,0 +1,359 @@
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/Assets/fonts/InterVariable.woff2") format("woff2");
+}
+
+/* Static Black cut, used only by the stroked loading wordmark. Chromium strokes
+   a variable font's default 400 instance as well as the requested 900 one, which
+   ghosts the Regular contours inside every glyph wherever -webkit-text-stroke is
+   painted over a translucent fill. A single-weight face has no default instance
+   to leak, so the outline stays clean. Inter Display is the cut Inter ships for
+   large sizes, which is what the wordmark is. */
+@font-face {
+  font-family: "Inter Display";
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url("/Assets/fonts/InterDisplay-Black.woff2") format("woff2");
+}
+
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #eef4e8;
+  background: #091015;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+html, body, #app { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+body { background: #091015; }
+canvas { width: 100%; height: 100%; display: block; }
+button, input { font: inherit; }
+button {
+  color: #eef4e8;
+  background: rgba(255,255,255,.055);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 7px;
+  padding: 7px 9px;
+  cursor: pointer;
+}
+button:hover, button.active { border-color: #c5f15b; color: #c5f15b; }
+input[type="range"] { width: 100%; accent-color: #b9e84d; }
+input[type="checkbox"] { accent-color: #b9e84d; }
+a { color: inherit; }
+
+/* Above MOBILE_CONTROLS_Z (100) in src/player/MobileControls.js. On phones that
+   module lays a transparent full-screen look-drag surface over the viewport, and
+   at the HUD's old z-index of 5 it swallowed every tap meant for the scenic-tour,
+   free-fly and scene-settings buttons -- its touchstart handler also
+   preventDefault()s, so no click was ever synthesised. The overlay itself is
+   pointer-events: none and only its real controls opt back in, so sitting on top
+   costs the look layer nothing: drags anywhere but a button still fall through. */
+.overlay { position: fixed; inset: 0; pointer-events: none; z-index: 120; }
+.panel {
+  border: 1px solid rgba(229,247,218,.12);
+  background: rgba(45,75,34,.58);
+  backdrop-filter: blur(16px) saturate(1.12);
+  -webkit-backdrop-filter: blur(16px) saturate(1.12);
+  border-radius: 17px;
+  box-shadow: 0 18px 48px rgba(0,0,0,.18);
+}
+
+.metrics {
+  position: absolute;
+  top: 16px;
+  right: 28px;
+  display: flex;
+  gap: 12px;
+  color: rgba(239,246,232,.78);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-shadow: 0 1px 4px rgba(0,0,0,.45);
+}
+.metrics strong { color: #eef4e8; font-weight: 800; }
+.mobile-panel-toggle { display: none; }
+
+.controls {
+  position: absolute;
+  top: 45px;
+  right: 28px;
+  width: 218px;
+  max-height: calc(100vh - 64px);
+  overflow: visible;
+  pointer-events: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  align-items: stretch;
+}
+.controls-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+}
+.controls-title {
+  margin: 0;
+  color: #f2f6ed;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -.01em;
+}
+.controls .controls-close {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-color: rgba(238,250,226,.12);
+  border-radius: 50%;
+  background: rgba(17,31,19,.38);
+  color: rgba(248,251,245,.78);
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1;
+}
+.controls .controls-close:hover,
+.controls .controls-close:focus-visible {
+  border-color: rgba(197,241,91,.55);
+  color: #c5f15b;
+}
+.controls label,
+.control-label {
+  display: grid;
+  gap: 4px;
+  color: rgba(239,246,232,.64);
+  font-size: 9px;
+  font-weight: 600;
+}
+.controls button { width: 100%; }
+
+.choice-field {
+  position: relative;
+  display: grid;
+  gap: 4px;
+}
+.choice-trigger {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-color: rgba(238,250,226,.11);
+  background: rgba(29,52,27,.55);
+  color: rgba(248,251,245,.94);
+  text-align: left;
+}
+.choice-trigger[aria-expanded="true"] {
+  border-color: rgba(197,241,91,.55);
+  color: #f8fbf5;
+}
+.choice-caret {
+  color: rgba(239,246,232,.55);
+  font-size: 13px;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+.choice-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 8;
+  display: grid;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid rgba(229,247,218,.14);
+  border-radius: 10px;
+  background: rgba(17,31,19,.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 14px 30px rgba(0,0,0,.28);
+}
+.choice-menu[hidden] { display: none; }
+.choice-option {
+  min-height: 27px;
+  border-color: transparent;
+  background: transparent;
+  color: rgba(239,246,232,.72);
+  font-size: 9px;
+  text-align: left;
+}
+.choice-option:hover,
+.choice-option.is-active {
+  border-color: rgba(197,241,91,.2);
+  background: rgba(197,241,91,.08);
+  color: #c5f15b;
+}
+
+.control-range {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 31px;
+  gap: 8px;
+  align-items: center;
+}
+.control-range input { margin: 0; }
+.control-range output {
+  color: rgba(248,251,245,.88);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.toggle-row {
+  grid-template-columns: 1fr auto !important;
+  align-items: center;
+  gap: 10px !important;
+  min-height: 24px;
+}
+.toggle-row input { width: 16px; height: 16px; margin: 0; }
+/* Levels belonging to the toggle above them. */
+.level-group {
+  display: grid;
+  gap: 6px;
+  margin-left: 10px;
+  padding-left: 8px;
+  border-left: 1px solid rgba(197,241,91,.18);
+}
+.level-group[hidden] { display: none; }
+.tool-button {
+  min-height: 27px;
+  color: rgba(239,246,232,.58);
+  font-size: 8px;
+}
+
+.reference-hud {
+  position: absolute;
+  left: 28px;
+  bottom: 28px;
+  display: grid;
+  gap: 11px;
+  pointer-events: none;
+  text-shadow: 0 1px 5px rgba(0,0,0,.55);
+}
+.reference-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: #eef4e8;
+}
+.reference-brand strong {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+.reference-brand span {
+  color: #b9e84d;
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .12em;
+}
+.control-hints {
+  display: flex;
+  gap: 16px;
+}
+.control-hints > div {
+  display: grid;
+  gap: 2px;
+}
+.control-hints strong {
+  color: rgba(248,251,245,.9);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+.control-hints span {
+  color: rgba(238,244,232,.55);
+  font-size: 8px;
+}
+.hidden { display: none !important; }
+
+/* Scene-change iris. Same mask trick as .loading-overlay: the fill is punched
+   out inside a circle of radius --r, so --r: 0 is a full black screen and
+   --r: 120vmax is fully open. Sits above the HUD but below the loading gate. */
+.iris-overlay {
+  --r: 120vmax;
+  position: fixed;
+  inset: 0;
+  z-index: 15000;
+  background: #071015;
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 0 var(--r), #000 calc(var(--r) + 1px));
+  mask-image: radial-gradient(circle at 50% 50%, transparent 0 var(--r), #000 calc(var(--r) + 1px));
+}
+
+.loading-screen {
+  position: fixed; inset: 0; z-index: 20; display: grid; place-content: center; gap: 12px;
+  background: radial-gradient(circle at 50% 40%, #17252a, #071015 60%);
+  transition: opacity .55s ease, visibility .55s ease;
+}
+.loading-screen.done { opacity: 0; visibility: hidden; }
+.loading-mark { color: #b6ee43; font-size: 22px; font-weight: 900; letter-spacing: .2em; text-align: center; }
+.loading-track { width: min(380px, 70vw); height: 3px; background: rgba(255,255,255,.09); overflow: hidden; }
+.loading-track i { display: block; width: 0; height: 100%; background: #b6ee43; transition: width .12s linear; }
+.loading-row { display: flex; justify-content: space-between; color: #b6ee43; font-size: 11px; }
+.fatal { display: grid; place-items: center; height: 100%; padding: 24px; color: #ffb4a8; }
+
+@media (max-width: 860px) {
+  .metrics {
+    top: 13px;
+    right: 12px;
+    gap: 7px;
+    font-size: 7px;
+  }
+  .mobile-panel-toggle {
+    display: block;
+    position: absolute;
+    top: 38px;
+    right: 10px;
+    z-index: 2;
+    pointer-events: auto;
+    padding: 6px 9px;
+    border-color: rgba(229,247,218,.15);
+    border-radius: 9px;
+    background: rgba(45,75,34,.72);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: rgba(248,251,245,.94);
+    font-size: 9px;
+    font-weight: 700;
+  }
+  .controls {
+    display: none;
+    top: 72px;
+    right: 10px;
+    left: auto;
+    bottom: auto;
+    width: 174px;
+    max-height: calc(100vh - 82px);
+    padding: 9px;
+    gap: 6px;
+    border-radius: 13px;
+    overflow-y: auto;
+  }
+  .controls.mobile-open { display: flex; }
+  .controls-title { font-size: 11px; }
+  .controls label,
+  .control-label { min-width: 0; gap: 3px; font-size: 8px; }
+  .choice-trigger { height: 25px; padding: 4px 7px; font-size: 9px; }
+  .choice-option { min-height: 24px; padding: 4px 6px; font-size: 8px; }
+  .controls button { min-width: 0; padding: 6px 7px; font-size: 9px; }
+  .control-range { grid-template-columns: minmax(0, 1fr) 25px; gap: 5px; }
+  .control-range output { font-size: 8px; }
+  .toggle-row { min-height: 20px; }
+  .level-group { gap: 4px; margin-left: 6px; padding-left: 6px; }
+  .toggle-row input { width: 14px; height: 14px; }
+  .reference-hud {
+    left: 12px;
+    bottom: 12px;
+  }
+  .reference-brand strong { font-size: 9px; }
+  .control-hints { display: none; }
+}

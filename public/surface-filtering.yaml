@@ -1,0 +1,4 @@
+renderer:
+  surfaceAnisotropy:
+    enabled: true
+    level: 16

@@ -1,0 +1,129 @@
+{
+  "excludedDryBiome": [
+    "agave_leaf",
+    "cactus_skin_basecolor",
+    "dry_grass_atlas"
+  ],
+  "files": [
+    {
+      "name": "canopy_branch_atlas_new",
+      "source": "assets\\textures\\canopy_branch_atlas_new.png",
+      "sha256": "f366742566ad25e73086a73b078e144e5301ad9e901aecca2ad842667ce4c41c",
+      "size": [
+        1024,
+        1024
+      ],
+      "alpha": true,
+      "png_bytes": 1350230,
+      "webp_bytes": 401246
+    },
+    {
+      "name": "tropical_bark_basecolor",
+      "source": "assets\\textures\\tropical_bark_basecolor.png",
+      "sha256": "57072a6df09aa219c2e4b2e09fdfbc7edcc1e07dcb010ec704492c7a69eb7dc1",
+      "size": [
+        1024,
+        1024
+      ],
+      "alpha": false,
+      "png_bytes": 2397443,
+      "webp_bytes": 449702
+    },
+    {
+      "name": "shrub_leaf_atlas",
+      "source": "assets\\textures\\shrub_leaf_atlas.png",
+      "sha256": "fd32e2d15d91829f7ccbdad2dcda2bb30d279f01a74c92a5814b97163a8a4192",
+      "size": [
+        1024,
+        1024
+      ],
+      "alpha": true,
+      "png_bytes": 575210,
+      "webp_bytes": 150920
+    },
+    {
+      "name": "jungle_grass_atlas",
+      "source": "assets\\textures\\jungle_grass_atlas.png",
+      "sha256": "d37569feb754c7bacfaa54d6bce8d74696d8f2bbefc42ef43e6a0d5ae529c36e",
+      "size": [
+        1024,
+        1024
+      ],
+      "alpha": true,
+      "png_bytes": 908939,
+      "webp_bytes": 316126
+    },
+    {
+      "name": "palm_fern_atlas",
+      "source": "assets\\textures\\palm_fern_atlas.png",
+      "sha256": "63359de336ec25afac07268361ee9afeadfec6e877f018bbeb33635520bbab45",
+      "size": [
+        1024,
+        1024
+      ],
+      "alpha": true,
+      "png_bytes": 1581710,
+      "webp_bytes": 576196
+    },
+    {
+      "name": "tropical_leaf_atlas",
+      "source": "assets\\textures\\tropical_leaf_atlas.png",
+      "sha256": "2c292a7692db53379b1b2f9187aad1abd3daab8f9fb7dfb22b669e29abd31217",
+      "size": [
+        1024,
+        1024
+      ],
+      "alpha": true,
+      "png_bytes": 1353529,
+      "webp_bytes": 276462
+    },
+    {
+      "name": "palm_bark_basecolor",
+      "source": "assets\\textures\\palm_bark_basecolor.png",
+      "sha256": "b55e5e56d8efb8c32c7efba736dbffd8e82219b48cbbcf2975a02301e93e9ad7",
+      "size": [
+        1024,
+        1024
+      ],
+      "alpha": false,
+      "png_bytes": 2433489,
+      "webp_bytes": 449878
+    },
+    {
+      "name": "jungle_path_basecolor",
+      "source": "assets\\textures\\jungle_path_basecolor.png",
+      "sha256": "efc213078995554dd8580010a75dca3d90ed1aa6a07aea01799f2512179f9807",
+      "size": [
+        1024,
+        1024
+      ],
+      "alpha": false,
+      "png_bytes": 2624413,
+      "webp_bytes": 556758
+    },
+    {
+      "name": "jungle_grass_reference_atlas",
+      "source": "assets\\textures\\jungle_grass_reference_atlas.png",
+      "sha256": "1bc212e9f4088fc3136ae88952d12738eb5976fc4d8239fb59a64da0950a353a",
+      "size": [
+        1024,
+        1024
+      ],
+      "alpha": true,
+      "png_bytes": 986011,
+      "webp_bytes": 312430
+    },
+    {
+      "name": "jungle_ground_basecolor",
+      "source": "assets\\textures\\jungle_ground_basecolor.png",
+      "sha256": "1fe6a85dde97709ba7874c68156c5a56b5686ed600a2ed99b95216e54ccd37fb",
+      "size": [
+        1024,
+        1024
+      ],
+      "alpha": false,
+      "png_bytes": 2394365,
+      "webp_bytes": 467220
+    }
+  ]
+}

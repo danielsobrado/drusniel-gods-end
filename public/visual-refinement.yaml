@@ -1,0 +1,179 @@
+# Final visual tuning layered after the base and biome-specific settings.
+cinematic:
+  style:
+    grassRootBrightness: 0.32
+    # Density cues: root shade reaching two thirds up the blade, a darker
+    # sward floor and a per-blade value spread read as a deep canopy instead
+    # of separate straps on a green carpet. Edge-on thickening fills more but
+    # follows the view, so near blades swim while walking: left off.
+    grassCanopyDepth: 0.65
+    groundSwardShade: 0.55
+    grassValueJitter: 0.35
+    grassThicken: 0
+    # LOD bands thin retiring stems at full height and widen the survivors
+    # (up to 2x) instead of shrinking stems into a mowed-looking strip.
+    grassLodThinning: 1
+    grassLodCompensation: 1
+    grassLodWidenMax: 2
+    grassGradientPower: 2.35
+    grassFill: 0.025
+    grassBacklight: 1.05
+    meadowPatchScale: 0.025
+    meadowTintCool: [0.8, 0.98, 0.86]
+    meadowTintWarm: [1.12, 1.02, 0.74]
+    meadowDryPatchScale: 0.011
+    meadowDryPatchStart: 0.56
+    meadowDryPatchEnd: 0.84
+    meadowDryStrength: 0.22
+    meadowDryTint: '#777455'
+    groundTipMix: 0.08
+    bladeWidthScale: 1.15
+    bladeHeightScaleMin: 0.72
+    bladeHeightScaleMax: 1.3
+    bladeCurve: 0.07
+    foliageFill: 0.17
+    dryRoot: '#4d5a2b'
+    dryTip: '#8e9550'
+    canopyShadow: '#23533b'
+    canopyLight: '#779b58'
+    canopyTint: 0.78
+  post:
+    aoStrength: 0.32
+    aoRadius: 1.1
+    saturation: 1.04
+    depthOfField: { focalRange: 50, bokehScale: 0.52 }
+
+quality:
+  balanced:
+    blade:
+      lod:
+        high: { density: 3.1 }
+        medium: { density: 1.8 }
+  high:
+    blade:
+      lod:
+        # medium mirrors high so the stem count survives the segmentation drop
+        # at 16.8 m; only the blade's curvature is given up there.
+        high: { density: 3.4 }
+        medium: { density: 3.4 }
+    billboard:
+      lod:
+        high: { density: 3.1 }
+        medium: { density: 1.8 }
+  ultra:
+    blade:
+      lod:
+        high: { density: 4.3 }
+        medium: { density: 4.3 }
+    billboard:
+      lod:
+        high: { density: 4 }
+        medium: { density: 2 }
+
+vegetation:
+  growthThreshold: 0.18
+  trees:
+    grassShadePenalty: 0.46
+  density:
+    base: 0.68
+    moistureBoost: 0.23
+    macroVariation: 0.5
+    detailVariation: 0.18
+    highlandPenalty: 0.14
+  height:
+    base: 0.14
+    macroWeight: 0.52
+    moistureWeight: 0.38
+    minGrowth: 0.38
+    maxGrowth: 1
+
+foliage:
+  wildGrass:
+    candidatesPerCell: 9
+    count: 1500
+    minDensity: 0.16
+    minGrowth: 0.2
+    minScale: 0.7
+    maxScale: 1.32
+    stretch: 0.11
+    quality:
+      performance: { density: 0.26, radius: 0.48, shadows: false }
+      balanced: { density: 0.45, radius: 0.7, shadows: false }
+      high: { density: 0.7, radius: 0.9, shadows: false }
+      ultra: { density: 0.88, radius: 1, shadows: false }
+
+trees:
+  appearance:
+    retention: 0.92
+    scaleVariation: 0.08
+    brightnessVariation: 0.1
+    greenVariation: 0.06
+  billboard:
+    fill: 0.07
+    fillColor: '#737363'
+
+water:
+  sea:
+    detail:
+      nearshoreLongFrequency: 0.021
+      nearshoreCrossFrequency: 0.047
+      nearshoreWarp: 0.34
+      nearshoreSpacingFrequency: 0.009
+      nearshoreSpacingVariation: 0.13
+    coast:
+      terrain:
+        erosionSeed: 58181
+        erosionFrequency: 0.018
+        erosionSecondaryFrequency: 0.055
+        erosionAmplitude: 6.5
+        erosionDetailWeight: 0.38
+        erosionFootWarp: 12
+      swash:
+        foamWidth: 1.9
+        breakupStrength: 0.34
+      moisture:
+        baseReach: 42
+        baseStrength: 0.68
+      sand:
+        inlandStart: -180
+        inlandEnd: -78
+        slopeStart: 0.45
+        slopeEnd: 0.82
+        cliffRockTint: '#ad9a79'
+        cliffRockTintStrength: 0.32
+        wetDarkening: 0.62
+        rippleStrength: 0.04
+        grainStrength: 0.025
+        grainFadeEnd: 72
+        mesoToneMin: 0.8
+        mesoToneMax: 1.08
+        filmTintStrength: 0.24
+        foamStrength: 0.98
+        normalStrength: 0.045
+      vegetation:
+        grassStart: 62
+        grassEnd: 165
+        groundcoverStart: 68
+        groundcoverEnd: 168
+        groundcoverEdge: 24
+        maxPatches: 620
+        color: '#5f7254'
+      scatter:
+        attempts: 6500
+        density: 0.42
+        clusterPower: 1.65
+        inlandMin: 18
+        inlandMax: 132
+        sizeMin: 0.07
+        sizeMax: 0.27
+        twigLength: 2.6
+        twigRadius: 0.055
+        twigBend: 0.22
+        twigColor: '#806b50'
+        cliffRockAttempts: 900
+        cliffRockDensity: 0.16
+        cliffRockBand: 22
+        cliffRockMinNormalY: 0.7
+        cliffRockSizeMin: 0.3
+        cliffRockSizeMax: 0.95
+        cliffRockColor: '#887963'

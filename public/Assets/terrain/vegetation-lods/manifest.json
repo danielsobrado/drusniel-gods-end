@@ -1,0 +1,1589 @@
+{
+  "version": 2,
+  "variants": {
+    "grass-slender": {
+      "tree": false,
+      "grass": true,
+      "mesh": null,
+      "atlas": "grass-slender.webp",
+      "alphaCutoff": 0.5,
+      "atlasKtx2": "grass-slender.ktx2"
+    },
+    "grass-reed": {
+      "tree": false,
+      "grass": true,
+      "mesh": null,
+      "atlas": "grass-reed.webp",
+      "alphaCutoff": 0.5,
+      "atlasKtx2": "grass-reed.ktx2"
+    },
+    "grass-broadleaf": {
+      "tree": false,
+      "grass": true,
+      "mesh": null,
+      "atlas": "grass-broadleaf.webp",
+      "alphaCutoff": 0.5,
+      "atlasKtx2": "grass-broadleaf.ktx2"
+    },
+    "understory-Plants_01": {
+      "tree": false,
+      "understory": true,
+      "triangles": [
+        72
+      ],
+      "mesh": null,
+      "atlas": "understory-Plants_01.webp",
+      "alphaCutoff": 0.1,
+      "capture": {
+        "width": 6.2561568357157284,
+        "height": 1.3754355212814615,
+        "center": [
+          0.20064613847480395,
+          0.648790340227104,
+          -0.23494802903500123
+        ],
+        "views": 8,
+        "tileSize": 128,
+        "gutter": 0
+      },
+      "atlasKtx2": "understory-Plants_01.ktx2"
+    },
+    "understory-Plants_02": {
+      "tree": false,
+      "understory": true,
+      "triangles": [
+        6
+      ],
+      "mesh": null,
+      "atlas": "understory-Plants_02.webp",
+      "alphaCutoff": 0.1,
+      "capture": {
+        "width": 2.537309420505309,
+        "height": 0.946049281336753,
+        "center": [
+          -0.4499999899417162,
+          0.4462496610079045,
+          -0.19999999552965164
+        ],
+        "views": 8,
+        "tileSize": 128,
+        "gutter": 0
+      },
+      "atlasKtx2": "understory-Plants_02.ktx2"
+    },
+    "understory-Plants_03": {
+      "tree": false,
+      "understory": true,
+      "triangles": [
+        36
+      ],
+      "mesh": null,
+      "atlas": "understory-Plants_03.webp",
+      "alphaCutoff": 0.1,
+      "capture": {
+        "width": 6.583307471234138,
+        "height": 1.7410989086084312,
+        "center": [
+          0.021056537157523536,
+          0.8212730700983158,
+          0.02121581030154651
+        ],
+        "views": 8,
+        "tileSize": 128,
+        "gutter": 0
+      },
+      "atlasKtx2": "understory-Plants_03.ktx2"
+    },
+    "understory-Plants_04": {
+      "tree": false,
+      "understory": true,
+      "triangles": [
+        6
+      ],
+      "mesh": null,
+      "atlas": "understory-Plants_04.webp",
+      "alphaCutoff": 0.1,
+      "capture": {
+        "width": 2.7045028624897625,
+        "height": 1.170979257350134,
+        "center": [
+          -0.22869916404711077,
+          0.5523487062972321,
+          -0.19999999552965164
+        ],
+        "views": 8,
+        "tileSize": 128,
+        "gutter": 0
+      },
+      "atlasKtx2": "understory-Plants_04.ktx2"
+    },
+    "understory-Plants_05": {
+      "tree": false,
+      "understory": true,
+      "triangles": [
+        108
+      ],
+      "mesh": null,
+      "atlas": "understory-Plants_05.webp",
+      "alphaCutoff": 0.1,
+      "capture": {
+        "width": 4.561327099367632,
+        "height": 1.4264476663280794,
+        "center": [
+          -0.10721383808820306,
+          0.6728526727962638,
+          -0.1884163719024574
+        ],
+        "views": 8,
+        "tileSize": 128,
+        "gutter": 0
+      },
+      "atlasKtx2": "understory-Plants_05.ktx2"
+    },
+    "understory-Plants_06": {
+      "tree": false,
+      "understory": true,
+      "triangles": [
+        6
+      ],
+      "mesh": null,
+      "atlas": "understory-Plants_06.webp",
+      "alphaCutoff": 0.1,
+      "capture": {
+        "width": 2.980471914626818,
+        "height": 1.1642174935471081,
+        "center": [
+          0,
+          0.5491591950693901,
+          -0.19999999552965164
+        ],
+        "views": 8,
+        "tileSize": 128,
+        "gutter": 0
+      },
+      "atlasKtx2": "understory-Plants_06.ktx2"
+    },
+    "understory-Plants_07": {
+      "tree": false,
+      "understory": true,
+      "triangles": [
+        36
+      ],
+      "mesh": null,
+      "atlas": "understory-Plants_07.webp",
+      "alphaCutoff": 0.1,
+      "capture": {
+        "width": 4.386195083963728,
+        "height": 1.054171723263597,
+        "center": [
+          -0.3008543662535912,
+          0.49725081286018746,
+          -0.08801396173207543
+        ],
+        "views": 8,
+        "tileSize": 128,
+        "gutter": 0
+      },
+      "atlasKtx2": "understory-Plants_07.ktx2"
+    },
+    "understory-Plants_08": {
+      "tree": false,
+      "understory": true,
+      "triangles": [
+        6
+      ],
+      "mesh": null,
+      "atlas": "understory-Plants_08.webp",
+      "alphaCutoff": 0.1,
+      "capture": {
+        "width": 2.191666659656335,
+        "height": 0.7702991025410787,
+        "center": [
+          -0.3499999921768904,
+          0.36334863327409395,
+          0
+        ],
+        "views": 8,
+        "tileSize": 128,
+        "gutter": 0
+      },
+      "atlasKtx2": "understory-Plants_08.ktx2"
+    },
+    "understory-Plants_09": {
+      "tree": false,
+      "understory": true,
+      "triangles": [
+        54
+      ],
+      "mesh": null,
+      "atlas": "understory-Plants_09.webp",
+      "alphaCutoff": 0.1,
+      "capture": {
+        "width": 4.161319391676901,
+        "height": 0.4279343271925821,
+        "center": [
+          -0.3073019197441207,
+          0.20185581471348213,
+          -0.1226229115734343
+        ],
+        "views": 8,
+        "tileSize": 128,
+        "gutter": 0
+      },
+      "atlasKtx2": "understory-Plants_09.ktx2"
+    },
+    "understory-Plants_10": {
+      "tree": false,
+      "understory": true,
+      "triangles": [
+        54
+      ],
+      "mesh": null,
+      "atlas": "understory-Plants_10.webp",
+      "alphaCutoff": 0.1,
+      "capture": {
+        "width": 3.5274019679395505,
+        "height": 0.7417528247024229,
+        "center": [
+          -0.08072588740156839,
+          0.34988340787850136,
+          0.09607801222626833
+        ],
+        "views": 8,
+        "tileSize": 128,
+        "gutter": 0
+      },
+      "atlasKtx2": "understory-Plants_10.ktx2"
+    },
+    "tree1": {
+      "tree": true,
+      "triangles": [
+        14099,
+        8735,
+        3911
+      ],
+      "mesh": "forest.glb",
+      "medium": "tree1_Medium",
+      "atlas": "tree1.webp",
+      "capture": {
+        "width": 27.91006726965048,
+        "height": 37.1386038268526,
+        "center": [
+          -1.0232148738938918,
+          17.049853122671962,
+          0.3764167312350537
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "tree1_Low",
+      "canopyPalette": true,
+      "alphaCutoff": 0.35,
+      "normalMask": "tree1-normal-mask.webp",
+      "atlasKtx2": "tree1.ktx2"
+    },
+    "tree2": {
+      "tree": true,
+      "triangles": [
+        8333,
+        4247,
+        1770
+      ],
+      "mesh": "forest.glb",
+      "medium": "tree2_Medium",
+      "atlas": "tree2.webp",
+      "capture": {
+        "width": 10.72514380945452,
+        "height": 18.00812865897459,
+        "center": [
+          0.1514972699642385,
+          8.376196399072407,
+          0.10411499414033187
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "tree2_Low",
+      "canopyPalette": true,
+      "alphaCutoff": 0.35,
+      "normalMask": "tree2-normal-mask.webp",
+      "atlasKtx2": "tree2.ktx2"
+    },
+    "tree3": {
+      "tree": true,
+      "triangles": [
+        9018,
+        4612,
+        1931
+      ],
+      "mesh": "forest.glb",
+      "medium": "tree3_Medium",
+      "atlas": "tree3.webp",
+      "capture": {
+        "width": 42.527635783826966,
+        "height": 33.51974908724026,
+        "center": [
+          -0.10794022526027902,
+          15.428351822671843,
+          -2.6403218511410387
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "tree3_Low",
+      "canopyPalette": true,
+      "alphaCutoff": 0.35,
+      "normalMask": "tree3-normal-mask.webp",
+      "atlasKtx2": "tree3.ktx2"
+    },
+    "tree4": {
+      "tree": true,
+      "triangles": [
+        20922,
+        14329,
+        6583
+      ],
+      "mesh": "forest.glb",
+      "medium": "tree4_Medium",
+      "atlas": "tree4.webp",
+      "capture": {
+        "width": 46.583027736716474,
+        "height": 47.404572630010534,
+        "center": [
+          0.9300957572411335,
+          21.714367650175355,
+          2.7836144064995096
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "tree4_Low",
+      "canopyPalette": true,
+      "alphaCutoff": 0.35,
+      "normalMask": "tree4-normal-mask.webp",
+      "atlasKtx2": "tree4.ktx2"
+    },
+    "tree5": {
+      "tree": true,
+      "triangles": [
+        22303,
+        13986,
+        6278
+      ],
+      "mesh": "forest.glb",
+      "medium": "tree5_Medium",
+      "atlas": "tree5.webp",
+      "capture": {
+        "width": 47.37987098923357,
+        "height": 47.03915398159057,
+        "center": [
+          1.2351418955637428,
+          21.046907672914024,
+          -0.534508332152086
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "tree5_Low",
+      "canopyPalette": true,
+      "alphaCutoff": 0.35,
+      "normalMask": "tree5-normal-mask.webp",
+      "atlasKtx2": "tree5.ktx2"
+    },
+    "tree6": {
+      "tree": true,
+      "triangles": [
+        22301,
+        13992,
+        6285
+      ],
+      "mesh": "forest.glb",
+      "medium": "tree6_Medium",
+      "atlas": "tree6.webp",
+      "capture": {
+        "width": 49.79788413576421,
+        "height": 48.781245950714435,
+        "center": [
+          0.26160150942723703,
+          22.169075703350074,
+          0.5248030238353749
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "tree6_Low",
+      "canopyPalette": true,
+      "alphaCutoff": 0.35,
+      "normalMask": "tree6-normal-mask.webp",
+      "atlasKtx2": "tree6.ktx2"
+    },
+    "tree7": {
+      "tree": true,
+      "triangles": [
+        22293,
+        14001,
+        6295
+      ],
+      "mesh": "forest.glb",
+      "medium": "tree7_Medium",
+      "atlas": "tree7.webp",
+      "capture": {
+        "width": 49.6654159923356,
+        "height": 50.36700257727412,
+        "center": [
+          -0.05952595459166332,
+          22.86496648247359,
+          -0.27074726111277414
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "tree7_Low",
+      "canopyPalette": true,
+      "alphaCutoff": 0.35,
+      "normalMask": "tree7-normal-mask.webp",
+      "atlasKtx2": "tree7.ktx2"
+    },
+    "tree8": {
+      "tree": true,
+      "triangles": [
+        21424,
+        13087,
+        5819
+      ],
+      "mesh": "forest.glb",
+      "medium": "tree8_Medium",
+      "atlas": "tree8.webp",
+      "capture": {
+        "width": 61.5950367628735,
+        "height": 55.26308253688602,
+        "center": [
+          -1.5701378747849049,
+          25.080536831208477,
+          2.811584572873926
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "tree8_Low",
+      "canopyPalette": true,
+      "alphaCutoff": 0.35,
+      "normalMask": "tree8-normal-mask.webp",
+      "atlasKtx2": "tree8.ktx2"
+    },
+    "tree9": {
+      "tree": true,
+      "triangles": [
+        21407,
+        13101,
+        5823
+      ],
+      "mesh": "forest.glb",
+      "medium": "tree9_Medium",
+      "atlas": "tree9.webp",
+      "capture": {
+        "width": 69.57939695085699,
+        "height": 69.82651320147964,
+        "center": [
+          -1.1130928472675805,
+          31.733141207282713,
+          -3.3452339625409877
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "tree9_Low",
+      "canopyPalette": true,
+      "alphaCutoff": 0.35,
+      "normalMask": "tree9-normal-mask.webp",
+      "atlasKtx2": "tree9.ktx2"
+    },
+    "tree10": {
+      "tree": true,
+      "triangles": [
+        23098,
+        19888,
+        11021
+      ],
+      "mesh": "forest.glb",
+      "medium": "tree10_Medium",
+      "atlas": "tree10.webp",
+      "capture": {
+        "width": 13.338901784648677,
+        "height": 16.815018482208252,
+        "center": [
+          -0.5098857879638672,
+          7.210387706756592,
+          -0.15842676162719727
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "tree10_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "tree10-normal-mask.webp",
+      "atlasKtx2": "tree10.ktx2"
+    },
+    "tree11": {
+      "tree": true,
+      "triangles": [
+        8332,
+        7163,
+        4542
+      ],
+      "mesh": "forest.glb",
+      "medium": "tree11_Medium",
+      "atlas": "tree11.webp",
+      "capture": {
+        "width": 13.587110352542558,
+        "height": 13.894028567373754,
+        "center": [
+          3.264954626560211,
+          6.306807689368725,
+          0.3138465881347656
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "tree11_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "tree11-normal-mask.webp",
+      "atlasKtx2": "tree11.ktx2"
+    },
+    "tree12": {
+      "tree": true,
+      "triangles": [
+        11404,
+        9874,
+        6913
+      ],
+      "mesh": "forest.glb",
+      "medium": "tree12_Medium",
+      "atlas": "tree12.webp",
+      "capture": {
+        "width": 8.433860252102914,
+        "height": 8.717123692035676,
+        "center": [
+          -0.01219630241394043,
+          3.494649827480316,
+          0.13138985633850098
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "tree12_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "tree12-normal-mask.webp",
+      "atlasKtx2": "tree12.ktx2"
+    },
+    "tree13": {
+      "tree": true,
+      "triangles": [
+        6522,
+        5268,
+        3204
+      ],
+      "mesh": "forest.glb",
+      "medium": "tree13_Medium",
+      "atlas": "tree13.webp",
+      "capture": {
+        "width": 10.47731263895795,
+        "height": 14.178159324526787,
+        "center": [
+          1.182085394859314,
+          6.312188997864723,
+          0.3752593994140625
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "tree13_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "tree13-normal-mask.webp",
+      "atlasKtx2": "tree13.ktx2"
+    },
+    "tree14": {
+      "tree": true,
+      "triangles": [
+        17890,
+        11243,
+        6323
+      ],
+      "mesh": "forest.glb",
+      "medium": "tree14_Medium",
+      "atlas": "tree14.webp",
+      "capture": {
+        "width": 8.604499739191235,
+        "height": 21.359813239574432,
+        "center": [
+          0.4151194095611572,
+          9.066616594791412,
+          -0.04985618591308594
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "tree14_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "tree14-normal-mask.webp",
+      "atlasKtx2": "tree14.ktx2"
+    },
+    "tree15": {
+      "tree": true,
+      "triangles": [
+        22914,
+        17811,
+        10252
+      ],
+      "mesh": "forest.glb",
+      "medium": "tree15_Medium",
+      "atlas": "tree15.webp",
+      "capture": {
+        "width": 18.548225463892106,
+        "height": 22.56946370124817,
+        "center": [
+          0.31929779052734375,
+          6.4960267543792725,
+          0.12057733535766602
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "tree15_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "tree15-normal-mask.webp",
+      "atlasKtx2": "tree15.ktx2"
+    },
+    "tree16": {
+      "tree": true,
+      "triangles": [
+        11622,
+        9115,
+        5224
+      ],
+      "mesh": "forest.glb",
+      "medium": "tree16_Medium",
+      "atlas": "tree16.webp",
+      "capture": {
+        "width": 10.19369922227035,
+        "height": 17.372585788071156,
+        "center": [
+          0.35089635848999023,
+          7.947384260594845,
+          -0.07755804061889648
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "tree16_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "tree16-normal-mask.webp",
+      "atlasKtx2": "tree16.ktx2"
+    },
+    "tree17": {
+      "tree": true,
+      "triangles": [
+        21146,
+        17783,
+        11707
+      ],
+      "mesh": "forest.glb",
+      "medium": "tree17_Medium",
+      "atlas": "tree17.webp",
+      "capture": {
+        "width": 12.486484178805082,
+        "height": 13.124016480445862,
+        "center": [
+          0.024987220764160156,
+          2.7343863248825073,
+          -0.04758739471435547
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "tree17_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "tree17-normal-mask.webp",
+      "atlasKtx2": "tree17.ktx2"
+    },
+    "tree18": {
+      "tree": true,
+      "triangles": [
+        8204,
+        4757,
+        2325
+      ],
+      "mesh": "forest.glb",
+      "medium": "tree18_Medium",
+      "atlas": "tree18.webp",
+      "capture": {
+        "width": 9.326813014929156,
+        "height": 14.06901882827282,
+        "center": [
+          0.9764869213104248,
+          6.363670364022255,
+          0.0727546215057373
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "tree18_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "tree18-normal-mask.webp",
+      "atlasKtx2": "tree18.ktx2"
+    },
+    "tree19": {
+      "tree": true,
+      "triangles": [
+        5792,
+        4936,
+        3649
+      ],
+      "mesh": "forest.glb",
+      "medium": "tree19_Medium",
+      "atlas": "tree19.webp",
+      "capture": {
+        "width": 4.486382853294829,
+        "height": 4.204980172514916,
+        "center": [
+          0.12273907661437988,
+          1.6676387339830399,
+          -0.11724495887756348
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "tree19_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "tree19-normal-mask.webp",
+      "atlasKtx2": "tree19.ktx2"
+    },
+    "jungle-background_tree_01": {
+      "tree": true,
+      "triangles": [
+        3404,
+        3296,
+        2680
+      ],
+      "mesh": "jungle.glb",
+      "medium": "jungle-background_tree_01_Medium",
+      "atlas": "jungle-background_tree_01.webp",
+      "capture": {
+        "width": 13.192240077633882,
+        "height": 13.056271106451751,
+        "center": [
+          0.6195677518844604,
+          6.134825233370066,
+          1.0112791061401367
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "jungle-background_tree_01_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "jungle-background_tree_01-normal-mask.webp",
+      "atlasKtx2": "jungle-background_tree_01.ktx2"
+    },
+    "jungle-background_tree_02": {
+      "tree": true,
+      "triangles": [
+        3404,
+        3292,
+        2654
+      ],
+      "mesh": "jungle.glb",
+      "medium": "jungle-background_tree_02_Medium",
+      "atlas": "jungle-background_tree_02.webp",
+      "capture": {
+        "width": 11.855324271168184,
+        "height": 14.715029509551824,
+        "center": [
+          0.10941171646118164,
+          6.920327967964113,
+          0.09295392036437988
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "jungle-background_tree_02_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "jungle-background_tree_02-normal-mask.webp",
+      "atlasKtx2": "jungle-background_tree_02.ktx2"
+    },
+    "jungle-background_tree_03": {
+      "tree": true,
+      "triangles": [
+        3404,
+        3328,
+        2705
+      ],
+      "mesh": "jungle.glb",
+      "medium": "jungle-background_tree_03_Medium",
+      "atlas": "jungle-background_tree_03.webp",
+      "capture": {
+        "width": 14.933767843535309,
+        "height": 10.65680481325835,
+        "center": [
+          0.8704767227172852,
+          4.9985119784250855,
+          0.0669713020324707
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "jungle-background_tree_03_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "jungle-background_tree_03-normal-mask.webp",
+      "atlasKtx2": "jungle-background_tree_03.ktx2"
+    },
+    "jungle-broadleaf_01": {
+      "tree": false,
+      "triangles": [
+        504
+      ],
+      "mesh": null,
+      "atlas": "jungle-broadleaf_01.webp",
+      "capture": {
+        "width": 4.17258571219549,
+        "height": 1.8034549788758159,
+        "center": [
+          -0.051482439041137695,
+          0.8473957786336541,
+          -0.04118490219116211
+        ],
+        "views": 8,
+        "tileSize": 128
+      },
+      "atlasKtx2": "jungle-broadleaf_01.ktx2",
+      "alphaCutoff": 0.35
+    },
+    "jungle-broadleaf_02": {
+      "tree": false,
+      "triangles": [
+        504
+      ],
+      "mesh": null,
+      "atlas": "jungle-broadleaf_02.webp",
+      "capture": {
+        "width": 3.820233582390635,
+        "height": 1.5890276317670942,
+        "center": [
+          -0.039010584354400635,
+          0.7461255257949233,
+          0.07230496406555176
+        ],
+        "views": 8,
+        "tileSize": 128
+      },
+      "atlasKtx2": "jungle-broadleaf_02.ktx2",
+      "alphaCutoff": 0.35
+    },
+    "jungle-broadleaf_03": {
+      "tree": false,
+      "triangles": [
+        504
+      ],
+      "mesh": null,
+      "atlas": "jungle-broadleaf_03.webp",
+      "capture": {
+        "width": 3.8733386804192165,
+        "height": 1.9651378421764822,
+        "center": [
+          0.02663642168045044,
+          0.9234650863800198,
+          0.13491398096084595
+        ],
+        "views": 8,
+        "tileSize": 128
+      },
+      "atlasKtx2": "jungle-broadleaf_03.ktx2",
+      "alphaCutoff": 0.35
+    },
+    "jungle-climber_01": {
+      "tree": false,
+      "triangles": [
+        1008
+      ],
+      "mesh": null,
+      "atlas": "jungle-climber_01.webp",
+      "capture": {
+        "width": 2.969185361380861,
+        "height": 5.95137478709221,
+        "center": [
+          -0.015001952648162842,
+          2.2003962099552155,
+          -0.020174264907836914
+        ],
+        "views": 8,
+        "tileSize": 128
+      },
+      "atlasKtx2": "jungle-climber_01.ktx2",
+      "alphaCutoff": 0.35
+    },
+    "jungle-climber_02": {
+      "tree": false,
+      "triangles": [
+        1008
+      ],
+      "mesh": null,
+      "atlas": "jungle-climber_02.webp",
+      "capture": {
+        "width": 3.056613612715537,
+        "height": 5.945654323101044,
+        "center": [
+          0.0265505313873291,
+          2.2030945420265198,
+          0.015742897987365723
+        ],
+        "views": 8,
+        "tileSize": 128
+      },
+      "atlasKtx2": "jungle-climber_02.ktx2",
+      "alphaCutoff": 0.35
+    },
+    "jungle-fern_01": {
+      "tree": false,
+      "triangles": [
+        144
+      ],
+      "mesh": null,
+      "atlas": "jungle-fern_01.webp",
+      "capture": {
+        "width": 2.718455469217069,
+        "height": 0.41026642426848414,
+        "center": [
+          0.1439361274242401,
+          0.23352189734578133,
+          -0.02828437089920044
+        ],
+        "views": 8,
+        "tileSize": 128
+      },
+      "atlasKtx2": "jungle-fern_01.ktx2",
+      "alphaCutoff": 0.35
+    },
+    "jungle-fern_02": {
+      "tree": false,
+      "triangles": [
+        144
+      ],
+      "mesh": null,
+      "atlas": "jungle-fern_02.webp",
+      "capture": {
+        "width": 2.839259886231542,
+        "height": 0.4121831439435482,
+        "center": [
+          -0.03253844380378723,
+          0.23442601040005684,
+          -0.06278318166732788
+        ],
+        "views": 8,
+        "tileSize": 128
+      },
+      "atlasKtx2": "jungle-fern_02.ktx2",
+      "alphaCutoff": 0.35
+    },
+    "jungle-ForegroundPalm_0": {
+      "tree": true,
+      "triangles": [
+        472,
+        436,
+        356
+      ],
+      "mesh": "jungle.glb",
+      "medium": "jungle-ForegroundPalm_0_Medium",
+      "atlas": "jungle-ForegroundPalm_0.webp",
+      "capture": {
+        "width": 8.640235934543911,
+        "height": 11.434809827003628,
+        "center": [
+          0.7948349714279175,
+          5.385653122793883,
+          0.003247380256652832
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "jungle-ForegroundPalm_0_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "jungle-ForegroundPalm_0-normal-mask.webp",
+      "atlasKtx2": "jungle-ForegroundPalm_0.ktx2"
+    },
+    "jungle-ForegroundPalm_1": {
+      "tree": true,
+      "triangles": [
+        472,
+        422,
+        333
+      ],
+      "mesh": "jungle.glb",
+      "medium": "jungle-ForegroundPalm_1_Medium",
+      "atlas": "jungle-ForegroundPalm_1.webp",
+      "capture": {
+        "width": 9.059783657984603,
+        "height": 12.657323025846855,
+        "center": [
+          0.39382708072662354,
+          5.963047734228894,
+          0.34684062004089355
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "jungle-ForegroundPalm_1_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "jungle-ForegroundPalm_1-normal-mask.webp",
+      "atlasKtx2": "jungle-ForegroundPalm_1.ktx2"
+    },
+    "jungle-ForegroundPalm_2": {
+      "tree": true,
+      "triangles": [
+        472,
+        426,
+        335
+      ],
+      "mesh": "jungle.glb",
+      "medium": "jungle-ForegroundPalm_2_Medium",
+      "atlas": "jungle-ForegroundPalm_2.webp",
+      "capture": {
+        "width": 9.235653925378248,
+        "height": 13.69416780971922,
+        "center": [
+          0.5754075050354004,
+          6.4527402620296925,
+          -0.257465124130249
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "jungle-ForegroundPalm_2_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "jungle-ForegroundPalm_2-normal-mask.webp",
+      "atlasKtx2": "jungle-ForegroundPalm_2.ktx2"
+    },
+    "jungle-ForegroundPalm_3": {
+      "tree": true,
+      "triangles": [
+        472,
+        436,
+        358
+      ],
+      "mesh": "jungle.glb",
+      "medium": "jungle-ForegroundPalm_3_Medium",
+      "atlas": "jungle-ForegroundPalm_3.webp",
+      "capture": {
+        "width": 9.254798000600786,
+        "height": 10.566064607910812,
+        "center": [
+          0.2121748924255371,
+          4.974966839887202,
+          -0.07880139350891113
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "jungle-ForegroundPalm_3_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "jungle-ForegroundPalm_3-normal-mask.webp",
+      "atlasKtx2": "jungle-ForegroundPalm_3.ktx2"
+    },
+    "jungle-grass_01": {
+      "tree": false,
+      "triangles": [
+        264
+      ],
+      "mesh": null,
+      "atlas": "jungle-grass_01.webp",
+      "capture": {
+        "width": 1.410109080266066,
+        "height": 0.7306126999855042,
+        "center": [
+          0.06893350183963776,
+          0.34462863206863403,
+          0.013435661792755127
+        ],
+        "views": 8,
+        "tileSize": 128
+      },
+      "atlasKtx2": "jungle-grass_01.ktx2",
+      "alphaCutoff": 0.35
+    },
+    "jungle-grass_02": {
+      "tree": false,
+      "triangles": [
+        264
+      ],
+      "mesh": null,
+      "atlas": "jungle-grass_02.webp",
+      "capture": {
+        "width": 1.6361759414470676,
+        "height": 0.6845263230800629,
+        "center": [
+          0.0016575157642364502,
+          0.3228897750377655,
+          -0.028935223817825317
+        ],
+        "views": 8,
+        "tileSize": 128
+      },
+      "atlasKtx2": "jungle-grass_02.ktx2",
+      "alphaCutoff": 0.35
+    },
+    "jungle-grass_03": {
+      "tree": false,
+      "triangles": [
+        264
+      ],
+      "mesh": null,
+      "atlas": "jungle-grass_03.webp",
+      "capture": {
+        "width": 1.6192017737700526,
+        "height": 0.6973067498207093,
+        "center": [
+          -0.05108746886253357,
+          0.3289182782173157,
+          0.02937290072441101
+        ],
+        "views": 8,
+        "tileSize": 128
+      },
+      "atlasKtx2": "jungle-grass_03.ktx2",
+      "alphaCutoff": 0.35
+    },
+    "jungle-groundcover_01": {
+      "tree": false,
+      "triangles": [
+        80
+      ],
+      "mesh": null,
+      "atlas": "jungle-groundcover_01.webp",
+      "capture": {
+        "width": 1.9249290998106177,
+        "height": 0.0904621046409011,
+        "center": [
+          -0.003902912139892578,
+          0.06767080444842577,
+          -0.003140091896057129
+        ],
+        "views": 8,
+        "tileSize": 128
+      },
+      "atlasKtx2": "jungle-groundcover_01.ktx2",
+      "alphaCutoff": 0.35
+    },
+    "jungle-groundcover_02": {
+      "tree": false,
+      "triangles": [
+        80
+      ],
+      "mesh": null,
+      "atlas": "jungle-groundcover_02.webp",
+      "capture": {
+        "width": 1.972569059779119,
+        "height": 0.0949991899356246,
+        "center": [
+          0.05711919069290161,
+          0.06981093902140856,
+          0.0005628466606140137
+        ],
+        "views": 8,
+        "tileSize": 128
+      },
+      "atlasKtx2": "jungle-groundcover_02.ktx2",
+      "alphaCutoff": 0.35
+    },
+    "jungle-palm_01": {
+      "tree": true,
+      "triangles": [
+        472,
+        436,
+        356
+      ],
+      "mesh": "jungle.glb",
+      "medium": "jungle-palm_01_Medium",
+      "atlas": "jungle-palm_01.webp",
+      "capture": {
+        "width": 9.525149458552715,
+        "height": 11.507211121711881,
+        "center": [
+          0.5073386430740356,
+          5.419804676901549,
+          0.11420249938964844
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "jungle-palm_01_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "jungle-palm_01-normal-mask.webp",
+      "atlasKtx2": "jungle-palm_01.ktx2"
+    },
+    "jungle-palm_02": {
+      "tree": true,
+      "triangles": [
+        472,
+        436,
+        358
+      ],
+      "mesh": "jungle.glb",
+      "medium": "jungle-palm_02_Medium",
+      "atlas": "jungle-palm_02.webp",
+      "capture": {
+        "width": 9.17506545667961,
+        "height": 11.405834550056607,
+        "center": [
+          0.5775810480117798,
+          5.371985539328307,
+          -0.2694181203842163
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "jungle-palm_02_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "jungle-palm_02-normal-mask.webp",
+      "atlasKtx2": "jungle-palm_02.ktx2"
+    },
+    "jungle-shrub_01": {
+      "tree": false,
+      "triangles": [
+        612
+      ],
+      "mesh": null,
+      "atlas": "jungle-shrub_01.webp",
+      "capture": {
+        "width": 3.691255304896542,
+        "height": 1.8180233329534532,
+        "center": [
+          -0.026346266269683838,
+          0.802270844578743,
+          -0.047316133975982666
+        ],
+        "views": 8,
+        "tileSize": 128
+      },
+      "atlasKtx2": "jungle-shrub_01.ktx2",
+      "alphaCutoff": 0.35
+    },
+    "jungle-shrub_02": {
+      "tree": false,
+      "triangles": [
+        612
+      ],
+      "mesh": null,
+      "atlas": "jungle-shrub_02.webp",
+      "capture": {
+        "width": 3.5514865146519807,
+        "height": 1.7551539901643993,
+        "center": [
+          -0.010322630405426025,
+          0.8150340002030134,
+          -0.01316756010055542
+        ],
+        "views": 8,
+        "tileSize": 128
+      },
+      "atlasKtx2": "jungle-shrub_02.ktx2",
+      "alphaCutoff": 0.35
+    },
+    "jungle-split_leaf_01": {
+      "tree": false,
+      "triangles": [
+        392
+      ],
+      "mesh": null,
+      "atlas": "jungle-split_leaf_01.webp",
+      "capture": {
+        "width": 3.857239426895413,
+        "height": 1.5104214419750497,
+        "center": [
+          0.08385592699050903,
+          0.7097137743839994,
+          0.06379824876785278
+        ],
+        "views": 8,
+        "tileSize": 128
+      },
+      "atlasKtx2": "jungle-split_leaf_01.ktx2",
+      "alphaCutoff": 0.35
+    },
+    "jungle-split_leaf_02": {
+      "tree": false,
+      "triangles": [
+        392
+      ],
+      "mesh": null,
+      "atlas": "jungle-split_leaf_02.webp",
+      "capture": {
+        "width": 3.604888956198878,
+        "height": 1.4562223625229673,
+        "center": [
+          -0.03793102502822876,
+          0.6832889880752191,
+          -0.07777339220046997
+        ],
+        "views": 8,
+        "tileSize": 128
+      },
+      "atlasKtx2": "jungle-split_leaf_02.ktx2",
+      "alphaCutoff": 0.35
+    },
+    "jungle-tree_01": {
+      "tree": true,
+      "triangles": [
+        7212,
+        7051,
+        5362
+      ],
+      "mesh": "jungle.glb",
+      "medium": "jungle-tree_01_Medium",
+      "atlas": "jungle-tree_01.webp",
+      "capture": {
+        "width": 13.845661021437913,
+        "height": 12.139491807445884,
+        "center": [
+          -0.04234123229980469,
+          5.68448250181973,
+          0.39906787872314453
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "jungle-tree_01_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "jungle-tree_01-normal-mask.webp",
+      "atlasKtx2": "jungle-tree_01.ktx2"
+    },
+    "jungle-tree_02": {
+      "tree": true,
+      "triangles": [
+        6236,
+        6088,
+        4735
+      ],
+      "mesh": "jungle.glb",
+      "medium": "jungle-tree_02_Medium",
+      "atlas": "jungle-tree_02.webp",
+      "capture": {
+        "width": 13.148047517597053,
+        "height": 13.347536158710719,
+        "center": [
+          -0.16901159286499023,
+          6.259602081030607,
+          0.16596198081970215
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "jungle-tree_02_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "jungle-tree_02-normal-mask.webp",
+      "atlasKtx2": "jungle-tree_02.ktx2"
+    },
+    "jungle-tree_03": {
+      "tree": true,
+      "triangles": [
+        8188,
+        8029,
+        6113
+      ],
+      "mesh": "jungle.glb",
+      "medium": "jungle-tree_03_Medium",
+      "atlas": "jungle-tree_03.webp",
+      "capture": {
+        "width": 14.907915169906465,
+        "height": 9.987691723257305,
+        "center": [
+          -0.26826047897338867,
+          4.662720303982496,
+          0.198714017868042
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "jungle-tree_03_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "jungle-tree_03-normal-mask.webp",
+      "atlasKtx2": "jungle-tree_03.ktx2"
+    },
+    "jungle-tree_0010": {
+      "tree": true,
+      "triangles": [
+        6724,
+        6614,
+        5135
+      ],
+      "mesh": "jungle.glb",
+      "medium": "jungle-tree_0010_Medium",
+      "atlas": "jungle-tree_0010.webp",
+      "capture": {
+        "width": 13.289402040982687,
+        "height": 15.63565413184464,
+        "center": [
+          1.1609461307525635,
+          7.343094309791923,
+          1.0212221145629883
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "jungle-tree_0010_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "jungle-tree_0010-normal-mask.webp",
+      "atlasKtx2": "jungle-tree_0010.ktx2"
+    },
+    "jungle-tree_05": {
+      "tree": true,
+      "triangles": [
+        7700,
+        7526,
+        5680
+      ],
+      "mesh": "jungle.glb",
+      "medium": "jungle-tree_05_Medium",
+      "atlas": "jungle-tree_05.webp",
+      "capture": {
+        "width": 15.321188216186016,
+        "height": 10.886988619863988,
+        "center": [
+          1.0494332313537598,
+          5.090509586036205,
+          0.4911327362060547
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "jungle-tree_05_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "jungle-tree_05-normal-mask.webp",
+      "atlasKtx2": "jungle-tree_05.ktx2"
+    },
+    "jungle-tree_06": {
+      "tree": true,
+      "triangles": [
+        7212,
+        7047,
+        5373
+      ],
+      "mesh": "jungle.glb",
+      "medium": "jungle-tree_06_Medium",
+      "atlas": "jungle-tree_06.webp",
+      "capture": {
+        "width": 12.741790393858102,
+        "height": 12.716511378437282,
+        "center": [
+          -0.3353252410888672,
+          5.959463607519865,
+          -0.2932928800582886
+        ],
+        "views": 12,
+        "tileSize": 208,
+        "gutter": 8
+      },
+      "lowMesh": "jungle-tree_06_Low",
+      "canopyPalette": false,
+      "alphaCutoff": 0.35,
+      "normalMask": "jungle-tree_06-normal-mask.webp",
+      "atlasKtx2": "jungle-tree_06.ktx2"
+    },
+    "jungle-vine_01": {
+      "tree": false,
+      "triangles": [
+        3240
+      ],
+      "mesh": null,
+      "atlas": "jungle-vine_01.webp",
+      "capture": {
+        "width": 2.116808238775113,
+        "height": 6.653942287866958,
+        "center": [
+          0.3823786526918411,
+          -3.136065785191022,
+          -0.000015333294868469238
+        ],
+        "views": 8,
+        "tileSize": 128
+      },
+      "atlasKtx2": "jungle-vine_01.ktx2",
+      "alphaCutoff": 0.35
+    },
+    "jungle-vine_02": {
+      "tree": false,
+      "triangles": [
+        3240
+      ],
+      "mesh": null,
+      "atlas": "jungle-vine_02.webp",
+      "capture": {
+        "width": 2.121831228009431,
+        "height": 5.950203428813257,
+        "center": [
+          0.44716113805770874,
+          -2.803714774432592,
+          0.041001543402671814
+        ],
+        "views": 8,
+        "tileSize": 128
+      },
+      "atlasKtx2": "jungle-vine_02.ktx2",
+      "alphaCutoff": 0.35
+    }
+  }
+}

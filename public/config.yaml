@@ -1,0 +1,463 @@
+renderer:
+  pixelRatioCap: 2
+  exposure: 1
+  forceWebGL: false
+props:
+  lanternSourceNames: [Lantern, LanternWoodland, LanternRoadside]
+camera:
+  fov: 52
+  near: 0.1
+  far: 6000
+  distance: 12
+  minDistance: 5
+  maxDistance: 24
+  pitch: 0.42
+assets:
+  # terrain2.glb split by object type; loaded in parallel and reassembled under
+  # one root, so every object keeps the name the runtime looks it up by.
+  # Regenerate source splits with `npm run assets:split-terrain`, then build the
+  # active tree/prop derivatives with `npm run assets:fantasy`.
+  terrainParts:
+    - landscape: Assets/terrain/landscape/landscape.glb
+    - zones: Assets/terrain/zones/zones.glb
+    - colliders: Assets/terrain/colliders/colliders.glb
+    - structures/fence: Assets/terrain/structures/fence.glb
+    - props/stone: Assets/terrain/fantasy/rocks.glb
+    - props/lantern: Assets/terrain/fantasy/lantern.glb
+    - fauna/birds: Assets/terrain/fauna/birds.glb
+    - trees/tree1: Assets/terrain/fantasy/tree1.glb
+    - trees/tree2: Assets/terrain/fantasy/tree2.glb
+    - trees/tree3: Assets/terrain/fantasy/tree3.glb
+    - trees/tree4: Assets/terrain/fantasy/tree4.glb
+    - trees/tree5: Assets/terrain/fantasy/tree5.glb
+    - trees/tree6: Assets/terrain/fantasy/tree6.glb
+    - trees/tree7: Assets/terrain/fantasy/tree7.glb
+    - trees/tree8: Assets/terrain/fantasy/tree8.glb
+    - trees/tree9: Assets/terrain/fantasy/tree9.glb
+    - trees/tree10: Assets/terrain/fantasy/tree10.glb
+    - trees/tree11: Assets/terrain/fantasy/tree11.glb
+    - trees/tree12: Assets/terrain/fantasy/tree12.glb
+    - trees/tree13: Assets/terrain/fantasy/tree13.glb
+    - trees/tree14: Assets/terrain/fantasy/tree14.glb
+    - trees/tree15: Assets/terrain/fantasy/tree15.glb
+    - trees/tree16: Assets/terrain/fantasy/tree16.glb
+    - trees/tree17: Assets/terrain/fantasy/tree17.glb
+    - trees/tree18: Assets/terrain/fantasy/tree18.glb
+    - trees/tree19: Assets/terrain/fantasy/tree19.glb
+  terrainStreaming:
+    enabled: true
+    groups:
+      alpineTrees:
+        parts:
+          - trees/tree10
+          - trees/tree11
+          - trees/tree12
+          - trees/tree13
+          - trees/tree14
+          - trees/tree15
+          - trees/tree16
+          - trees/tree17
+          - trees/tree18
+          - trees/tree19
+        center: [-25, -655]
+        radius: 275
+        preloadDistance: 150
+  player: Assets/Drusniel_Dark_Elf.glb
+  environmentHdr: Assets/zwartkops_straight_morning_1k.hdr
+  dracoDecoderPath: https://www.gstatic.com/draco/versioned/decoders/1.5.7/
+  grassTexture: Assets/grass.jpg
+  ground:
+    color: Assets/ground/ground_0109_color_1k.jpg
+    normal: Assets/ground/ground_0109_normal_directx_1k.jpg
+    roughness: Assets/ground/ground_0109_roughness_1k.jpg
+terrain:
+  targetMeshName: Landscape046
+  scale: 1
+  position: [0, 0, 0]
+  rotationY: 0
+  heightResolution: 192
+  sampleChunkRows: 6
+  fallbackSize: 160
+ground:
+  textureRepeat: 24
+world:
+  # The world-scale contract: a human is humanHeight world units tall and
+  # humanMetres real metres, so one real metre is humanHeight / humanMetres
+  # units (~2.78). The human characters' targetHeight, NPCs and real-metre
+  # assets (the medieval houses) all derive from it; trees and the river
+  # already read true to it.
+  scale:
+    humanHeight: 5.0
+    humanMetres: 1.8
+  groundColor: '#23351f'
+  groundRoughness: 1
+  skyColor: '#8db8d8'
+  fogColor: '#a8cbd0'
+  fogDensity: 0.005
+sun:
+  position: [0, 30, 45]
+  color: '#ffd27a'
+  intensity: 5
+hemisphere:
+  skyColor: '#8fcaff'
+  groundColor: '#51402a'
+  intensity: 0.38
+ambient:
+  color: '#fff0c4'
+  intensity: 0.55
+grass:
+  tileSize: 25
+  maxDistance: 150
+  type: blade
+  shape: slender      # silhouette; its family (blade/billboard) supplies params, LOD and wind
+  instancesPerDensityUnit: 520
+  yOffset: 0.015
+  maskThreshold: 0.08          # legacy: superseded by vegetationCutoff, no readers
+  pathClearance: 0.5           # metres of vegetation clearance beyond the painted path edge
+  vegetationCutoff: 0.3        # mask strength at or below which nothing grows at all
+  maskSoftness: 0.12           # width of the cutoff ramp
+  useTextureColor: false
+  atlasColumns: 2
+  atlasRows: 2
+  interaction:
+    enabled: true
+    resolution: 256
+    worldSize: 75
+    recoverySpeed: 0.94
+    footRadius: 0.72
+    strength: 1
+  blade:
+    bladeWidth: 0.2
+    bladeHeight: 1.5
+    bladeStiffness: 1
+    windIntensity: 2
+    windDirection: 0
+    windNoiseScale: 0.3
+    simulationSpeed: 1
+    baseBend: 0.1
+    sheen: 0.25
+    baseColor: '#354d12'
+    tipColor: '#6da300'
+  billboard:
+    bladeWidth: 1.5
+    bladeHeight: 1
+    bladeStiffness: 1
+    windIntensity: 1
+    windDirection: 0
+    windNoiseScale: 0.3
+    simulationSpeed: 1
+    baseBend: 0.1
+    sheen: 0.25
+    baseColor: '#354d12'
+    tipColor: '#6da300'
+  initialLod:
+    high: { detail: 5, density: 4, distance: 0.3 }
+    medium: { detail: 2, density: 3, distance: 0.7 }
+    low: { detail: 1, density: 2, distance: 0.9 }
+    veryLow: { detail: 1, density: 1, distance: 1.0 }
+player:
+  walkSpeed: 4.2
+  runSpeed: 7.2
+  turnSpeed: 10
+  boundsPadding: 2
+  start: [2, 0, -5]
+  modelScale: 1
+  modelOffsetY: 0
+  modelRotationY: 3.141592653589793
+  groundOffset: 0.02
+  capsuleHalfHeight: 1
+  capsuleRadius: 0.7
+  animations:
+    idle: null
+    walk: Walking
+    run: Running
+water:
+  objectName: LakeWater
+  colliderName: WaterCollider
+  fallbackSize: 18
+  fallbackPosition: [-28, 0.025, -20]
+  color: '#397f9a'
+  opacity: 0.82
+  waveStrength: 0.22
+  waveSpeed: 1.15
+  roughness: 0.18
+  metalness: 0
+  rainRippleStrength: 0.22
+rain:
+  count: 10000
+  area: 20
+  top: 100
+  bottom: 0
+  speed: 30
+  dropLength: 1.8
+  dropWidth: 0.035
+  opacity: 0.72
+  color: '#cfe7ff'
+sky:
+  radius: 5000
+clouds:
+  size: 5000
+  height: 120
+  coverage: 0.52
+  softness: 0.16
+  density: 1.01
+  speed: 0.1
+  windDirection: [1, 0.3]
+  opacity: 0.85
+trees:
+  positionsName: TreePositions
+  highDistance: 170
+  billboardDistance: 500
+  highHysteresis: 8
+  billboardHysteresis: 10
+  transitionDuration: 1
+  minScale: 0.7
+  maxScale: 1.1
+  windSpeed: 3
+  windStrength: 1.2
+  windFrequency: 1
+  simulationSpeed: 1
+  fallbackCount: 72
+  types:
+    - { high: Tree1_High, low: Tree1_Low, leaves: Leaves_LOD0, zone: yellow }
+    - { high: Tree2_High, low: Tree2_Low, leaves: Leaves_LOD0001, zone: yellow }
+    - { high: Tree3_High, low: Tree3_Low, leaves: Leaves_LOD0002, zone: yellow }
+    - { high: Tree4_High, low: Tree4_Low, leaves: Leaves_LOD0003, zone: white }
+    - { high: Tree5_High, low: Tree5_Low, leaves: Leaves_LOD0004, zone: white }
+    - { high: Tree6_High, low: Tree6_Low, leaves: Leaves_LOD0005, zone: white }
+    - { high: Tree7_High, low: Tree7_Low, leaves: Mesh_1001, zone: green }
+    - { high: Tree8_High, low: Tree8_Low, leaves: Mesh_1003, zone: green }
+    - { high: Tree9_High, low: Tree9_Low, leaves: Mesh_1004, zone: green }
+    - { high: Tree10_High, low: Tree10_Low, zone: snow, collider: { width: 1, height: 12, length: 1 } }
+    - { high: Tree11_High, low: Tree11_Low, zone: snow, collider: { width: 1, height: 10, length: 1 } }
+    - { high: Tree12_High, low: Tree12_Low, zone: snow, collider: { width: 0.6, height: 7, length: 0.6 } }
+    - { high: Tree13_High, low: Tree13_Low, zone: snow, collider: { width: 1.1, height: 12, length: 1.1 } }
+    - { high: Tree14_High, low: Tree14_Low, zone: snow, collider: { width: 0.9, height: 14, length: 0.9 } }
+    - { high: Tree15_High, low: Tree15_Low, zone: snow, collider: { width: 1.4, height: 13, length: 1.4 } }
+    - { high: Tree16_High, low: Tree16_Low, zone: snow, collider: { width: 1, height: 13, length: 1 } }
+    - { high: Tree17_High, low: Tree17_Low, zone: snow, collider: { width: 0.8, height: 8, length: 0.8 } }
+    - { high: Tree18_High, low: Tree18_Low, zone: snow, collider: { width: 1, height: 11, length: 1 } }
+    - { high: Tree19_High, low: Tree19_Low, zone: snow, collider: { width: 0.3, height: 3, length: 0.3 } }
+zones:
+  yellow: YellowZone
+  green: GreenZone
+  white: WhiteZone
+leaves:
+  count: 1000
+  spawnRadius: 20
+  despawnRadius: 30
+  minHeight: -2
+  maxHeight: 5
+  minSpeed: 0.5
+  maxSpeed: 1.5
+  minSize: 0.12
+  maxSize: 0.3
+  windStrength: 1.2
+  gravity: 0.08
+  simulationSpeed: 1
+birds:
+  sourceName: Birds
+  count: 10
+  minHeight: 5
+  maxHeight: 10
+  minOrbitRadius: 50
+  maxOrbitRadius: 200
+  minSpeed: 0.15
+  maxSpeed: 0.25
+  minScale: 3
+  maxScale: 5
+  bobAmount: 0.4
+  bobSpeed: 1.5
+  edgePadding: 20
+  randomSeed: 1234
+  orbitCenter: [0, 100, 0]
+# Giant serpents (src/wildlife/). Each entry picks a species (reticulated,
+# anaconda, cobra; defaults in src/wildlife/serpentSpecies.js) and a habitat.
+# A jungle snake roams the coastal jungle strip, from its middle unless given a
+# home. A meadow snake roams within roamRadius of its home, out of the jungle
+# and the forest, inland of the beach and clear of each `avoid` circle. Any
+# species value (shape, speed, headLift, alertDistance...) can be overridden
+# per entry. Their skins are generated at load; nothing here is an asset.
+wildlife:
+  serpents:
+    # 260 m reticulated python; too thick to thread the jungle's trunks, the
+    # trees stand through it.
+    - { species: reticulated, habitat: jungle, roamRadius: 200 }
+    # 210 m green anaconda in the meadow south of Start, west of the lake.
+    - species: anaconda
+      habitat: meadow
+      home: [40, 400]
+      roamRadius: 190
+      avoid: [{ center: [-195, -300], radius: 170 }]
+    # 250 m king cobra in the meadow north of the lake's outlet to the sea.
+    # Alarmed, it rears 48 m and spreads its hood.
+    - species: cobra
+      habitat: meadow
+      home: [600, -90]
+      roamRadius: 190
+      avoid: [{ center: [-195, -300], radius: 170 }]
+ui:
+  showStats: true
+  showAdvanced: true
+  initialQuality: high
+  initialPreset: sunny
+  mobileStartup:
+    enabled: true
+    maxShortSide: 900
+    requireCoarsePointer: true
+    initialQuality: performance
+    pixelRatioCap: 1.25
+    warmupTravelDistance: 25
+quality:
+  performance:
+    label: Performance
+    fogMultiplier: 1.5
+    shadowMapSize: 1024
+    blade:
+      maxDistance: 80
+      lod:
+        high: { detail: 3, density: 3, distance: 0.1 }
+        medium: { detail: 2, density: 2, distance: 0.65 }
+        low: { detail: 1, density: 1, distance: 0.9 }
+        veryLow: { detail: 1, density: 1, distance: 1.0 }
+    billboard:
+      maxDistance: 120
+      lod:
+        high: { detail: 1, density: 2, distance: 0.25 }
+        medium: { detail: 1, density: 1, distance: 0.6 }
+        low: { detail: 1, density: 1, distance: 0.9 }
+        veryLow: { detail: 1, density: 1, distance: 1.0 }
+  balanced:
+    label: Balanced
+    fogMultiplier: 1.25
+    shadowMapSize: 2048
+    blade:
+      maxDistance: 100
+      lod:
+        high: { detail: 4, density: 4, distance: 0.1 }
+        medium: { detail: 2, density: 2, distance: 0.6 }
+        low: { detail: 1, density: 1, distance: 0.9 }
+        veryLow: { detail: 1, density: 1, distance: 1.0 }
+    billboard:
+      maxDistance: 140
+      lod:
+        high: { detail: 2, density: 3, distance: 0.3 }
+        medium: { detail: 1, density: 2, distance: 0.6 }
+        low: { detail: 1, density: 1, distance: 0.85 }
+        veryLow: { detail: 1, density: 1, distance: 1.0 }
+  high:
+    label: High
+    fogMultiplier: 1
+    shadowMapSize: 4096
+    blade:
+      maxDistance: 140
+      # detail is segmentation (2 * detail - 1 triangles), density is population.
+      # Segmentation falls faster than population: the medium band keeps the high
+      # band's stem count so the meadow never thins, it only stops paying for
+      # blade curvature the eye cannot resolve past ~17 m. distance is a fraction
+      # of maxDistance, so high ends at 16.8 m and medium at 39.2 m. The low
+      # band keeps the medium band's three segments: bands are nested (a lower
+      # band keeps the first stems of the one above) and the extra stems sink
+      # away before the boundary, so with equal segmentation nothing about the
+      # stems that remain changes when a 25 m tile switches at ~40 m. A change
+      # of blade shape there read as a patch of grass popping while walking
+      # (2026-09-24). veryLow steps down one segment, far past it. Grass stays
+      # well under 1% of the frame's triangles at 3440x1440.
+      lod:
+        high: { detail: 5, density: 4.5, distance: 0.12 }
+        medium: { detail: 3, density: 4.5, distance: 0.28 }
+        low: { detail: 3, density: 2, distance: 0.6 }
+        veryLow: { detail: 2, density: 1, distance: 1.0 }
+    billboard:
+      maxDistance: 160
+      lod:
+        high: { detail: 2, density: 4, distance: 0.25 }
+        medium: { detail: 2, density: 2, distance: 0.55 }
+        low: { detail: 2, density: 1, distance: 0.85 }
+        veryLow: { detail: 1, density: 1, distance: 1.0 }
+  ultra:
+    label: Ultra
+    fogMultiplier: 0.9
+    shadowMapSize: 4096
+    blade:
+      maxDistance: 220
+      # Same policy as High, with the segmentation bands held further out:
+      # high ends at 22 m, medium at 39.6 m, and the flat-triangle band starts
+      # at 110 m rather than 84 m.
+      lod:
+        high: { detail: 5, density: 5.5, distance: 0.1 }
+        medium: { detail: 4, density: 5.5, distance: 0.18 }
+        # Same segmentation as medium across the ~40 m switch (see High).
+        low: { detail: 4, density: 2, distance: 0.5 }
+        veryLow: { detail: 2, density: 1, distance: 1.0 }
+    billboard:
+      maxDistance: 220
+      lod:
+        high: { detail: 2, density: 5, distance: 0.2 }
+        medium: { detail: 2, density: 2, distance: 0.4 }
+        low: { detail: 1, density: 2, distance: 0.8 }
+        veryLow: { detail: 1, density: 1, distance: 1.0 }
+presets:
+  sunny:
+    label: Highfield
+    grass:
+      blade: { bladeHeight: 2.5, bladeWidth: 0.2, bladeStiffness: 1, baseBend: 0, windIntensity: 2.4, windDirection: 0, windNoiseScale: 0.3, simulationSpeed: 1, baseColor: '#304f0b', tipColor: '#74a116', sheen: 0.25 }
+      billboard: { bladeHeight: 1, bladeWidth: 1.5, bladeStiffness: 1, baseBend: 0, windIntensity: 1.7, windDirection: 0, windNoiseScale: 0.3, simulationSpeed: 1, baseColor: '#304f0b', tipColor: '#74a116', sheen: 0.25 }
+    lighting: { color: '#ffd27a', directionalIntensity: 5, position: [0, 30, 45], hemisphereSkyColor: '#8fcaff', hemisphereGroundColor: '#51402a', hemisphereIntensity: 0.38, ambientColor: '#fff0c4', ambientIntensity: 0.55, environmentIntensity: 0.32 }
+    sky: { groundColor: '#c89b62', horizonColor: '#91d5ff', zenithColor: '#4174d9', sunHaloColor: '#ffd77d', sunDiskColor: '#fff9dc', haloPower: 100, diskPower: 10000, sunPosition: [0, 30, 45], fogColor: '#a8cbd0', fogDensity: 0.005 }
+    cloudCoverage: 0.65
+    rain: false
+  goldenHour:
+    label: Emberfall
+    grass:
+      blade: { bladeHeight: 1.8, bladeWidth: 0.2, bladeStiffness: 0.9, baseBend: 0.1, windIntensity: 2.2, windDirection: 45, windNoiseScale: 0.38, simulationSpeed: 0.95, baseColor: '#405b0c', tipColor: '#b6b72a', sheen: 0.25 }
+      billboard: { bladeHeight: 1, bladeWidth: 1.5, bladeStiffness: 0.9, baseBend: 0.1, windIntensity: 2.2, windDirection: 45, windNoiseScale: 0.38, simulationSpeed: 0.95, baseColor: '#405b0c', tipColor: '#b6b72a', sheen: 0.25 }
+    lighting: { color: '#ff9d4d', directionalIntensity: 3, position: [-44, 18, 50], hemisphereSkyColor: '#e99a72', hemisphereGroundColor: '#4a2b20', hemisphereIntensity: 0.28, ambientColor: '#d8784e', ambientIntensity: 0.1, environmentIntensity: 0.25 }
+    sky: { groundColor: '#a96b45', horizonColor: '#ff9b5d', zenithColor: '#51437f', sunHaloColor: '#ffb35c', sunDiskColor: '#fff0c0', haloPower: 20, diskPower: 5800, sunPosition: [-44, 18, 50], fogColor: '#c88973', fogDensity: 0.005 }
+    cloudCoverage: 0.55
+    rain: false
+  rainy:
+    label: Greyrain
+    grass:
+      blade: { bladeHeight: 1.5, bladeWidth: 0.2, bladeStiffness: 0.85, baseBend: 0.16, windIntensity: 2, windDirection: 0, windNoiseScale: 0.3, simulationSpeed: 1.05, baseColor: '#193f20', tipColor: '#4f9b35', sheen: 0.65 }
+      billboard: { bladeHeight: 1, bladeWidth: 1.5, bladeStiffness: 0.85, baseBend: 0.16, windIntensity: 2, windDirection: 0, windNoiseScale: 0.3, simulationSpeed: 1.05, baseColor: '#193f20', tipColor: '#4f9b35', sheen: 1 }
+    lighting: { color: '#9bc7d7', directionalIntensity: 1, position: [-20, 35, 20], hemisphereSkyColor: '#719fae', hemisphereGroundColor: '#202f2b', hemisphereIntensity: 0.38, ambientColor: '#719ca8', ambientIntensity: 0.65, environmentIntensity: 0.2 }
+    sky: { groundColor: '#435d5c', horizonColor: '#83b5bd', zenithColor: '#263f50', sunHaloColor: '#9fbfc2', sunDiskColor: '#d2e3df', haloPower: 8, diskPower: 500, sunPosition: [-20, 35, 20], fogColor: '#83aeb4', fogDensity: 0.007 }
+    cloudCoverage: 0.05
+    rain: true
+  windy:
+    label: Galewind
+    grass:
+      blade: { bladeHeight: 1.5, bladeWidth: 0.2, bladeStiffness: 0.72, baseBend: 0.18, windIntensity: 2.8, windDirection: 75, windNoiseScale: 0.3, simulationSpeed: 1.08, baseColor: '#304f0b', tipColor: '#86b91a', sheen: 0.25 }
+      billboard: { bladeHeight: 1, bladeWidth: 1.5, bladeStiffness: 0.72, baseBend: 0.18, windIntensity: 2.8, windDirection: 75, windNoiseScale: 0.3, simulationSpeed: 1.08, baseColor: '#304f0b', tipColor: '#86b91a', sheen: 0.25 }
+    lighting: { color: '#ffd990', directionalIntensity: 3, position: [-20, 35, 50], hemisphereSkyColor: '#91cbea', hemisphereGroundColor: '#4a3d28', hemisphereIntensity: 0.34, ambientColor: '#dceee8', ambientIntensity: 0.12, environmentIntensity: 0.3 }
+    sky: { groundColor: '#b99a65', horizonColor: '#91d0e8', zenithColor: '#316fc5', sunHaloColor: '#ffd58b', sunDiskColor: '#fffbe5', haloPower: 26, diskPower: 5400, sunPosition: [-20, 35, 50], fogColor: '#a6c8cf', fogDensity: 0.005 }
+    cloudCoverage: 0.45
+    rain: false
+  calm:
+    label: Stillmeadow
+    grass:
+      blade: { bladeHeight: 1.5, bladeWidth: 0.2, bladeStiffness: 1, baseBend: 0.2, windIntensity: 0.65, windDirection: 0, windNoiseScale: 0.15, simulationSpeed: 0.98, baseColor: '#304f0b', tipColor: '#86b91a', sheen: 0.25 }
+      billboard: { bladeHeight: 1, bladeWidth: 1.5, bladeStiffness: 1, baseBend: 0.2, windIntensity: 0.65, windDirection: 0, windNoiseScale: 0.15, simulationSpeed: 0.98, baseColor: '#304f0b', tipColor: '#86b91a', sheen: 0.25 }
+    lighting: { color: '#ffd995', directionalIntensity: 3, position: [10, 40, 20], hemisphereSkyColor: '#afd5ec', hemisphereGroundColor: '#5c4b31', hemisphereIntensity: 0.32, ambientColor: '#f4e4c0', ambientIntensity: 0.2, environmentIntensity: 0.31 }
+    sky: { groundColor: '#cfb27b', horizonColor: '#b8dce1', zenithColor: '#6289b8', sunHaloColor: '#f5d18f', sunDiskColor: '#fff7dc', haloPower: 23, diskPower: 5000, sunPosition: [10, 40, 20], fogColor: '#b7cfd0', fogDensity: 0.005 }
+    cloudCoverage: 0.7
+    rain: false
+  bowed:
+    label: Lowsway
+    grass:
+      blade: { bladeHeight: 1.5, bladeWidth: 0.2, bladeStiffness: 0.7, baseBend: 0.9, windIntensity: 0.6, windDirection: 1, windNoiseScale: 1, simulationSpeed: 0.8, baseColor: '#304f0b', tipColor: '#86b91a', sheen: 0.25 }
+      billboard: { bladeHeight: 1, bladeWidth: 1.5, bladeStiffness: 0.7, baseBend: 0.8, windIntensity: 0.6, windDirection: 1, windNoiseScale: 0.5, simulationSpeed: 0.8, baseColor: '#304f0b', tipColor: '#86b91a', sheen: 0.25 }
+    lighting: { color: '#ffd27a', directionalIntensity: 3.2, position: [0, 20, 45], hemisphereSkyColor: '#8fcaff', hemisphereGroundColor: '#51402a', hemisphereIntensity: 0.38, ambientColor: '#fff0c4', ambientIntensity: 0.55, environmentIntensity: 0.32 }
+    sky: { groundColor: '#c89b62', horizonColor: '#91d5ff', zenithColor: '#2864d8', sunHaloColor: '#ffd77d', sunDiskColor: '#fff9dc', haloPower: 28, diskPower: 5500, sunPosition: [0, 20, 45], fogColor: '#a8cbd0', fogDensity: 0.005 }
+    cloudCoverage: 0.65
+    rain: false
+  moonlight:
+    label: Moonrise
+    grass:
+      blade: { bladeHeight: 1.5, bladeWidth: 0.2, bladeStiffness: 1.05, baseBend: 0.08, windIntensity: 0.8, windDirection: 20, windNoiseScale: 0.3, simulationSpeed: 0.92, baseColor: '#24451d', tipColor: '#65904b', sheen: 0.3 }
+      billboard: { bladeHeight: 1, bladeWidth: 1.5, bladeStiffness: 1.05, baseBend: 0.08, windIntensity: 0.8, windDirection: 20, windNoiseScale: 0.3, simulationSpeed: 0.92, baseColor: '#24451d', tipColor: '#65904b', sheen: 0.3 }
+    lighting: { color: '#8eafff', directionalIntensity: 1.6, position: [-35, 20, 30], hemisphereSkyColor: '#405f8e', hemisphereGroundColor: '#151c1b', hemisphereIntensity: 0.2, ambientColor: '#7895c4', ambientIntensity: 0.55, environmentIntensity: 0.1 }
+    sky: { groundColor: '#101715', horizonColor: '#526f8c', zenithColor: '#050b1c', sunHaloColor: '#9fc9ff', sunDiskColor: '#ffffff', haloPower: 500, diskPower: 12000, sunPosition: [-35, 20, 30], fogColor: '#263d52', fogDensity: 0.005 }
+    cloudCoverage: 0.2
+    rain: false

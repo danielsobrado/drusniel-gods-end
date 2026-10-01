@@ -1,0 +1,12 @@
+# Cloudflare Workers static-asset headers (copied to dist/ by Vite).
+# Everything under /app-assets/ is emitted by Vite with a content hash in its
+# name, so a changed file always gets a new URL and these never need
+# revalidating. HTML, configuration and the unhashed public assets keep the
+# default revalidation.
+/app-assets/*
+  Cache-Control: public, max-age=31536000, immutable
+# Textures shared between GLBs (scripts/share-glb-textures.mjs) carry their
+# content hash in the name too, so every GLB after the first that uses one
+# reads it from the cache without revalidating.
+/Assets/textures/shared/*
+  Cache-Control: public, max-age=31536000, immutable

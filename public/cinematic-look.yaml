@@ -1,0 +1,523 @@
+# Art direction and effect budgets. Loaded after the base visual settings.
+terrain:
+  heightResolution: 1536
+  expansion:
+    enabled: true
+    size: 1600
+    width: 2400
+    # Reaches north past the alpine cirque's outer blend (z -930), so the whole
+    # ring of ridges lies inside the world bounds.
+    depth: 1900
+    center: [400, -150]
+    baked:
+      enabled: true
+      source: Assets/terrain/landscape/landscape.glb
+      sourceNodeName: Landscape.002
+      manifest: Assets/generated/expanded-terrain.json
+      data: Assets/generated/expanded-terrain.bin.gz
+    renderChunks:
+      enabled: true
+      cellSize: 100
+      midDistance: 260
+      farDistance: 650
+      hysteresis: 24
+      midStep: 10
+      farStep: 25
+      skirtDepth: 4
+    routes:
+      - name: Snow climb
+        width: 5.5
+        walkable: true
+        terrainWidth: 30
+        maxGrade: 0.24
+        # The climb crosses the alpine rim far below its crest. The cut is a
+        # steep, irregular valley rather than a sheer slot or benched terraces.
+        cut: { floorWidth: 14, toe: 6, slope: 1.25, slopeVariation: 0.4, fillSlope: 0.9, meander: 14, roughness: 5 }
+        points: [[-80, -250], [-125, -350], [-60, -440], [-150, -490], [-160, -550], [-125, -590], [-80, -620], [-55, -655], [-15, -710]]
+      - name: Meadow south beach road
+        width: 5.5
+        walkable: true
+        terrainWidth: 26
+        maxGrade: 0.16
+        points: [[2, -5], [-40, 120], [-20, 260], [80, 420], [210, 520], [420, 550], [620, 500], [800, 420], [990, 320]]
+      - name: Foothill north beach trail
+        width: 4.8
+        walkable: true
+        terrainWidth: 24
+        maxGrade: 0.2
+        points: [[-80, -250], [80, -280], [250, -310], [430, -300], [600, -260], [750, -220], [850, -195], [900, -180]]
+grass:
+  heightResolution: 2048
+collisions:
+  # The base level's WaterCollider walls its old round basin, which this
+  # layout turns into meadow and crosses with the lake's north arm; half of it
+  # stands up to 24 m out of the reshaped ground as invisible walls. The lake
+  # and river beds are walkable, so nothing here needs a mesh collider. The
+  # authored sketchfab house was replaced by the medieval village built in
+  # src/world/VillageSystem.js, which registers its own colliders.
+  trimeshObjects: []
+  worldBounds:
+    - { position: [1570, 80, -95], size: [1, 500, 1730] }
+    - { position: [400, 80, 770], size: [2340, 500, 1] }
+    - { position: [400, 80, -960], size: [2340, 500, 1] }
+    - { position: [-770, 80, -95], size: [1, 400, 1730] }
+boundaryBarrier:
+  enabled: true
+  height: 12
+  color: '#55e8ff'
+  accentColor: '#a477ff'
+  opacity: 0.32
+  glowStrength: 8
+  noiseScale: 0.035
+  noiseSpeed: 0.035
+  fresnelPower: 3
+  proximityRadius: 16
+cinematic:
+  enabled: true
+  exposure: 0.94
+  style:
+    enabled: true
+    grassRootBrightness: 0.9
+    grassGradientPower: 2.6
+    grassFill: 0.06
+    grassBacklight: 0.85
+    meadowPatchScale: 0.035
+    groundTipMix: 0.12
+    bladeWidthScale: 1.05
+    bladeHeightScaleMin: 0.88
+    bladeHeightScaleMax: 1.22
+    bladeCurve: 0.045
+    foliageFill: 0.28
+    canopyShadow: '#286746'
+    canopyLight: '#8cb75a'
+    canopyTint: 0.9
+    groundPath: '#b7a476'
+  occlusion:
+    enabled: true
+    # Fraction of the framebuffer used for the occlusion depth prepass and Hi-Z
+    # pyramid. Occlusion is coarse, so half resolution quarters its cost.
+    resolutionScale: 0.5
+    minTriangles: 256
+    minOccluderArea: 0.002
+    boundsPadding: 0.15
+    pixelPadding: 2
+    depthBias: 0.00002
+    # Absolute floor plus an effectiveness ratio: a pass must save at least this
+    # many triangles per millisecond of prepare work to stay enabled.
+    minSavedTriangles: 25000
+    minSavedTrianglesPerMs: 50000
+    probeInterval: 30
+  shadows:
+    cascades: 1
+    distance: 180
+    # Half-width of the single sun shadow map around the player (desktop).
+    # 55 m put the shadow edge in plain view; 85 m at 3072 keeps the same
+    # texel size (~5.5 cm).
+    extent: 85
+    mapSize: 3072
+    intensity: 0.72
+    radius: 4
+  atmosphere:
+    height: 14
+    falloff: 0.045
+    density: 0.001
+  post:
+    samples: 4
+    aoStrength: 0.18
+    aoRadius: 0.85
+    bloomStrength: 0.09
+    bloomThreshold: 2.1
+    saturation: 1.04
+    contrast: 1.12
+    lift: [0.004, 0.006, 0.012]
+    gain: [1.02, 1.0, 0.97]
+    highlightDesaturation: 0.35
+    vignette: 0.14
+    grain: 0.012
+    sharpness: 0.6
+    # Quarter-resolution screen-space shafts. sourceRadius is the share of the
+    # screen height around the sun that emits; snowStrength applies in snow
+    # country, where the valley mist gives the light something to catch in.
+    lightShafts: { samples: 32, decay: 0.965, strength: 1, snowStrength: 2.4, sourceRadius: 0.45 }
+    # Subtle by default: the character and nearby grass stay sharp while
+    # distant foliage cards soften. Both values are HUD sliders at runtime.
+    depthOfField: { focalRange: 34, bokehScale: 0.7 }
+    # Menu defaults; every entry is switchable at runtime from Scene settings.
+    effects:
+      taa: false
+      bloom: true
+      lightShafts: true
+      depthOfField: true
+      sharpen: false
+      grain: true
+      vignette: true
+      tonemapper: aces
+  vegetation:
+    count: 3200
+    radius: 95
+    patchScale: 0.065
+    backlight: 0.32
+  camera:
+    pitch: 0.12
+    distanceInHeights: 2.3
+    heightInHeights: 0.22
+    targetInHeights: 0.58
+    shoulderInHeights: 0.18
+  motion:
+    walkSpeedInHeights: 0.85
+    runSpeedInHeights: 2.4
+    footPlacement: true
+  water:
+    reflectionInterval: 0.75
+    reflectionDistance: 120
+    reflectionResolution: 256
+    planarReflectionScale: 0.75
+    # Ultra planar captures are reprojected through the camera they were taken
+    # with, so the view can turn and move between them; the cadence only has
+    # to keep moving characters' reflections close to them (~15 Hz).
+    planarReflectionInterval: 0.066
+    # Scenic/free-fly motion translates fast, which reprojection only covers
+    # up to parallax; keep refreshing, just less often.
+    planarReflectionTravelInterval: 0.2
+    # Lake and sea can both be visible near the river mouth; stagger their captures.
+    planarReflectionSurfaceGap: 0.015
+    # Captures cover a wider view than the screen ([horizontal, vertical]) so a
+    # turn between captures still finds reflection to reproject.
+    planarReflectionOverscan: [1.35, 1.15]
+    underwaterPerformance:
+      enabled: true
+      hysteresis: 0.75
+      reflectionCutoffDepth: 0.75
+      seaLodDepth: 1.5
+      seaQuality: performance
+      terrain3dLodDepth: 1.5
+      vegetationCullDepth: 1.5
+      atmosphereCullDepth: 3
+      shadowCullDepth: 4
+  presentation:
+    title: 'Drusniel: Gods’ End'
+    subtitle: A living landscape
+ui:
+  initialPreset: goldenHour
+  minimap:
+    # The scenic camera moves every frame; 10 Hz keeps the route marker fluid without repainting a high-DPI canvas at render rate.
+    scenicRedrawIntervalMs: 100
+leaves:
+  count: 240
+  spawnInterval: 0.06
+presets:
+  sunny:
+    lighting:
+      color: '#fff5e7'
+      directionalIntensity: 2.7
+      hemisphereSkyColor: '#a8d0ed'
+      hemisphereGroundColor: '#807258'
+      hemisphereIntensity: 0.65
+      ambientColor: '#d6e5ed'
+      ambientIntensity: 0.24
+      environmentIntensity: 0.48
+    sky:
+      horizonColor: '#b8d2df'
+      zenithColor: '#467bac'
+      sunHaloColor: '#fff4df'
+      fogColor: '#a9c5d2'
+      fogDensity: 0.0011
+    cloudCoverage: 0.55
+  rainy:
+    lighting:
+      directionalIntensity: 0.55
+      ambientIntensity: 0.35
+      environmentIntensity: 0.16
+    sky:
+      horizonColor: '#657e89'
+      fogColor: '#617d88'
+      fogDensity: 0.0035
+  goldenHour:
+    grass:
+      blade: { baseColor: '#50852b', tipColor: '#a6bf65', sheen: 0.12 }
+      billboard: { baseColor: '#50852b', tipColor: '#a6bf65', sheen: 0.12 }
+    lighting:
+      color: '#fff0c9'
+      directionalIntensity: 2.8
+      position: [-28, 65, -30]
+      hemisphereSkyColor: '#b6def1'
+      hemisphereGroundColor: '#78945d'
+      hemisphereIntensity: 0.95
+      ambientColor: '#dceac5'
+      ambientIntensity: 0.32
+      environmentIntensity: 0.65
+    sky:
+      horizonColor: '#c5e7df'
+      zenithColor: '#438ec5'
+      sunHaloColor: '#ffe8ad'
+      sunPosition: [-28, 65, -30]
+      fogColor: '#a5ced3'
+      fogDensity: 0.0011
+    cloudCoverage: 0.7
+ground:
+  metalness: 0
+  macroVariation: 0.26
+  normalStrength: 0.38
+  normalY: -1
+  wetness: 0.7
+water:
+  size: 640
+  segments: 256
+  sea:
+    enabled: true
+    level: -24
+    shoreX: 1000
+    depth: 95
+    colors:
+      # lagoon: the in-scatter colour of the first few metres over pale sand,
+      # handing over to shallow by lagoonDepth (metres below still water).
+      sunny: { lagoon: '#4fd3cf', shallow: '#259eac', deep: '#073c58' }
+      storm: { lagoon: '#2f8a80', shallow: '#176662', deep: '#032d48' }
+    lagoonDepth: [0.5, 7]
+    # Per-metre absorption (r, g, b) of clear coastal water: red goes within a
+    # few metres, green and blue carry, so sand under the shallows reads
+    # aquamarine. The lake and river keep their own, murkier water.
+    absorption: [0.32, 0.065, 0.05]
+    # Open ocean reads as a broad, uneven swell with fine surface texture. The
+    # old short, peaked swell (choppiness 4, strong mid-scale ripples, sharp
+    # highlights) looked like a folded, glossy sheet (2026-09-23 review).
+    # Bigger open-ocean swell (2026-09-23: "the bigger waves can be bigger";
+    # 2026-09-24: "still I would make the big waves bigger"). The long swells
+    # also carry more of the weight (seaWaves SEA_COMPONENTS), so the extra
+    # height goes into big rolling waves rather than chop.
+    offshoreAmplitude: 4.2
+    beachAmplitude: 0.25
+    choppiness: 2.5
+    # Evenly spaced breaker rows belong to the shallows; past ~90 units the
+    # sea is swell only, so no rigid comb of lines reaches into deep water.
+    transitionStart: 30
+    transitionEnd: 100
+    detailStrength: 1
+    whitecapStrength: 1
+    crestTranslucency: 1
+    detail:
+      textureWorldScale: 32
+      mediumDistance: 780
+      fineDistance: 260
+      mediumScale: 1.73
+      fineScale: 8
+      mediumStrength: 0.22
+      fineStrength: 0.12
+      primaryWeight: 0.78
+      secondaryWeight: 0.22
+      # Short waves move at their own (slower) speed and ride the swell's
+      # orbital motion, instead of scrolling at swell speed across it.
+      advectionRatio: 0.9
+      rippleCrestsPerTile: 4
+      orbitalAdvection: 0.8
+      carrierSlopeFadeStart: 0.93
+      carrierSlopeFadeEnd: 0.985
+      stormNormalBoost: 0.35
+      whitecapThreshold: 0.58
+      stormWhitecapThreshold: 0.38
+      whitecapSteepness: 0.16
+      whitecapCrestWeight: 0.82
+      whitecapSteepnessWeight: 0.18
+      whitecapRainBase: 0.55
+      whitecapRainBoost: 0.65
+      foamBreakupLow: 0.34
+      foamBreakupHigh: 0.7
+      surfDepthStart: 0.01
+      surfDepthEnd: 0.35
+      surfFadeStart: 2.5
+      surfFadeEnd: 7
+      roughnessVarianceScale: 0.16
+      roughnessBase: 0.085
+      roughnessStorm: 0.09
+      roughnessMin: 0.05
+      roughnessMax: 0.48
+      specularMinExponent: 18
+      specularMaxExponent: 190
+      specularSharpStrength: 0.9
+      specularBroadStrength: 0.12
+      crestStart: 0.28
+      crestEnd: 0.88
+      crestTransmissionStrength: 0.22
+    coast:
+      curve:
+        longFrequency: 0.005
+        longAmplitude: 65
+        shortFrequency: 0.014
+        shortAmplitude: 18
+      terrain:
+        inlandBlendStart: -230
+        beachTop: -90
+        beachHeight: 9
+        shelfKnee: 80
+        shelfKneeDepth: 9
+        shelfEnd: 500
+      wave:
+        wavelength: 13
+        speed: 1.35
+        bendFrequency: 0.085
+        bend: 0.32
+      swash:
+        reach: 12
+        seawardStart: 1.5
+        frontWidth: 1.2
+        foamWidth: 1.6
+        foamCore: 0.18
+        breakupFrequency: 0.13
+        breakupStrength: 0.28
+      moisture:
+        baseReach: 32
+        baseStrength: 0.55
+        washDecay: 4
+        rainWashDecay: 2
+        wettingSeconds: 18
+        dryingSeconds: 100
+      sand:
+        # Pale, sun-bleached coral sand (2026-09-25 tropical beach pass).
+        dryDark: '#c9b38c'
+        dryLight: '#ecdcba'
+        dryRoughness: 0.97
+        wetRoughness: 0.24
+        wetDarkening: 0.55
+        rippleFrequency: 1.4
+        rippleCrossFrequency: 0.52
+        rippleStrength: 0.025
+        grainFrequencyX: 31
+        grainFrequencyZ: 27
+        grainStrength: 0.018
+        grainFadeStart: 8
+        grainFadeEnd: 60
+        mesoFrequencyX: 0.73
+        mesoFrequencyZ: 1.27
+        mesoWetMin: 0.8
+        mesoWetMax: 1.15
+        mesoToneMin: 0.84
+        mesoToneMax: 1.04
+        macroFrequency: 0.037
+        inlandStart: -150
+        inlandEnd: -85
+        baseMoistureStrength: 1
+        washMemoryStrength: 0.55
+        rainMoistureStrength: 0.8
+        coverageWetness: 0.85
+        # The swash sheet multiplies the sand it runs over by filmTint.
+        filmClarity: 0.9
+        filmTint: '#8fe2e6'
+        filmTintStrength: 0.75
+        filmRoughness: 0.16
+        foamColor: '#edf8fb'
+        foamStrength: 0.92
+        foamRoughness: 0.72
+        normalFrequencyX: 18.7
+        normalFrequencyZ: 21.3
+        normalStrength: 0.025
+        wetNormalFlattening: 0.7
+        filmNormalFlattening: 0.9
+      vegetation:
+        grassStart: 45
+        grassEnd: 140
+        groundcoverStart: 55
+        groundcoverEnd: 145
+        groundcoverEdge: 18
+        maxSlope: 0.35
+        seed: 73121
+        maxPatches: 500
+        minClumps: 1
+        maxClumps: 3
+        sizeMin: 0.22
+        sizeMax: 0.62
+        clusterRadius: 0.42
+        groundOffset: 0.025
+        roughness: 0.9
+        color: '#667957'
+        qualityPerformance: 0.35
+        qualityBalanced: 0.6
+        qualityHigh: 0.85
+        qualityUltra: 1
+      scatter:
+        seed: 58103
+        attempts: 4500
+        inlandMin: 22
+        inlandMax: 117
+        edge: 18
+        density: 0.3
+        patchFrequencyX: 0.17
+        patchFrequencyZ: 0.23
+        patchWarpFrequency: 0.12
+        minNormalY: 0.9
+        sizeMin: 0.06
+        sizeMax: 0.19
+        pebbleColor: '#625c4e'
+        shellColor: '#c9bea2'
+        twigColor: '#655341'
+        roughness: 0.94
+  river:
+    enabled: true
+    outletStartIndex: 16
+    outletLevel: -24
+    outletBankBlend: 30
+    outletDepth: 1.5
+    mouthDepth: 2.8
+    # World X, Z and full channel width. The outlet crosses the lake and reaches the sea.
+    points:
+      - [15, -650, 7]
+      - [65, -555, 9]
+      - [105, -455, 11]
+      - [65, -355, 12]
+      - [25, -255, 10]
+      - [15, -165, 9]
+      - [45, -105, 8]
+      - [72, -76, 9]
+      - [65, -38, 10]
+      - [103, -8, 11]
+      - [128, 22, 12]
+      - [142, 53, 14]
+      - [171, 80, 18]
+      - [202, 97, 26]
+      - [350, 110, 30]
+      - [500, 118, 34]
+      # Just past the lake's east shore: the river falls from here on.
+      - [530, 119, 34]
+      - [610, 120, 38]
+      - [690, 118, 42]
+      - [770, 112, 46]
+      - [850, 104, 50]
+      - [930, 94, 56]
+      - [1000, 86, 64]
+      - [1045, 80, 72]
+  # A long bent lake replacing the level's round basin. Its north arm holds
+  # the river's crossing (the river points before outletStartIndex lie in it);
+  # its south arm runs along the foot of the jungle plateau. Centreline X, Z
+  # and half-width in metres; the surface follows this outline.
+  lake:
+    points:
+      - [200, 86, 28]
+      - [262, 100, 60]
+      - [362, 118, 70]
+      - [448, 142, 62]
+      - [484, 200, 50]
+      - [490, 272, 50]
+      - [486, 342, 46]
+      - [472, 406, 36]
+      - [452, 458, 22]
+    depth: 7
+    shelf: 26
+    shoreDepth: 0.5
+    # Banks ramp up at bankSlope (under the jungle's maxSlope) until they meet
+    # the ground; bankWidth must cover the ramp up to the plateau beside it.
+    bankWidth: 110
+    bankSlope: 0.42
+    bankSoftness: 4
+    shoreWobble: 5
+    # The water surface reaches this far under the banks.
+    waterMargin: 8
+    # The old basin south and west of the new outline becomes meadow.
+    fill: { bounds: [120, 0, 470, 400], rise: 7, fade: 30 }
+  metalness: 0
+  roughness: 0.24
+  speed: 1.1
+  waveHeight: 0.15
+  reflectionStrength: 0.45
+  fresnelPower: 4
+  deepColor: '#18677d'
+  surfaceColor: '#5dbbb1'
+  sunStrength: 0.45

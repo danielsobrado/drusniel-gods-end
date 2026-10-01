@@ -1,0 +1,225 @@
+# The authored scene: which terrain mesh, tree and prop layouts, spawn,
+# camera, sky, water and rain settings the demo runs with. Merged over the
+# defaults in config.yaml (see CONFIG_FILES in src/config/loadConfig.js).
+# Audio lives in audio.yaml.
+assets:
+  treeWorld: tree-world.json
+  worldProps: world-props.json
+ground:
+  applyToTerrain: true
+  rainRipple:
+    scale: 1.5
+    size: 0.38
+    thickness: 0.1
+    strength: 3
+    speed: 2
+    amount: 0.7
+terrain:
+  targetMeshName: Landscape002
+player:
+  start: [2, 5, -5]
+  modelScale: 1
+  modelOffsetY: 0
+  modelRotationY: 0
+  rainRoughness: 0.1
+  eyeHeight: 0.5
+  walkSpeed: 2.5
+  runSpeed: 15
+  jumpSpeed: 8
+  gravity: -25
+  turnSpeed: 18
+  motion:
+    acceleration: 20
+    deceleration: 16
+    animationFadeSeconds: 0.25
+camera:
+  fov: 45
+  near: 0.1
+  far: 10000
+  initialPosition: [11.7, 3, 11]
+  distance: 5
+  minDistance: 1.5
+  pitch: -0.25
+  controls:
+    initialYaw: 0
+    safariLookMultiplier: 8
+    mobileLookSensitivity: 0.015
+    mobileJoystickRadius: 55
+sky:
+  radius: 5000
+  widthSegments: 64
+  heightSegments: 32
+  horizonStart: -0.15
+  horizonEnd: 0.45
+clouds:
+  size: 5000
+  height: 120
+  coverage: 0.52
+  softness: 0.16
+  density: 1.01
+  speed: 0.1
+  wind: [1, 0.2]
+  opacity: 0.85
+  followCamera: false
+sun:
+  shadow:
+    mobileBreakpoint: 768
+    mobileMapSize: 1024
+    desktopMapSize: 4096
+    left: -100
+    right: 100
+    top: 100
+    bottom: -100
+    near: 0.5
+    far: 200
+    bias: -0.0001
+    normalBias: 0.03
+grass:
+  heightResolution: 1024
+  useTextureColor: false
+  initialLod:
+    high: { detail: 5, density: 4, distance: 0.3 }
+    medium: { detail: 2, density: 3, distance: 0.7 }
+    low: { detail: 1, density: 2, distance: 0.9 }
+    veryLow: { detail: 1, density: 1, distance: 0.9 }
+trees:
+  highDistance: 170
+  billboardDistance: 500
+  highHysteresis: 8
+  billboardHysteresis: 10
+  transitionDuration: 1
+  lodUpdateInterval: 0.1
+  windSpeedMultiplier: 2
+  types:
+    - { high: Tree1_High, low: Tree1_Low, highLeaves: Leaves_LOD0, zones: [yellow], collider: { width: 1.2, height: 10, length: 1.2 } }
+    - { high: Tree2_High, low: Tree2_Low, highLeaves: Leaves_LOD0001, zones: [yellow], collider: { width: 0.3, height: 10, length: 0.3 } }
+    - { high: Tree3_High, low: Tree3_Low, highLeaves: Leaves_LOD0002, zones: [yellow], collider: { width: 1.2, height: 10, length: 1.2 } }
+    - { high: Tree4_High, low: Tree4_Low, highLeaves: Leaves_LOD0003, zones: [white], collider: { width: 1.8, height: 10, length: 1.8 } }
+    - { high: Tree5_High, low: Tree5_Low, highLeaves: Leaves_LOD0004, zones: [white], collider: { width: 2, height: 10, length: 2 } }
+    - { high: Tree6_High, low: Tree6_Low, highLeaves: Leaves_LOD0005, zones: [white], collider: { width: 1.8, height: 10, length: 1.8 } }
+    - { high: Tree7_High, low: Tree7_Low, highLeaves: Mesh_1001, zones: [green], collider: { width: 2, height: 10, length: 2 } }
+    - { high: Tree8_High, low: Tree8_Low, highLeaves: Mesh_1003, zones: [green], collider: { width: 2.5, height: 10, length: 2.5 } }
+    - { high: Tree9_High, low: Tree9_Low, highLeaves: Mesh_1004, zones: [green], collider: { width: 3, height: 10, length: 3 } }
+    - { high: Tree10_High, low: Tree10_Low, zones: [snow], collider: { width: 1, height: 12, length: 1 } }
+    - { high: Tree11_High, low: Tree11_Low, zones: [snow], collider: { width: 1, height: 10, length: 1 } }
+    - { high: Tree12_High, low: Tree12_Low, zones: [snow], collider: { width: 0.6, height: 7, length: 0.6 } }
+    - { high: Tree13_High, low: Tree13_Low, zones: [snow], collider: { width: 1.1, height: 12, length: 1.1 } }
+    - { high: Tree14_High, low: Tree14_Low, zones: [snow], collider: { width: 0.9, height: 14, length: 0.9 } }
+    - { high: Tree15_High, low: Tree15_Low, zones: [snow], collider: { width: 1.4, height: 13, length: 1.4 } }
+    - { high: Tree16_High, low: Tree16_Low, zones: [snow], collider: { width: 1, height: 13, length: 1 } }
+    - { high: Tree17_High, low: Tree17_Low, zones: [snow], collider: { width: 0.8, height: 8, length: 0.8 } }
+    - { high: Tree18_High, low: Tree18_Low, zones: [snow], collider: { width: 1, height: 11, length: 1 } }
+    - { high: Tree19_High, low: Tree19_Low, zones: [snow], collider: { width: 0.3, height: 3, length: 0.3 } }
+leaves:
+  windStrengthMultiplier: 1
+  spawnInterval: 0.015
+  fadeSpeed: 1.5
+  hiddenY: -10000
+  initialTimeMax: 100
+  drift:
+    min: 0.5
+    max: 2
+    speedMin: 0.4
+    speedMax: 1.4
+    zFrequencyScale: 0.73
+  float:
+    min: 0.4
+    max: 1.5
+    speedMin: 0.6
+    speedMax: 1.8
+  turbulence:
+    xFrequency: 0.37
+    zFrequency: 0.29
+    amplitude: 0.8
+    windCap: 1
+  rotationSpeed:
+    min: -3
+    max: 3
+  material:
+    alphaTest: 0.05
+    renderOrder: 2
+props:
+  stoneSourceName: Stone
+  lanternSourceName: Lantern
+  rainRoughness: 0.1
+  anisotropy: 16
+  # The stylized pack is authored in centimeters. After the FBX 0.01 scale this
+  # brings the large rocks in line with the previous landscape Stone size.
+  stonePackScale: 7
+  pebbleMaxSize: 0.8
+collisions:
+  activeDistance: 50
+  inactiveDistance: 70
+  trimeshObjects:
+    - WaterCollider
+    - HouseCollider
+  worldBounds:
+    - { position: [384, 0, 0], size: [1, 100, 840] }
+    - { position: [0, 0, 409], size: [820, 100, 1] }
+    - { position: [0, 0, -418], size: [840, 100, 1] }
+    - { position: [-415, 0, 0], size: [1, 100, 840] }
+water:
+  colliderName: WaterCollider
+  size: 400
+  segments: 128
+  position: [312.7059326171875, -17, 163.0625]
+  speed: 4
+  waveHeight: 0.35
+  swellHeight: 1
+  swellLength: 26.7
+  mediumHeight: 0.5
+  mediumLength: 8.3
+  smallHeight: 0.3
+  smallLength: 4.6
+  detailHeight: 0.085
+  detailLength: 2.42
+  microHeight: 0.05
+  microLength: 2
+  distortion: 1.45
+  reflectionStrength: 0.9
+  reflectionDistance: 1.2
+  reflectionResolution: 1024
+  reflectionNear: 0.1
+  reflectionFar: 1000
+  sunColor: '#ffffff'
+  sunDirection: [0.707, 0.8, 0.25]
+  sunStrength: 0
+  deepColor: '#07344a'
+  surfaceColor: '#033138'
+  reflectionColor: '#1c9199'
+  roughness: 0
+  metalness: 0.48
+  fresnelPower: 1
+  fresnelStrength: 1
+  rainRipples: true
+  rainRippleStrength: 3
+  rainRippleSize: 0.32
+  rainRippleSpeed: 2.25
+  rainRippleThickness: 0.08
+  rainRippleFade: 0.55
+  rainRippleDensity: 0.95
+  rainRippleRandomness: 0.82
+rain:
+  count: 10000
+  area: 20
+  top: 100
+  bottom: -100
+  speed: -45
+  windX: 0.8
+  windZ: 0.25
+  windStrength: 10
+  windStrengthMultiplier: 10
+  windVariation: 0.6
+  turbulence: 0.8
+  dropLength: 1.8
+  dropWidth: 0.035
+  opacity: 2
+  colorLinear: [0.78, 0.86, 1]
+  defaultRoughness: 0.2
+ui:
+  pixelRatio: 1
+  controls:
+    windStrength: { min: 0, max: 3, step: 0.1 }
+    grassHeight: { min: 0.5, max: 3, step: 0.1 }
+    simulationSpeed: { min: 0, max: 2, step: 0.05 }
+    pixelRatio: { min: 0.5, max: 2, step: 0.25 }

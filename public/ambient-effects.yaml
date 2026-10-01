@@ -1,0 +1,287 @@
+# Ambient air of each biome (src/weather/AmbientEffectsSystem.js): cheap GPU
+# particle fields, spindrift plumes off the summits, breath in the cold, and
+# the weights of the effects that live inside other materials and passes
+# (blown snow and sand streaks, grass gust sheen, frost, heat shimmer, jungle
+# mist).
+#
+# Every effect's strength = its region's weight at the view's focus
+#   x its preset weight (`presets`, else `presetDefault`, else 1)
+#   x (preset wind / windReference) ^ windResponse,
+# eased at fadeRate per second. Regions: any, snow, sand, surf, jungle,
+# water (lake or river nearby), lake (over the lake), meadow (none of the
+# others). A field also masks each particle by its region, so one straddling
+# a border only shows on its own side.
+#
+# Sizes are for this world's 5 m characters (human-scale values times ~2.8).
+ambientEffects:
+  enabled: true
+  fadeRate: 0.8
+  regionInterval: 0.2
+  # Grass windIntensity of the reference breeze (the sunny preset).
+  windReference: 2.4
+  gust: { strength: 0.4, period: 9 }
+  # Share of each field's particles drawn per quality level.
+  quality: { performance: 0.35, balanced: 0.6, high: 1, ultra: 1 }
+  fields:
+    # Ice crystals hanging in the cold air, flashing as they turn. Mostly seen
+    # toward the sun.
+    diamondDust:
+      region: snow
+      presets: { rainy: 0, moonlight: 0.3, windy: 0.6 }
+      count: 2600
+      area: 56
+      base: focus
+      height: [-3, 24]
+      rise: -0.3
+      wind: { source: snow, speed: 1.2 }
+      wander: { radius: 1.1, frequency: 0.45 }
+      size: [0.04, 0.09]
+      shape: glint
+      color: '#f5fbff'
+      scatter: 3
+      backlit: 0.15
+      blending: additive
+      twinkle: 3
+      nearFade: 1.2
+    # Snow blown off the surface: fine grains skipping downwind in short arcs
+    # (hop), each at its own speed and heading, most within a metre of the
+    # ground, lifted in waves as gust patches sweep across (gusts).
+    spindrift:
+      region: snow
+      presets: { calm: 0.2, bowed: 0.5, sunny: 0.7, goldenHour: 0.6, moonlight: 0.6, rainy: 0.8, windy: 1 }
+      windResponse: 1
+      count: 6000
+      area: 56
+      height: [0, 1.8]
+      hop: { length: 6, rate: 1.1, spread: 18 }
+      gusts: { scale: 0.05, threshold: -0.1, speed: 6 }
+      wind: { source: snow, speed: 2.5, follow: 0.6 }
+      wander: { radius: 0.3, frequency: 1.3 }
+      size: [0.025, 0.06]
+      stretch: 4
+      shape: streak
+      color: '#e8f0fa'
+      brightness: 2.2
+      opacity: 0.9
+      scatter: 1.4
+      nearFade: 1.2
+      soft: 0.05
+    # Dry sand lifted off the beach in the wind, skipping like the spindrift.
+    blowingSand:
+      region: sand
+      presets: { calm: 0.1, sunny: 0.45, goldenHour: 0.4, bowed: 0.5, moonlight: 0.25, rainy: 0, windy: 1 }
+      windResponse: 1
+      count: 5000
+      area: 56
+      height: [0, 1.4]
+      hop: { length: 4, rate: 1.4, spread: 14 }
+      gusts: { scale: 0.06, threshold: 0.05, speed: 5 }
+      wind: { speed: 2, follow: 0.7 }
+      wander: { radius: 0.25, frequency: 1.4 }
+      size: [0.02, 0.045]
+      stretch: 4
+      shape: streak
+      color: '#d9c29a'
+      brightness: 1.15
+      opacity: 0.45
+      scatter: 0.8
+      nearFade: 1.5
+      soft: 0.25
+    # Spray thrown off the breakers: droplets flung up in short, steep arcs
+    # that fall straight back (hop), in bursts where a patch of surf breaks
+    # (gusts), blown a little landward. It used to be big, slow, rising puffs,
+    # which read as smoke drifting over the sea.
+    surfSpray:
+      region: surf
+      presets: { calm: 0.35, moonlight: 0.6, rainy: 0.8, windy: 1 }
+      windResponse: 0.6
+      count: 3200
+      area: 110
+      base: sea
+      height: [0, 2.6]
+      hop: { length: 2.2, rate: 0.9, spread: 70 }
+      gusts: { scale: 0.035, threshold: 0.2, speed: 3 }
+      wind: { speed: 1.2, follow: 0.4 }
+      wander: { radius: 0.4, frequency: 0.8 }
+      size: [0.05, 0.14]
+      stretch: 2.2
+      shape: streak
+      color: '#f4f9fb'
+      brightness: 1.7
+      opacity: 0.75
+      scatter: 1.4
+      nearFade: 2
+      soft: 0.1
+    # A light sprinkle of pollen and dust motes over the meadow, seen mostly
+    # when they catch the sun from behind.
+    pollen:
+      region: meadow
+      presets: { goldenHour: 0.8, sunny: 0.5, calm: 0.6, windy: 0.3, bowed: 0.4, rainy: 0, moonlight: 0 }
+      count: 600
+      area: 64
+      height: [0.6, 9]
+      rise: 0.15
+      wind: { speed: 0.9 }
+      wander: { radius: 1.2, frequency: 0.25 }
+      size: [0.05, 0.1]
+      color: '#fff1c4'
+      brightness: 1
+      opacity: 0.6
+      scatter: 2.5
+      backlit: 0.12
+      nearFade: 1.5
+    # Dandelion seed heads drifting on the breeze.
+    seeds:
+      region: meadow
+      presets: { windy: 1, sunny: 0.7, goldenHour: 0.7, calm: 0.35, bowed: 0.6, rainy: 0, moonlight: 0 }
+      windResponse: 0.5
+      count: 220
+      area: 90
+      height: [1.2, 14]
+      rise: 0.25
+      wind: { speed: 2.6, follow: 0.8 }
+      wander: { radius: 2.2, frequency: 0.2 }
+      size: [0.22, 0.38]
+      shape: fluff
+      color: '#fbfaf2'
+      scatter: 2
+      nearFade: 2
+    # Fireflies over the grass and the water's edge on moonlit nights.
+    fireflies:
+      region: [meadow, water, jungle]
+      presetDefault: 0
+      presets: { moonlight: 1 }
+      count: 520
+      area: 84
+      floor: lake
+      height: [0.5, 5.5]
+      wander: { radius: 1.6, frequency: 0.22 }
+      size: [0.3, 0.5]
+      shape: firefly
+      color: '#c8ff6a'
+      lighting: emissive
+      emissive: 6
+      blending: additive
+      blink: { rate: 1.3, sharpness: 5 }
+      nearFade: 0.8
+    # Spores and seeds floating in the humid jungle air.
+    spores:
+      region: jungle
+      presets: { rainy: 0.4, moonlight: 0.5, windy: 0.6 }
+      count: 1500
+      area: 64
+      height: [0.6, 12]
+      rise: 0.1
+      wind: { speed: 0.35 }
+      wander: { radius: 1.4, frequency: 0.18 }
+      size: [0.05, 0.11]
+      color: '#f3f7dc'
+      scatter: 3
+      backlit: 0.25
+      blink: { rate: 0.5, sharpness: 1.5 }
+      nearFade: 1
+    # Sunbeams slanting down through the canopy, along the sun's rays.
+    canopyShafts:
+      region: jungle
+      presets: { rainy: 0, moonlight: 0.15, goldenHour: 1.2 }
+      count: 42
+      area: 110
+      height: [0, 0]
+      length: 36
+      size: [2.5, 6]
+      shape: shaft
+      color: '#fff0c8'
+      opacity: 0.09
+      scatter: 2.5
+      blending: additive
+      nearFade: 3
+    # Swarms of midges dancing over the lake and river banks.
+    midges:
+      region: water
+      presets: { goldenHour: 1, calm: 1, sunny: 0.6, moonlight: 0.4, bowed: 0.4, windy: 0.1, rainy: 0 }
+      count: 1200
+      swarm: { members: 40, radius: 0.9, frequency: 3.5 }
+      area: 80
+      floor: lake
+      height: [1.2, 4.5]
+      wander: { radius: 1.5, frequency: 0.1 }
+      size: [0.035, 0.06]
+      color: '#2d2a24'
+      scatter: 2.5
+      backlit: 0.5
+      nearFade: 0.8
+    # Mist lying on the still lake.
+    lakeMist:
+      region: lake
+      presetDefault: 0.25
+      presets: { calm: 1, goldenHour: 0.8, moonlight: 1, rainy: 0.7, windy: 0 }
+      count: 110
+      area: 240
+      base: lake
+      height: [0.2, 2.2]
+      wind: { speed: 0.6 }
+      wander: { radius: 3, frequency: 0.05 }
+      size: [9, 20]
+      shape: puff
+      color: '#e6edf2'
+      brightness: 1.5
+      opacity: 0.24
+      scatter: 1.2
+      nearFade: 6
+      soft: 1.5
+  # Spindrift banners streaming off the highest crests on the snow wind.
+  # Seen from anywhere the summits are, so they follow no region.
+  plumes:
+    enabled: true
+    presets: { calm: 0.2, bowed: 0.5, moonlight: 0.5, rainy: 0.6, windy: 1 }
+    windResponse: 0.5
+    anchors: 16
+    puffs: 16
+    minHeight: 150
+    step: 20
+    prominenceRadius: 60
+    minProminence: 10
+    spacing: 100
+    length: 80
+    rise: 12
+    size: [6, 28]
+    lifetime: 10
+    opacity: 0.3
+    brightness: 1.8
+  # The player's breath condensing once they are up in snow country.
+  breath:
+    enabled: true
+    minSnow: 0.35
+    period: 3.4
+    runningPeriod: 1.7
+    puffsPerBreath: 4
+    lifetime: 1.6
+    size: [0.07, 0.42]
+    speed: 0.8
+    opacity: 0.55
+    presets: { rainy: 0.7 }
+  # Loose snow streaming across the snow surface (SnowSurface emissive).
+  snowStreaks: { strength: 1, windResponse: 1, presets: { calm: 0.3, windy: 1.2 } }
+  # Sand streaming across the dry beach (GroundMaterial emissive).
+  sandStreaks: { strength: 1, windResponse: 1, presets: { calm: 0.2, rainy: 0, windy: 1.2 } }
+  # Gust fronts brightening the grass tips as they sweep across the meadow.
+  grassGustSheen: { strength: 0.5, presets: { rainy: 0.3, moonlight: 0.4 } }
+  # Frost creeping in from the frame's edges in snow country.
+  frost: { strength: 0.55, presets: { rainy: 0.8, moonlight: 1.2 } }
+  # Heat haze rippling over distant sunny sand.
+  heatShimmer:
+    strength: 1
+    presetDefault: 0
+    presets: { sunny: 1, calm: 1, windy: 0.4, bowed: 0.6, goldenHour: 0.3 }
+  # Humid ground mist between the jungle trees (closed-form height fog).
+  jungleMist:
+    strength: 1
+    presets: { rainy: 1.4, goldenHour: 1.1, moonlight: 1.2, windy: 0.5 }
+    density: 0.012
+    height: 6
+    maxDistance: 260
+    nearStart: 6
+    nearEnd: 30
+    pocketScale: 0.02
+    pocketStrength: 0.55
+    color: '#c9d6c4'
