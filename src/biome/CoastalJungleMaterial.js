@@ -55,6 +55,12 @@ function materialTint(material) {
   return material?.color?.getHexString ? color(`#${material.color.getHexString()}`) : color('#ffffff');
 }
 
+// Shared by mesh foliage and baked impostors so the palette survives LOD changes.
+function foliageTint(base, kind, settings, mask = float(1)) {
+  const tint = settings.kindTint?.[kind];
+  return tint ? base.mul(mix(vec3(1), color(tint), mask)) : base;
+}
+
 export function isCoastalJungleFoliageMaterial(material, kind = null) {
   const name = String(material?.name ?? '').toLowerCase();
   if (name.includes('atlas')) return true;
@@ -168,6 +174,7 @@ function createFoliageColor(base, alpha, settings, foliageMask = float(1)) {
 }
 
 export function prepareCoastalJungleImpostorMaterial(material, {
+  kind = null,
   sourceRgb,
   baseRgb = null,
   alpha,
@@ -175,9 +182,10 @@ export function prepareCoastalJungleImpostorMaterial(material, {
   settings = {},
   cinematic = false,
 } = {}) {
-  const rgb = baseRgb ?? sourceRgb;
-  if (!material || !rgb || !alpha) return material;
+  const source = baseRgb ?? sourceRgb;
+  if (!material || !source || !alpha) return material;
   const mask = foliageMask ?? float(1);
+  const rgb = foliageTint(source, kind, settings, mask);
   const roughnessMin = clamp01(settings.foliageRoughnessMin ?? 0.82);
   const ambientLift = clamp01(settings.ambientLift ?? 0.035);
   const backlight = clamp01(settings.backlight ?? 0.18);
@@ -239,7 +247,7 @@ export function prepareCoastalJungleMaterial(material, {
 
   if (material.map) {
     const sample = texture(material.map, uv());
-    const base = sample.rgb.mul(materialTint(material));
+    const base = foliageTint(sample.rgb.mul(materialTint(material)), kind, settings);
     material.colorNode = createFoliageColor(base, sample.a, settings);
     material.emissiveNode = base.mul(float(ambientLift))
       .add(foliageBacklight(base, backlight));

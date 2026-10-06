@@ -33,9 +33,9 @@ ground:
     # `coverage` of the snow, where relief and detail drop to these fractions.
     calm:
       scale: 34
-      coverage: 0.5
-      relief: 0.25
-      detail: 0.45
+      coverage: 0.65
+      relief: 0.3
+      detail: 0.3
     # Glazed rock and frozen seepage on faces too steep to hold snow, in the
     # snow band. steepness is the normal-Y range over which faces turn icy.
     ice:
@@ -60,12 +60,12 @@ ground:
     # heights times detail.worldScale. Each entry scales one layer.
     relief:
       sastrugi: 1
-      ripples: 0.7
-      grain: 1
+      ripples: 0.5
+      grain: 0.7
       # How strongly slopes facing into the wind count as scoured.
       windward: 0.6
       # Brightness lift on relief crests and darkening in troughs.
-      toneContrast: 0.06
+      toneContrast: 0.045
     colors:
       shadow: '#b3c2d3'
       base: '#e4eaf1'
@@ -74,10 +74,12 @@ ground:
     # Multiplies exposed rock colour across the snow altitude band.
     rockTint: '#454d5a'
     roughness:
-      base: 0.7
-      compressed: 0.4
-      berm: 0.82
-      variation: 0.06
+      # Loose powder has a broad, soft response. Packed paths still catch the
+      # light, but do not turn into a mirror beside the matte snow.
+      base: 0.86
+      compressed: 0.58
+      berm: 0.92
+      variation: 0.04
     # Snowflow's subsurface lobe and cell glints; see src/world/snowShadingNodes.js.
     lighting:
       sssStrength: 0.12
@@ -94,11 +96,11 @@ ground:
       fadeRate: 0.6
       snapDistance: 40
       sunElevationDegrees: 15
-      sunIntensityScale: 1.7
+      sunIntensityScale: 1.5
       sunWarmth: '#fff0dc'
-      hemisphereIntensityScale: 0.55
-      ambientIntensityScale: 0.4
-      environmentIntensityScale: 0.55
+      hemisphereIntensityScale: 0.65
+      ambientIntensityScale: 0.45
+      environmentIntensityScale: 0.6
       skyTint: '#dce6ff'
       groundBounce: '#e6ecf3'
       sunBounce: 0.3
@@ -118,7 +120,7 @@ ground:
       # The first metres (nearClear) stay clear; the march covers maxDistance.
       valleyFog:
         enabled: true
-        density: 0.0055
+        density: 0.0038
         height: 9
         ceiling: 70
         pocketScale: 0.011
@@ -128,22 +130,31 @@ ground:
         maxDistance: 520
         samples: 6
         scatter: 0.4
-        sunScatter: 0.35
+        sunScatter: 0.24
         shadeColor: '#9fb2c8'
     # Snow007C detail maps (ambientCG, CC0). worldScale is world metres per
     # Snowflow metre, so its tiling and pixel-footprint fades match a 5 m rider.
-    # Snow007C's normals are shallower than Snowflow's generated grain, hence a
-    # strength above one.
+    # Keep the grain subordinate to the wind-carved forms: heavy cavity tint
+    # and stacked normals made sheltered powder read as blue, churned ice.
     detail:
       worldScale: 2.78
-      strength: 2.4
-      cavity: 0.8
-      colorVariation: 1
-      roughnessVariation: 0.3
+      strength: 1.45
+      cavity: 0.4
+      colorVariation: 0.45
+      roughnessVariation: 0.18
     textures:
       color: Assets/ground/snow/snow007c_color_1k.jpg
       normal: Assets/ground/snow/snow007c_normal_gl_1k.jpg
       packed: Assets/ground/snow/snow007c_ao_rough_height_1k.jpg
+    # Shallow geometry gathered at roots and rocks, with a longer downwind
+    # shoulder. Paths and steep ground remain clear. 128 triangles per drift.
+    drifts:
+      enabled: true
+      maxCount: 256
+      radiusScale: 2.1
+      maxRadius: 3.4
+      heightScale: 0.2
+      maxHeight: 0.65
     deformation:
       enabled: true
       resolution: 512

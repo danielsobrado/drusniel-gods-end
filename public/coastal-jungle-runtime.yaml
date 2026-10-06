@@ -11,19 +11,25 @@ biomes:
       alphaToCoverage: true
       foliageRoughnessMin: 0.84
       surfaceRoughnessMin: 0.9
-      ambientLift: 0.035
+      ambientLift: 0.025
       backlight: 0.18
+      # The source grass atlas is much brighter than the broadleaf canopy.
+      # The same tints apply to near meshes and distant impostors.
+      kindTint:
+        grass: '#b8c6a0'
+        groundcover: '#b5c4a2'
+        fern: '#d4ddbf'
       haze:
         enabled: true
         color: '#91b1b7'
-        start: 18
-        end: 85
-        strength: 0.28
+        start: 30
+        end: 110
+        strength: 0.18
       # Grass and groundcover are drawn only near the camera; beyond them the
       # soil blends toward the colour of that cover instead of reading as a
       # bare clearing.
       floorCover:
-        color: '#4b5a2a'
+        color: '#3b4b29'
         start: 22
         end: 48
         strength: 0.85

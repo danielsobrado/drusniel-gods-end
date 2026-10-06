@@ -21,6 +21,7 @@ import { EnvironmentController } from '../world/EnvironmentController.js';
 import { SnowRegionTracker } from '../world/SnowAtmosphere.js';
 import { TreeSystem } from '../world/TreeSystem.js';
 import { WorldPropSystem } from '../world/WorldPropSystem.js';
+import { SnowDriftSystem } from '../world/SnowDriftSystem.js';
 import { BoundaryBarrier } from '../world/BoundaryBarrier.js';
 import { ZoneIndex } from '../world/ZoneIndex.js';
 import { StructureSystem } from '../world/StructureSystem.js';
@@ -243,6 +244,11 @@ export class GrassDemo {
       assets: this.assets,
     }).init();
     this.#registerTreeColliders();
+    this.snowDrifts = new SnowDriftSystem({
+      scene: this.world.scene, terrain: this.world.terrainSampler,
+      material: this.world.groundMaterial, config: this.config,
+      trees: this.trees.getEcologyTrees(), props: this.props.instances,
+    });
     this.#registerWorldColliders();
     endTrees();
     await profile.measure('treeLods', () => this.trees.initLods(this.abortController.signal));
@@ -1292,7 +1298,7 @@ export class GrassDemo {
     for (const resource of [this.loading, this.pipeline, this.underwaterPerformance, this.cinematicLighting,
       this.meadow, this.wildGrass, this.understory, this.biome, this.coastalJungle, this.vegetationJobs, this.minimap, this.ui, this.iris, this.grass, this.trees, this.props,
       this.collisions, this.navigation, this.contactShadow, this.player, this.leaves, this.birds, this.rain, this.snowfall, this.ambient,
-      this.structures, this.npcs,
+      this.structures, this.npcs, this.snowDrifts,
       this.boundaryBarrier, this.lakeFlora, this.starfish, this.serpents, this.seaAlgae, this.beachPalms, this.seabedRocks, this.water, this.audio, this.environment]) {
       try { resource?.dispose?.(); } catch (error) { logger.warn('Demo cleanup failed.', error); }
     }

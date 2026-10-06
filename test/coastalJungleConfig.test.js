@@ -86,6 +86,16 @@ test('coastal jungle validator accepts the v2 runtime contract', () => {
   assert.equal(validateCoastalJungleConfig(config), config);
 });
 
+test('coastal jungle palette accepts optional kind tints and rejects malformed colors', () => {
+  const config = validConfig();
+  config.biomes.coastalJungle.material.kindTint = { grass: '#b8c6a0', fern: '#d4ddbf' };
+  assert.equal(validateCoastalJungleConfig(config), config);
+  for (const value of [null, [], { grass: 'lime-ish' }, { grass: 123 }]) {
+    config.biomes.coastalJungle.material.kindTint = value;
+    assert.throws(() => validateCoastalJungleConfig(config), /kindTint/);
+  }
+});
+
 test('coastal jungle validator rejects collapsed regions', () => {
   const config = validConfig();
   config.biomes.coastalJungle.region.zEnd = config.biomes.coastalJungle.region.zStart;

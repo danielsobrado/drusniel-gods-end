@@ -1,6 +1,6 @@
 import { MeshStandardNodeMaterial } from 'three/webgpu';
 import { characterOcclusionKeep } from '../rendering/CharacterOcclusion.js';
-import { color, dot, float, mix, normalWorld, positionWorld, sin, texture, uv, vec3 } from 'three/tsl';
+import { color, dot, float, mix, normalMap, normalView, normalWorld, normalize, positionWorld, sin, texture, uv, vec2, vec3 } from 'three/tsl';
 import { getSurfaceDetail } from '../rendering/surfaceDetail.js';
 import { noise2 } from './snowNoiseNodes.js';
 
@@ -36,7 +36,10 @@ export function createWeatheredRockMaterial(source, { toning = 0.72, moss = 0.85
   const patches = sin(world.x.mul(0.9).add(sin(world.y.mul(0.7)).mul(1.8)))
     .mul(sin(world.y.mul(1.1).add(sin(world.x.mul(0.5)).mul(1.4)))).mul(0.5).add(0.5);
   const up = normalWorld.y;
-  const mossMask = up.smoothstep(0.35, 0.85).mul(patches.smoothstep(0.25, 0.7)).mul(moss);
+  const snow = config?.ground?.snow;
+  const snowBand = snow?.enabled ? positionWorld.y.smoothstep(snow.altitude.start, snow.altitude.full) : float(0);
+  const mossMask = up.smoothstep(0.35, 0.85).mul(patches.smoothstep(0.25, 0.7)).mul(moss)
+    .mul(snowBand.oneMinus());
   const shade = dot(albedo, vec3(0.3, 0.59, 0.11)).mul(0.9).add(0.55);
   const mossColor = mix(color(MOSS_DARK), color(MOSS), patches).mul(shade);
   const underside = up.smoothstep(-0.7, 0.15).mul(0.45).add(0.55);
@@ -62,6 +65,21 @@ export function createWeatheredRockMaterial(source, { toning = 0.72, moss = 0.85
       .mul(detail.propWaterline);
     weathered = weathered.mul(wet.mul(WET_DARKENING).oneMinus());
     roughness = mix(roughness, float(0.25), wet);
+  }
+  if (snow?.enabled) {
+    // Snow rests on upward faces; the broken edge follows the rock's existing
+    // patch field. Steep sides and undersides retain their exposed stone.
+    const edge = patches.sub(0.5).mul(0.16);
+    const cap = up.smoothstep(edge.add(snow.slope.start), edge.add(snow.slope.full)).mul(snowBand);
+    const powder = mix(color(snow.colors.shadow), color(snow.colors.base), up.smoothstep(0.4, 0.95))
+      .mul(patches.mul(0.06).add(0.97));
+    weathered = mix(weathered, powder, cap);
+    roughness = mix(roughness, float(snow.roughness.base), cap);
+    if (source.normalMap) {
+      const scale = source.normalScale ?? { x: 1, y: 1 };
+      const rockNormal = normalMap(texture(source.normalMap).rgb, vec2(scale.x, scale.y));
+      material.normalNode = normalize(mix(rockNormal, normalView, cap.mul(0.85)));
+    }
   }
   material.colorNode = weathered;
   material.roughnessNode = roughness;

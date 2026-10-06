@@ -55,3 +55,4 @@ playwright-report/
 
 # CI
 .github/
+*.md

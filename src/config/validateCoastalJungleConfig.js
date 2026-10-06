@@ -32,6 +32,15 @@ function validateMaterial(problems, profile) {
   unitInterval(problems, 'biomes.coastalJungle.material.surfaceRoughnessMin', material.surfaceRoughnessMin);
   unitInterval(problems, 'biomes.coastalJungle.material.ambientLift', material.ambientLift);
   unitInterval(problems, 'biomes.coastalJungle.material.backlight', material.backlight);
+  if (material.kindTint !== undefined) {
+    if (!material.kindTint || typeof material.kindTint !== 'object' || Array.isArray(material.kindTint)) {
+      problems.push('biomes.coastalJungle.material.kindTint must map plant kinds to hex colors');
+    } else for (const [kind, tint] of Object.entries(material.kindTint)) {
+      if (typeof tint !== 'string' || !/^#[\da-f]{6}$/i.test(tint)) {
+        problems.push(`biomes.coastalJungle.material.kindTint.${kind} must be a six-digit hex color`);
+      }
+    }
+  }
   if (material.alphaToCoverage !== undefined && typeof material.alphaToCoverage !== 'boolean') {
     problems.push('biomes.coastalJungle.material.alphaToCoverage must be boolean');
   }

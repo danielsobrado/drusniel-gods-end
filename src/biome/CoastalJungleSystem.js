@@ -630,6 +630,7 @@ export class CoastalJungleSystem {
         prepareTreeBillboardWind: billboardWind,
         prepareAtlasMaterial: (material, { sourceRgb, baseRgb, alpha, foliageMask, kind }) =>
           prepareCoastalJungleImpostorMaterial(material, {
+            kind,
             sourceRgb,
             baseRgb,
             alpha,

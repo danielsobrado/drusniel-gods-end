@@ -132,6 +132,18 @@ export function validateSnowConfig(config) {
     }
   }
 
+  const drifts = snow.drifts;
+  if (drifts && object(drifts, 'ground.snow.drifts', problems)) {
+    if (typeof drifts.enabled !== 'boolean') problems.push('ground.snow.drifts.enabled must be boolean');
+    if (drifts.enabled) {
+      integer(drifts.maxCount, 'ground.snow.drifts.maxCount', problems, { min: 1, max: 1024 });
+      number(drifts.radiusScale, 'ground.snow.drifts.radiusScale', problems, { min: 0, max: 4, exclusiveMin: true });
+      number(drifts.maxRadius, 'ground.snow.drifts.maxRadius', problems, { min: 1.4, max: 6 });
+      number(drifts.heightScale, 'ground.snow.drifts.heightScale', problems, { min: 0, max: 0.3, exclusiveMin: true });
+      number(drifts.maxHeight, 'ground.snow.drifts.maxHeight', problems, { min: 0, max: 0.8, exclusiveMin: true });
+    }
+  }
+
   const deformation = snow.deformation;
   if (object(deformation, 'ground.snow.deformation', problems) && deformation.enabled !== false) {
     const resolution = integer(deformation.resolution, 'ground.snow.deformation.resolution', problems, { min: 64, max: 2048 });

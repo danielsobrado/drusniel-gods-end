@@ -277,11 +277,11 @@ ambientEffects:
   jungleMist:
     strength: 1
     presets: { rainy: 1.4, goldenHour: 1.1, moonlight: 1.2, windy: 0.5 }
-    density: 0.012
-    height: 6
+    density: 0.0075
+    height: 4.5
     maxDistance: 260
-    nearStart: 6
-    nearEnd: 30
+    nearStart: 10
+    nearEnd: 42
     pocketScale: 0.02
     pocketStrength: 0.55
     color: '#c9d6c4'

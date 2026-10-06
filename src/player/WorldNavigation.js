@@ -22,6 +22,10 @@ function validateLocations(locations) {
       || location.target.some((value) => !Number.isFinite(Number(value))))) {
       throw new Error(`navigation location ${location.id} has an invalid target.`);
     }
+    if (location.pitch !== undefined && (!Number.isFinite(Number(location.pitch))
+      || Math.abs(Number(location.pitch)) >= Math.PI / 2)) {
+      throw new Error(`navigation location ${location.id} has an invalid pitch.`);
+    }
   }
   return locations;
 }
@@ -33,6 +37,7 @@ export class WorldNavigation {
     this.tour = tour;
     this.tour.configure?.(config.navigation?.scenicTour);
     this.locations = validateLocations(config.navigation?.locations);
+    this.pitchLimits = [config.camera?.controls?.minPitch ?? -0.8, config.camera?.controls?.maxPitch ?? 0.7];
     this.locationById = new Map(this.locations.map((location) => [location.id, location]));
     this.freeFly = new FreeFlyController({
       camera: world.camera,
@@ -158,6 +163,9 @@ export class WorldNavigation {
       + Number(location.heightOffset ?? 0);
     this.player.setEnabled(false);
     this.player.translateRoot(x, y, z);
+    if (location.pitch !== undefined) {
+      this.player.cameraPitch = Math.max(this.pitchLimits[0], Math.min(this.pitchLimits[1], Number(location.pitch)));
+    }
     if (Number.isFinite(Number(location.yaw))) {
       const yaw = Number(location.yaw);
       this.player.cameraYaw = yaw;

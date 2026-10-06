@@ -26,6 +26,7 @@ function playerStub() {
     metrics: { rootToFeet: 2.2, groundOffset: 0.1 },
     position: new THREE.Vector3(0, 2.3, 0),
     cameraYaw: 0,
+    cameraPitch: 0.12,
     playerYaw: 0,
     setEnabled(value) { this.enabled = value; },
     getPosition() { return this.position; },
@@ -112,6 +113,7 @@ test('world navigation sends ground destinations to the player and sea destinati
       freeFly: FREE_FLY_CONFIG,
       locations: [
         { id: 'beach', label: 'Beach', mode: 'ground', position: [950, 80], yaw: 1.5 },
+        { id: 'summit', label: 'Summit', mode: 'ground', position: [0, 0], yaw: -2.35, pitch: -0.12 },
         { id: 'deepSea', label: 'Deep Sea', mode: 'fly', position: [1500, -4, 65], target: [1120, -24, 65] },
       ],
     },
@@ -121,7 +123,17 @@ test('world navigation sends ground destinations to the player and sea destinati
   assert.equal(navigation.teleport('beach'), true);
   assert.deepEqual(player.position.toArray(), [950, 5.3, 80]);
   assert.equal(player.cameraYaw, 1.5);
+  assert.equal(player.cameraPitch, 0.12, 'destinations without a pitch preserve the view');
   assert.equal(navigation.freeFly.active, false);
+
+  assert.equal(navigation.teleport('summit'), true);
+  assert.equal(player.cameraPitch, -0.12);
+  assert.equal(player.cameraYaw, -2.35);
+  navigation.getLocation('summit').pitch = -1.4;
+  navigation.teleport('summit');
+  assert.equal(player.cameraPitch, -0.8, 'arrival pitch respects the walking camera limits');
+  navigation.teleport('beach');
+  assert.equal(player.cameraPitch, -0.8, 'a later ordinary teleport keeps the chosen pitch');
 
   assert.equal(navigation.teleport('deepSea'), true);
   assert.equal(navigation.freeFly.active, true);
