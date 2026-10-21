@@ -111,3 +111,7 @@ Mobile uses on-screen movement and look controls. The scene menu has teleports t
 - Snow textures from [ambientCG](https://ambientcg.com) (CC0).
 - Sound effects are CC0 / public-domain recordings; sources and licences are listed in `public/Assets/Audio/CATALOG.md`.
 - The Inter typeface is used under the SIL Open Font License (`public/Assets/fonts/Inter-LICENSE.txt`).
+
+## License
+
+CC BY-NC-ND 
